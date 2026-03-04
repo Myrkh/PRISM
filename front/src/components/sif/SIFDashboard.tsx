@@ -43,7 +43,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
     { id: 'analysis', label: 'Analysis', hint: 'PFD trends & breakdown', icon: BarChart3 },
     { id: 'compliance', label: 'Compliance', hint: 'Proof & governance', icon: Shield },
     { id: 'report', label: 'Report', hint: 'SIL Pro PDF builder', icon: FileText },
-    { id: 'prooftest', label: 'Proof', hint: 'Prrof Test', icon: FlaskConical },
+    { id: 'prooftest', label: 'Proof Test', hint: 'Procedure & campaigns', icon: FlaskConical },
   ]
 
   const compliance = useMemo(() => {
@@ -261,24 +261,33 @@ export function SIFDashboard({ projectId, sifId }: Props) {
           {/* ─ SIL Live ─ */}
           {(() => {
             const campaigns = (sif.testCampaigns ?? []).slice().sort((a, b) => b.date.localeCompare(a.date))
+            const events = sif.operationalEvents ?? []
             const lastC = campaigns[0]
-            const proc  = sif.proofTestProcedure
+            const proc = sif.proofTestProcedure
             const periodicityMs = (proc?.periodicityMonths ?? 12) * 30.44 * 24 * 3600000
             const nextDue = lastC ? new Date(new Date(lastC.date).getTime() + periodicityMs) : null
-            const isOverdue = nextDue ? nextDue < new Date() : null
-            const daysOverdue = isOverdue && nextDue ? Math.round((Date.now() - nextDue.getTime()) / (24 * 3600000)) : null
+            const isOverdue = nextDue ? nextDue < new Date() : false
+            const bypassHours = events
+              .filter(e => e.type === 'bypass' || e.type === 'inhibit' || e.type === 'override')
+              .reduce((acc, e) => acc + (e.duration ?? 0), 0)
+            const openFaults = events.filter(e => e.type === 'fault_detected' && !e.resolvedDate).length
+            const failCount = campaigns.filter(c => c.verdict === 'fail').length
+            const conditionalCount = campaigns.filter(c => c.verdict === 'conditional').length
+            const score = Math.max(0, Math.min(100,
+              100
+              - (isOverdue ? 30 : 0)
+              - failCount * 20
+              - conditionalCount * 8
+              - Math.min(20, openFaults * 10)
+              - Math.min(15, Math.round(bypassHours / 8))
+            ))
 
-            const liveStatus = !lastC ? 'unknown'
-              : isOverdue ? 'drift'
-              : lastC.verdict === 'fail' ? 'drift'
-              : lastC.verdict === 'conditional' ? 'warning'
-              : 'nominal'
-
+            const liveStatus = score >= 85 ? 'nominal' : score >= 65 ? 'watch' : score > 0 ? 'critical' : 'unknown'
             const statusMeta = {
-              nominal: { label: 'Operational SIL Nominal', color: '#16A34A', bg: '#F0FDF4', borderColor: '#BBF7D0', desc: `Last test ${lastC?.date ?? '—'} — PASS` },
-              warning: { label: 'Conditional — Monitor', color: '#D97706', bg: '#FFFBEB', borderColor: '#FDE68A', desc: `Last test conditional — review findings` },
-              drift:   { label: 'SIL Drift — Action Required', color: '#DC2626', bg: '#FEF2F2', borderColor: '#FECACA', desc: isOverdue ? `Test overdue by ${daysOverdue}d` : 'Last test FAIL — SIF requires investigation' },
-              unknown: { label: 'No operational data', color: '#6B7280', bg: '#F9FAFB', borderColor: '#E5E7EB', desc: 'Run first proof test to activate SIL Live monitoring' },
+              nominal: { label: 'Operational SIL confidence — Healthy', color: '#16A34A', bg: '#F0FDF4', borderColor: '#BBF7D0' },
+              watch: { label: 'Operational SIL confidence — Watch list', color: '#D97706', bg: '#FFFBEB', borderColor: '#FDE68A' },
+              critical: { label: 'Operational SIL confidence — Action required', color: '#DC2626', bg: '#FEF2F2', borderColor: '#FECACA' },
+              unknown: { label: 'Operational SIL confidence — No data', color: '#6B7280', bg: '#F9FAFB', borderColor: '#E5E7EB' },
             }
             const sm = statusMeta[liveStatus]
 
@@ -288,54 +297,54 @@ export function SIFDashboard({ projectId, sifId }: Props) {
                   <span className="text-xs font-mono font-bold text-primary/50">04</span>
                   <div>
                     <h2 className="text-sm font-bold tracking-tight">SIL Live — Operational Status</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">Design SIL vs verified operational performance</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Operational confidence score from proof tests + field events</p>
                   </div>
                 </div>
                 <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: sm.borderColor }}>
-                  <div className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold"
-                    style={{ background: sm.bg, color: sm.color }}
-                  >
+                  <div className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold" style={{ background: sm.bg, color: sm.color }}>
                     <Radio size={12} />
                     {sm.label}
                   </div>
-                  <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center px-5 py-4 bg-card">
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Design SIL</p>
-                      <p className="text-2xl font-black font-mono" style={{ color: '#2563EB' }}>SIL {sif.targetSIL}</p>
-                      <p className="text-[10px] text-muted-foreground font-mono mt-0.5">IEC 61511 design basis</p>
+                  <div className="grid grid-cols-4 gap-3 p-4 bg-card">
+                    <div className="rounded-lg border bg-muted/20 px-3 py-2.5">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Design SIL</p>
+                      <p className="text-xl font-black font-mono text-blue-600">SIL {sif.targetSIL}</p>
                     </div>
-                    <div className="h-10 w-px bg-border mx-5" />
-                    <div>
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Operational SIL</p>
-                      <p className="text-2xl font-black font-mono" style={{ color: sm.color }}>
-                        {liveStatus === 'nominal' ? `SIL ${sif.targetSIL}` : liveStatus === 'unknown' ? '—' : 'DRIFT'}
+                    <div className="rounded-lg border bg-muted/20 px-3 py-2.5">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Operational confidence</p>
+                      <p className="text-xl font-black font-mono" style={{ color: sm.color }}>{campaigns.length ? `${score}/100` : '—'}</p>
+                    </div>
+                    <div className="rounded-lg border bg-muted/20 px-3 py-2.5">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Bypass/inhibit exposure</p>
+                      <p className="text-xl font-black font-mono">{bypassHours.toFixed(1)} h</p>
+                    </div>
+                    <div className="rounded-lg border bg-muted/20 px-3 py-2.5">
+                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Open faults</p>
+                      <p className={cn('text-xl font-black font-mono', openFaults > 0 ? 'text-red-500' : 'text-emerald-500')}>
+                        {openFaults}
                       </p>
-                      <p className="text-[10px] mt-0.5" style={{ color: sm.color }}>{sm.desc}</p>
                     </div>
-                    <div className="h-10 w-px bg-border mx-5" />
-                    <div className="space-y-1.5">
-                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Last {campaigns.length} campaigns</p>
-                      <div className="flex gap-1 flex-wrap">
-                        {campaigns.slice(0, 8).map(c => (
-                          <span key={c.id} title={c.date}
-                            className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold"
-                            style={{
-                              background: c.verdict === 'pass' ? '#F0FDF4' : c.verdict === 'fail' ? '#FEF2F2' : '#FFFBEB',
-                              color: c.verdict === 'pass' ? '#16A34A' : c.verdict === 'fail' ? '#DC2626' : '#D97706',
-                              border: `1px solid ${c.verdict === 'pass' ? '#BBF7D0' : c.verdict === 'fail' ? '#FECACA' : '#FDE68A'}`,
-                            }}
-                          >
-                            {c.verdict === 'pass' ? '✓' : c.verdict === 'fail' ? '✗' : '!'}
-                          </span>
-                        ))}
-                        {campaigns.length === 0 && <span className="text-xs text-muted-foreground/50">No campaigns recorded</span>}
-                      </div>
-                      {nextDue && (
-                        <p className="text-[10px] text-muted-foreground">
-                          Next due: <span className={isOverdue ? 'text-red-500 font-semibold' : 'font-semibold'}>{nextDue.toLocaleDateString()}</span>
-                        </p>
-                      )}
+                  </div>
+                  <div className="px-4 pb-4 flex items-center justify-between text-xs text-muted-foreground">
+                    <div className="flex gap-1 flex-wrap">
+                      {campaigns.slice(0, 8).map(c => (
+                        <span key={c.id} title={c.date} className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold"
+                          style={{
+                            background: c.verdict === 'pass' ? '#F0FDF4' : c.verdict === 'fail' ? '#FEF2F2' : '#FFFBEB',
+                            color: c.verdict === 'pass' ? '#16A34A' : c.verdict === 'fail' ? '#DC2626' : '#D97706',
+                            border: `1px solid ${c.verdict === 'pass' ? '#BBF7D0' : c.verdict === 'fail' ? '#FECACA' : '#FDE68A'}`,
+                          }}
+                        >
+                          {c.verdict === 'pass' ? '✓' : c.verdict === 'fail' ? '✗' : '!'}
+                        </span>
+                      ))}
+                      {campaigns.length === 0 && <span>No campaigns recorded</span>}
                     </div>
+                    {nextDue && (
+                      <p>
+                        Next due: <span className={isOverdue ? 'text-red-500 font-semibold' : 'font-semibold'}>{nextDue.toLocaleDateString()}</span>
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>

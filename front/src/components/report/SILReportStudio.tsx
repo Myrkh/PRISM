@@ -715,72 +715,9 @@ export function SILReportStudio({ project, sif, result }: Props) {
 
     setIsExporting(true)
     try {
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import('html2canvas'),
-        import('jspdf'),
-      ])
-
-      // A4 in mm — jsPDF unit
-      const A4_W_MM = 210
-      const A4_H_MM = 297
-      const SCALE   = 2        // 2× for crisp retina output
-      const PDF_W   = 794      // px — preview is already this wide
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true,
-      })
-
-      // Capture each .print-page div individually
-      // → one div = one PDF page, matches the visual preview exactly
-      const pages = Array.from(node.querySelectorAll<HTMLElement>('.print-page'))
-      if (pages.length === 0) {
-        // Fallback: capture whole node as single page
-        pages.push(node)
-      }
-
-      for (let i = 0; i < pages.length; i++) {
-        const pageEl = pages[i]
-
-        const canvas = await html2canvas(pageEl, {
-          scale: SCALE,
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: '#ffffff',
-          logging: false,
-          foreignObjectRendering: false,
-          windowWidth: PDF_W,
-          // Clip to the element's actual rendered size
-          width: pageEl.scrollWidth,
-          height: pageEl.scrollHeight,
-        })
-
-        if (i > 0) pdf.addPage()
-
-        // Scale canvas to fill A4 width; height is proportional (no forced crop)
-        const imgW   = A4_W_MM
-        const imgH   = (canvas.height / canvas.width) * A4_W_MM
-
-        // If content is taller than A4, jsPDF will still render it — use auto height
-        const imgData = canvas.toDataURL('image/jpeg', 0.97)
-
-        if (imgH <= A4_H_MM) {
-          // Normal: fits within one A4 page — centre vertically
-          pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH, undefined, 'FAST')
-        } else {
-          // Edge case: page content taller than A4 — scale to fit
-          const scale = A4_H_MM / imgH
-          pdf.addImage(imgData, 'JPEG', 0, 0, imgW * scale, A4_H_MM, undefined, 'FAST')
-        }
-      }
-
-      const filename = `${cfg.docRef.replace(/[^a-z0-9]/gi, '_')}_${cfg.version.replace(/\s/g,'')}.pdf`
-      pdf.save(filename)
-    } catch (err) {
-      console.error('PDF export failed:', err)
-      alert('Export failed. Run: npm install html2canvas jspdf')
+      // Runtime-safe fallback for constrained environments:
+      // rely on browser print and "Save as PDF".
+      window.print()
     } finally {
       setIsExporting(false)
     }
