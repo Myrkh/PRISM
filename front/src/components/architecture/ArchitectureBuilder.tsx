@@ -23,7 +23,7 @@ import {
   Plus, Grip, Settings2, Trash2, Activity, Cpu, Zap,
   ChevronDown, ChevronUp, Library, Search, GitMerge,
   BookOpen, X, CheckCircle2, Circle, GitBranch, Layers,
-  Pencil, Check, FlaskConical,
+  Pencil, Check, FlaskConical, Download, Upload,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
@@ -52,6 +52,14 @@ const SUB_ICONS: Record<SubsystemType, React.ElementType> = {
 }
 const SUB_COLORS: Record<SubsystemType, string> = {
   sensor: '#0891B2', logic: '#6366F1', actuator: '#EA580C',
+}
+
+
+interface LibrarySeparator {
+  id: string
+  name: string
+  color: string
+  subsystemType: SubsystemType
 }
 
 // ─── Built-in library ─────────────────────────────────────────────────────
@@ -448,12 +456,16 @@ function ComponentLibraryPanel({
 }) {
   const [search, setSearch] = useState('')
   const [filter, setFilter] = useState<SubsystemType | 'all'>('all')
-
   const [customLibrary, setCustomLibrary] = useState<LibraryComponent[]>([])
+  const [separators, setSeparators] = useState<LibrarySeparator[]>([])
+  const [newSepName, setNewSepName] = useState('')
+  const [newSepColor, setNewSepColor] = useState('#6366F1')
+  const [newSepType, setNewSepType] = useState<SubsystemType>('sensor')
+  const importRef = useRef<HTMLInputElement | null>(null)
 
   const allItems = [...BUILTIN_LIBRARY, ...customLibrary]
   const filtered = allItems.filter(lib => {
-    const matchType   = filter === 'all' || lib.subsystemType === filter
+    const matchType = filter === 'all' || lib.subsystemType === filter
     const matchSearch = !search || lib.name.toLowerCase().includes(search.toLowerCase())
     return matchType && matchSearch
   })
@@ -464,31 +476,55 @@ function ComponentLibraryPanel({
     grouped[lib.subsystemType]!.push(lib)
   })
 
+  const exportLibrary = () => {
+    const payload = { customLibrary, separators }
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = 'safeloop-component-library.json'
+    a.click()
+    URL.revokeObjectURL(url)
+  }
+
+  const importLibrary = async (file?: File) => {
+    if (!file) return
+    try {
+      const txt = await file.text()
+      const parsed = JSON.parse(txt)
+      if (Array.isArray(parsed.customLibrary)) setCustomLibrary(parsed.customLibrary)
+      if (Array.isArray(parsed.separators)) setSeparators(parsed.separators)
+    } catch (err) {
+      console.error('Library import failed', err)
+      alert('Invalid library file format')
+    }
+  }
+
+  const addSeparator = () => {
+    if (!newSepName.trim()) return
+    setSeparators(prev => [...prev, { id: nanoid(), name: newSepName.trim(), color: newSepColor, subsystemType: newSepType }])
+    setNewSepName('')
+  }
+
   return (
-    <div className="w-52 shrink-0 flex flex-col border-r bg-muted/10">
-      {/* Panel header */}
+    <div className="w-56 shrink-0 flex flex-col border-r bg-muted/10">
       <div className="px-3 py-3 border-b">
         <div className="flex items-center gap-2 mb-2.5">
           <BookOpen size={13} className="text-primary shrink-0" />
           <p className="text-xs font-bold">Component Library</p>
         </div>
 
-        {/* Search */}
         <div className="relative mb-2">
           <Search size={11} className="absolute left-2 top-1/2 -translate-y-1/2 text-muted-foreground" />
-          <Input value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="Search..." className="h-7 pl-6 text-xs" />
+          <Input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search..." className="h-7 pl-6 text-xs" />
         </div>
 
-        {/* Filter tabs */}
         <div className="flex gap-0.5 text-[10px]">
           {(['all', 'sensor', 'logic', 'actuator'] as const).map(f => (
             <button key={f} onClick={() => setFilter(f)}
               className={cn(
                 'flex-1 py-1 rounded capitalize transition-colors',
-                filter === f
-                  ? 'bg-primary text-primary-foreground font-semibold'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-muted/40',
+                filter === f ? 'bg-primary text-primary-foreground font-semibold' : 'text-muted-foreground hover:text-foreground hover:bg-muted/40',
               )}
             >
               {f === 'all' ? 'All' : f === 'sensor' ? '📡' : f === 'logic' ? '🖥' : '⚙'}
@@ -497,44 +533,63 @@ function ComponentLibraryPanel({
         </div>
       </div>
 
-      {/* Items */}
       <div className="flex-1 overflow-y-auto p-2 space-y-3">
         {(['sensor', 'logic', 'actuator'] as SubsystemType[]).map(type => {
           const items = grouped[type]
-          if (!items?.length) return null
+          const localSeps = separators.filter(s => s.subsystemType === type)
+          if (!items?.length && !localSeps.length) return null
           const color = SUB_COLORS[type]
           const labels: Record<SubsystemType, string> = { sensor: 'Sensors', logic: 'Logic Solvers', actuator: 'Actuators' }
           return (
             <div key={type}>
-              <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5 px-0.5"
-                style={{ color }}
-              >
-                {labels[type]}
-              </p>
+              <p className="text-[9px] font-bold uppercase tracking-wider mb-1.5 px-0.5" style={{ color }}>{labels[type]}</p>
               <div className="space-y-1">
-                {items.map(lib => (
-                  <LibraryItem key={lib.libraryId} lib={lib} onDragStart={onDragLibraryStart} />
+                {localSeps.map(sep => (
+                  <div key={sep.id} className="rounded-lg px-2 py-1.5 text-[10px] font-semibold border" style={{ borderColor: `${sep.color}70`, background: `${sep.color}14`, color: sep.color }}>
+                    {sep.name}
+                  </div>
                 ))}
+                {items?.map(lib => <LibraryItem key={lib.libraryId} lib={lib} onDragStart={onDragLibraryStart} />)}
               </div>
             </div>
           )
         })}
 
-        {!filtered.length && (
-          <p className="text-xs text-muted-foreground text-center py-4">No components found</p>
-        )}
+        {!filtered.length && <p className="text-xs text-muted-foreground text-center py-4">No components found</p>}
       </div>
 
-      {/* Footer */}
-      <div className="p-2 border-t">
-        <Button variant="outline" size="sm" className="w-full h-7 text-xs gap-1.5"
-          onClick={onAddCustom}
-        >
+      <div className="p-2 border-t space-y-2">
+        <div className="rounded-lg border p-2 bg-card/60 space-y-1.5">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Custom separator</p>
+          <Input value={newSepName} onChange={e => setNewSepName(e.target.value)} placeholder="e.g. Fire & Gas pack" className="h-7 text-xs" />
+          <div className="flex gap-1.5">
+            <Select value={newSepType} onValueChange={v => setNewSepType(v as SubsystemType)}>
+              <SelectTrigger className="h-7 text-xs"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="sensor">Sensor</SelectItem>
+                <SelectItem value="logic">Logic</SelectItem>
+                <SelectItem value="actuator">Actuator</SelectItem>
+              </SelectContent>
+            </Select>
+            <Input type="color" value={newSepColor} onChange={e => setNewSepColor(e.target.value)} className="h-7 w-10 p-1" />
+            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={addSeparator}>Add</Button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 gap-1.5">
+          <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={exportLibrary}>
+            <Download size={11} /> Export
+          </Button>
+          <Button variant="outline" size="sm" className="h-7 text-[10px] gap-1" onClick={() => importRef.current?.click()}>
+            <Upload size={11} /> Import
+          </Button>
+          <input ref={importRef} type="file" accept="application/json" className="hidden" onChange={e => importLibrary(e.target.files?.[0])} />
+        </div>
+
+        <Button variant="outline" size="sm" className="w-full h-7 text-xs gap-1.5" onClick={onAddCustom}>
           <Plus size={11} /> Custom component
         </Button>
-        <p className="text-[9px] text-muted-foreground text-center mt-1.5">
-          Drag onto any channel
-        </p>
+        <p className="text-[9px] text-muted-foreground text-center">Drag onto any channel</p>
       </div>
     </div>
   )
@@ -694,7 +749,7 @@ export function ArchitectureBuilder({ projectId, sifId }: { projectId: string; s
                 <p className="text-xs">Add Sensor, Logic Solver, and Actuator above</p>
               </div>
             ) : (
-              ['sensor', 'logic', 'actuator']
+              (['sensor', 'logic', 'actuator'] as SubsystemType[])
                 .map(type => sif.subsystems.find(s => s.type === type))
                 .filter(Boolean)
                 .map(subsystem => (

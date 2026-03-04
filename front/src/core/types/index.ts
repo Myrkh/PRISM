@@ -22,7 +22,7 @@ export const SIL_META: Record<SILLevel, SILMeta> = {
 }
 
 // ─── Architecture ─────────────────────────────────────────────────────────
-export type Architecture = '1oo1' | '1oo2' | '2oo2' | '2oo3' | '1oo2D'
+export type Architecture = '1oo1' | '1oo2' | '2oo2' | '2oo3' | '1oo2D' | 'custom'
 
 export interface ArchitectureMeta {
   label: string
@@ -37,6 +37,7 @@ export const ARCHITECTURE_META: Record<Architecture, ArchitectureMeta> = {
   '2oo2':  { label:'2oo2',  desc:'2-out-of-2 (high avail.)',      HFT:0, channels:2 },
   '2oo3':  { label:'2oo3',  desc:'2-out-of-3 (voted)',            HFT:1, channels:3 },
   '1oo2D': { label:'1oo2D', desc:'1oo2 with diagnostics',         HFT:1, channels:2 },
+  'custom': { label:'Custom', desc:'Custom boolean AND/OR architecture', HFT:0, channels:2 },
 }
 
 // ─── Component parameters ─────────────────────────────────────────────────
@@ -107,6 +108,28 @@ export interface SIFComponent {
 }
 
 // ─── Subsystem & Architecture ─────────────────────────────────────────────
+
+export type BooleanGate = 'AND' | 'OR'
+
+export interface CustomBooleanArch {
+  gate: BooleanGate
+  expression: string
+  manualHFT: number
+}
+
+export interface LibraryComponent {
+  libraryId: string
+  name: string
+  subsystemType: SubsystemType
+  instrumentCategory: InstrumentCategory
+  instrumentType: string
+  manufacturer: string
+  dataSource: string
+  factorized: Pick<FactorizedParams, 'lambda' | 'lambdaDRatio' | 'DCd' | 'DCs'>
+  test: Pick<TestParams, 'T1' | 'T1Unit'>
+  isCustom: boolean
+}
+
 export interface SIFChannel {
   id: string
   label: string
@@ -118,6 +141,7 @@ export interface SIFSubsystem {
   type: SubsystemType
   label: string
   architecture: Architecture
+  customBooleanArch?: CustomBooleanArch
   channels: SIFChannel[]
 }
 

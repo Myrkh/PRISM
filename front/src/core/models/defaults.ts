@@ -83,7 +83,7 @@ export const DEFAULT_SUBSYSTEM = (
     actuator: 'Actuator(s)',
   }
   const archChannelCount: Partial<Record<Architecture, number>> = {
-    '1oo2': 2, '2oo2': 2, '2oo3': 3, '1oo2D': 2,
+    '1oo2': 2, '2oo2': 2, '2oo3': 3, '1oo2D': 2, 'custom': 2,
   }
   const channelCount = archChannelCount[architecture] ?? 1
 
@@ -122,6 +122,8 @@ export const DEFAULT_SIF = (projectId: string, sifNumber: string): SIF => ({
     DEFAULT_SUBSYSTEM('logic',   sifNumber, '1oo1'),
     DEFAULT_SUBSYSTEM('actuator', sifNumber, '1oo1'),
   ],
+  testCampaigns: [],
+  operationalEvents: [],
 })
 
 export const DEFAULT_PROJECT = (): Project => ({
