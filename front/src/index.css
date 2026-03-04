@@ -1,0 +1,79 @@
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&family=IBM+Plex+Mono:wght@400;500;600&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── CSS custom properties ──────────────────────────────────────────────── */
+@layer base {
+  :root {
+    --background:           0 0% 98%;
+    --foreground:           222 47% 11%;
+    --card:                 0 0% 100%;
+    --card-foreground:      222 47% 11%;
+    --popover:              0 0% 100%;
+    --popover-foreground:   222 47% 11%;
+    --border:               214 32% 91%;
+    --input:                214 32% 91%;
+    --primary:              217 91% 60%;
+    --primary-foreground:   0 0% 100%;
+    --secondary:            210 40% 96%;
+    --secondary-foreground: 222 47% 11%;
+    --muted:                210 40% 96%;
+    --muted-foreground:     215 16% 47%;
+    --accent:               210 40% 96%;
+    --accent-foreground:    222 47% 11%;
+    --destructive:          0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+    --ring:                 217 91% 60%;
+    --radius:               0.625rem;
+  }
+
+  .dark {
+    --background:           222 47% 7%;
+    --foreground:           210 40% 98%;
+    --card:                 222 42% 12%;
+    --card-foreground:      210 40% 98%;
+    --popover:              222 42% 12%;
+    --popover-foreground:   210 40% 98%;
+    --border:               217 33% 17%;
+    --input:                217 33% 17%;
+    --primary:              217 91% 60%;
+    --primary-foreground:   0 0% 100%;
+    --secondary:            217 33% 17%;
+    --secondary-foreground: 210 40% 98%;
+    --muted:                217 33% 17%;
+    --muted-foreground:     215 20% 65%;
+    --accent:               217 33% 17%;
+    --accent-foreground:    210 40% 98%;
+    --destructive:          0 63% 50%;
+    --destructive-foreground: 210 40% 98%;
+    --ring:                 217 91% 60%;
+  }
+
+  /* No @apply here — use raw CSS vars to avoid Tailwind resolution order bug */
+  * {
+    border-color: hsl(var(--border));
+    box-sizing: border-box;
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: 'DM Sans', system-ui, sans-serif;
+    font-feature-settings: 'cv11', 'ss01';
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ── Scrollbar ───────────────────────────────────────────────────────────── */
+::-webkit-scrollbar          { width: 6px; height: 6px; }
+::-webkit-scrollbar-track    { background: transparent; }
+::-webkit-scrollbar-thumb    { background: hsl(var(--border)); border-radius: 9999px; }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.3); }
+
+/* ── Number input — hide spinners ─────────────────────────────────────── */
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; }
+input[type='number'] { -moz-appearance: textfield; }
