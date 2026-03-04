@@ -22,8 +22,7 @@ export const SIL_META: Record<SILLevel, SILMeta> = {
 }
 
 // ─── Architecture ─────────────────────────────────────────────────────────
-// Standard MooN architectures
-export type Architecture = '1oo1' | '1oo2' | '2oo2' | '2oo3' | '1oo2D' | 'custom'
+export type Architecture = '1oo1' | '1oo2' | '2oo2' | '2oo3' | '1oo2D'
 
 export interface ArchitectureMeta {
   label: string
@@ -33,26 +32,11 @@ export interface ArchitectureMeta {
 }
 
 export const ARCHITECTURE_META: Record<Architecture, ArchitectureMeta> = {
-  '1oo1':  { label:'1oo1',   desc:'Single channel',             HFT:0, channels:1 },
-  '1oo2':  { label:'1oo2',   desc:'1-out-of-2 (OR logic)',      HFT:1, channels:2 },
-  '2oo2':  { label:'2oo2',   desc:'2-out-of-2 (AND logic)',     HFT:0, channels:2 },
-  '2oo3':  { label:'2oo3',   desc:'2-out-of-3 (voted)',         HFT:1, channels:3 },
-  '1oo2D': { label:'1oo2D',  desc:'1oo2 with diagnostics',      HFT:1, channels:2 },
-  'custom':{ label:'Custom', desc:'Boolean expression (AND/OR)',HFT:0, channels:2 },
-}
-
-/**
- * Custom boolean logic for non-standard architectures.
- * 'OR'  → any channel triggers safe action (1ooN equivalent – lowest PFD, OR-gate)
- * 'AND' → all channels must agree (NooN equivalent – highest availability, AND-gate)
- * 'expression' → free boolean expression, e.g. "(S1 OR S2) AND S3"
- */
-export type BooleanGate = 'OR' | 'AND'
-
-export interface CustomBooleanArch {
-  gate: BooleanGate
-  expression: string        // human-readable, e.g. "CH1 OR CH2"
-  manualHFT: number         // operator-defined HFT for compliance checks
+  '1oo1':  { label:'1oo1',  desc:'Single channel',                HFT:0, channels:1 },
+  '1oo2':  { label:'1oo2',  desc:'1-out-of-2 (fail-safe)',        HFT:1, channels:2 },
+  '2oo2':  { label:'2oo2',  desc:'2-out-of-2 (high avail.)',      HFT:0, channels:2 },
+  '2oo3':  { label:'2oo3',  desc:'2-out-of-3 (voted)',            HFT:1, channels:3 },
+  '1oo2D': { label:'1oo2D', desc:'1oo2 with diagnostics',         HFT:1, channels:2 },
 }
 
 // ─── Component parameters ─────────────────────────────────────────────────
@@ -122,20 +106,6 @@ export interface SIFComponent {
   advanced: AdvancedParams
 }
 
-// ─── Library component template (no id/tagName — assigned on drop) ────────
-export interface LibraryComponent {
-  libraryId: string
-  name: string                    // display name in library
-  subsystemType: SubsystemType
-  instrumentCategory: InstrumentCategory
-  instrumentType: string
-  manufacturer: string
-  dataSource: string
-  factorized: FactorizedParams
-  test: Partial<TestParams>
-  isCustom: boolean               // user-created vs built-in
-}
-
 // ─── Subsystem & Architecture ─────────────────────────────────────────────
 export interface SIFChannel {
   id: string
@@ -149,8 +119,6 @@ export interface SIFSubsystem {
   label: string
   architecture: Architecture
   channels: SIFChannel[]
-  // Only set when architecture === 'custom'
-  customBooleanArch?: CustomBooleanArch
 }
 
 // ─── SIF ──────────────────────────────────────────────────────────────────
@@ -176,6 +144,13 @@ export interface SIF {
   date: string
   status: SIFStatus
   subsystems: SIFSubsystem[]
+  // Traceability
+  hazopTrace?: HAZOPTrace
+  // Proof Test
+  proofTestProcedure?: ProofTestProcedure
+  testCampaigns: TestCampaign[]
+  // SIL Live
+  operationalEvents: OperationalEvent[]
 }
 
 // ─── Project ──────────────────────────────────────────────────────────────
@@ -237,3 +212,135 @@ export interface PFDChartPoint {
   total: number
   [key: string]: number
 }
+
+// ─── HAZOP / LOPA Traceability ────────────────────────────────────────────
+export interface HAZOPTrace {
+  hazopNode: string         // e.g. "Node 3 — HP Separator"
+  scenarioId: string        // e.g. "SC-003"
+  deviationCause: string    // e.g. "High pressure — loss of outflow"
+  initiatingEvent: string   // e.g. "Control valve CV-001 fails open"
+  lopaRef: string           // e.g. "LOPA-HTL-003"
+  tmel: number              // Target Mitigated Event Likelihood [yr⁻¹]
+  iplList: string           // e.g. "BPCS, PSV-101"
+  riskMatrix: string        // e.g. "4C"
+  hazopDate: string
+  lopaDate: string
+  hazopFacilitator: string
+}
+
+// ─── Proof Test Procedure ─────────────────────────────────────────────────
+export type ProofTestPhase =
+  | 'prerequisites'
+  | 'isolation'
+  | 'sensor'
+  | 'logic'
+  | 'actuator'
+  | 'restoration'
+  | 'acceptance'
+
+export const PROOF_TEST_PHASE_META: Record<ProofTestPhase, { label: string; color: string; short: string }> = {
+  prerequisites: { label: 'Prerequisites',          color: '#6B7280', short: 'PRE'  },
+  isolation:     { label: 'Isolation & Preparation', color: '#D97706', short: 'ISO'  },
+  sensor:        { label: 'Sensor Test',             color: '#0891B2', short: 'SEN'  },
+  logic:         { label: 'Logic Solver Test',       color: '#6366F1', short: 'LOG'  },
+  actuator:      { label: 'Final Element Test',      color: '#EA580C', short: 'ACT'  },
+  restoration:   { label: 'Restoration',             color: '#16A34A', short: 'RES'  },
+  acceptance:    { label: 'Acceptance Criteria',     color: '#7C3AED', short: 'ACC'  },
+}
+
+export interface ProofTestStep {
+  id: string
+  phase: ProofTestPhase
+  order: number
+  description: string
+  responsible: string
+  expectedResult: string
+  toleranceNote: string
+  isCritical: boolean
+}
+
+export type ProofTestProcedureStatus = 'draft' | 'ifr' | 'approved'
+
+export interface ProofTestProcedure {
+  id: string
+  ref: string
+  revision: string
+  status: ProofTestProcedureStatus
+  periodicityMonths: number
+  // Performance targets
+  targetSIFResponseMs: number    // max SIF response time [ms]
+  targetValveReactionMs: number  // max valve reaction time [ms]
+  tolerancePct: number           // acceptance tolerance [%]
+  // Steps
+  steps: ProofTestStep[]
+  // Signatures
+  madeBy: string
+  madeByDate: string
+  verifiedBy: string
+  verifiedByDate: string
+  approvedBy: string
+  approvedByDate: string
+  notes: string
+}
+
+// ─── Test Campaign (field result) ─────────────────────────────────────────
+export type CampaignVerdict = 'pass' | 'fail' | 'conditional'
+
+export interface StepResult {
+  stepId: string
+  done: boolean
+  result: 'pass' | 'fail' | 'na'
+  measuredValue: string
+  comment: string
+}
+
+export interface TestCampaign {
+  id: string
+  date: string               // ISO date
+  team: string
+  operatingMode: string      // e.g. "Normal operation"
+  processLoad: string        // e.g. "75% load"
+  // Measured performance
+  sifResponseTimeMs: number
+  valveReactionTimeMs: number
+  // Result
+  verdict: CampaignVerdict
+  notes: string
+  stepResults: StepResult[]
+  // Signatures
+  conductedBy: string
+  witnessedBy: string
+  reviewedBy: string
+}
+
+// ─── Operational Events (SIL Live) ────────────────────────────────────────
+export type OperationalEventType =
+  | 'proof_test'
+  | 'bypass'
+  | 'fault_detected'
+  | 'repair'
+  | 'inhibit'
+  | 'demand'
+  | 'override'
+
+export interface OperationalEvent {
+  id: string
+  type: OperationalEventType
+  date: string
+  description: string
+  duration?: number         // hours (for bypass/inhibit)
+  impact: 'positive' | 'negative' | 'neutral'
+  linkedCampaignId?: string
+  resolvedDate?: string
+}
+
+// ─── Extended SIF (appended fields) ──────────────────────────────────────
+// NOTE: The SIF interface above is extended here by re-declaration merging
+// is not supported. We add to the original SIF interface directly via the
+// extended version below. Replace the SIF interface in this file with
+// SIFExtended, and rename it SIF.
+// Fields added to SIF:
+//   hazopTrace?: HAZOPTrace
+//   proofTestProcedure?: ProofTestProcedure
+//   testCampaigns: TestCampaign[]
+//   operationalEvents: OperationalEvent[]

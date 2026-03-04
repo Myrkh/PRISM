@@ -1,9 +1,6 @@
-import { useMemo } from 'react'
-import {
-  CheckCircle2, AlertTriangle, LayoutDashboard, Network,
-  BarChart3, Shield, FileText, ArrowRight, Sparkles,
-  type LucideIcon, TrendingDown, Activity, Info, Pencil,
-} from 'lucide-react'
+import { useMemo, useState } from 'react'
+import { CheckCircle2, AlertTriangle, LayoutDashboard, Network, BarChart3, Shield, Gauge, Sparkles, ArrowRight, FileText, FlaskConical, type LucideIcon, Activity, Radio, Zap, Clock, Edit3, Save, X, Plus, Minus } from 'lucide-react'
+import { ProofTestTab } from '@/components/prooftest/ProofTestTab'
 import { Button } from '@/components/ui/button'
 import { useAppStore, type SIFTab } from '@/store/appStore'
 import { SILBadge } from '@/components/shared/SILBadge'
@@ -21,322 +18,438 @@ const SUB_COLORS: Record<string, string> = {
 
 interface Props { projectId: string; sifId: string }
 
-// ─── Shared primitives ────────────────────────────────────────────────────
-
-function Section({ number, title, subtitle, action, children }: {
-  number?: string; title: string; subtitle?: string
-  action?: React.ReactNode; children: React.ReactNode
-}) {
-  return (
-    <div className="space-y-3">
-      <div className="flex items-end justify-between gap-4">
-        <div className="flex items-baseline gap-2.5">
-          {number && <span className="text-xs font-mono font-bold text-primary/50 shrink-0">{number}</span>}
-          <div>
-            <h2 className="text-sm font-bold tracking-tight">{title}</h2>
-            {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
-          </div>
-        </div>
-        {action}
-      </div>
-      {children}
-    </div>
-  )
-}
-
-function Metric({ label, value, sub, color, mono = true }: {
-  label: string; value: string; sub?: string; color?: string; mono?: boolean
-}) {
-  return (
-    <div>
-      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mb-1">{label}</p>
-      <p className={cn('text-xl font-bold leading-none', mono && 'font-mono')} style={color ? { color } : undefined}>
-        {value}
-      </p>
-      {sub && <p className="text-[10px] text-muted-foreground mt-1 font-mono">{sub}</p>}
-    </div>
-  )
-}
-
-function HDivider({ accent }: { accent?: string }) {
-  return (
-    <div className="flex items-center gap-3 py-1">
-      <div className="h-px flex-1 bg-border" />
-      {accent && <div className="w-1.5 h-1.5 rounded-full" style={{ background: accent }} />}
-      <div className="h-px flex-1 bg-border" />
-    </div>
-  )
-}
-
-function VDivider() {
-  return <div className="h-10 w-px bg-border mx-5 shrink-0" />
-}
-
-function MethodologyNote() {
-  return (
-    <div className="rounded-xl border bg-muted/20 px-5 py-4 text-xs text-muted-foreground leading-relaxed flex gap-2.5">
-      <Info size={13} className="shrink-0 mt-0.5 text-muted-foreground/60" />
-      <span>
-        <strong className="text-foreground">Methodology: </strong>
-        IEC 61508-6:2010 Annex B (Eq. B.10a, B.11) · SFF per IEC 61508-2 §C.3 ·
-        HFT per IEC 61511-1:2016 Table 6 · β-factor CCF per IEC 61508-6 Annex D ·
-        Low demand mode · Series model for total SIF PFD.
-        <span className="text-amber-500 ml-1">Not a substitute for a certified safety assessment.</span>
-      </span>
-    </div>
-  )
-}
-
-// ─── Main ─────────────────────────────────────────────────────────────────
-
 export function SIFDashboard({ projectId, sifId }: Props) {
   const view        = useAppStore(s => s.view)
   const setTab      = useAppStore(s => s.setTab)
-  const openEditSIF = useAppStore(s => s.openEditSIF)
   const project     = useAppStore(s => s.projects.find(p => p.id === projectId))
   const sif         = project?.sifs.find(s => s.id === sifId)
 
   const activeTab = view.type === 'sif-dashboard' ? view.tab : 'overview'
   const result    = useMemo(() => sif ? calcSIF(sif) : null, [sif])
 
-  const TABS: { id: SIFTab; label: string; hint: string; icon: LucideIcon }[] = [
-    { id: 'overview',     label: 'Overview',     hint: 'KPIs & context',       icon: LayoutDashboard },
-    { id: 'architecture', label: 'Architecture', hint: 'Chain & components',   icon: Network },
-    { id: 'analysis',     label: 'Analysis',     hint: 'PFD trends & metrics', icon: BarChart3 },
-    { id: 'compliance',   label: 'Compliance',   hint: 'Checks & governance',  icon: Shield },
-    { id: 'report',       label: 'Report',       hint: 'Pro PDF export',       icon: FileText },
-  ]
-
-  const compliance = useMemo(() => {
-    if (!result || !sif) return null
-    const subsystemChecks = result.subsystems.map((sub, i) => {
-      const subsystem = sif.subsystems[i]
-      const sffReq    = sub.HFT === 0 ? 0.6 : 0.9
-      const checks = [
-        { label: `SFF ≥ ${formatPct(sffReq)}`,   ref: 'IEC 61508-2 §C.3',   value: formatPct(sub.SFF),      ok: sub.SFF >= sffReq },
-        { label: `HFT ≥ ${sub.SIL >= 2 ? 1 : 0}`, ref: 'IEC 61511-1 Table 6', value: String(sub.HFT),        ok: sub.HFT >= (sub.SIL >= 2 ? 1 : 0) },
-        { label: 'DC dangerous ≥ 60 %',            ref: 'IEC 61508-2 §C.3',   value: formatPct(sub.DC),      ok: sub.DC >= 0.6 },
-        { label: 'PFDavg within SIL band',         ref: 'IEC 61511-1 §11',    value: formatPFD(sub.PFD_avg), ok: sub.SIL > 0 },
-      ]
-      return {
-        id: sub.subsystemId, label: subsystem?.label ?? 'Subsystem',
-        type: sub.type, sil: sub.SIL, architecture: subsystem?.architecture ?? '—',
-        checks, allOk: checks.every(c => c.ok),
-      }
-    })
-    const total    = subsystemChecks.reduce((a, s) => a + s.checks.length, 0)
-    const passed   = subsystemChecks.reduce((a, s) => a + s.checks.filter(c => c.ok).length, 0)
-    const metaFlds = [sif.pid, sif.location, sif.processTag, sif.hazardousEvent, sif.madeBy, sif.verifiedBy, sif.approvedBy]
-    const metaPct  = metaFlds.filter(Boolean).length / metaFlds.length
-    const score    = Math.round((result.meetsTarget ? 45 : 0) + (passed / total) * 40 + metaPct * 15)
-
-    const actions: { title: string; hint: string; tab: SIFTab }[] = []
-    if (!result.meetsTarget) actions.push({ title: 'Increase architectural robustness', hint: 'Adjust MooN architecture, DC, or proof test interval T1.', tab: 'architecture' })
-    if (subsystemChecks.some(s => s.checks.some(c => !c.ok && c.label.includes('DC')))) actions.push({ title: 'Improve diagnostic coverage', hint: 'Review DC assumptions and test strategy in component parameters.', tab: 'analysis' })
-    if (metaPct < 1) actions.push({ title: 'Complete traceability fields', hint: 'Fill P&ID, hazard description, and approver for audit readiness.', tab: 'overview' })
-    if (!actions.length) actions.push({ title: 'All checks passed — ready for review', hint: 'Export the verification report and proceed to independent review.', tab: 'report' })
-
-    return { subsystemChecks, score, passed, total, metaPct, actions: actions.slice(0, 3) }
-  }, [result, sif])
+  // HAZOP edit state (used in Overview)
+  const [editingHazop, setEditingHazop] = useState(false)
+  const [hazopDraft, setHazopDraft]     = useState<Record<string, any>>(sif?.hazopTrace ?? {
+    hazopNode: '', scenarioId: '', deviationCause: '', initiatingEvent: '',
+    lopaRef: '', tmel: 0.001, iplList: '', riskMatrix: '', hazopDate: '', lopaDate: '', hazopFacilitator: '',
+  })
+  const updateHAZOP = useAppStore(s => s.updateHAZOPTrace)
 
   if (!project || !sif || !result) return null
 
+  const TABS: { id: SIFTab; label: string; hint: string; icon: LucideIcon }[] = [
+    { id: 'overview', label: 'Overview', hint: 'Key KPIs & context', icon: LayoutDashboard },
+    { id: 'architecture', label: 'Architecture', hint: 'Chain & components', icon: Network },
+    { id: 'analysis', label: 'Analysis', hint: 'PFD trends & breakdown', icon: BarChart3 },
+    { id: 'compliance', label: 'Compliance', hint: 'Proof & governance', icon: Shield },
+    { id: 'report', label: 'Report', hint: 'SIL Pro PDF builder', icon: FileText },
+    { id: 'prooftest', label: 'Proof', hint: 'Prrof Test', icon: FlaskConical },
+  ]
+
+  const compliance = useMemo(() => {
+    const subsystemChecks = result.subsystems.map((sub, i) => {
+      const subsystem = sif.subsystems[i]
+      const sffReq = sub.HFT === 0 ? 0.6 : 0.9
+
+      const checks = [
+        { label: `SFF ≥ ${formatPct(sffReq)}`, value: formatPct(sub.SFF), ok: sub.SFF >= sffReq },
+        { label: `HFT ≥ ${sub.SIL >= 2 ? 1 : 0}`, value: String(sub.HFT), ok: sub.HFT >= (sub.SIL >= 2 ? 1 : 0) },
+        { label: 'DC ≥ 60 %', value: formatPct(sub.DC), ok: sub.DC >= 0.6 },
+        { label: 'Architecture', value: subsystem?.architecture ?? '—', ok: true },
+      ]
+
+      return {
+        id: sub.subsystemId,
+        label: subsystem?.label ?? 'Subsystem',
+        type: sub.type,
+        sil: sub.SIL,
+        checks,
+        allOk: checks.every(c => c.ok),
+      }
+    })
+
+    const totalChecks = subsystemChecks.reduce((acc, sub) => acc + sub.checks.length, 0)
+    const passedChecks = subsystemChecks.reduce((acc, sub) => acc + sub.checks.filter(c => c.ok).length, 0)
+    const subsystemPassRate = totalChecks ? passedChecks / totalChecks : 0
+
+    const metadataFields = [
+      sif.pid,
+      sif.location,
+      sif.processTag,
+      sif.hazardousEvent,
+      sif.madeBy,
+      sif.verifiedBy,
+      sif.approvedBy,
+    ]
+    const metadataCompletion = metadataFields.filter(Boolean).length / metadataFields.length
+
+    const targetScore = result.meetsTarget ? 1 : 0
+    const score = Math.round((targetScore * 45 + subsystemPassRate * 40 + metadataCompletion * 15) * 100) / 100
+
+    const actions: { title: string; hint: string; tab: SIFTab }[] = []
+
+    if (!result.meetsTarget) {
+      actions.push({
+        title: 'Increase architectural robustness',
+        hint: 'Adjust MooN architecture, diagnostics, and proof test interval to reach target SIL.',
+        tab: 'architecture',
+      })
+    }
+
+    if (subsystemChecks.some(sub => sub.checks.some(check => check.label.startsWith('DC') && !check.ok))) {
+      actions.push({
+        title: 'Improve diagnostic coverage',
+        hint: 'Review DC assumptions and improve test strategy in component parameters.',
+        tab: 'analysis',
+      })
+    }
+
+    if (metadataCompletion < 1) {
+      actions.push({
+        title: 'Complete traceability fields',
+        hint: 'Fill P&ID, hazard description, and approver fields for audit readiness.',
+        tab: 'overview',
+      })
+    }
+
+    if (!actions.length) {
+      actions.push({
+        title: 'Compliance baseline looks solid',
+        hint: 'Proceed with independent review and export a report package.',
+        tab: 'compliance',
+      })
+    }
+
+    return {
+      subsystemChecks,
+      score,
+      passedChecks,
+      totalChecks,
+      metadataCompletion,
+      actions: actions.slice(0, 3),
+    }
+  }, [result, sif])
+
   return (
     <div className="flex flex-col min-h-[calc(100vh-56px)]">
-
-      {/* ── Tab bar ── */}
       <div className="border-b bg-card/70">
-        <div className="max-w-7xl mx-auto px-6 py-2 grid grid-cols-2 lg:grid-cols-5 gap-2">
+        <div className="max-w-7xl mx-auto px-6 py-2 grid grid-cols-3 lg:grid-cols-6 gap-1.5">
           {TABS.map(tab => {
             const Icon = tab.icon
             return (
-              <button key={tab.id} onClick={() => setTab(tab.id)}
-                className={cn(
-                  'group rounded-xl border px-3 py-2.5 text-left transition-all',
-                  activeTab === tab.id
-                    ? 'border-primary/40 bg-primary/10 shadow-sm'
-                    : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/40 hover:text-foreground',
-                )}
-              >
-                <div className="flex items-start gap-2.5">
-                  <Icon className={cn('h-4 w-4 mt-0.5 shrink-0', activeTab === tab.id ? 'text-primary' : 'text-muted-foreground')} />
-                  <div className="min-w-0">
-                    <p className={cn('text-sm font-semibold', activeTab === tab.id ? 'text-primary' : 'text-foreground')}>{tab.label}</p>
-                    <p className="text-[11px] text-muted-foreground truncate">{tab.hint}</p>
-                  </div>
+            <button key={tab.id} onClick={() => setTab(tab.id)}
+              className={cn(
+                'group rounded-xl border px-3 py-2.5 text-left transition-all',
+                activeTab === tab.id
+                  ? 'border-primary/40 bg-primary/10 shadow-sm'
+                  : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/40 hover:text-foreground',
+              )}
+            >
+              <div className="flex items-start gap-2.5">
+                <Icon className={cn('h-4 w-4 mt-0.5', activeTab === tab.id ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
+                <div>
+                  <p className={cn('text-sm font-semibold', activeTab === tab.id ? 'text-primary' : 'text-foreground')}>
+                    {tab.label}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">{tab.hint}</p>
                 </div>
-              </button>
-            )
-          })}
+              </div>
+            </button>
+          )})}
         </div>
       </div>
 
       {/* ── Content ── */}
-      <div className="flex-1 max-w-7xl mx-auto w-full px-6 py-7 space-y-8">
+      <div className="flex-1 max-w-7xl mx-auto w-full px-6 py-6">
 
-        {/* ══════════════════ OVERVIEW ══════════════════ */}
-        {activeTab === 'overview' && (<>
-
-          <Section number="01" title="SIL Verification Result"
-            subtitle={`${sif.sifNumber} · ${sif.title || 'Untitled'} · ${sif.status.replace('_', ' ')}`}
-            action={
-              <Button variant="outline" size="sm" onClick={() => openEditSIF(sif.id)} className="h-7 text-xs gap-1.5">
-                <Pencil size={11} /> Edit SIF
-              </Button>
-            }
-          >
-            <div className="rounded-2xl border-2 bg-card overflow-hidden"
-              style={{ borderColor: result.meetsTarget ? '#BBF7D0' : '#FECACA' }}
-            >
-              <div className="flex items-center gap-2 px-5 py-2.5 text-xs font-semibold border-b"
-                style={{ background: result.meetsTarget ? '#F0FDF4' : '#FEF2F2', color: result.meetsTarget ? '#15803D' : '#DC2626' }}
-              >
-                {result.meetsTarget
-                  ? <><CheckCircle2 size={13} /> SIL {sif.targetSIL} target is met</>
-                  : <><AlertTriangle size={13} /> SIL {sif.targetSIL} target is NOT met — review architecture</>
-                }
-              </div>
-
-              {/* Main metrics */}
-              <div className="flex items-center px-6 py-5 gap-0">
-                <Metric label="PFDavg" value={formatPFD(result.PFD_avg)}
-                  sub={`SIL ${result.SIL} · ${result.SIL > 0 ? `<10⁻${result.SIL}` : 'out of range'}`} />
-                <VDivider />
-                <Metric label="Risk Reduction Factor" value={formatRRF(result.RRF)}
-                  sub={`Required: ${sif.rrfRequired ?? '—'}`} />
-                <VDivider />
-                <Metric label="Architecture" value={sif.subsystems.map(s => s.architecture).join(' + ') || '—'} mono={false} />
-                <VDivider />
-                <div className="flex flex-col items-center gap-1">
-                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground">SIL result</p>
-                  <SILGauge pfd={result.PFD_avg} size={80} />
+        {/* ════ OVERVIEW ════ */}
+        {activeTab === 'overview' && (
+          <div className="space-y-5">
+            {/* KPI strip */}
+            <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4">
+              {/* Main SIF */}
+              <div className={cn(
+                'rounded-xl border p-5 flex items-center justify-between gap-4 bg-card',
+                result.meetsTarget
+                  ? 'border-emerald-200 dark:border-emerald-900'
+                  : 'border-red-200 dark:border-red-900',
+              )}>
+                <div className="space-y-1.5">
+                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                    Total SIF — PFD avg
+                  </p>
+                  <p className="text-3xl font-bold font-mono tracking-tight">
+                    {formatPFD(result.PFD_avg)}
+                  </p>
+                  <p className="text-xs text-muted-foreground font-mono">
+                    RRF = {formatRRF(result.RRF)} · {sif.subsystems.map(s => s.architecture).join(' + ')}
+                  </p>
+                  <div className="flex items-center gap-3 pt-1">
+                    <SILBadge sil={result.SIL} size="md" />
+                    {result.meetsTarget
+                      ? <span className="text-xs text-emerald-500 flex items-center gap-1"><CheckCircle2 size={11}/> Meets SIL {sif.targetSIL} target</span>
+                      : <span className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={11}/> Below SIL {sif.targetSIL} target</span>
+                    }
+                  </div>
                 </div>
+                <SILGauge pfd={result.PFD_avg} size={110} />
               </div>
 
-              {/* Subsystem strip */}
-              <div className="grid grid-cols-3 divide-x border-t">
-                {result.subsystems.map((sub, i) => {
-                  const subsystem = sif.subsystems[i]
-                  const color = SUB_COLORS[sub.type] ?? '#6B7280'
-                  return (
-                    <div key={sub.subsystemId} className="px-5 py-4">
-                      <div className="flex items-center justify-between mb-2">
-                        <span className="text-xs font-semibold" style={{ color }}>{subsystem?.label}</span>
-                        <SILBadge sil={sub.SIL} size="sm" />
-                      </div>
-                      <p className="text-base font-bold font-mono" style={{ color }}>{formatPFD(sub.PFD_avg)}</p>
-                      <div className="flex flex-wrap gap-2 mt-1.5 text-[10px] font-mono text-muted-foreground">
-                        <span>{subsystem?.architecture}</span>
-                        <span>SFF {formatPct(sub.SFF)}</span>
-                        <span>DC {formatPct(sub.DC)}</span>
-                        <span>HFT {sub.HFT}</span>
-                      </div>
+              {/* Per-subsystem KPIs */}
+              {result.subsystems.map((sub, i) => {
+                const subsystem = sif.subsystems[i]
+                const color = SUB_COLORS[sub.type] ?? '#6B7280'
+                return (
+                  <div key={sub.subsystemId} className="rounded-xl border bg-card p-4 space-y-1.5">
+                    <div className="flex justify-between items-start">
+                      <span className="text-xs font-semibold" style={{ color }}>{subsystem?.label}</span>
+                      <SILBadge sil={sub.SIL} size="sm" />
                     </div>
-                  )
-                })}
-              </div>
+                    <p className="text-lg font-bold font-mono" style={{ color }}>
+                      {formatPFD(sub.PFD_avg)}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground font-mono">
+                      {subsystem?.architecture} · SFF {formatPct(sub.SFF)}
+                    </p>
+                    <p className="text-[11px] text-muted-foreground font-mono">
+                      DC {formatPct(sub.DC)} · HFT {sub.HFT}
+                    </p>
+                  </div>
+                )
+              })}
             </div>
-          </Section>
 
-          <Section number="02" title="Safety Chain"
-            subtitle="Process demand → Sensor(s) → Logic Solver → Actuator(s) → Safe state"
-            action={
-              <Button variant="outline" size="sm" onClick={() => setTab('architecture')} className="h-7 text-xs gap-1.5">
-                <Network size={11} /> Edit architecture
-              </Button>
-            }
-          >
+            {/* SIF Chain diagram */}
             <div className="rounded-xl border bg-card p-5">
+              <div className="flex items-center justify-between mb-4">
+                <div>
+                  <h3 className="text-sm font-semibold">Safety Chain</h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Process demand → Sensor(s) → Logic → Actuator(s) → Safe state
+                  </p>
+                </div>
+                <Button variant="outline" size="sm" onClick={() => setTab('architecture')} className="text-xs h-7">
+                  Edit architecture →
+                </Button>
+              </div>
               <SIFChainDiagram sif={sif} projectId={projectId} calcResult={result} />
             </div>
-          </Section>
 
-          <Section number="03" title="SIF Identification" subtitle="Process context and traceability">
-            <div className="rounded-xl border bg-card overflow-hidden">
-              <div className="grid grid-cols-3 divide-x divide-y">
+            {/* Metadata */}
+            <div className="rounded-xl border bg-card p-5">
+              <h3 className="text-sm font-semibold mb-4">SIF Identification</h3>
+              <div className="grid grid-cols-3 gap-x-8 gap-y-3">
                 {[
-                  ['P&ID',            sif.pid],
-                  ['Location',        sif.location],
-                  ['Process tag',     sif.processTag],
+                  ['P&ID', sif.pid],
+                  ['Location', sif.location],
+                  ['Process tag', sif.processTag],
+                  ['Demand rate', sif.demandRate ? `${sif.demandRate} yr⁻¹` : ''],
+                  ['Required RRF', sif.rrfRequired?.toString() ?? ''],
                   ['Hazardous event', sif.hazardousEvent],
-                  ['Demand rate',     sif.demandRate ? `${sif.demandRate} yr⁻¹` : ''],
-                  ['Required RRF',    sif.rrfRequired?.toString() ?? ''],
-                  ['Made by',         sif.madeBy],
-                  ['Verified by',     sif.verifiedBy],
-                  ['Approved by',     sif.approvedBy],
+                  ['Made by', sif.madeBy],
+                  ['Verified by', sif.verifiedBy],
+                  ['Approved by', sif.approvedBy],
                 ].map(([label, value]) => (
-                  <div key={label as string} className="px-4 py-3.5">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mb-1">{label}</p>
-                    <p className="text-sm font-medium">{value || <span className="text-muted-foreground/30 font-normal">—</span>}</p>
+                  <div key={label}>
+                    <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mb-0.5">{label}</p>
+                    <p className="text-sm">{value || <span className="text-muted-foreground/40">—</span>}</p>
                   </div>
                 ))}
               </div>
-              {/* Completion bar */}
-              {(() => {
-                const flds = [sif.pid, sif.location, sif.processTag, sif.hazardousEvent, sif.madeBy, sif.verifiedBy, sif.approvedBy]
-                const pct  = Math.round(flds.filter(Boolean).length / flds.length * 100)
-                return (
-                  <div className="border-t px-4 py-3 flex items-center justify-between gap-4 bg-muted/10">
-                    <p className="text-xs text-muted-foreground">Traceability completion</p>
-                    <div className="flex items-center gap-3">
-                      <div className="w-40 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full bg-primary rounded-full" style={{ width: `${pct}%` }} />
+            </div>
+          
+          {/* ─ SIL Live ─ */}
+          {(() => {
+            const campaigns = (sif.testCampaigns ?? []).slice().sort((a, b) => b.date.localeCompare(a.date))
+            const lastC = campaigns[0]
+            const proc  = sif.proofTestProcedure
+            const periodicityMs = (proc?.periodicityMonths ?? 12) * 30.44 * 24 * 3600000
+            const nextDue = lastC ? new Date(new Date(lastC.date).getTime() + periodicityMs) : null
+            const isOverdue = nextDue ? nextDue < new Date() : null
+            const daysOverdue = isOverdue && nextDue ? Math.round((Date.now() - nextDue.getTime()) / (24 * 3600000)) : null
+
+            const liveStatus = !lastC ? 'unknown'
+              : isOverdue ? 'drift'
+              : lastC.verdict === 'fail' ? 'drift'
+              : lastC.verdict === 'conditional' ? 'warning'
+              : 'nominal'
+
+            const statusMeta = {
+              nominal: { label: 'Operational SIL Nominal', color: '#16A34A', bg: '#F0FDF4', borderColor: '#BBF7D0', desc: `Last test ${lastC?.date ?? '—'} — PASS` },
+              warning: { label: 'Conditional — Monitor', color: '#D97706', bg: '#FFFBEB', borderColor: '#FDE68A', desc: `Last test conditional — review findings` },
+              drift:   { label: 'SIL Drift — Action Required', color: '#DC2626', bg: '#FEF2F2', borderColor: '#FECACA', desc: isOverdue ? `Test overdue by ${daysOverdue}d` : 'Last test FAIL — SIF requires investigation' },
+              unknown: { label: 'No operational data', color: '#6B7280', bg: '#F9FAFB', borderColor: '#E5E7EB', desc: 'Run first proof test to activate SIL Live monitoring' },
+            }
+            const sm = statusMeta[liveStatus]
+
+            return (
+              <div>
+                <div className="flex items-baseline gap-2.5 mb-3">
+                  <span className="text-xs font-mono font-bold text-primary/50">04</span>
+                  <div>
+                    <h2 className="text-sm font-bold tracking-tight">SIL Live — Operational Status</h2>
+                    <p className="text-xs text-muted-foreground mt-0.5">Design SIL vs verified operational performance</p>
+                  </div>
+                </div>
+                <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: sm.borderColor }}>
+                  <div className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold"
+                    style={{ background: sm.bg, color: sm.color }}
+                  >
+                    <Radio size={12} />
+                    {sm.label}
+                  </div>
+                  <div className="grid grid-cols-[1fr_auto_1fr_auto_1fr] items-center px-5 py-4 bg-card">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Design SIL</p>
+                      <p className="text-2xl font-black font-mono" style={{ color: '#2563EB' }}>SIL {sif.targetSIL}</p>
+                      <p className="text-[10px] text-muted-foreground font-mono mt-0.5">IEC 61511 design basis</p>
+                    </div>
+                    <div className="h-10 w-px bg-border mx-5" />
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground mb-1">Operational SIL</p>
+                      <p className="text-2xl font-black font-mono" style={{ color: sm.color }}>
+                        {liveStatus === 'nominal' ? `SIL ${sif.targetSIL}` : liveStatus === 'unknown' ? '—' : 'DRIFT'}
+                      </p>
+                      <p className="text-[10px] mt-0.5" style={{ color: sm.color }}>{sm.desc}</p>
+                    </div>
+                    <div className="h-10 w-px bg-border mx-5" />
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Last {campaigns.length} campaigns</p>
+                      <div className="flex gap-1 flex-wrap">
+                        {campaigns.slice(0, 8).map(c => (
+                          <span key={c.id} title={c.date}
+                            className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold"
+                            style={{
+                              background: c.verdict === 'pass' ? '#F0FDF4' : c.verdict === 'fail' ? '#FEF2F2' : '#FFFBEB',
+                              color: c.verdict === 'pass' ? '#16A34A' : c.verdict === 'fail' ? '#DC2626' : '#D97706',
+                              border: `1px solid ${c.verdict === 'pass' ? '#BBF7D0' : c.verdict === 'fail' ? '#FECACA' : '#FDE68A'}`,
+                            }}
+                          >
+                            {c.verdict === 'pass' ? '✓' : c.verdict === 'fail' ? '✗' : '!'}
+                          </span>
+                        ))}
+                        {campaigns.length === 0 && <span className="text-xs text-muted-foreground/50">No campaigns recorded</span>}
                       </div>
-                      <span className="text-xs font-mono font-semibold">{pct}%</span>
+                      {nextDue && (
+                        <p className="text-[10px] text-muted-foreground">
+                          Next due: <span className={isOverdue ? 'text-red-500 font-semibold' : 'font-semibold'}>{nextDue.toLocaleDateString()}</span>
+                        </p>
+                      )}
                     </div>
                   </div>
-                )
-              })()}
-            </div>
-          </Section>
+                </div>
+              </div>
+            )
+          })()}
 
-        </>)}
+          {/* ─ HAZOP/LOPA Traceability ─ */}
+          {(() => {
+            const trace = sif.hazopTrace
+            const fields = [trace?.hazopNode, trace?.scenarioId, trace?.lopaRef, trace?.initiatingEvent, trace?.iplList, trace?.hazopFacilitator]
+            const tracePct = Math.round(fields.filter(Boolean).length / fields.length * 100)
 
-        {/* ══════════════════ ARCHITECTURE ══════════════════ */}
-        {activeTab === 'architecture' && (<>
+            return (
+              <div>
+                <div className="flex items-end justify-between gap-4 mb-3">
+                  <div className="flex items-baseline gap-2.5">
+                    <span className="text-xs font-mono font-bold text-primary/50">05</span>
+                    <div>
+                      <h2 className="text-sm font-bold tracking-tight">HAZOP / LOPA Traceability</h2>
+                      <p className="text-xs text-muted-foreground mt-0.5">Causal chain: HAZOP scenario → LOPA → SIF justification</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="w-24 h-1.5 rounded-full bg-muted overflow-hidden">
+                        <div className="h-full bg-violet-500 rounded-full" style={{ width: `${tracePct}%` }} />
+                      </div>
+                      <span className="text-xs font-mono font-semibold text-muted-foreground">{tracePct}%</span>
+                    </div>
+                    {editingHazop ? (
+                      <div className="flex gap-1.5">
+                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditingHazop(false)}>
+                          <X size={11} className="mr-1" /> Cancel
+                        </Button>
+                        <Button size="sm" className="h-7 text-xs gap-1.5" onClick={() => { updateHAZOP(project.id, sif.id, hazopDraft as any); setEditingHazop(false) }}>
+                          <Save size={11} /> Save
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => { setHazopDraft(sif.hazopTrace ?? hazopDraft); setEditingHazop(true) }}>
+                        <Edit3 size={11} /> Edit
+                      </Button>
+                    )}
+                  </div>
+                </div>
 
-          <Section number="01" title="Safety Chain Diagram"
-            subtitle="Visual representation of the SIF — click any component tag to edit its parameters"
-          >
+                <div className="rounded-xl border bg-card overflow-hidden">
+                  <div className="grid grid-cols-3 divide-x divide-y">
+                    {[
+                      ['HAZOP Node',           editingHazop ? <input className="w-full bg-transparent text-sm outline-none border-b border-primary/30 pb-0.5" value={hazopDraft.hazopNode} onChange={e => setHazopDraft(d => ({ ...d, hazopNode: e.target.value }))} /> : (trace?.hazopNode || null)],
+                      ['Scenario ID',          editingHazop ? <input className="w-full bg-transparent text-sm outline-none border-b border-primary/30 pb-0.5" value={hazopDraft.scenarioId} onChange={e => setHazopDraft(d => ({ ...d, scenarioId: e.target.value }))} /> : (trace?.scenarioId || null)],
+                      ['Risk Matrix',          editingHazop ? <input className="w-full bg-transparent text-sm outline-none border-b border-primary/30 pb-0.5" placeholder="e.g. 4C" value={hazopDraft.riskMatrix} onChange={e => setHazopDraft(d => ({ ...d, riskMatrix: e.target.value }))} /> : (trace?.riskMatrix || null)],
+                      ['LOPA Reference',       editingHazop ? <input className="w-full bg-transparent text-sm outline-none border-b border-primary/30 pb-0.5" value={hazopDraft.lopaRef} onChange={e => setHazopDraft(d => ({ ...d, lopaRef: e.target.value }))} /> : (trace?.lopaRef || null)],
+                      ['Initiating Event',     editingHazop ? <input className="w-full bg-transparent text-sm outline-none border-b border-primary/30 pb-0.5" value={hazopDraft.initiatingEvent} onChange={e => setHazopDraft(d => ({ ...d, initiatingEvent: e.target.value }))} /> : (trace?.initiatingEvent || null)],
+                      ['TMEL [yr⁻¹]',         editingHazop ? <input type="number" step="0.0001" className="w-full bg-transparent text-sm font-mono outline-none border-b border-primary/30 pb-0.5" value={hazopDraft.tmel} onChange={e => setHazopDraft(d => ({ ...d, tmel: +e.target.value }))} /> : (trace?.tmel?.toExponential(2) || null)],
+                      ['Independent IPLs',     editingHazop ? <input className="w-full bg-transparent text-sm outline-none border-b border-primary/30 pb-0.5" placeholder="e.g. BPCS, PSV-101" value={hazopDraft.iplList} onChange={e => setHazopDraft(d => ({ ...d, iplList: e.target.value }))} /> : (trace?.iplList || null)],
+                      ['HAZOP Facilitator',    editingHazop ? <input className="w-full bg-transparent text-sm outline-none border-b border-primary/30 pb-0.5" value={hazopDraft.hazopFacilitator} onChange={e => setHazopDraft(d => ({ ...d, hazopFacilitator: e.target.value }))} /> : (trace?.hazopFacilitator || null)],
+                      ['HAZOP Date',           editingHazop ? <input type="date" className="w-full bg-transparent text-sm font-mono outline-none border-b border-primary/30 pb-0.5" value={hazopDraft.hazopDate} onChange={e => setHazopDraft(d => ({ ...d, hazopDate: e.target.value }))} /> : (trace?.hazopDate || null)],
+                    ].map(([label, value]) => (
+                      <div key={label as string} className="px-4 py-3.5">
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mb-1">{label}</p>
+                        {typeof value === 'string' || value === null
+                          ? <p className="text-sm font-medium">{value || <span className="text-muted-foreground/30 font-normal">—</span>}</p>
+                          : value
+                        }
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )
+          })()}
+        </div>
+        )}
+
+        {/* ════ ARCHITECTURE ════ */}
+        {activeTab === 'architecture' && (
+          <div className="space-y-6">
+            {/* Visual chain */}
             <div className="rounded-xl border bg-card p-5">
+              <h3 className="text-sm font-semibold mb-1">Safety Chain Diagram</h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                Click any component tag to edit its parameters
+              </p>
               <SIFChainDiagram sif={sif} projectId={projectId} calcResult={result} />
             </div>
-          </Section>
 
-          <HDivider accent="#6366F1" />
-
-          <Section number="02" title="Architecture Builder"
-            subtitle="Add subsystems, change MooN voting logic, manage channels and components"
-          >
+            {/* Interactive builder */}
             <div className="rounded-xl border bg-card p-5">
+              <h3 className="text-sm font-semibold mb-1">Architecture Builder</h3>
+              <p className="text-xs text-muted-foreground mb-4">
+                Add subsystems, change architecture (MooN), add channels and components
+              </p>
               <ArchitectureBuilder projectId={projectId} sifId={sifId} />
             </div>
-          </Section>
+          </div>
+        )}
 
-        </>)}
+        {/* ════ ANALYSIS ════ */}
+        {activeTab === 'analysis' && (
+          <div className="space-y-5">
+            <PFDChart sif={sif} chartData={result.chartData} />
 
-        {/* ══════════════════ ANALYSIS ══════════════════ */}
-        {activeTab === 'analysis' && (<>
-
-          <Section number="01" title="PFD Degradation — Sawtooth Pattern"
-            subtitle="PFDavg over proof test cycles · IEC 61511 §11 · Logarithmic scale"
-          >
-            <div className="rounded-xl border bg-card p-5">
-              <PFDChart sif={sif} chartData={result.chartData} />
-            </div>
-          </Section>
-
-          <HDivider />
-
-          <Section number="02" title="Subsystem Breakdown"
-            subtitle="Per-subsystem PFD, reliability metrics, and SIL contribution"
-          >
             <div className="rounded-xl border bg-card overflow-hidden">
+              <div className="px-5 py-3 border-b bg-muted/30">
+                <h3 className="text-sm font-semibold">Subsystem Breakdown</h3>
+              </div>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b bg-muted/20">
-                    {['Subsystem', 'Architecture', 'PFDavg', 'RRF', 'SFF', 'DC', 'HFT', 'SIL'].map(h => (
-                      <th key={h} className="text-left px-4 py-2.5 text-[11px] font-semibold text-muted-foreground uppercase tracking-wider">{h}</th>
+                    {['Subsystem', 'Architecture', 'PFD avg', 'RRF', 'SFF', 'DC', 'HFT', 'SIL'].map(h => (
+                      <th key={h} className="text-left px-4 py-2.5 text-[11px] font-medium text-muted-foreground uppercase tracking-wide">
+                        {h}
+                      </th>
                     ))}
                   </tr>
                 </thead>
@@ -345,44 +458,20 @@ export function SIFDashboard({ projectId, sifId }: Props) {
                     const subsystem = sif.subsystems[i]
                     const color = SUB_COLORS[sub.type] ?? '#6B7280'
                     return (
-                      <tr key={sub.subsystemId} className="border-b hover:bg-muted/10 transition-colors">
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-1.5 h-4 rounded-full shrink-0" style={{ background: color }} />
-                            <span className="font-semibold text-xs" style={{ color }}>{subsystem?.label}</span>
-                          </div>
-                        </td>
+                      <tr key={sub.subsystemId} className="border-b hover:bg-muted/20 transition-colors">
+                        <td className="px-4 py-3 font-semibold text-xs" style={{ color }}>{subsystem?.label}</td>
                         <td className="px-4 py-3 font-mono text-xs">{subsystem?.architecture}</td>
-                        <td className="px-4 py-3 font-mono text-xs font-bold">{formatPFD(sub.PFD_avg)}</td>
+                        <td className="px-4 py-3 font-mono text-xs font-semibold">{formatPFD(sub.PFD_avg)}</td>
                         <td className="px-4 py-3 font-mono text-xs">{formatRRF(sub.RRF)}</td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
-                              <div className="h-full bg-blue-500 rounded-full" style={{ width: `${Math.min(100, sub.SFF * 100)}%` }} />
-                            </div>
-                            <span className="font-mono text-xs">{formatPct(sub.SFF)}</span>
-                          </div>
-                        </td>
-                        <td className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <div className="w-12 h-1.5 rounded-full bg-muted overflow-hidden">
-                              <div className={cn('h-full rounded-full', sub.DC >= 0.6 ? 'bg-emerald-500' : 'bg-amber-500')} style={{ width: `${Math.min(100, sub.DC * 100)}%` }} />
-                            </div>
-                            <span className="font-mono text-xs">{formatPct(sub.DC)}</span>
-                          </div>
-                        </td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatPct(sub.SFF)}</td>
+                        <td className="px-4 py-3 font-mono text-xs">{formatPct(sub.DC)}</td>
                         <td className="px-4 py-3 font-mono text-xs">{sub.HFT}</td>
                         <td className="px-4 py-3"><SILBadge sil={sub.SIL} size="sm" /></td>
                       </tr>
                     )
                   })}
-                  <tr className="bg-muted/25 font-bold">
-                    <td className="px-4 py-3 text-xs" colSpan={2}>
-                      <div className="flex items-center gap-2">
-                        <TrendingDown size={13} className="text-muted-foreground" />
-                        Total SIF (series model)
-                      </div>
-                    </td>
+                  <tr className="bg-muted/30 font-semibold">
+                    <td className="px-4 py-3 text-xs" colSpan={2}>Total SIF (series)</td>
                     <td className="px-4 py-3 font-mono text-xs">{formatPFD(result.PFD_avg)}</td>
                     <td className="px-4 py-3 font-mono text-xs">{formatRRF(result.RRF)}</td>
                     <td colSpan={3} />
@@ -391,177 +480,93 @@ export function SIFDashboard({ projectId, sifId }: Props) {
                 </tbody>
               </table>
             </div>
-          </Section>
+          </div>
+        )}
 
-          <HDivider />
-
-          <Section number="03" title="Component Parameters"
-            subtitle="Failure rates, diagnostic coverage and test intervals per component"
-          >
-            <div className="space-y-3">
-              {result.subsystems.map((sub, i) => {
-                const subsystem = sif.subsystems[i]
-                const color     = SUB_COLORS[sub.type] ?? '#6B7280'
-                const comps     = subsystem?.channels.flatMap(ch => ch.components) ?? []
-                if (!comps.length) return null
-                return (
-                  <div key={sub.subsystemId} className="rounded-xl border bg-card overflow-hidden">
-                    <div className="flex items-center justify-between px-4 py-3 border-b" style={{ background: `${color}08` }}>
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-2 h-2 rounded-full" style={{ background: color }} />
-                        <span className="text-xs font-bold" style={{ color }}>{subsystem?.label}</span>
-                        <span className="font-mono text-[10px] px-1.5 py-0.5 rounded" style={{ background: `${color}18`, color }}>
-                          {subsystem?.architecture}
-                        </span>
-                      </div>
-                      <div className="flex gap-4 text-[10px] font-mono text-muted-foreground">
-                        <span>PFD {formatPFD(sub.PFD_avg)}</span>
-                        <span>SFF {formatPct(sub.SFF)}</span>
-                        <span>DC {formatPct(sub.DC)}</span>
-                      </div>
-                    </div>
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b bg-muted/10">
-                          {['Tag', 'Type', 'λ (×10⁻⁶ h⁻¹)', 'DCd', 'T1', 'MTTR', 'SFF', 'DC', 'PFD'].map(h => (
-                            <th key={h} className="text-left px-4 py-2 text-[10px] font-semibold text-muted-foreground uppercase tracking-wider">{h}</th>
-                          ))}
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {sub.components.map((comp, ci) => {
-                          const raw = comps[ci]
-                          return (
-                            <tr key={comp.componentId} className="border-b last:border-0 hover:bg-muted/10 transition-colors">
-                              <td className="px-4 py-2.5 font-mono font-semibold" style={{ color }}>{raw?.tagName}</td>
-                              <td className="px-4 py-2.5 text-muted-foreground">{raw?.instrumentType || '—'}</td>
-                              <td className="px-4 py-2.5 font-mono">{raw?.factorized.lambda.toFixed(2)}</td>
-                              <td className="px-4 py-2.5 font-mono">{((raw?.factorized.DCd ?? 0) * 100).toFixed(0)}%</td>
-                              <td className="px-4 py-2.5 font-mono">{raw?.test.T1} {raw?.test.T1Unit}</td>
-                              <td className="px-4 py-2.5 font-mono">{raw?.advanced.MTTR} h</td>
-                              <td className="px-4 py-2.5 font-mono">{formatPct(comp.SFF)}</td>
-                              <td className="px-4 py-2.5 font-mono">{formatPct(comp.DC)}</td>
-                              <td className="px-4 py-2.5 font-mono font-bold">{formatPFD(comp.PFD_avg)}</td>
-                            </tr>
-                          )
-                        })}
-                      </tbody>
-                    </table>
-                  </div>
-                )
-              })}
-            </div>
-          </Section>
-
-          <MethodologyNote />
-
-        </>)}
-
-        {/* ══════════════════ COMPLIANCE ══════════════════ */}
-        {activeTab === 'compliance' && compliance && (<>
-
-          <Section number="01" title="Compliance Score"
-            subtitle="Weighted: 45% SIL result · 40% technical checks · 15% traceability"
-          >
-            <div className="grid grid-cols-[1.4fr_1fr] gap-4">
-              {/* Score */}
+        {/* ════ COMPLIANCE ════ */}
+        {activeTab === 'compliance' && (
+          <div className="space-y-5">
+            <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4">
               <div className="rounded-xl border bg-card p-5">
-                <div className="flex items-end gap-5 mb-5">
+                <div className="flex items-start justify-between gap-3">
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-1.5">Overall</p>
-                    <div className="flex items-baseline gap-1">
-                      <span className={cn('text-5xl font-black font-mono',
-                        compliance.score >= 80 ? 'text-emerald-500' : compliance.score >= 60 ? 'text-amber-500' : 'text-red-500'
-                      )}>{compliance.score}</span>
-                      <span className="text-xl text-muted-foreground">/100</span>
-                    </div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Live Compliance Score</p>
+                    <p className="text-3xl font-bold tracking-tight mt-1">{compliance.score}<span className="text-base text-muted-foreground">/100</span></p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {compliance.passedChecks}/{compliance.totalChecks} technical checks passed ·
+                      {' '}traceability {Math.round(compliance.metadataCompletion * 100)}%
+                    </p>
                   </div>
-                  <div className="flex-1 space-y-2 pb-1">
-                    {[
-                      { label: 'SIL result',   pct: result.meetsTarget ? 100 : 0,                                       color: result.meetsTarget ? 'bg-emerald-500' : 'bg-red-400', weight: '45%' },
-                      { label: 'Tech. checks', pct: Math.round(compliance.passed / compliance.total * 100),              color: 'bg-blue-500',   weight: '40%' },
-                      { label: 'Traceability', pct: Math.round(compliance.metaPct * 100),                               color: 'bg-violet-500', weight: '15%' },
-                    ].map(row => (
-                      <div key={row.label} className="flex items-center gap-2 text-[10px]">
-                        <span className="w-16 text-muted-foreground shrink-0">{row.label}</span>
-                        <div className="flex-1 h-1.5 rounded-full bg-muted overflow-hidden">
-                          <div className={cn('h-full rounded-full transition-all', row.color)} style={{ width: `${row.pct}%` }} />
-                        </div>
-                        <span className="w-6 text-right font-mono text-muted-foreground/60">{row.weight}</span>
-                        <span className="w-8 text-right font-mono font-semibold">{row.pct}%</span>
-                      </div>
-                    ))}
+                  <div className="rounded-lg border border-border/70 bg-muted/20 p-2">
+                    <Gauge className="h-4 w-4 text-primary" />
                   </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  {compliance.passed}/{compliance.total} checks passed ·
-                  traceability {Math.round(compliance.metaPct * 100)}% complete
-                </p>
+
+                <div className="mt-4 h-2 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={cn(
+                      'h-full transition-all',
+                      compliance.score >= 80 ? 'bg-emerald-500' : compliance.score >= 60 ? 'bg-amber-500' : 'bg-red-500',
+                    )}
+                    style={{ width: `${Math.min(100, Math.max(0, compliance.score))}%` }}
+                  />
+                </div>
               </div>
 
-              {/* Actions */}
               <div className="rounded-xl border bg-card p-5">
                 <div className="flex items-center gap-2 mb-3">
-                  <Sparkles size={13} className="text-primary" />
-                  <p className="text-sm font-semibold">Recommended actions</p>
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-semibold">Next best actions</p>
                 </div>
                 <div className="space-y-2">
                   {compliance.actions.map(action => (
-                    <button key={action.title} type="button" onClick={() => setTab(action.tab)}
-                      className="w-full rounded-lg border border-border/60 bg-muted/10 px-3 py-2.5 text-left hover:bg-muted/30 hover:border-border transition-all group"
+                    <button
+                      key={action.title}
+                      type="button"
+                      onClick={() => setTab(action.tab)}
+                      className="w-full rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5 text-left hover:bg-muted/40 transition-colors"
                     >
-                      <p className="text-xs font-semibold flex items-center justify-between gap-2">
+                      <p className="text-sm font-medium flex items-center justify-between gap-2">
                         {action.title}
-                        <ArrowRight size={11} className="text-muted-foreground group-hover:text-foreground transition-colors shrink-0" />
+                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
                       </p>
-                      <p className="text-[10px] text-muted-foreground mt-0.5 leading-relaxed">{action.hint}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{action.hint}</p>
                     </button>
                   ))}
                 </div>
               </div>
             </div>
-          </Section>
 
-          <HDivider />
-
-          <Section number="02" title="Technical Compliance Checks"
-            subtitle="Per IEC 61511-1:2016 Table 6 and IEC 61508-2:2010 §C.3"
-          >
             <div className="grid grid-cols-3 gap-4">
               {compliance.subsystemChecks.map(sub => {
                 const color = SUB_COLORS[sub.type] ?? '#6B7280'
                 return (
-                  <div key={sub.id} className="rounded-xl border bg-card overflow-hidden">
-                    <div className="px-4 py-3 border-b" style={{ background: `${color}08` }}>
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="text-xs font-bold" style={{ color }}>{sub.label}</span>
-                        <div className="flex items-center gap-1.5">
-                          <SILBadge sil={sub.sil} size="sm" />
-                          {sub.allOk
-                            ? <CheckCircle2 size={13} className="text-emerald-500" />
-                            : <AlertTriangle size={13} className="text-red-400" />
-                          }
-                        </div>
+                  <div key={sub.id}
+                    className={cn(
+                      'rounded-xl border bg-card overflow-hidden',
+                      sub.allOk ? 'border-emerald-200 dark:border-emerald-900' : 'border-red-200 dark:border-red-900',
+                    )}
+                  >
+                    <div className="flex justify-between items-center px-4 py-3 border-b bg-muted/30">
+                      <span className="text-sm font-semibold" style={{ color }}>{sub.label}</span>
+                      <div className="flex items-center gap-2">
+                        <SILBadge sil={sub.sil} size="sm" />
+                        {sub.allOk
+                          ? <CheckCircle2 size={14} className="text-emerald-500" />
+                          : <AlertTriangle size={14} className="text-red-500" />
+                        }
                       </div>
-                      <span className="font-mono text-[10px]" style={{ color, opacity: 0.7 }}>{sub.architecture}</span>
                     </div>
-                    <div>
+                    <div className="divide-y">
                       {sub.checks.map(c => (
-                        <div key={c.label} className="flex items-center justify-between px-4 py-2.5 border-b last:border-0">
-                          <div className="min-w-0">
-                            <p className="text-xs text-muted-foreground truncate">{c.label}</p>
-                            <p className="text-[9px] text-muted-foreground/40 truncate">{c.ref}</p>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0 ml-2">
-                            <span className="text-xs font-mono font-semibold">{c.value}</span>
-                            <span className={cn(
-                              'text-[9px] font-bold px-1.5 py-0.5 rounded-full',
-                              c.ok
-                                ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-400'
-                                : 'bg-red-100 text-red-700 dark:bg-red-950 dark:text-red-400'
-                            )}>
-                              {c.ok ? 'PASS' : 'FAIL'}
-                            </span>
+                        <div key={c.label} className="flex justify-between items-center px-4 py-2.5">
+                          <span className="text-xs text-muted-foreground">{c.label}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-xs font-mono">{c.value}</span>
+                            {c.ok
+                              ? <CheckCircle2 size={12} className="text-emerald-500" />
+                              : <AlertTriangle size={12} className="text-red-500" />
+                            }
                           </div>
                         </div>
                       ))}
@@ -570,54 +575,54 @@ export function SIFDashboard({ projectId, sifId }: Props) {
                 )
               })}
             </div>
-          </Section>
 
-          <HDivider />
-
-          <Section number="03" title="Final Verdict"
-            subtitle="IEC 61511 Safety Instrumented Function — Low Demand Mode"
-          >
-            <div className="rounded-2xl border-2 overflow-hidden"
-              style={{ borderColor: result.meetsTarget ? '#BBF7D0' : '#FECACA' }}
-            >
-              <div className="flex items-center gap-2 px-6 py-3 text-sm font-bold border-b"
-                style={{ background: result.meetsTarget ? '#F0FDF4' : '#FEF2F2', color: result.meetsTarget ? '#15803D' : '#DC2626' }}
-              >
-                {result.meetsTarget
-                  ? <><CheckCircle2 size={15} /> SIL {sif.targetSIL} requirement is met</>
-                  : <><AlertTriangle size={15} /> SIL {sif.targetSIL} requirement is NOT met</>
-                }
-              </div>
-              <div className="flex items-center px-6 py-5 gap-0 bg-card">
-                <Metric label="PFDavg" value={formatPFD(result.PFD_avg)}
-                  sub={result.meetsTarget ? `✓ Meets SIL ${sif.targetSIL}` : `✗ Below SIL ${sif.targetSIL}`} />
-                <VDivider />
-                <Metric label="Achieved RRF" value={formatRRF(result.RRF)} sub={`Required: ${sif.rrfRequired ?? '—'}`} />
-                <VDivider />
-                <div>
-                  <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground mb-2">Calculated SIL</p>
-                  <SILBadge sil={result.SIL} size="lg" />
-                </div>
-                <VDivider />
-                <div>
+            {/* Final verdict */}
+            <div className={cn(
+              'rounded-xl border p-6 flex items-center justify-between gap-8',
+              result.meetsTarget
+                ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-900 dark:bg-emerald-950/30'
+                : 'border-red-200 bg-red-50 dark:border-red-900 dark:bg-red-950/30',
+            )}>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider mb-2">
+                  Safety Instrumented Function — Low Demand Mode
+                </p>
+                <p className="text-2xl font-bold font-mono">
+                  PFD<sub>avg</sub> = {formatPFD(result.PFD_avg)}
+                </p>
+                <p className="text-sm text-muted-foreground mt-1">
                   {result.meetsTarget
-                    ? <Button size="sm" onClick={() => setTab('report')} className="gap-1.5"><FileText size={13}/> Export report</Button>
-                    : <Button size="sm" variant="outline" onClick={() => setTab('architecture')} className="gap-1.5"><Network size={13}/> Fix architecture</Button>
+                    ? `✓ Meets SIL ${sif.targetSIL} requirement`
+                    : `✗ Does not meet SIL ${sif.targetSIL} — increase architecture or reduce TI`
                   }
-                </div>
+                </p>
               </div>
+              <div className="text-right">
+                <p className="text-xs text-muted-foreground uppercase tracking-wider mb-2">Risk Reduction Factor</p>
+                <p className="text-2xl font-bold font-mono">RRF = {formatRRF(result.RRF)}</p>
+              </div>
+              <SILBadge sil={result.SIL} size="lg" />
             </div>
-          </Section>
 
-          <MethodologyNote />
+            {/* Methodology footer */}
+            <div className="rounded-xl border bg-card px-5 py-4 text-xs text-muted-foreground leading-relaxed">
+              <strong className="text-foreground">Methodology: </strong>
+              IEC 61508-6:2010 Annex B (Eq. B.10a, B.11) · β-factor IEC 61508-6 Annex D ·
+              SFF IEC 61508-2 §C.3 · HFT IEC 61511-1:2016 Table 6 · Low demand mode (PFD avg) ·
+              <span className="text-amber-500"> Not a substitute for a certified safety assessment.</span>
+            </div>
+          </div>
+        )}
 
-        </>)}
+        {/* ════ PROOF TEST ════ */}
+        {activeTab === 'prooftest' && (
+          <ProofTestTab project={project} sif={sif} />
+        )}
 
-        {/* ══════════════════ REPORT ══════════════════ */}
+        {/* ════ REPORT ════ */}
         {activeTab === 'report' && (
           <SILReportStudio project={project} sif={sif} result={result} />
         )}
-
       </div>
     </div>
   )

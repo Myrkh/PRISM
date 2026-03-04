@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist, devtools } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import { nanoid } from 'nanoid'
-import type { Project, SIF, SIFSubsystem, SIFComponent } from '@/core/types'
+import type { Project, SIF, SIFSubsystem, SIFComponent, ProofTestProcedure, TestCampaign, OperationalEvent, HAZOPTrace } from '@/core/types'
 import { DEFAULT_PROJECT, DEFAULT_SIF } from '@/core/models/defaults'
 
 // ─── Navigation state ────────────────────────────────────────────────────
@@ -11,7 +11,7 @@ export type AppView =
   | { type: 'sif-list'; projectId: string }
   | { type: 'sif-dashboard'; projectId: string; sifId: string; tab: SIFTab }
 
-export type SIFTab = 'overview' | 'architecture' | 'analysis' | 'compliance' | 'report'
+export type SIFTab = 'overview' | 'architecture' | 'analysis' | 'compliance' | 'prooftest' | 'report'
 
 // ─── Store ────────────────────────────────────────────────────────────────
 interface AppState {
@@ -68,6 +68,21 @@ interface AppState {
     fromSubId: string, fromChannelId: string, fromIndex: number,
     toSubId: string, toChannelId: string, toIndex: number
   ) => void
+
+  // Actions — proof test procedure
+  updateProofTestProcedure: (projectId: string, sifId: string, procedure: ProofTestProcedure) => void
+
+  // Actions — test campaigns
+  addTestCampaign: (projectId: string, sifId: string, campaign: TestCampaign) => void
+  updateTestCampaign: (projectId: string, sifId: string, campaign: TestCampaign) => void
+  removeTestCampaign: (projectId: string, sifId: string, campaignId: string) => void
+
+  // Actions — operational events
+  addOperationalEvent: (projectId: string, sifId: string, event: OperationalEvent) => void
+  removeOperationalEvent: (projectId: string, sifId: string, eventId: string) => void
+
+  // Actions — HAZOP traceability
+  updateHAZOPTrace: (projectId: string, sifId: string, trace: HAZOPTrace) => void
 }
 
 // ─── Selectors ────────────────────────────────────────────────────────────
@@ -271,6 +286,51 @@ export const useAppStore = create<AppState>()(
               toCh.components.splice(toIndex, 0, moved)
             }
           }),
+
+        // Proof Test Procedure
+        updateProofTestProcedure: (projectId, sifId, procedure) => set(s => {
+          const sif = s.projects.find(p => p.id === projectId)?.sifs.find(s => s.id === sifId)
+          if (sif) sif.proofTestProcedure = procedure
+        }),
+
+        // Test Campaigns
+        addTestCampaign: (projectId, sifId, campaign) => set(s => {
+          const sif = s.projects.find(p => p.id === projectId)?.sifs.find(s => s.id === sifId)
+          if (sif) {
+            if (!sif.testCampaigns) sif.testCampaigns = []
+            sif.testCampaigns.unshift(campaign)
+          }
+        }),
+        updateTestCampaign: (projectId, sifId, campaign) => set(s => {
+          const sif = s.projects.find(p => p.id === projectId)?.sifs.find(s => s.id === sifId)
+          if (sif?.testCampaigns) {
+            const idx = sif.testCampaigns.findIndex(c => c.id === campaign.id)
+            if (idx >= 0) sif.testCampaigns[idx] = campaign
+          }
+        }),
+        removeTestCampaign: (projectId, sifId, campaignId) => set(s => {
+          const sif = s.projects.find(p => p.id === projectId)?.sifs.find(s => s.id === sifId)
+          if (sif?.testCampaigns) sif.testCampaigns = sif.testCampaigns.filter(c => c.id !== campaignId)
+        }),
+
+        // Operational Events
+        addOperationalEvent: (projectId, sifId, event) => set(s => {
+          const sif = s.projects.find(p => p.id === projectId)?.sifs.find(s => s.id === sifId)
+          if (sif) {
+            if (!sif.operationalEvents) sif.operationalEvents = []
+            sif.operationalEvents.unshift(event)
+          }
+        }),
+        removeOperationalEvent: (projectId, sifId, eventId) => set(s => {
+          const sif = s.projects.find(p => p.id === projectId)?.sifs.find(s => s.id === sifId)
+          if (sif?.operationalEvents) sif.operationalEvents = sif.operationalEvents.filter(e => e.id !== eventId)
+        }),
+
+        // HAZOP Traceability
+        updateHAZOPTrace: (projectId, sifId, trace) => set(s => {
+          const sif = s.projects.find(p => p.id === projectId)?.sifs.find(s => s.id === sifId)
+          if (sif) sif.hazopTrace = trace
+        }),
       })),
       {
         name: 'safeloop-store',
