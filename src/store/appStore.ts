@@ -33,6 +33,7 @@ interface AppState {
   navigate: (view: AppView) => void
   setTab: (tab: SIFTab) => void
   toggleTheme: () => void
+  setTheme: (isDark: boolean) => void
 
   // Actions — projects
   openNewProject: () => void
@@ -103,6 +104,7 @@ export const useAppStore = create<AppState>()(
         }),
 
         toggleTheme: () => set(s => { s.isDark = !s.isDark }),
+        setTheme: (isDark) => set(s => { s.isDark = isDark }),
 
         // Projects
         openNewProject: () => set(s => {

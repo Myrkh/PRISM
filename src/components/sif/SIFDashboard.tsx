@@ -1,25 +1,15 @@
 import { useMemo } from 'react'
-import { ArrowLeft, Pencil, CheckCircle2, AlertTriangle } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, LayoutDashboard, Network, BarChart3, Shield, Gauge, Sparkles, ArrowRight, FileText, type LucideIcon } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Separator } from '@/components/ui/separator'
 import { useAppStore, type SIFTab } from '@/store/appStore'
 import { SILBadge } from '@/components/shared/SILBadge'
 import { SILGauge } from '@/components/shared/SILGauge'
 import { SIFChainDiagram } from '@/components/architecture/SIFChainDiagram'
 import { ArchitectureBuilder } from '@/components/architecture/ArchitectureBuilder'
 import { PFDChart } from '@/components/analysis/PFDChart'
+import { SILReportStudio } from '@/components/report/SILReportStudio'
 import { calcSIF, formatPFD, formatRRF, formatPct } from '@/core/math/pfdCalc'
-import type { SIFStatus } from '@/core/types'
 import { cn } from '@/lib/utils'
-
-const STATUS_LABELS: Record<SIFStatus, string> = {
-  draft: 'Draft', in_review: 'In Review', verified: 'Verified', approved: 'Approved',
-}
-const STATUS_COLORS: Record<SIFStatus, string> = {
-  draft: 'text-muted-foreground', in_review: 'text-amber-500',
-  verified: 'text-emerald-500', approved: 'text-blue-500',
-}
 
 const SUB_COLORS: Record<string, string> = {
   sensor: '#0891B2', logic: '#6366F1', actuator: '#EA580C',
@@ -28,8 +18,6 @@ const SUB_COLORS: Record<string, string> = {
 interface Props { projectId: string; sifId: string }
 
 export function SIFDashboard({ projectId, sifId }: Props) {
-  const navigate    = useAppStore(s => s.navigate)
-  const openEditSIF = useAppStore(s => s.openEditSIF)
   const view        = useAppStore(s => s.view)
   const setTab      = useAppStore(s => s.setTab)
   const project     = useAppStore(s => s.projects.find(p => p.id === projectId))
@@ -38,79 +26,126 @@ export function SIFDashboard({ projectId, sifId }: Props) {
   const activeTab = view.type === 'sif-dashboard' ? view.tab : 'overview'
   const result    = useMemo(() => sif ? calcSIF(sif) : null, [sif])
 
-  if (!sif || !result) return null
+  if (!project || !sif || !result) return null
 
-  const TABS: { id: SIFTab; label: string }[] = [
-    { id: 'overview',     label: 'Overview' },
-    { id: 'architecture', label: 'Architecture' },
-    { id: 'analysis',     label: 'Analysis' },
-    { id: 'compliance',   label: 'Compliance' },
+  const TABS: { id: SIFTab; label: string; hint: string; icon: LucideIcon }[] = [
+    { id: 'overview', label: 'Overview', hint: 'Key KPIs & context', icon: LayoutDashboard },
+    { id: 'architecture', label: 'Architecture', hint: 'Chain & components', icon: Network },
+    { id: 'analysis', label: 'Analysis', hint: 'PFD trends & breakdown', icon: BarChart3 },
+    { id: 'compliance', label: 'Compliance', hint: 'Proof & governance', icon: Shield },
+    { id: 'report', label: 'Report', hint: 'SIL Pro PDF builder', icon: FileText },
   ]
+
+  const compliance = useMemo(() => {
+    const subsystemChecks = result.subsystems.map((sub, i) => {
+      const subsystem = sif.subsystems[i]
+      const sffReq = sub.HFT === 0 ? 0.6 : 0.9
+
+      const checks = [
+        { label: `SFF ≥ ${formatPct(sffReq)}`, value: formatPct(sub.SFF), ok: sub.SFF >= sffReq },
+        { label: `HFT ≥ ${sub.SIL >= 2 ? 1 : 0}`, value: String(sub.HFT), ok: sub.HFT >= (sub.SIL >= 2 ? 1 : 0) },
+        { label: 'DC ≥ 60 %', value: formatPct(sub.DC), ok: sub.DC >= 0.6 },
+        { label: 'Architecture', value: subsystem?.architecture ?? '—', ok: true },
+      ]
+
+      return {
+        id: sub.subsystemId,
+        label: subsystem?.label ?? 'Subsystem',
+        type: sub.type,
+        sil: sub.SIL,
+        checks,
+        allOk: checks.every(c => c.ok),
+      }
+    })
+
+    const totalChecks = subsystemChecks.reduce((acc, sub) => acc + sub.checks.length, 0)
+    const passedChecks = subsystemChecks.reduce((acc, sub) => acc + sub.checks.filter(c => c.ok).length, 0)
+    const subsystemPassRate = totalChecks ? passedChecks / totalChecks : 0
+
+    const metadataFields = [
+      sif.pid,
+      sif.location,
+      sif.processTag,
+      sif.hazardousEvent,
+      sif.madeBy,
+      sif.verifiedBy,
+      sif.approvedBy,
+    ]
+    const metadataCompletion = metadataFields.filter(Boolean).length / metadataFields.length
+
+    const targetScore = result.meetsTarget ? 1 : 0
+    const score = Math.round((targetScore * 45 + subsystemPassRate * 40 + metadataCompletion * 15) * 100) / 100
+
+    const actions: { title: string; hint: string; tab: SIFTab }[] = []
+
+    if (!result.meetsTarget) {
+      actions.push({
+        title: 'Increase architectural robustness',
+        hint: 'Adjust MooN architecture, diagnostics, and proof test interval to reach target SIL.',
+        tab: 'architecture',
+      })
+    }
+
+    if (subsystemChecks.some(sub => sub.checks.some(check => check.label.startsWith('DC') && !check.ok))) {
+      actions.push({
+        title: 'Improve diagnostic coverage',
+        hint: 'Review DC assumptions and improve test strategy in component parameters.',
+        tab: 'analysis',
+      })
+    }
+
+    if (metadataCompletion < 1) {
+      actions.push({
+        title: 'Complete traceability fields',
+        hint: 'Fill P&ID, hazard description, and approver fields for audit readiness.',
+        tab: 'overview',
+      })
+    }
+
+    if (!actions.length) {
+      actions.push({
+        title: 'Compliance baseline looks solid',
+        hint: 'Proceed with independent review and export a report package.',
+        tab: 'compliance',
+      })
+    }
+
+    return {
+      subsystemChecks,
+      score,
+      passedChecks,
+      totalChecks,
+      metadataCompletion,
+      actions: actions.slice(0, 3),
+    }
+  }, [result, sif])
 
   return (
     <div className="flex flex-col min-h-[calc(100vh-56px)]">
-
-      {/* ── Sub-header ── */}
-      <div className="border-b bg-card">
-        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm"
-              onClick={() => navigate({ type: 'sif-list', projectId })}
-              className="gap-1.5 h-8"
-            >
-              <ArrowLeft size={13} /> Back
-            </Button>
-            <Separator orientation="vertical" className="h-5" />
-            <div>
-              <div className="flex items-center gap-2.5">
-                <h2 className="text-sm font-bold font-mono">{sif.sifNumber}</h2>
-                <Badge variant="outline" className="text-[10px] font-mono h-5">Rev. {sif.revision}</Badge>
-                <span className={cn('text-[11px]', STATUS_COLORS[sif.status])}>
-                  {STATUS_LABELS[sif.status]}
-                </span>
-              </div>
-              <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[340px]">{sif.title}</p>
-            </div>
-          </div>
-
-          {/* Live KPIs */}
-          <div className="hidden lg:flex items-center gap-5 pr-5 border-r">
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">PFD avg</p>
-              <p className="text-sm font-bold font-mono">{formatPFD(result.PFD_avg)}</p>
-            </div>
-            <div>
-              <p className="text-[10px] text-muted-foreground uppercase tracking-wider">RRF</p>
-              <p className="text-sm font-bold font-mono">{formatRRF(result.RRF)}</p>
-            </div>
-            <div className="flex items-center gap-2">
-              <SILBadge sil={result.SIL} />
-              {result.meetsTarget
-                ? <span className="text-[11px] text-emerald-500 flex items-center gap-1"><CheckCircle2 size={11}/> SIL {sif.targetSIL}</span>
-                : <span className="text-[11px] text-red-500 flex items-center gap-1"><AlertTriangle size={11}/> SIL {sif.targetSIL}</span>
-              }
-            </div>
-          </div>
-
-          <Button variant="outline" size="sm" onClick={() => openEditSIF(sif.id)} className="gap-1.5 h-8">
-            <Pencil size={12}/> Edit
-          </Button>
-        </div>
-
-        {/* Tab bar */}
-        <div className="max-w-7xl mx-auto px-6 flex">
-          {TABS.map(tab => (
+      <div className="border-b bg-card/70">
+        <div className="max-w-7xl mx-auto px-6 py-2 grid grid-cols-2 lg:grid-cols-5 gap-2">
+          {TABS.map(tab => {
+            const Icon = tab.icon
+            return (
             <button key={tab.id} onClick={() => setTab(tab.id)}
               className={cn(
-                'px-4 py-2.5 text-sm border-b-2 transition-colors',
+                'group rounded-xl border px-3 py-2.5 text-left transition-all',
                 activeTab === tab.id
-                  ? 'border-primary text-primary font-semibold'
-                  : 'border-transparent text-muted-foreground hover:text-foreground',
+                  ? 'border-primary/40 bg-primary/10 shadow-sm'
+                  : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/40 hover:text-foreground',
               )}
             >
-              {tab.label}
+              <div className="flex items-start gap-2.5">
+                <Icon className={cn('h-4 w-4 mt-0.5', activeTab === tab.id ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
+                <div>
+                  <p className={cn('text-sm font-semibold', activeTab === tab.id ? 'text-primary' : 'text-foreground')}>
+                    {tab.label}
+                  </p>
+                  <p className="text-[11px] text-muted-foreground">{tab.hint}</p>
+                </div>
+              </div>
             </button>
-          ))}
+          )})}
         </div>
       </div>
 
@@ -290,37 +325,79 @@ export function SIFDashboard({ projectId, sifId }: Props) {
         {/* ════ COMPLIANCE ════ */}
         {activeTab === 'compliance' && (
           <div className="space-y-5">
+            <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4">
+              <div className="rounded-xl border bg-card p-5">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Live Compliance Score</p>
+                    <p className="text-3xl font-bold tracking-tight mt-1">{compliance.score}<span className="text-base text-muted-foreground">/100</span></p>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      {compliance.passedChecks}/{compliance.totalChecks} technical checks passed ·
+                      {' '}traceability {Math.round(compliance.metadataCompletion * 100)}%
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-border/70 bg-muted/20 p-2">
+                    <Gauge className="h-4 w-4 text-primary" />
+                  </div>
+                </div>
+
+                <div className="mt-4 h-2 rounded-full bg-muted overflow-hidden">
+                  <div
+                    className={cn(
+                      'h-full transition-all',
+                      compliance.score >= 80 ? 'bg-emerald-500' : compliance.score >= 60 ? 'bg-amber-500' : 'bg-red-500',
+                    )}
+                    style={{ width: `${Math.min(100, Math.max(0, compliance.score))}%` }}
+                  />
+                </div>
+              </div>
+
+              <div className="rounded-xl border bg-card p-5">
+                <div className="flex items-center gap-2 mb-3">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  <p className="text-sm font-semibold">Next best actions</p>
+                </div>
+                <div className="space-y-2">
+                  {compliance.actions.map(action => (
+                    <button
+                      key={action.title}
+                      type="button"
+                      onClick={() => setTab(action.tab)}
+                      className="w-full rounded-lg border border-border/70 bg-muted/20 px-3 py-2.5 text-left hover:bg-muted/40 transition-colors"
+                    >
+                      <p className="text-sm font-medium flex items-center justify-between gap-2">
+                        {action.title}
+                        <ArrowRight className="h-3.5 w-3.5 text-muted-foreground" />
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-0.5">{action.hint}</p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <div className="grid grid-cols-3 gap-4">
-              {result.subsystems.map((sub, i) => {
-                const subsystem = sif.subsystems[i]
-                const sffReq = sub.HFT === 0 ? 0.6 : 0.9
-                const checks = [
-                  { label: `SFF ≥ ${formatPct(sffReq)}`, value: formatPct(sub.SFF), ok: sub.SFF >= sffReq },
-                  { label: `HFT ≥ ${sub.SIL >= 2 ? 1 : 0}`, value: String(sub.HFT), ok: sub.HFT >= (sub.SIL >= 2 ? 1 : 0) },
-                  { label: 'DC ≥ 60 %', value: formatPct(sub.DC), ok: sub.DC >= 0.6 },
-                  { label: 'Architecture', value: subsystem?.architecture ?? '—', ok: true },
-                ]
-                const allOk = checks.every(c => c.ok)
+              {compliance.subsystemChecks.map(sub => {
                 const color = SUB_COLORS[sub.type] ?? '#6B7280'
                 return (
-                  <div key={sub.subsystemId}
+                  <div key={sub.id}
                     className={cn(
                       'rounded-xl border bg-card overflow-hidden',
-                      allOk ? 'border-emerald-200 dark:border-emerald-900' : 'border-red-200 dark:border-red-900',
+                      sub.allOk ? 'border-emerald-200 dark:border-emerald-900' : 'border-red-200 dark:border-red-900',
                     )}
                   >
                     <div className="flex justify-between items-center px-4 py-3 border-b bg-muted/30">
-                      <span className="text-sm font-semibold" style={{ color }}>{subsystem?.label}</span>
+                      <span className="text-sm font-semibold" style={{ color }}>{sub.label}</span>
                       <div className="flex items-center gap-2">
-                        <SILBadge sil={sub.SIL} size="sm" />
-                        {allOk
+                        <SILBadge sil={sub.sil} size="sm" />
+                        {sub.allOk
                           ? <CheckCircle2 size={14} className="text-emerald-500" />
                           : <AlertTriangle size={14} className="text-red-500" />
                         }
                       </div>
                     </div>
                     <div className="divide-y">
-                      {checks.map(c => (
+                      {sub.checks.map(c => (
                         <div key={c.label} className="flex justify-between items-center px-4 py-2.5">
                           <span className="text-xs text-muted-foreground">{c.label}</span>
                           <div className="flex items-center gap-2">
@@ -374,6 +451,11 @@ export function SIFDashboard({ projectId, sifId }: Props) {
               <span className="text-amber-500"> Not a substitute for a certified safety assessment.</span>
             </div>
           </div>
+        )}
+
+        {/* ════ REPORT ════ */}
+        {activeTab === 'report' && (
+          <SILReportStudio project={project} sif={sif} result={result} />
         )}
       </div>
     </div>
