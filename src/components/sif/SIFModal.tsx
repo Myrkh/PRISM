@@ -1,4 +1,5 @@
 import { useEffect } from 'react'
+import { ClipboardList, Factory, ShieldCheck } from 'lucide-react'
 import { useForm } from 'react-hook-form'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
@@ -87,10 +88,28 @@ export function SIFModal({ projectId }: SIFModalProps) {
 
         <form onSubmit={handleSubmit(onSubmit)}>
           <Tabs defaultValue="identification" className="space-y-4">
-            <TabsList className="grid grid-cols-3 w-full">
-              <TabsTrigger value="identification">Identification</TabsTrigger>
-              <TabsTrigger value="process">Process</TabsTrigger>
-              <TabsTrigger value="traceability">Traceability</TabsTrigger>
+            <TabsList className="grid h-auto w-full grid-cols-3 gap-1.5 rounded-2xl border border-border/70 bg-muted/30 p-1.5">
+              <TabsTrigger value="identification" className="h-12 justify-start gap-2.5 px-3">
+                <ClipboardList className="h-4 w-4" />
+                <div className="text-left leading-tight">
+                  <p className="text-sm font-semibold">Identification</p>
+                  <p className="text-[11px] text-muted-foreground">Scope & status</p>
+                </div>
+              </TabsTrigger>
+              <TabsTrigger value="process" className="h-12 justify-start gap-2.5 px-3">
+                <Factory className="h-4 w-4" />
+                <div className="text-left leading-tight">
+                  <p className="text-sm font-semibold">Process</p>
+                  <p className="text-[11px] text-muted-foreground">Hazards & demand</p>
+                </div>
+              </TabsTrigger>
+              <TabsTrigger value="traceability" className="h-12 justify-start gap-2.5 px-3">
+                <ShieldCheck className="h-4 w-4" />
+                <div className="text-left leading-tight">
+                  <p className="text-sm font-semibold">Traceability</p>
+                  <p className="text-[11px] text-muted-foreground">Owners & approvals</p>
+                </div>
+              </TabsTrigger>
             </TabsList>
 
             {/* ── Identification ── */}
