@@ -91,7 +91,7 @@ export function AppHeader() {
               <ShieldCheck size={17} className="text-white" strokeWidth={2.5} />
             </div>
             <div>
-              <span className="text-lg font-bold tracking-tight">SafeLoop</span>
+              <span className="text-lg font-bold tracking-tight">PRISM</span>
               <span className="hidden lg:inline text-xs text-muted-foreground ml-2">SIL Workspace</span>
             </div>
           </button>
@@ -146,7 +146,6 @@ export function AppHeader() {
 
           {sif && (
             <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="outline" className="font-mono">{sif.sifNumber}</Badge>
               <Badge variant="outline" className="font-mono">Rev. {sif.revision}</Badge>
               <span>{sif.status.replace('_', ' ')}</span>
             </div>
@@ -156,12 +155,6 @@ export function AppHeader() {
             <CommandPalette onOpenSettings={() => setIsSettingsOpen(true)} />
 
             {calcResult && <SILBadge sil={calcResult.SIL} size="md" />}
-
-            {view.type === 'sif-dashboard' && sif && (
-              <Button variant="outline" size="sm" onClick={() => openEditSIF(sif.id)}>
-                Edit SIF
-              </Button>
-            )}
 
             <div className="relative" ref={userMenuRef}>
               <Button
@@ -207,43 +200,6 @@ export function AppHeader() {
             </div>
           </div>
         </div>
-
-        {project && (
-          <div className="h-9 px-6 border-t border-border/60 bg-muted/20 flex items-center justify-between">
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <button
-                onClick={() => navigate({ type: 'projects' })}
-                className="hover:text-foreground transition-colors"
-              >
-                Projects
-              </button>
-              <ChevronRight className="h-3.5 w-3.5" />
-              <button
-                onClick={() => navigate({ type: 'sif-list', projectId: project.id })}
-                className="hover:text-foreground transition-colors"
-              >
-                {project.name}
-              </button>
-              {sif && (
-                <>
-                  <ChevronRight className="h-3.5 w-3.5" />
-                  <span className="text-foreground font-medium">{sif.sifNumber}</span>
-                </>
-              )}
-            </div>
-
-            {view.type === 'sif-dashboard' && project && (
-              <Button
-                variant="ghost"
-                size="sm"
-                className="h-7 text-xs"
-                onClick={() => navigate({ type: 'sif-list', projectId: project.id })}
-              >
-                Back to SIF list
-              </Button>
-            )}
-          </div>
-        )}
       </header>
 
       <SettingsModal open={isSettingsOpen} onOpenChange={setIsSettingsOpen} />

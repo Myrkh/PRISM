@@ -22,7 +22,7 @@ export const SIL_META: Record<SILLevel, SILMeta> = {
 }
 
 // ─── Architecture ─────────────────────────────────────────────────────────
-export type Architecture = '1oo1' | '1oo2' | '2oo2' | '2oo3' | '1oo2D'
+export type Architecture = '1oo1' | '1oo2' | '2oo2' | '2oo3' | '1oo2D' | 'custom'
 
 export interface ArchitectureMeta {
   label: string
@@ -37,6 +37,7 @@ export const ARCHITECTURE_META: Record<Architecture, ArchitectureMeta> = {
   '2oo2':  { label:'2oo2',  desc:'2-out-of-2 (high avail.)',      HFT:0, channels:2 },
   '2oo3':  { label:'2oo3',  desc:'2-out-of-3 (voted)',            HFT:1, channels:3 },
   '1oo2D': { label:'1oo2D', desc:'1oo2 with diagnostics',         HFT:1, channels:2 },
+  'custom': { label:'Custom', desc:'Custom boolean AND/OR architecture', HFT:0, channels:2 },
 }
 
 // ─── Component parameters ─────────────────────────────────────────────────
@@ -107,6 +108,28 @@ export interface SIFComponent {
 }
 
 // ─── Subsystem & Architecture ─────────────────────────────────────────────
+
+export type BooleanGate = 'AND' | 'OR'
+
+export interface CustomBooleanArch {
+  gate: BooleanGate
+  expression: string
+  manualHFT: number
+}
+
+export interface LibraryComponent {
+  libraryId: string
+  name: string
+  subsystemType: SubsystemType
+  instrumentCategory: InstrumentCategory
+  instrumentType: string
+  manufacturer: string
+  dataSource: string
+  factorized: Pick<FactorizedParams, 'lambda' | 'lambdaDRatio' | 'DCd' | 'DCs'>
+  test: Pick<TestParams, 'T1' | 'T1Unit'>
+  isCustom: boolean
+}
+
 export interface SIFChannel {
   id: string
   label: string
@@ -118,6 +141,7 @@ export interface SIFSubsystem {
   type: SubsystemType
   label: string
   architecture: Architecture
+  customBooleanArch?: CustomBooleanArch
   channels: SIFChannel[]
 }
 
@@ -228,50 +252,71 @@ export interface HAZOPTrace {
   hazopFacilitator: string
 }
 
-// ─── Proof Test Procedure ─────────────────────────────────────────────────
-export type ProofTestPhase =
-  | 'prerequisites'
-  | 'isolation'
-  | 'sensor'
-  | 'logic'
-  | 'actuator'
-  | 'restoration'
-  | 'acceptance'
+export const PROOF_TEST_LOCATIONS = [
+  'SDC',
+  'Local Instrumentation',
+  'Poste Électrique (PE)',
+  'Terrain',
+  'Salle de Contrôle',
+  'Tableau Électrique',
+  'Autre',
+] as const
+export type ProofTestLocation = (typeof PROOF_TEST_LOCATIONS)[number] | string
 
-export const PROOF_TEST_PHASE_META: Record<ProofTestPhase, { label: string; color: string; short: string }> = {
-  prerequisites: { label: 'Prerequisites',          color: '#6B7280', short: 'PRE'  },
-  isolation:     { label: 'Isolation & Preparation', color: '#D97706', short: 'ISO'  },
-  sensor:        { label: 'Sensor Test',             color: '#0891B2', short: 'SEN'  },
-  logic:         { label: 'Logic Solver Test',       color: '#6366F1', short: 'LOG'  },
-  actuator:      { label: 'Final Element Test',      color: '#EA580C', short: 'ACT'  },
-  restoration:   { label: 'Restoration',             color: '#16A34A', short: 'RES'  },
-  acceptance:    { label: 'Acceptance Criteria',     color: '#7C3AED', short: 'ACC'  },
-}
+/**
+ * How the expected result is expressed for a step.
+ *  oui_non   → simple checkbox Oui / Non
+ *  valeur    → numeric/text value must match expectedValue (±tolerance)
+ *  personnalisé → free description, user writes result manually
+ */
+export type ProofTestResultType = 'oui_non' | 'valeur' | 'personnalisé'
 
+/**
+ * A step belongs to a ProofTestCategory.
+ * Result fields are filled during campaign execution.
+ */
 export interface ProofTestStep {
   id: string
-  phase: ProofTestPhase
+  categoryId: string
   order: number
-  description: string
-  responsible: string
-  expectedResult: string
-  toleranceNote: string
-  isCritical: boolean
+  action: string              // What to do
+  location: ProofTestLocation // Where: SDC, Local, PE…
+  expectedResultType: ProofTestResultType
+  expectedValue: string       // For 'valeur': "≥ 4 mA" or "< 500 ms"; for 'oui_non': ignored; for 'personnalisé': description
+  // ─ Campaign execution result (filled per TestCampaign.stepResults) ─
+  // (stored in StepResult, not here — this is the procedure template)
+}
+
+/**
+ * Category types — three blocks in every procedure.
+ * 'preliminary' and 'final' have fixed titles.
+ * 'test' has a user-defined title (e.g. "Test capteur PT-101", "Test actionneur EV-201").
+ */
+export type ProofTestCategoryType = 'preliminary' | 'test' | 'final'
+
+export interface ProofTestCategory {
+  id: string
+  type: ProofTestCategoryType
+  title: string    // editable for 'test'; fixed for 'preliminary' / 'final'
+  order: number    // sort order — preliminary always first, final always last
+  color: string    // accent color for the section header
+}
+
+export const CATEGORY_TYPE_META: Record<ProofTestCategoryType, { defaultTitle: string; color: string; locked: boolean }> = {
+  preliminary: { defaultTitle: 'Actions préliminaires', color: '#6B7280', locked: true  },
+  test:        { defaultTitle: 'Test',                  color: '#009BA4', locked: false },
+  final:       { defaultTitle: 'Actions finales',       color: '#003D5C', locked: true  },
 }
 
 export type ProofTestProcedureStatus = 'draft' | 'ifr' | 'approved'
 
 export interface ProofTestProcedure {
   id: string
-  ref: string
-  revision: string
+  ref: string               // e.g. PT-SIF-001-001
+  revision: string          // A, B, C…
   status: ProofTestProcedureStatus
   periodicityMonths: number
-  // Performance targets
-  targetSIFResponseMs: number    // max SIF response time [ms]
-  targetValveReactionMs: number  // max valve reaction time [ms]
-  tolerancePct: number           // acceptance tolerance [%]
-  // Steps
+  categories: ProofTestCategory[]
   steps: ProofTestStep[]
   // Signatures
   madeBy: string
@@ -281,6 +326,36 @@ export interface ProofTestProcedure {
   approvedBy: string
   approvedByDate: string
   notes: string
+}
+
+// ─── Test Campaign (field execution) ─────────────────────────────────────
+export type CampaignVerdict = 'pass' | 'fail' | 'conditional'
+
+/**
+ * Per-step result recorded during campaign execution.
+ * result: 'oui' | 'non' | 'na' → matches expectedResultType
+ * measuredValue: the actual value measured (for 'valeur' steps)
+ * conformant: did the result match expected? (computed or manually set)
+ */
+export interface StepResult {
+  stepId: string
+  result: 'oui' | 'non' | 'na' | null
+  measuredValue: string   // actual value for 'valeur' steps
+  conformant: boolean | null
+  comment: string
+}
+
+export interface TestCampaign {
+  id: string
+  date: string
+  team: string
+  operatingMode: string
+  verdict: CampaignVerdict
+  notes: string
+  stepResults: StepResult[]
+  conductedBy: string
+  witnessedBy: string
+  reviewedBy: string
 }
 
 // ─── Test Campaign (field result) ─────────────────────────────────────────

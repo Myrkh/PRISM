@@ -20,7 +20,8 @@
       "@/*": ["./src/*"],
       "@core/*": ["./src/core/*"],
       "@ui/*": ["./src/components/ui/*"]
-    }
+    },
+    "typeRoots": ["./types", "./node_modules/@types"]
   },
   "include": ["src"],
   "references": [{ "path": "./tsconfig.node.json" }]

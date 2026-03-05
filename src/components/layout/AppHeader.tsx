@@ -91,7 +91,7 @@ export function AppHeader() {
               <ShieldCheck size={17} className="text-white" strokeWidth={2.5} />
             </div>
             <div>
-              <span className="text-lg font-bold tracking-tight">SafeLoop</span>
+              <span className="text-lg font-bold tracking-tight">PRISM</span>
               <span className="hidden lg:inline text-xs text-muted-foreground ml-2">SIL Workspace</span>
             </div>
           </button>

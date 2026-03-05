@@ -1,24 +1,28 @@
 /**
- * ComponentParamsSheet — v2
+ * ComponentParamsSheet — PRISM v2  (DA KORE)
  *
- * Redesigned side panel:
- * ─ Sticky header with live SFF/DC/PFD metrics
- * ─ Left nav (icon + label tabs) instead of top tabs
- * ─ Sliders with live readout for key % fields
- * ─ Derived values always visible in a computed card
- * ─ Clean two-column grid layout throughout
+ * navy #003D5C / teal #009BA4 / bg #F0F4F8
+ *
+ * Améliorations vs v1 :
+ *  ─ DA KORE complète (exit "primary" tokens shadcn)
+ *  ─ Header enrichi : sous-type coloré + badge SFF live en couleur
+ *  ─ Nav gauche : active = trait teal + fond navy très léger
+ *  ─ Sliders : gradient teal
+ *  ─ Mode toggle : pill navy/teal
+ *  ─ ComputedField : fond BG avec accent coloré
+ *  ─ Footer : bouton Save navy, Cancel ghost
+ *  ─ Section PST : border teal au lieu de primary
+ *  ─ Test type selector : radio-card avec accent teal
  */
 import { useState, useEffect, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { Sheet, SheetContent } from '@/components/ui/sheet'
-import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
-import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/store/appStore'
 import {
   calcComponentSFF, calcComponentDC,
@@ -28,10 +32,23 @@ import type {
   SIFComponent, ParamMode, TestType, NatureType, InstrumentCategory,
 } from '@/core/types'
 import {
-  Tag, FlaskConical, ClipboardList, Settings2, ChevronRight,
-  Info, Save, X, Activity, Cpu, Zap, TrendingDown, CheckCircle2,
+  Tag, FlaskConical, ClipboardList, Settings2,
+  Info, Save, X, Activity, Cpu, Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+
+// ─── KORE tokens ──────────────────────────────────────────────────────────
+const NAVY  = '#003D5C'
+const NAVY2 = '#002A42'
+const TEAL  = '#009BA4'
+const BG    = '#F0F4F8'
+
+// ─── Subsystem accent colours ─────────────────────────────────────────────
+const TYPE_META: Record<string, { color: string; label: string; Icon: React.ElementType }> = {
+  sensor:   { color: '#0284C7', label: 'Capteur',     Icon: Activity },
+  logic:    { color: '#7C3AED', label: 'Logique',     Icon: Cpu      },
+  actuator: { color: '#EA580C', label: 'Actionneur',  Icon: Zap      },
+}
 
 // ─── Static data ──────────────────────────────────────────────────────────
 const INSTRUMENT_CATEGORIES: InstrumentCategory[] = [
@@ -48,93 +65,88 @@ const INSTRUMENT_TYPES: Record<InstrumentCategory, string[]> = {
 }
 const NATURE_OPTIONS: NatureType[] = ['instrument', 'valve', 'relay', 'controller', 'other']
 const TEST_TYPES: { value: TestType; label: string; desc: string }[] = [
-  { value: 'stopped', label: 'Stopped unit',   desc: 'Tested when unit is stopped (most common)' },
-  { value: 'online',  label: 'Online test',     desc: 'Full test while in service' },
-  { value: 'partial', label: 'Partial stroke',  desc: 'Partial proof test (PST for valves)' },
-  { value: 'none',    label: 'No test',         desc: 'No functional proof test' },
+  { value: 'stopped', label: 'Arrêt unité',      desc: 'Testé à l\'arrêt de l\'unité (le plus courant)' },
+  { value: 'online',  label: 'Test en ligne',     desc: 'Test complet en service' },
+  { value: 'partial', label: 'Course partielle',  desc: 'Test partiel (PST pour vannes)' },
+  { value: 'none',    label: 'Aucun test',        desc: 'Pas de test de preuve fonctionnel' },
 ]
 
 type NavTab = 'identification' | 'parameters' | 'test' | 'advanced'
-
 const NAV: { id: NavTab; label: string; icon: React.ElementType; desc: string }[] = [
-  { id: 'identification', label: 'Identification', icon: Tag,          desc: 'Tag, type, source'   },
-  { id: 'parameters',     label: 'Parameters',     icon: FlaskConical, desc: 'λ, DCd, SFF'        },
-  { id: 'test',           label: 'Test',           icon: ClipboardList,desc: 'T1, test type'      },
-  { id: 'advanced',       label: 'Advanced',       icon: Settings2,    desc: 'MTTR, partial test' },
+  { id: 'identification', label: 'Identification', icon: Tag,          desc: 'Tag, type, source'    },
+  { id: 'parameters',     label: 'Paramètres',     icon: FlaskConical, desc: 'λ, DCd, SFF'          },
+  { id: 'test',           label: 'Test',           icon: ClipboardList,desc: 'T1, type de test'     },
+  { id: 'advanced',       label: 'Avancé',         icon: Settings2,    desc: 'MTTR, test partiel'   },
 ]
 
-// ─── Sub-components ───────────────────────────────────────────────────────
+// ─── Shared input style ───────────────────────────────────────────────────
+const inp = 'font-mono text-sm h-8 rounded-xl border-gray-200 focus:border-[#009BA4] focus:ring-1 focus:ring-[#009BA4]/30 transition-all'
 
-/** Group label */
-function GroupLabel({ children }: { children: React.ReactNode }) {
+// ─── Sub-components ───────────────────────────────────────────────────────
+function SectionTitle({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[10px] font-bold uppercase tracking-[0.12em] text-muted-foreground/70 mb-3">
-      {children}
-    </p>
+    <div className="flex items-center gap-2 mb-4">
+      <div className="h-px flex-1 bg-gray-100" />
+      <p className="text-[9px] font-bold uppercase tracking-[0.15em]" style={{ color: '#9CA3AF' }}>
+        {children}
+      </p>
+      <div className="h-px flex-1 bg-gray-100" />
+    </div>
   )
 }
 
-/** Field row: label + input */
 function FieldRow({ label, hint, children }: {
   label: string; hint?: string; children: React.ReactNode
 }) {
   return (
     <div className="space-y-1.5">
-      <div>
-        <Label className="text-xs font-medium">{label}</Label>
-        {hint && <p className="text-[10px] text-muted-foreground">{hint}</p>}
-      </div>
+      <Label className="text-xs font-semibold" style={{ color: NAVY }}>{label}</Label>
+      {hint && <p className="text-[10px] -mt-1" style={{ color: '#9CA3AF' }}>{hint}</p>}
       {children}
     </div>
   )
 }
 
-/** Percentage slider + input combo */
-function PctField({ label, hint, value, onChange }: {
-  label: string; hint?: string
-  value: number; onChange: (v: number) => void
+function PctField({ label, hint, value, onChange, color = TEAL }: {
+  label: string; hint?: string; value: number; onChange: (v: number) => void; color?: string
 }) {
   const pct = Math.round(value * 100)
-  const hue = value < 0.5 ? `hsl(${Math.round(value * 200)}, 80%, 45%)` : `hsl(${Math.round(value * 200)}, 70%, 40%)`
-
+  // Color ramp: low = red → mid = amber → high = teal
+  const trackColor = pct < 50 ? '#EF4444' : pct < 70 ? '#F59E0B' : TEAL
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between">
-        <Label className="text-xs font-medium">{label}</Label>
-        <span className="text-xs font-mono font-bold" style={{ color: hue }}>{pct}%</span>
+        <Label className="text-xs font-semibold" style={{ color: NAVY }}>{label}</Label>
+        <span className="text-xs font-mono font-bold tabular-nums" style={{ color: trackColor }}>{pct}%</span>
       </div>
-      {hint && <p className="text-[10px] text-muted-foreground -mt-1">{hint}</p>}
+      {hint && <p className="text-[10px] -mt-1" style={{ color: '#9CA3AF' }}>{hint}</p>}
       <input
         type="range" min={0} max={100} step={1}
         value={pct}
         onChange={e => onChange(Number(e.target.value) / 100)}
         className="w-full h-1.5 rounded-full appearance-none cursor-pointer"
-        style={{
-          background: `linear-gradient(to right, ${hue} ${pct}%, hsl(214, 32%, 88%) ${pct}%)`,
-        }}
+        style={{ background: `linear-gradient(to right, ${trackColor} ${pct}%, #E5E7EB ${pct}%)` }}
       />
     </div>
   )
 }
 
-/** Readonly computed field */
 function ComputedField({ label, value, unit, good }: {
   label: string; value: string; unit?: string; good?: boolean
 }) {
+  const accent = good === undefined ? NAVY : good ? '#15803D' : '#D97706'
   return (
-    <div className="rounded-lg border bg-muted/20 px-3 py-2.5">
-      <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-1">{label}</p>
+    <div className="rounded-xl border px-3 py-2.5" style={{ background: BG, borderColor: '#E5E7EB' }}>
+      <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: '#9CA3AF' }}>{label}</p>
       <div className="flex items-baseline gap-1">
-        <span className={cn('text-sm font-bold font-mono', good !== undefined && (good ? 'text-emerald-500' : 'text-amber-500'))}>
-          {value}
-        </span>
-        {unit && <span className="text-[10px] text-muted-foreground">{unit}</span>}
+        <span className="text-base font-bold font-mono" style={{ color: accent }}>{value}</span>
+        {unit && <span className="text-[10px]" style={{ color: '#9CA3AF' }}>{unit}</span>}
       </div>
     </div>
   )
 }
 
-// ─── Main component ───────────────────────────────────────────────────────
+// ─── Main ─────────────────────────────────────────────────────────────────
 interface Props {
   open: boolean; onClose: () => void
   component: SIFComponent
@@ -147,14 +159,14 @@ export function ComponentParamsSheet({
 }: Props) {
   const updateComponent = useAppStore(s => s.updateComponent)
   const [activeTab, setActiveTab] = useState<NavTab>('identification')
-  const [paramMode, setParamMode] = useState<ParamMode>(component.paramMode)
+  const [paramMode, setParamMode] = useState<ParamMode>(component.paramMode ?? 'factorized')
 
   const { register, handleSubmit, watch, setValue, control, reset } =
     useForm<SIFComponent>({ defaultValues: component })
 
   useEffect(() => {
     reset(component)
-    setParamMode(component.paramMode)
+    setParamMode(component.paramMode ?? 'factorized')
     setActiveTab('identification')
   }, [component, reset])
 
@@ -171,129 +183,156 @@ export function ComponentParamsSheet({
   const SFF = effectiveDeveloped ? calcComponentSFF(effectiveDeveloped) : 0
   const DC  = effectiveDeveloped ? calcComponentDC(effectiveDeveloped)  : 0
 
-  const PFD: null = null // component-level PFD is computed at subsystem level
-
   const onSubmit = (data: SIFComponent) => {
     const updated: SIFComponent = {
-      ...data,
-      paramMode,
+      ...data, paramMode,
       developed: paramMode === 'factorized' ? factorizedToDeveloped(data.factorized) : data.developed,
     }
     updateComponent(projectId, sifId, subsystemId, channelId, updated)
     onClose()
   }
 
-  const typeColors = { sensor: '#0891B2', logic: '#6366F1', actuator: '#EA580C' }
-  const color = typeColors[component.subsystemType]
+  const meta = TYPE_META[component.subsystemType] ?? TYPE_META.sensor
+  const { color, label: typeLabel, Icon: TypeIcon } = meta
 
   return (
     <Sheet open={open} onOpenChange={o => !o && onClose()}>
-      <SheetContent className="w-[520px] sm:max-w-[520px] p-0 flex flex-col gap-0 border-l">
-
-        {/* ── Sticky header ── */}
+      <SheetContent
+        className="w-[520px] sm:max-w-[520px] p-0 flex flex-col gap-0 border-l"
+        style={{ fontFamily: "'Inter', sans-serif" }}
+      >
+        {/* ── Header ── */}
         <div className="shrink-0 border-b" style={{ background: `${color}07` }}>
-          {/* Title row */}
+          {/* Title */}
           <div className="flex items-start justify-between px-5 pt-4 pb-3 gap-3">
-            <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-1">
-                <span className="text-base font-bold font-mono tracking-tight" style={{ color }}>
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2.5 mb-1.5 flex-wrap">
+                {/* Tag name */}
+                <span className="text-lg font-bold font-mono tracking-tight" style={{ color }}>
                   {component.tagName}
                 </span>
-                <Badge variant="outline" className="text-[10px] font-mono capitalize shrink-0">
-                  {component.subsystemType}
-                </Badge>
+                {/* Type badge */}
+                <span className="flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-lg border"
+                  style={{ background: `${color}12`, color, borderColor: `${color}30` }}
+                >
+                  <TypeIcon size={9} />{typeLabel}
+                </span>
               </div>
-              <p className="text-xs text-muted-foreground truncate">
+              <p className="text-xs" style={{ color: '#9CA3AF' }}>
                 {component.instrumentType || component.instrumentCategory}
-                {component.manufacturer && ` · ${component.manufacturer}`}
+                {component.manufacturer && <span style={{ color: '#C4C9D4' }}> · {component.manufacturer}</span>}
               </p>
             </div>
-            <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0" onClick={onClose}>
-              <X size={14} />
-            </Button>
+            <button
+              onClick={onClose}
+              className="h-7 w-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors shrink-0"
+              style={{ color: '#9CA3AF' }}
+            ><X size={14} /></button>
           </div>
 
           {/* Live metrics strip */}
-          <div className="grid grid-cols-3 divide-x border-t">
-            <div className="px-3 py-2.5">
-              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-0.5">SFF</p>
-              <p className={cn('text-sm font-bold font-mono', SFF >= 0.6 ? 'text-emerald-500' : 'text-amber-500')}>
+          <div className="grid grid-cols-4 border-t" style={{ borderColor: `${color}15` }}>
+            {/* SFF */}
+            <div className="px-4 py-2.5 border-r" style={{ borderColor: `${color}15` }}>
+              <p className="text-[9px] font-bold uppercase tracking-widest mb-0.5" style={{ color: '#9CA3AF' }}>SFF</p>
+              <p className="text-sm font-bold font-mono" style={{ color: SFF >= 0.6 ? '#15803D' : '#D97706' }}>
                 {formatPct(SFF)}
               </p>
             </div>
-            <div className="px-3 py-2.5">
-              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-0.5">DC</p>
-              <p className={cn('text-sm font-bold font-mono', DC >= 0.6 ? 'text-emerald-500' : 'text-amber-500')}>
+            {/* DC */}
+            <div className="px-4 py-2.5 border-r" style={{ borderColor: `${color}15` }}>
+              <p className="text-[9px] font-bold uppercase tracking-widest mb-0.5" style={{ color: '#9CA3AF' }}>DC</p>
+              <p className="text-sm font-bold font-mono" style={{ color: DC >= 0.6 ? '#15803D' : '#D97706' }}>
                 {formatPct(DC)}
               </p>
             </div>
-
-            <div className="px-3 py-2.5">
-              <p className="text-[9px] font-bold uppercase tracking-wider text-muted-foreground/60 mb-0.5">Mode</p>
-              <button
-                type="button"
-                onClick={() => setParamMode(m => m === 'factorized' ? 'developed' : 'factorized')}
-                className="text-[10px] font-semibold text-primary hover:underline capitalize"
-              >
-                {paramMode}
-              </button>
+            {/* T1 */}
+            <div className="px-4 py-2.5 border-r" style={{ borderColor: `${color}15` }}>
+              <p className="text-[9px] font-bold uppercase tracking-widest mb-0.5" style={{ color: '#9CA3AF' }}>T1</p>
+              <p className="text-sm font-bold font-mono" style={{ color: NAVY }}>
+                {watch('test.T1') ?? '—'} {watch('test.T1Unit') ?? 'yr'}
+              </p>
+            </div>
+            {/* Mode toggle */}
+            <div className="px-3 py-2 flex flex-col justify-center">
+              <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: '#9CA3AF' }}>Mode</p>
+              <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+                {(['factorized', 'developed'] as ParamMode[]).map(m => (
+                  <button key={m} type="button" onClick={() => setParamMode(m)}
+                    className="flex-1 py-0.5 text-[8px] font-bold capitalize transition-all"
+                    style={paramMode === m
+                      ? { background: NAVY, color: 'white' }
+                      : { color: '#9CA3AF', background: 'white' }}
+                  >{m === 'factorized' ? 'Fact.' : 'Dév.'}</button>
+                ))}
+              </div>
             </div>
           </div>
         </div>
 
-        {/* ── Body: left nav + content ── */}
+        {/* ── Body ── */}
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-1 min-h-0">
 
           {/* Left nav */}
-          <div className="w-36 shrink-0 border-r bg-muted/10 flex flex-col py-2">
+          <div className="w-[130px] shrink-0 border-r flex flex-col py-2" style={{ background: BG }}>
             {NAV.map(tab => {
-              const Icon    = tab.icon
-              const isActive= activeTab === tab.id
+              const Icon     = tab.icon
+              const isActive = activeTab === tab.id
               return (
                 <button key={tab.id} type="button"
                   onClick={() => setActiveTab(tab.id)}
-                  className={cn(
-                    'flex items-start gap-2.5 px-3 py-2.5 text-left transition-colors border-l-2',
-                    isActive
-                      ? 'border-primary bg-primary/8 text-foreground'
-                      : 'border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/20',
-                  )}
+                  className="flex items-start gap-2 px-3 py-2.5 text-left transition-all border-l-2"
+                  style={isActive
+                    ? { borderLeftColor: TEAL, background: `${NAVY}08`, color: NAVY }
+                    : { borderLeftColor: 'transparent', color: '#9CA3AF' }}
+                  onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = NAVY }}
+                  onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = '#9CA3AF' }}
                 >
-                  <Icon size={13} className={cn('mt-0.5 shrink-0', isActive ? 'text-primary' : '')} />
+                  <Icon size={12} className="mt-0.5 shrink-0"
+                    style={{ color: isActive ? TEAL : 'currentColor' }}
+                  />
                   <div>
-                    <p className={cn('text-xs font-semibold leading-tight', isActive && 'text-primary')}>
-                      {tab.label}
-                    </p>
-                    <p className="text-[9px] text-muted-foreground leading-tight mt-0.5">{tab.desc}</p>
+                    <p className="text-[11px] font-semibold leading-tight"
+                      style={{ color: isActive ? NAVY : 'currentColor' }}
+                    >{tab.label}</p>
+                    <p className="text-[9px] leading-tight mt-0.5" style={{ color: '#B0B8C4' }}>{tab.desc}</p>
                   </div>
                 </button>
               )
             })}
+
+            {/* Quick stats footer */}
+            <div className="mt-auto mx-2 mb-2 rounded-xl border border-gray-200 bg-white p-2.5 space-y-1.5">
+              <p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: '#9CA3AF' }}>λ total</p>
+              <p className="text-xs font-bold font-mono" style={{ color: NAVY }}>
+                {watch('factorized.lambda') ?? '—'}
+                <span className="text-[8px] font-normal ml-0.5" style={{ color: '#9CA3AF' }}>×10⁻⁶/h</span>
+              </p>
+            </div>
           </div>
 
           {/* Content pane */}
-          <div className="flex-1 min-w-0 overflow-y-auto p-5">
+          <div className="flex-1 min-w-0 overflow-y-auto p-5 space-y-4 bg-white">
 
-            {/* ── IDENTIFICATION ── */}
+            {/* ─ IDENTIFICATION ─ */}
             {activeTab === 'identification' && (
               <div className="space-y-4">
-                <GroupLabel>Identity</GroupLabel>
-                <FieldRow label="Tag name">
-                  <Input className="font-mono text-sm" {...register('tagName')} />
+                <SectionTitle>Identité</SectionTitle>
+                <FieldRow label="Nom / Tag">
+                  <Input className={inp} {...register('tagName')} />
                 </FieldRow>
                 <FieldRow label="Description">
-                  <Input placeholder="Function or location description" {...register('description')} />
+                  <Input className={inp.replace('font-mono text-sm', 'text-xs')}
+                    placeholder="Fonction ou localisation" {...register('description')} />
                 </FieldRow>
 
-                <div className="h-px bg-border my-2" />
-                <GroupLabel>Classification</GroupLabel>
-
+                <SectionTitle>Classification</SectionTitle>
                 <div className="grid grid-cols-2 gap-3">
                   <FieldRow label="Nature">
                     <Controller name="nature" control={control}
                       render={({ field }) => (
                         <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-8 text-xs rounded-xl border-gray-200"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {NATURE_OPTIONS.map(n => (
                               <SelectItem key={n} value={n} className="capitalize text-xs">{n}</SelectItem>
@@ -304,11 +343,11 @@ export function ComponentParamsSheet({
                     />
                   </FieldRow>
 
-                  <FieldRow label="Category">
+                  <FieldRow label="Catégorie">
                     <Controller name="instrumentCategory" control={control}
                       render={({ field }) => (
                         <Select value={field.value} onValueChange={field.onChange}>
-                          <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="h-8 text-xs rounded-xl border-gray-200"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {INSTRUMENT_CATEGORIES.map(c => (
                               <SelectItem key={c} value={c} className="capitalize text-xs">{c}</SelectItem>
@@ -320,11 +359,11 @@ export function ComponentParamsSheet({
                   </FieldRow>
                 </div>
 
-                <FieldRow label="Instrument type">
+                <FieldRow label="Type d'instrument">
                   <Controller name="instrumentType" control={control}
                     render={({ field }) => (
                       <Select value={field.value} onValueChange={field.onChange}>
-                        <SelectTrigger className="text-xs"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="h-8 text-xs rounded-xl border-gray-200"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {(INSTRUMENT_TYPES[watchedCategory] ?? INSTRUMENT_TYPES.other).map(t => (
                             <SelectItem key={t} value={t} className="text-xs">{t}</SelectItem>
@@ -335,103 +374,86 @@ export function ComponentParamsSheet({
                   />
                 </FieldRow>
 
-                <div className="h-px bg-border my-2" />
-                <GroupLabel>Traceability</GroupLabel>
-
-                <FieldRow label="Manufacturer">
-                  <Input placeholder="e.g. Emerson, Endress+Hauser" className="text-xs" {...register('manufacturer')} />
+                <SectionTitle>Traçabilité</SectionTitle>
+                <FieldRow label="Fabricant">
+                  <Input className={inp.replace('font-mono text-sm', 'text-xs')}
+                    placeholder="ex: Emerson, Endress+Hauser" {...register('manufacturer')} />
                 </FieldRow>
-                <FieldRow label="Data source" hint="Failure rate origin">
-                  <Input placeholder="exida SERH, OREDA, vendor certificate…" className="text-xs" {...register('dataSource')} />
+                <FieldRow label="Source de données" hint="Origine du taux de défaillance">
+                  <Input className={inp.replace('font-mono text-sm', 'text-xs')}
+                    placeholder="exida SERH, OREDA, certificat fournisseur…" {...register('dataSource')} />
                 </FieldRow>
               </div>
             )}
 
-            {/* ── PARAMETERS ── */}
+            {/* ─ PARAMETERS ─ */}
             {activeTab === 'parameters' && (
               <div className="space-y-4">
-                {/* Mode toggle */}
-                <div className="flex rounded-xl border overflow-hidden">
-                  {(['factorized', 'developed'] as ParamMode[]).map(m => (
-                    <button key={m} type="button" onClick={() => setParamMode(m)}
-                      className={cn(
-                        'flex-1 py-2 text-xs font-semibold capitalize transition-colors',
-                        paramMode === m ? 'bg-primary text-primary-foreground' : 'bg-card text-muted-foreground hover:text-foreground',
-                      )}
-                    >
-                      {m}
-                    </button>
-                  ))}
-                </div>
-                <p className="text-[10px] text-muted-foreground -mt-1">
+                <p className="text-[10px]" style={{ color: '#9CA3AF' }}>
                   {paramMode === 'factorized'
-                    ? 'Enter λ total + ratios — developed values computed automatically'
-                    : 'Enter λDU, λDD, λSU, λSD directly (FIT = 10⁻⁹ h⁻¹)'}
+                    ? 'Saisir λ total + ratios — valeurs développées calculées automatiquement'
+                    : 'Saisir λDU, λDD, λSU, λSD directement (FIT = 10⁻⁹ h⁻¹)'}
                 </p>
 
-                {/* Factorized inputs */}
                 {paramMode === 'factorized' && (
                   <div className="space-y-4">
-                    <GroupLabel>Failure rates</GroupLabel>
-                    <FieldRow label="λ total" hint="Total failure rate">
+                    <SectionTitle>Taux de défaillance</SectionTitle>
+                    <FieldRow label="λ total" hint="Taux de défaillance total">
                       <div className="flex items-center gap-2">
-                        <Input type="number" step="0.01" className="font-mono text-sm"
+                        <Input type="number" step="0.01" className={inp}
                           {...register('factorized.lambda', { valueAsNumber: true })} />
-                        <span className="text-xs font-mono text-muted-foreground shrink-0">×10⁻⁶ h⁻¹</span>
+                        <span className="text-xs font-mono shrink-0" style={{ color: '#9CA3AF' }}>×10⁻⁶ h⁻¹</span>
                       </div>
                     </FieldRow>
-
-                    <PctField label="λD/λ — Dangerous fraction"
-                      hint="Fraction of failures that are dangerous"
+                    <PctField label="λD/λ — Fraction dangereuse"
+                      hint="Part des défaillances dangereuses"
                       value={watch('factorized.lambdaDRatio') ?? 0.25}
                       onChange={v => setValue('factorized.lambdaDRatio', v)}
                     />
-                    <PctField label="DCd — Dangerous coverage"
-                      hint="Fraction of dangerous failures detected by diagnostics"
+                    <PctField label="DCd — Couverture diagnostique dangereuse"
+                      hint="Part des défaillances dangereuses détectées par les diagnostics"
                       value={watch('factorized.DCd') ?? 0.7}
                       onChange={v => setValue('factorized.DCd', v)}
                     />
-                    <PctField label="DCs — Safe coverage"
-                      hint="Fraction of safe failures detected"
+                    <PctField label="DCs — Couverture diagnostique sûre"
+                      hint="Part des défaillances sûres détectées"
                       value={watch('factorized.DCs') ?? 1.0}
                       onChange={v => setValue('factorized.DCs', v)}
                     />
                   </div>
                 )}
 
-                {/* Developed inputs */}
                 {paramMode === 'developed' && (
                   <div className="space-y-3">
-                    <GroupLabel>Developed failure rates (FIT)</GroupLabel>
+                    <SectionTitle>Taux développés (FIT)</SectionTitle>
                     {([
-                      ['developed.lambda_DU', 'λDU', 'Dangerous Undetected'],
-                      ['developed.lambda_DD', 'λDD', 'Dangerous Detected'],
-                      ['developed.lambda_SU', 'λSU', 'Safe Undetected'],
-                      ['developed.lambda_SD', 'λSD', 'Safe Detected'],
+                      ['developed.lambda_DU', 'λDU', 'Dangereux Non-Détecté'],
+                      ['developed.lambda_DD', 'λDD', 'Dangereux Détecté'],
+                      ['developed.lambda_SU', 'λSU', 'Sûr Non-Détecté'],
+                      ['developed.lambda_SD', 'λSD', 'Sûr Détecté'],
                     ] as [string, string, string][]).map(([key, sym, label]) => (
                       <FieldRow key={key} label={`${sym} — ${label}`}>
                         <div className="flex items-center gap-2">
-                          <Input type="number" step="0.001" min={0} className="font-mono text-sm"
+                          <Input type="number" step="0.001" min={0} className={inp}
                             {...register(key as any, { valueAsNumber: true })} />
-                          <span className="text-xs font-mono text-muted-foreground shrink-0">FIT</span>
+                          <span className="text-xs font-mono shrink-0" style={{ color: '#9CA3AF' }}>FIT</span>
                         </div>
                       </FieldRow>
                     ))}
                   </div>
                 )}
 
-                {/* Computed card */}
-                <div className="h-px bg-border" />
-                <GroupLabel>Computed results</GroupLabel>
+                <SectionTitle>Résultats calculés</SectionTitle>
                 <div className="grid grid-cols-2 gap-2">
                   <ComputedField label="SFF" value={formatPct(SFF)} good={SFF >= 0.6} />
-                  <ComputedField label="DC" value={formatPct(DC)} good={DC >= 0.6} />
+                  <ComputedField label="DC"  value={formatPct(DC)}  good={DC  >= 0.6} />
                 </div>
 
-                {/* Derived developed breakdown */}
                 {derivedDeveloped && paramMode === 'factorized' && (
-                  <div className="rounded-lg border bg-muted/10 p-3 space-y-1.5">
-                    <p className="text-[10px] font-semibold text-muted-foreground mb-2">→ Derived developed values</p>
+                  <div className="rounded-xl border p-3 space-y-1.5" style={{ background: BG, borderColor: '#E5E7EB' }}>
+                    <p className="text-[9px] font-bold uppercase tracking-wider mb-2" style={{ color: '#9CA3AF' }}>
+                      → Valeurs développées dérivées
+                    </p>
                     {Object.entries({
                       'λDU': derivedDeveloped.lambda_DU,
                       'λDD': derivedDeveloped.lambda_DD,
@@ -439,8 +461,8 @@ export function ComponentParamsSheet({
                       'λSD': derivedDeveloped.lambda_SD,
                     }).map(([sym, val]) => (
                       <div key={sym} className="flex justify-between text-xs font-mono">
-                        <span className="text-muted-foreground">{sym}</span>
-                        <span>{val.toExponential(3)} FIT</span>
+                        <span style={{ color: '#9CA3AF' }}>{sym}</span>
+                        <span style={{ color: NAVY }}>{val.toExponential(3)} FIT</span>
                       </div>
                     ))}
                   </div>
@@ -448,59 +470,54 @@ export function ComponentParamsSheet({
               </div>
             )}
 
-            {/* ── TEST ── */}
+            {/* ─ TEST ─ */}
             {activeTab === 'test' && (
               <div className="space-y-4">
-                <GroupLabel>Proof test configuration</GroupLabel>
-
-                <FieldRow label="Test type">
-                  <Controller name="test.testType" control={control}
-                    render={({ field }) => (
-                      <div className="space-y-1.5">
-                        {TEST_TYPES.map(t => (
-                          <button key={t.value} type="button"
-                            onClick={() => field.onChange(t.value)}
-                            className={cn(
-                              'w-full flex items-start gap-2.5 px-3 py-2 rounded-lg border text-left transition-all',
-                              field.value === t.value
-                                ? 'border-primary/40 bg-primary/8'
-                                : 'border-border/50 bg-card hover:border-border hover:bg-muted/20',
-                            )}
+                <SectionTitle>Type de test</SectionTitle>
+                <Controller name="test.testType" control={control}
+                  render={({ field }) => (
+                    <div className="space-y-2">
+                      {TEST_TYPES.map(t => (
+                        <button key={t.value} type="button"
+                          onClick={() => field.onChange(t.value)}
+                          className="w-full flex items-start gap-3 px-3 py-2.5 rounded-xl border text-left transition-all"
+                          style={field.value === t.value
+                            ? { borderColor: `${TEAL}50`, background: `${TEAL}06` }
+                            : { borderColor: '#E5E7EB', background: 'white' }}
+                        >
+                          {/* Radio dot */}
+                          <div className="w-4 h-4 rounded-full border-2 mt-0.5 shrink-0 flex items-center justify-center transition-all"
+                            style={{ borderColor: field.value === t.value ? TEAL : '#D1D5DB' }}
                           >
-                            <div className={cn(
-                              'w-4 h-4 rounded-full border-2 mt-0.5 shrink-0 flex items-center justify-center',
-                              field.value === t.value ? 'border-primary' : 'border-muted-foreground/30',
-                            )}>
-                              {field.value === t.value && (
-                                <div className="w-2 h-2 rounded-full bg-primary" />
-                              )}
-                            </div>
-                            <div>
-                              <p className={cn('text-xs font-semibold', field.value === t.value && 'text-primary')}>{t.label}</p>
-                              <p className="text-[10px] text-muted-foreground">{t.desc}</p>
-                            </div>
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  />
-                </FieldRow>
+                            {field.value === t.value && (
+                              <div className="w-2 h-2 rounded-full" style={{ background: TEAL }} />
+                            )}
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold"
+                              style={{ color: field.value === t.value ? NAVY : '#374151' }}
+                            >{t.label}</p>
+                            <p className="text-[10px] mt-0.5" style={{ color: '#9CA3AF' }}>{t.desc}</p>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                />
 
-                <div className="h-px bg-border" />
-                <GroupLabel>Intervals</GroupLabel>
-
+                <SectionTitle>Intervalles</SectionTitle>
                 <div className="grid grid-cols-2 gap-3">
-                  <FieldRow label="T1 — Proof test interval">
+                  <FieldRow label="T1 — Intervalle de test">
                     <div className="flex gap-1.5">
-                      <Input type="number" step="0.1" min={0} className="font-mono text-sm"
+                      <Input type="number" step="0.1" min={0} className={inp}
                         {...register('test.T1', { valueAsNumber: true })} />
                       <Controller name="test.T1Unit" control={control}
                         render={({ field }) => (
                           <Select value={field.value} onValueChange={field.onChange}>
-                            <SelectTrigger className="w-20 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="w-20 h-8 text-xs rounded-xl border-gray-200"><SelectValue /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="yr" className="text-xs">Year(s)</SelectItem>
-                              <SelectItem value="hr" className="text-xs">Hour(s)</SelectItem>
+                              <SelectItem value="yr" className="text-xs">Année(s)</SelectItem>
+                              <SelectItem value="hr" className="text-xs">Heure(s)</SelectItem>
                             </SelectContent>
                           </Select>
                         )}
@@ -508,17 +525,17 @@ export function ComponentParamsSheet({
                     </div>
                   </FieldRow>
 
-                  <FieldRow label="T0 — First test">
+                  <FieldRow label="T0 — Premier test">
                     <div className="flex gap-1.5">
-                      <Input type="number" step="0.1" min={0} className="font-mono text-sm"
+                      <Input type="number" step="0.1" min={0} className={inp}
                         {...register('test.T0', { valueAsNumber: true })} />
                       <Controller name="test.T0Unit" control={control}
                         render={({ field }) => (
                           <Select value={field.value} onValueChange={field.onChange}>
-                            <SelectTrigger className="w-20 text-xs"><SelectValue /></SelectTrigger>
+                            <SelectTrigger className="w-20 h-8 text-xs rounded-xl border-gray-200"><SelectValue /></SelectTrigger>
                             <SelectContent>
-                              <SelectItem value="yr" className="text-xs">Year(s)</SelectItem>
-                              <SelectItem value="hr" className="text-xs">Hour(s)</SelectItem>
+                              <SelectItem value="yr" className="text-xs">Année(s)</SelectItem>
+                              <SelectItem value="hr" className="text-xs">Heure(s)</SelectItem>
                             </SelectContent>
                           </Select>
                         )}
@@ -529,65 +546,63 @@ export function ComponentParamsSheet({
               </div>
             )}
 
-            {/* ── ADVANCED ── */}
+            {/* ─ ADVANCED ─ */}
             {activeTab === 'advanced' && (
               <div className="space-y-4">
-                <GroupLabel>Repair & availability</GroupLabel>
+                <SectionTitle>Réparation & disponibilité</SectionTitle>
                 <div className="grid grid-cols-2 gap-3">
-                  <FieldRow label="MTTR" hint="Mean time to repair">
+                  <FieldRow label="MTTR" hint="Temps moyen de réparation">
                     <div className="flex items-center gap-2">
-                      <Input type="number" min={0} className="font-mono text-sm"
+                      <Input type="number" min={0} className={inp}
                         {...register('advanced.MTTR', { valueAsNumber: true })} />
-                      <span className="text-xs text-muted-foreground shrink-0">h</span>
+                      <span className="text-xs font-mono shrink-0" style={{ color: '#9CA3AF' }}>h</span>
                     </div>
                   </FieldRow>
-                  <FieldRow label="Lifetime">
+                  <FieldRow label="Durée de vie">
                     <div className="flex items-center gap-2">
-                      <Input type="number" min={0} placeholder="—" className="font-mono text-sm"
+                      <Input type="number" min={0} placeholder="—" className={inp}
                         {...register('advanced.lifetime', { valueAsNumber: true })} />
-                      <span className="text-xs text-muted-foreground shrink-0">yr</span>
+                      <span className="text-xs font-mono shrink-0" style={{ color: '#9CA3AF' }}>an</span>
                     </div>
                   </FieldRow>
                 </div>
 
-                <div className="h-px bg-border" />
-                <GroupLabel>Test quality factors</GroupLabel>
+                <SectionTitle>Facteurs qualité de test</SectionTitle>
                 <div className="grid grid-cols-2 gap-3">
                   {[
-                    { key: 'advanced.gamma',   label: 'γ — Failure due to test',   unit: 'prob.' },
-                    { key: 'advanced.sigma',   label: 'σ — Test efficiency',        unit: 'prob.' },
-                    { key: 'advanced.omega1',  label: 'ω₁ — Setup error (test)',    unit: 'prob.' },
-                    { key: 'advanced.omega2',  label: 'ω₂ — Setup error (repair)',  unit: 'prob.' },
+                    { key: 'advanced.gamma',  label: 'γ — Défaillance due au test',   unit: 'prob.' },
+                    { key: 'advanced.sigma',  label: 'σ — Efficacité du test',        unit: 'prob.' },
+                    { key: 'advanced.omega1', label: 'ω₁ — Erreur de remise en état', unit: 'prob.' },
+                    { key: 'advanced.omega2', label: 'ω₂ — Erreur de réparation',     unit: 'prob.' },
                   ].map(f => (
                     <FieldRow key={f.key} label={f.label}>
                       <div className="flex items-center gap-2">
-                        <Input type="number" step="0.001" min={0} max={1} className="font-mono text-sm"
+                        <Input type="number" step="0.001" min={0} max={1} className={inp}
                           {...register(f.key as any, { valueAsNumber: true })} />
-                        <span className="text-xs text-muted-foreground shrink-0">{f.unit}</span>
+                        <span className="text-xs font-mono shrink-0" style={{ color: '#9CA3AF' }}>{f.unit}</span>
                       </div>
                     </FieldRow>
                   ))}
                 </div>
 
-                <PctField label="Proof test coverage"
-                  hint="Fraction of faults revealed by the proof test"
+                <PctField label="Couverture du test de preuve"
+                  hint="Part des défauts révélés par le test périodique"
                   value={watch('advanced.proofTestCoverage') ?? 1}
                   onChange={v => setValue('advanced.proofTestCoverage', v)}
                 />
-
-                <PctField label="DC alarmed only"
-                  hint="Diagnostics that alarm but do not shutdown"
+                <PctField label="DC alarme seule"
+                  hint="Diagnostics qui alarment sans déclencher l'arrêt"
                   value={watch('advanced.DCalarmedOnly') ?? 0}
                   onChange={v => setValue('advanced.DCalarmedOnly', v)}
                 />
 
-                <div className="h-px bg-border" />
-                <GroupLabel>Partial proof test (PST)</GroupLabel>
-
+                <SectionTitle>Test de preuve partiel (PST)</SectionTitle>
                 <div className="flex items-center justify-between py-1">
                   <div>
-                    <p className="text-xs font-medium">Enable partial test</p>
-                    <p className="text-[10px] text-muted-foreground">Intermediate partial proof test between full tests</p>
+                    <p className="text-xs font-semibold" style={{ color: NAVY }}>Activer le test partiel</p>
+                    <p className="text-[10px]" style={{ color: '#9CA3AF' }}>
+                      Test partiel intermédiaire entre les tests complets
+                    </p>
                   </div>
                   <Controller name="advanced.partialTest.enabled" control={control}
                     render={({ field }) => (
@@ -597,20 +612,22 @@ export function ComponentParamsSheet({
                 </div>
 
                 {watch('advanced.partialTest.enabled') && (
-                  <div className="grid grid-cols-2 gap-3 pl-3 border-l-2 border-primary/20">
-                    <FieldRow label="Duration (π)">
+                  <div className="grid grid-cols-2 gap-3 pl-3 border-l-2 ml-1"
+                    style={{ borderLeftColor: `${TEAL}40` }}
+                  >
+                    <FieldRow label="Durée (π)">
                       <div className="flex items-center gap-2">
-                        <Input type="number" min={0} className="font-mono text-sm"
+                        <Input type="number" min={0} className={inp}
                           {...register('advanced.partialTest.duration', { valueAsNumber: true })} />
-                        <span className="text-xs text-muted-foreground shrink-0">h</span>
+                        <span className="text-xs font-mono shrink-0" style={{ color: '#9CA3AF' }}>h</span>
                       </div>
                     </FieldRow>
-                    <FieldRow label="Number of tests">
-                      <Input type="number" min={1} step={1} className="font-mono text-sm"
+                    <FieldRow label="Nombre de tests">
+                      <Input type="number" min={1} step={1} className={inp}
                         {...register('advanced.partialTest.numberOfTests', { valueAsNumber: true })} />
                     </FieldRow>
                     <div className="col-span-2">
-                      <PctField label="Detected faults"
+                      <PctField label="Défauts détectés"
                         value={watch('advanced.partialTest.detectedFaultsPct') ?? 0.5}
                         onChange={v => setValue('advanced.partialTest.detectedFaultsPct', v)}
                       />
@@ -623,21 +640,24 @@ export function ComponentParamsSheet({
         </form>
 
         {/* ── Footer ── */}
-        <div className="shrink-0 border-t px-5 py-3 flex items-center justify-between bg-card gap-3">
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+        <div className="shrink-0 border-t px-5 py-3 flex items-center justify-between gap-3" style={{ background: BG }}>
+          <div className="flex items-center gap-2 text-xs" style={{ color: '#9CA3AF' }}>
             <Info size={11} />
-            <span>Changes apply immediately on Save</span>
+            <span>Les modifications s'appliquent à la sauvegarde</span>
           </div>
           <div className="flex gap-2">
-            <Button type="button" variant="outline" size="sm" className="h-8 text-xs" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              type="button" size="sm" className="h-8 text-xs gap-1.5"
-              onClick={handleSubmit(onSubmit)}
+            <button type="button" onClick={onClose}
+              className="h-8 px-4 text-xs font-semibold rounded-xl border border-gray-200 bg-white transition-all hover:border-gray-300"
+              style={{ color: '#6B7280' }}
+            >Annuler</button>
+            <button type="button" onClick={handleSubmit(onSubmit)}
+              className="h-8 px-4 text-xs font-semibold text-white rounded-xl flex items-center gap-1.5 transition-all shadow-sm"
+              style={{ background: NAVY }}
+              onMouseEnter={e => (e.currentTarget.style.background = NAVY2)}
+              onMouseLeave={e => (e.currentTarget.style.background = NAVY)}
             >
-              <Save size={12} /> Save component
-            </Button>
+              <Save size={12} />Sauvegarder
+            </button>
           </div>
         </div>
       </SheetContent>

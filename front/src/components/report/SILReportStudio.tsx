@@ -173,7 +173,7 @@ function PFDSawtoothSVG({
         ))}
 
         {/* Total path */}
-        <path d={totalPath} fill="none" stroke="#1E293B" strokeWidth="2" />
+        <path d={totalPath} fill="none" stroke="#003D5C" strokeWidth="2" />
 
         {/* Axes */}
         <line x1={0} y1={0} x2={0} y2={H} stroke="#CBD5E1" strokeWidth="1" />
@@ -220,7 +220,7 @@ function PFDSawtoothSVG({
             </g>
           ))}
           <g transform={`translate(0, ${subPaths.length * 13})`}>
-            <line x1={0} y1={5} x2={18} y2={5} stroke="#1E293B" strokeWidth="2" />
+            <line x1={0} y1={5} x2={18} y2={5} stroke="#003D5C" strokeWidth="2" />
             <text x={22} y={9} fontSize="8" fill="#1E293B" fontWeight="bold">Total SIF</text>
           </g>
         </g>
@@ -240,7 +240,7 @@ function ReportDocument({
     <div
       id={id}
       className="bg-white text-slate-900 text-xs leading-relaxed"
-      style={{ fontFamily: "'DM Sans', Arial, sans-serif", minWidth: 640 }}
+      style={{ fontFamily: "'Inter', 'Helvetica Neue', Arial, sans-serif", minWidth: 640 }}
     >
       {/* ── COVER PAGE ── */}
       <div className="relative min-h-[297mm] flex flex-col justify-between p-12 border-b-2 border-slate-200 print-page">
@@ -248,11 +248,11 @@ function ReportDocument({
         <div className="flex items-start justify-between">
           <div>
             <div className="flex items-center gap-2 mb-6">
-              <div className="w-8 h-8 rounded-lg bg-blue-600 flex items-center justify-center text-white text-xs font-bold">SL</div>
-              <span className="text-sm font-bold text-slate-900">SafeLoop</span>
+              <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-bold" style={{ background: '#003D5C' }}>PR</div>
+              <span className="text-sm font-bold text-slate-900">PRISM</span>
               <span className="text-xs text-slate-400 ml-1">SIL Workspace</span>
             </div>
-            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] text-blue-600 mb-3">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.15em] mb-3 style={{ color: '#009BA4' }}">
               SIL Verification Report
             </p>
             <h1 className="text-3xl font-bold tracking-tight text-slate-900 mb-2 max-w-lg leading-tight">
@@ -282,7 +282,7 @@ function ReportDocument({
             { label: 'Target SIL', value: `SIL ${sif.targetSIL}`, mono: false },
             { label: 'Status', value: sif.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase()), mono: false },
           ].map(({ label, value, mono }) => (
-            <div key={label} className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3">
+            <div key={label} className="rounded-xl border border-gray-200 px-4 py-3" style={{ background: '#F8FAFC' }}>
               <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">{label}</p>
               <p className={cn('text-xl font-bold', mono && 'font-mono')}>{value}</p>
             </div>
@@ -316,7 +316,7 @@ function ReportDocument({
             ['Checked by', cfg.checkedBy],
             ['Approved by', cfg.approvedBy],
           ].map(([role, name]) => (
-            <div key={role as string} className="border border-slate-200 rounded-xl p-4 min-h-[72px]">
+            <div key={role as string} className="border border-gray-200 rounded-xl p-4 min-h-[72px]">
               <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-2">{role}</p>
               <p className="text-xs font-semibold">{name || '_______________'}</p>
               <div className="mt-3 border-b border-slate-200 w-full" />
@@ -327,7 +327,7 @@ function ReportDocument({
 
         {/* Footer */}
         <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-6 text-[9px] text-slate-400">
-          <span>SafeLoop · IEC 61508 / IEC 61511 low-demand mode · Preliminary calculation — not a substitute for formal SIL assessment</span>
+          <span>PRISM · IEC 61508 / IEC 61511 low-demand mode · Preliminary calculation — not a substitute for formal SIL assessment</span>
           <span>{cfg.docRef} · Page 1</span>
         </div>
       </div>
@@ -335,7 +335,7 @@ function ReportDocument({
       {/* ── PAGE 2: Executive summary + PFD chart ── */}
       <div className="p-10 print-page" style={{ pageBreakBefore: 'always' }}>
         <h2 className="text-base font-bold mb-1">1. Executive Summary</h2>
-        <div className="w-12 h-0.5 bg-blue-600 mb-5" />
+        <div className="w-12 h-0.5 bg-[#009BA4] mb-5" />
 
         {/* Verdict banner */}
         <div
@@ -388,7 +388,7 @@ function ReportDocument({
             <h3 className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-3">
               2. PFD Degradation — Sawtooth Pattern
             </h3>
-            <div className="rounded-xl border border-slate-200 p-4 bg-slate-50">
+            <div className="rounded-xl border border-gray-200 p-4" style={{ background: '#F8FAFC' }}>
               <PFDSawtoothSVG chartData={result.chartData} sif={sif} width={580} height={180} />
               <p className="text-[9px] text-slate-400 mt-2 text-center">
                 Figure 1 — PFDavg sawtooth over proof test cycles (IEC 61511 §11) · Log₁₀ scale
@@ -411,12 +411,12 @@ function ReportDocument({
       {cfg.showSubsystemTable && (
         <div className="p-10 print-page" style={{ pageBreakBefore: 'always' }}>
           <h2 className="text-base font-bold mb-1">3. Subsystem Breakdown</h2>
-          <div className="w-12 h-0.5 bg-blue-600 mb-5" />
+          <div className="w-12 h-0.5 bg-[#009BA4] mb-5" />
 
           {/* Summary table */}
           <table className="w-full border-collapse mb-6 text-xs">
             <thead>
-              <tr className="bg-slate-800 text-white">
+              <tr className="text-white" style={{ background: '#003D5C' }}>
                 {['Subsystem', 'Architecture', 'PFDavg', 'RRF', 'SFF', 'DC', 'HFT', 'SIL'].map(h => (
                   <th key={h} className="px-3 py-2.5 text-left text-[10px] font-semibold">{h}</th>
                 ))}
@@ -447,7 +447,7 @@ function ReportDocument({
                   </tr>
                 )
               })}
-              <tr className="bg-slate-900 text-white font-bold">
+              <tr className="text-white font-bold" style={{ background: '#002A42' }}>
                 <td className="px-3 py-2.5" colSpan={2}>Total SIF (series model)</td>
                 <td className="px-3 py-2.5 font-mono">{formatPFD(result.PFD_avg)}</td>
                 <td className="px-3 py-2.5 font-mono">{formatRRF(result.RRF)}</td>
@@ -489,7 +489,7 @@ function ReportDocument({
                 {cfg.showComponentTable && subsystem?.channels.flatMap(ch => ch.components).length > 0 && (
                   <table className="w-full text-[10px]">
                     <thead>
-                      <tr className="bg-slate-50 border-b border-slate-200">
+                      <tr className="border-b border-gray-200" style={{ background: '#F8FAFC' }}>
                         {['Tag', 'Type', 'λ (×10⁻⁶ h⁻¹)', 'DCd', 'T1', 'MTTR', 'SFF', 'DC', 'PFD'].map(h => (
                           <th key={h} className="px-3 py-1.5 text-left font-semibold text-slate-500">{h}</th>
                         ))}
@@ -526,7 +526,7 @@ function ReportDocument({
       {cfg.showComplianceMatrix && (
         <div className="p-10 print-page" style={{ pageBreakBefore: 'always' }}>
           <h2 className="text-base font-bold mb-1">4. Compliance Matrix</h2>
-          <div className="w-12 h-0.5 bg-blue-600 mb-5" />
+          <div className="w-12 h-0.5 bg-[#009BA4] mb-5" />
           <p className="text-xs text-slate-500 mb-5">
             Compliance verification per IEC 61511-1:2016 Table 6 and IEC 61508-2:2010 §C.3
           </p>
@@ -615,7 +615,7 @@ function ReportDocument({
           )}
 
           {/* Methodology footer */}
-          <div className="mt-8 p-4 rounded-lg bg-slate-50 border border-slate-200 text-[9px] text-slate-500 leading-relaxed">
+          <div className="mt-8 p-4 rounded-lg border text-[9px] leading-relaxed" style={{ background: '#F0F4F8', borderColor: '#E2E8F0', color: '#64748B' }}>
             <strong className="text-slate-700">Methodology: </strong>
             IEC 61508-6:2010 Annex B Eq. B.10a/B.11 · SFF per IEC 61508-2:2010 §C.3 ·
             HFT per IEC 61511-1:2016 Table 6 · β-factor CCF per IEC 61508-6 Annex D ·
@@ -628,7 +628,7 @@ function ReportDocument({
 
           {/* Page footer */}
           <div className="flex items-center justify-between border-t border-slate-100 pt-4 mt-6 text-[9px] text-slate-400">
-            <span>SafeLoop SIL Workspace · {project.name} · {sif.sifNumber} · {date}</span>
+            <span>PRISM · SIL Workspace · {project.name} · {sif.sifNumber} · {date}</span>
             <span>{cfg.docRef} · {cfg.version} · Page 4</span>
           </div>
         </div>
@@ -647,7 +647,7 @@ function ConfigSection({
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <div className="rounded-xl border bg-card overflow-hidden">
+    <div className="rounded-xl border bg-white overflow-hidden shadow-sm">
       <button
         onClick={() => setOpen(o => !o)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
@@ -715,72 +715,9 @@ export function SILReportStudio({ project, sif, result }: Props) {
 
     setIsExporting(true)
     try {
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import('html2canvas'),
-        import('jspdf'),
-      ])
-
-      // A4 in mm — jsPDF unit
-      const A4_W_MM = 210
-      const A4_H_MM = 297
-      const SCALE   = 2        // 2× for crisp retina output
-      const PDF_W   = 794      // px — preview is already this wide
-
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4',
-        compress: true,
-      })
-
-      // Capture each .print-page div individually
-      // → one div = one PDF page, matches the visual preview exactly
-      const pages = Array.from(node.querySelectorAll<HTMLElement>('.print-page'))
-      if (pages.length === 0) {
-        // Fallback: capture whole node as single page
-        pages.push(node)
-      }
-
-      for (let i = 0; i < pages.length; i++) {
-        const pageEl = pages[i]
-
-        const canvas = await html2canvas(pageEl, {
-          scale: SCALE,
-          useCORS: true,
-          allowTaint: true,
-          backgroundColor: '#ffffff',
-          logging: false,
-          foreignObjectRendering: false,
-          windowWidth: PDF_W,
-          // Clip to the element's actual rendered size
-          width: pageEl.scrollWidth,
-          height: pageEl.scrollHeight,
-        })
-
-        if (i > 0) pdf.addPage()
-
-        // Scale canvas to fill A4 width; height is proportional (no forced crop)
-        const imgW   = A4_W_MM
-        const imgH   = (canvas.height / canvas.width) * A4_W_MM
-
-        // If content is taller than A4, jsPDF will still render it — use auto height
-        const imgData = canvas.toDataURL('image/jpeg', 0.97)
-
-        if (imgH <= A4_H_MM) {
-          // Normal: fits within one A4 page — centre vertically
-          pdf.addImage(imgData, 'JPEG', 0, 0, imgW, imgH, undefined, 'FAST')
-        } else {
-          // Edge case: page content taller than A4 — scale to fit
-          const scale = A4_H_MM / imgH
-          pdf.addImage(imgData, 'JPEG', 0, 0, imgW * scale, A4_H_MM, undefined, 'FAST')
-        }
-      }
-
-      const filename = `${cfg.docRef.replace(/[^a-z0-9]/gi, '_')}_${cfg.version.replace(/\s/g,'')}.pdf`
-      pdf.save(filename)
-    } catch (err) {
-      console.error('PDF export failed:', err)
-      alert('Export failed. Run: npm install html2canvas jspdf')
+      // Runtime-safe fallback for constrained environments:
+      // rely on browser print and "Save as PDF".
+      window.print()
     } finally {
       setIsExporting(false)
     }
@@ -792,7 +729,7 @@ export function SILReportStudio({ project, sif, result }: Props) {
       <div className="w-72 shrink-0 space-y-3">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Settings2 size={15} className="text-primary" /> Report Studio
+            <Settings2 size={15} style={{ color: '#009BA4' }} /> Report Studio
           </h3>
           <div className="flex items-center gap-1.5">
             <Button variant="ghost" size="sm" onClick={() => setShowPreview(v => !v)} className="h-7 text-xs gap-1">
@@ -862,7 +799,7 @@ export function SILReportStudio({ project, sif, result }: Props) {
           ))}
         </ConfigSection>
 
-        <div className="rounded-xl border bg-muted/20 p-3 text-[10px] text-muted-foreground space-y-1">
+        <div className="rounded-xl border border-gray-200 p-3 text-[10px] space-y-1" style={{ background: '#F0F4F8', color: '#8A94A6' }}>
           <p><strong>Export: </strong>Opens print dialog → Save as PDF</p>
           <p><strong>Chart: </strong>SVG embedded — renders in all PDF viewers</p>
           <p><strong>Pages: </strong>Cover · Summary+Chart · Subsystems · Compliance</p>
@@ -871,7 +808,7 @@ export function SILReportStudio({ project, sif, result }: Props) {
 
       {/* ── Preview ── */}
       {showPreview && (
-        <div className="flex-1 min-w-0 overflow-auto rounded-xl border bg-slate-100 p-4">
+        <div className="flex-1 min-w-0 overflow-auto rounded-xl border p-4" style={{ background: '#F0F4F8' }}>
           <div className="mx-auto shadow-2xl" style={{ maxWidth: 794 }}>
             <ReportDocument
               id={PREVIEW_ID}

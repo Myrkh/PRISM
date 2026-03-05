@@ -44,15 +44,16 @@ export function factorizedToDeveloped(p: FactorizedParams): DevelopedParams {
 }
 
 /** Get effective developed params for a component, respecting param mode */
-export function getEffectiveDeveloped(component: SIFComponent): DevelopedParams {
-  if (component.paramMode === 'factorized') {
+export function getEffectiveDeveloped(component: SIFComponent): DevelopedParams | undefined {
+  if (component.paramMode === 'factorized' && component.factorized) {
     return factorizedToDeveloped(component.factorized)
   }
   return component.developed
 }
 
 // ─── Component metrics ────────────────────────────────────────────────────
-export function calcComponentSFF(d: DevelopedParams): number {
+export function calcComponentSFF(d: DevelopedParams | undefined): number {
+  if (!d) return 0
   const lDU = fitToHr(d.lambda_DU)
   const lDD = fitToHr(d.lambda_DD)
   const lSU = fitToHr(d.lambda_SU)
@@ -61,7 +62,8 @@ export function calcComponentSFF(d: DevelopedParams): number {
   return tot > 0 ? (lDD + lSU + lSD) / tot : 0
 }
 
-export function calcComponentDC(d: DevelopedParams): number {
+export function calcComponentDC(d: DevelopedParams | undefined): number {
+  if (!d) return 0
   const lDU = fitToHr(d.lambda_DU)
   const lDD = fitToHr(d.lambda_DD)
   const tot  = lDU + lDD
@@ -75,7 +77,8 @@ const HFT_MAP: Record<Architecture, number> = {
 export const getHFT = (arch: Architecture): number => HFT_MAP[arch] ?? 0
 
 /** PFDavg for a single component (used as building block) */
-function componentPFD(d: DevelopedParams, TI: number, MTTR: number, arch: Architecture): number {
+function componentPFD(d: DevelopedParams | undefined, TI: number, MTTR: number, arch: Architecture): number {
+  if (!d) return 0
   const lDU = fitToHr(d.lambda_DU)
   const lDD = fitToHr(d.lambda_DD)
 
@@ -123,15 +126,17 @@ export function calcSubsystemPFD(
 
   const componentResults: ComponentCalcResult[] = allComponents.map(comp => {
     const d    = getEffectiveDeveloped(comp)
-    const TI   = comp.test.T1Unit === 'yr' ? comp.test.T1 * 8760 : comp.test.T1
-    const MTTR = comp.advanced.MTTR
+    const TI   = comp.test?.T1Unit === 'yr' ? (comp.test?.T1 ?? 0) * 8760 : (comp.test?.T1 ?? 0)
+    const MTTR = comp.advanced?.MTTR ?? 0
     const pfd  = componentPFD(d, TI, MTTR, subsystem.architecture)
     const SFF  = calcComponentSFF(d)
     const DC   = calcComponentDC(d)
     return {
       componentId: comp.id,
-      lambda_DU: d.lambda_DU, lambda_DD: d.lambda_DD,
-      lambda_SU: d.lambda_SU, lambda_SD: d.lambda_SD,
+      lambda_DU: d?.lambda_DU ?? 0,
+      lambda_DD: d?.lambda_DD ?? 0,
+      lambda_SU: d?.lambda_SU ?? 0,
+      lambda_SD: d?.lambda_SD ?? 0,
       SFF, DC, PFD_avg: pfd, RRF: pfd > 0 ? 1 / pfd : Infinity,
       SIL: classifySIL(pfd),
     }
@@ -189,7 +194,7 @@ function genChartData(sif: SIF, subsystemResults: SubsystemCalcResult[]): PFDCha
   // Use the smallest TI across all subsystems to drive the chart
   const allTIs = sif.subsystems.flatMap(sub =>
     sub.channels.flatMap(ch =>
-      ch.components.map(c => c.test.T1Unit === 'yr' ? c.test.T1 * 8760 : c.test.T1)
+      ch.components.map(c => c.test?.T1Unit === 'yr' ? (c.test?.T1 ?? 0) * 8760 : (c.test?.T1 ?? 0))
     )
   )
   const minTI = allTIs.length > 0 ? Math.min(...allTIs) : 8760
@@ -204,12 +209,17 @@ function genChartData(sif: SIF, subsystemResults: SubsystemCalcResult[]): PFDCha
 
       const comp = allComps[0]
       const d    = getEffectiveDeveloped(comp)
-      const TI   = comp.test.T1Unit === 'yr' ? comp.test.T1 * 8760 : comp.test.T1
+      const TI   = comp.test?.T1Unit === 'yr' ? (comp.test?.T1 ?? 0) * 8760 : (comp.test?.T1 ?? 0)
+      if (TI <= 0) {
+        point[sub.id] = 1e-10
+        point.total += 1e-10
+        return
+      }
       const tMod = t % TI
-      const lDU  = fitToHr(d.lambda_DU)
-      const lDD  = fitToHr(d.lambda_DD)
+      const lDU  = fitToHr(d?.lambda_DU ?? 0)
+      const lDD  = fitToHr(d?.lambda_DD ?? 0)
 
-      const v = Math.max(pfdAtTime(sub.architecture, tMod, lDU, lDD, comp.advanced.MTTR), 1e-10)
+      const v = Math.max(pfdAtTime(sub.architecture, tMod, lDU, lDD, comp.advanced?.MTTR ?? 0), 1e-10)
       point[sub.id] = v
       point.total += v
     })
