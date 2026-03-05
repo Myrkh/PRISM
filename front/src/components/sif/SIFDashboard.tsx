@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { CheckCircle2, AlertTriangle, LayoutDashboard, Network, BarChart3, Shield, Gauge, Sparkles, ArrowRight, FileText, FlaskConical, type LucideIcon, Activity, Radio, Zap, Clock, Edit3, Save, X, Plus, Minus } from 'lucide-react'
+import { CheckCircle2, AlertTriangle, LayoutDashboard, Network, BarChart3, Shield, Gauge, Sparkles, ArrowRight, FileText, FlaskConical, Activity, Radio, Zap, Clock, Edit3, Save, X, Plus, Minus } from 'lucide-react'
 import { ProofTestTab } from '@/components/prooftest/ProofTestTab'
 import { Button } from '@/components/ui/button'
 import { useAppStore, type SIFTab } from '@/store/appStore'
@@ -36,15 +36,6 @@ export function SIFDashboard({ projectId, sifId }: Props) {
   const updateHAZOP = useAppStore(s => s.updateHAZOPTrace)
 
   if (!project || !sif || !result) return null
-
-  const TABS: { id: SIFTab; label: string; hint: string; icon: LucideIcon }[] = [
-    { id: 'overview', label: 'Overview', hint: 'Key KPIs & context', icon: LayoutDashboard },
-    { id: 'architecture', label: 'Architecture', hint: 'Chain & components', icon: Network },
-    { id: 'analysis', label: 'Analysis', hint: 'PFD trends & breakdown', icon: BarChart3 },
-    { id: 'compliance', label: 'Compliance', hint: 'Proof & governance', icon: Shield },
-    { id: 'report', label: 'Report', hint: 'SIL Pro PDF builder', icon: FileText },
-    { id: 'prooftest', label: 'Proof Test', hint: 'Procedure & campaigns', icon: FlaskConical },
-  ]
 
   const compliance = useMemo(() => {
     const subsystemChecks = result.subsystems.map((sub, i) => {
@@ -131,45 +122,17 @@ export function SIFDashboard({ projectId, sifId }: Props) {
   }, [result, sif])
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-56px)]">
-      <div className="border-b bg-card/70">
-        <div className="max-w-7xl mx-auto px-6 py-2 grid grid-cols-3 lg:grid-cols-6 gap-1.5">
-          {TABS.map(tab => {
-            const Icon = tab.icon
-            return (
-            <button key={tab.id} onClick={() => setTab(tab.id)}
-              className={cn(
-                'group rounded-xl border px-3 py-2.5 text-left transition-all',
-                activeTab === tab.id
-                  ? 'border-primary/40 bg-primary/10 shadow-sm'
-                  : 'border-transparent text-muted-foreground hover:border-border/70 hover:bg-muted/40 hover:text-foreground',
-              )}
-            >
-              <div className="flex items-start gap-2.5">
-                <Icon className={cn('h-4 w-4 mt-0.5', activeTab === tab.id ? 'text-primary' : 'text-muted-foreground group-hover:text-foreground')} />
-                <div>
-                  <p className={cn('text-sm font-semibold', activeTab === tab.id ? 'text-primary' : 'text-foreground')}>
-                    {tab.label}
-                  </p>
-                  <p className="text-[11px] text-muted-foreground">{tab.hint}</p>
-                </div>
-              </div>
-            </button>
-          )})}
-        </div>
-      </div>
-
-      {/* ── Content ── */}
-      <div className="flex-1 max-w-7xl mx-auto w-full px-6 py-6">
+    <div className="w-full px-6 py-5">
 
         {/* ════ OVERVIEW ════ */}
         {activeTab === 'overview' && (
           <div className="space-y-5">
+            <div className="rounded-b-xl space-y-5">
             {/* KPI strip */}
-            <div className="grid grid-cols-[2fr_1fr_1fr_1fr] gap-4">
+            <div className="grid grid-cols-3 gap-4">
               {/* Main SIF */}
               <div className={cn(
-                'rounded-xl border p-5 flex items-center justify-between gap-4 bg-card',
+                'col-span-3 rounded-xl border p-5 flex items-center justify-between gap-4 bg-card dark:bg-[#23292F] dark:border-[#323A43]',
                 result.meetsTarget
                   ? 'border-emerald-200 dark:border-emerald-900'
                   : 'border-red-200 dark:border-red-900',
@@ -200,7 +163,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
                 const subsystem = sif.subsystems[i]
                 const color = SUB_COLORS[sub.type] ?? '#6B7280'
                 return (
-                  <div key={sub.subsystemId} className="rounded-xl border bg-card p-4 space-y-1.5">
+                  <div key={sub.subsystemId} className="rounded-xl border bg-card p-4 space-y-1.5 dark:bg-[#23292F] dark:border-[#323A43]">
                     <div className="flex justify-between items-start">
                       <span className="text-xs font-semibold" style={{ color }}>{subsystem?.label}</span>
                       <SILBadge sil={sub.SIL} size="sm" />
@@ -220,7 +183,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
             </div>
 
             {/* SIF Chain diagram */}
-            <div className="rounded-xl border bg-card p-5">
+            <div className="rounded-xl border bg-card p-5 dark:bg-[#23292F] dark:border-[#323A43]">
               <div className="flex items-center justify-between mb-4">
                 <div>
                   <h3 className="text-sm font-semibold">Safety Chain</h3>
@@ -234,9 +197,10 @@ export function SIFDashboard({ projectId, sifId }: Props) {
               </div>
               <SIFChainDiagram sif={sif} projectId={projectId} calcResult={result} />
             </div>
+            </div>
 
             {/* Metadata */}
-            <div className="rounded-xl border bg-card p-5">
+            <div className="rounded-xl border bg-card p-5 dark:bg-[#23292F] dark:border-[#323A43]">
               <h3 className="text-sm font-semibold mb-4">SIF Identification</h3>
               <div className="grid grid-cols-3 gap-x-8 gap-y-3">
                 {[
@@ -424,7 +388,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
         {activeTab === 'architecture' && (
           <div className="space-y-6">
             {/* Visual chain */}
-            <div className="rounded-xl border bg-card p-5">
+            <div className="rounded-xl border bg-card p-5 dark:bg-[#23292F] dark:border-[#323A43]">
               <h3 className="text-sm font-semibold mb-1">Safety Chain Diagram</h3>
               <p className="text-xs text-muted-foreground mb-4">
                 Click any component tag to edit its parameters
@@ -433,7 +397,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
             </div>
 
             {/* Interactive builder */}
-            <div className="rounded-xl border bg-card p-5">
+            <div className="rounded-xl border bg-card p-5 dark:bg-[#23292F] dark:border-[#323A43]">
               <h3 className="text-sm font-semibold mb-1">Architecture Builder</h3>
               <p className="text-xs text-muted-foreground mb-4">
                 Add subsystems, change architecture (MooN), add channels and components
@@ -496,7 +460,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
         {activeTab === 'compliance' && (
           <div className="space-y-5">
             <div className="grid grid-cols-1 lg:grid-cols-[1.2fr_1fr] gap-4">
-              <div className="rounded-xl border bg-card p-5">
+            <div className="rounded-xl border bg-card p-5 dark:bg-[#23292F] dark:border-[#323A43]">
                 <div className="flex items-start justify-between gap-3">
                   <div>
                     <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Live Compliance Score</p>
@@ -522,7 +486,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
                 </div>
               </div>
 
-              <div className="rounded-xl border bg-card p-5">
+              <div className="rounded-xl border bg-card p-5 dark:bg-[#23292F] dark:border-[#323A43]">
                 <div className="flex items-center gap-2 mb-3">
                   <Sparkles className="h-4 w-4 text-primary" />
                   <p className="text-sm font-semibold">Next best actions</p>
@@ -632,7 +596,6 @@ export function SIFDashboard({ projectId, sifId }: Props) {
         {activeTab === 'report' && (
           <SILReportStudio project={project} sif={sif} result={result} />
         )}
-      </div>
     </div>
   )
 }

@@ -1,182 +1,112 @@
 import { useMemo, useRef, useState, useEffect } from 'react'
-import { ChevronRight, ChevronsUpDown, Moon, Settings, ShieldCheck, Sun, UserCircle2 } from 'lucide-react'
+import { Moon, Settings, Sun, UserCircle2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import {
-  Select,
-  SelectContent,
-  SelectGroup,
-  SelectItem,
-  SelectLabel,
-  SelectSeparator,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select'
-import { useAppStore, selectCurrentSIF } from '@/store/appStore'
+import { useAppStore } from '@/store/appStore'
 import { SILBadge } from '@/components/shared/SILBadge'
 import { calcSIF } from '@/core/math/pfdCalc'
 import { SettingsModal } from './SettingsModal'
 import { CommandPalette } from './CommandPalette'
 
 export function AppHeader() {
-  const isDark = useAppStore(s => s.isDark)
+  const isDark      = useAppStore(s => s.isDark)
   const toggleTheme = useAppStore(s => s.toggleTheme)
-  const view = useAppStore(s => s.view)
-  const navigate = useAppStore(s => s.navigate)
-  const openEditSIF = useAppStore(s => s.openEditSIF)
-  const projects = useAppStore(s => s.projects)
-  const sif = useAppStore(selectCurrentSIF)
+  const view        = useAppStore(s => s.view)
+  const navigate    = useAppStore(s => s.navigate)
+  const projects    = useAppStore(s => s.projects)
 
-  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
-  const [isSettingsOpen, setIsSettingsOpen] = useState(false)
+  const [isUserMenuOpen,  setIsUserMenuOpen]  = useState(false)
+  const [isSettingsOpen,  setIsSettingsOpen]  = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
 
+  // Close user menu on outside click / Escape
   useEffect(() => {
-    const onClickOutside = (event: MouseEvent) => {
-      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+    const handler = (e: MouseEvent) => {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node))
         setIsUserMenuOpen(false)
-      }
     }
-    document.addEventListener('mousedown', onClickOutside)
-    return () => document.removeEventListener('mousedown', onClickOutside)
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
   }, [])
 
   useEffect(() => {
-    const onEscape = (event: KeyboardEvent) => {
-      if (event.key === 'Escape') setIsUserMenuOpen(false)
-    }
-    document.addEventListener('keydown', onEscape)
-    return () => document.removeEventListener('keydown', onEscape)
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') setIsUserMenuOpen(false) }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
   }, [])
 
-  const project = view.type !== 'projects'
-    ? projects.find(p => p.id === (view as { projectId: string }).projectId)
+  // Current SIF (only in dashboard view)
+  const sif = view.type === 'sif-dashboard'
+    ? projects.find(p => p.id === view.projectId)?.sifs.find(s => s.id === view.sifId)
     : undefined
 
   const calcResult = useMemo(() => sif ? calcSIF(sif) : null, [sif])
 
-  const selectorValue = view.type === 'projects'
-    ? 'projects'
-    : view.type === 'sif-list'
-      ? `project:${view.projectId}`
-      : `sif:${view.projectId}:${view.sifId}`
-
-  const onSelectorChange = (value: string) => {
-    if (value === 'projects') {
-      navigate({ type: 'projects' })
-      return
-    }
-
-    if (value.startsWith('project:')) {
-      const projectId = value.split(':')[1]
-      navigate({ type: 'sif-list', projectId })
-      return
-    }
-
-    if (value.startsWith('sif:')) {
-      const [, projectId, sifId] = value.split(':')
-      navigate({ type: 'sif-dashboard', projectId, sifId, tab: 'overview' })
-    }
-  }
+  // Whether we're in the full workbench (hides the nav selector — handled by left panel)
+  const isWorkbench = view.type === 'sif-dashboard'
 
   return (
     <>
-      <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 supports-[backdrop-filter]:backdrop-blur-md">
-        <div className="h-16 px-6 flex items-center gap-4">
+      <header className="sticky top-0 z-50 border-b border-border/80 bg-background/95 supports-[backdrop-filter]:backdrop-blur-md dark:border-[#2B323A] dark:bg-[#14181C]/95">
+        <div className="h-14 px-4 flex items-center gap-3">
+
+          {/* Logo — always visible */}
           <button
             onClick={() => navigate({ type: 'projects' })}
-            className="flex items-center gap-2.5 shrink-0 hover:opacity-90 transition-opacity"
+            className="flex items-center gap-2 shrink-0 hover:opacity-90 transition-opacity"
           >
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600 to-blue-700 flex items-center justify-center shadow-sm">
-              <ShieldCheck size={17} className="text-white" strokeWidth={2.5} />
-            </div>
-            <div>
-              <span className="text-lg font-bold tracking-tight">PRISM</span>
-              <span className="hidden lg:inline text-xs text-muted-foreground ml-2">SIL Workspace</span>
-            </div>
+            <img src="/favicon2.png" alt="PRISM" className="h-7 w-7 rounded-sm object-contain" />
+            <span className="text-2xl font-extrabold tracking-wide dark:text-[#DDE3EA]">PRISM</span>
+            {!isWorkbench && (
+              <span className="hidden lg:inline text-xs text-muted-foreground ml-1">SIL Workspace</span>
+            )}
           </button>
-
-          <div className="hidden md:flex items-center text-muted-foreground">
-            <ChevronRight size={16} />
-          </div>
-
-          <div className="min-w-0 max-w-[680px] flex-1">
-            <Select value={selectorValue} onValueChange={onSelectorChange}>
-              <SelectTrigger className="h-10 rounded-xl border-border/70 bg-card/70">
-                <div className="flex items-center gap-2 min-w-0">
-                  <SelectValue placeholder="Navigate project / SIF" />
-                  <ChevronsUpDown className="h-4 w-4 text-muted-foreground" />
-                </div>
-              </SelectTrigger>
-              <SelectContent>
-                <SelectGroup>
-                  <SelectLabel>Workspace</SelectLabel>
-                  <SelectItem value="projects">All projects</SelectItem>
-                  <SelectSeparator />
-                  {projects.flatMap(p => {
-                    const projectItems = [
-                      <SelectLabel key={`project-label:${p.id}`} className="pt-2 pb-1 normal-case text-xs tracking-normal text-foreground">
-                        {p.name}
-                      </SelectLabel>,
-                      <SelectItem key={`project:${p.id}`} value={`project:${p.id}`}>
-                        Open SIF list
-                      </SelectItem>,
-                      ...p.sifs.map(s => (
-                        <SelectItem key={s.id} value={`sif:${p.id}:${s.id}`} className="pl-7">
-                          {s.sifNumber} · {s.title || 'Untitled SIF'}
-                        </SelectItem>
-                      )),
-                    ]
-
-                    if (p.sifs.length === 0) {
-                      projectItems.push(
-                        <SelectItem key={`empty:${p.id}`} value={`project:${p.id}:empty`} disabled className="pl-7 text-muted-foreground">
-                          No SIF yet
-                        </SelectItem>,
-                      )
-                    }
-
-                    projectItems.push(<SelectSeparator key={`sep:${p.id}`} />)
-                    return projectItems
-                  })}
-                </SelectGroup>
-              </SelectContent>
-            </Select>
-          </div>
-
-          {sif && (
-            <div className="hidden md:flex items-center gap-2 text-xs text-muted-foreground">
-              <Badge variant="outline" className="font-mono">Rev. {sif.revision}</Badge>
-              <span>{sif.status.replace('_', ' ')}</span>
-            </div>
+          
+          {/* SIF title (workbench only) */}
+          {isWorkbench && sif && (
+            <>
+              <div className="h-6 w-px bg-border/80 mx-2" />
+              <h1 className="text-[15px] font-bold truncate text-foreground">
+                {sif.sifNumber} · {sif.title || sif.description || sif.sifNumber}
+              </h1>
+            </>
           )}
 
-          <div className="ml-auto flex items-center gap-2">
+          {/* When NOT in workbench: show breadcrumb / project name */}
+          {!isWorkbench && view.type === 'sif-list' && (() => {
+            const proj = projects.find(p => p.id === view.projectId)
+            return proj ? (
+              <span className="text-sm text-muted-foreground truncate">
+                → {proj.name}
+              </span>
+            ) : null
+          })()}
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+          {/* Right cluster */}
+          <div className="flex items-center gap-2">
             <CommandPalette onOpenSettings={() => setIsSettingsOpen(true)} />
 
+            {/* SIL badge (workbench only) */}
             {calcResult && <SILBadge sil={calcResult.SIL} size="md" />}
 
+            {/* User menu */}
             <div className="relative" ref={userMenuRef}>
               <Button
-                variant="ghost"
-                size="icon"
-                className="rounded-full"
-                aria-haspopup="menu"
-                aria-expanded={isUserMenuOpen}
+                variant="ghost" size="icon"
+                className="rounded-full dark:text-[#D8E0E8]"
                 onClick={() => setIsUserMenuOpen(v => !v)}
               >
-                <UserCircle2 className="h-7 w-7" />
+                <UserCircle2 className="h-6 w-6" />
               </Button>
 
               {isUserMenuOpen && (
-                <div className="absolute right-0 top-11 w-56 rounded-xl border border-border/70 bg-card/95 p-1.5 shadow-[0_12px_30px_rgba(2,6,23,0.22),0_2px_10px_rgba(2,6,23,0.12)] supports-[backdrop-filter]:backdrop-blur-sm">
+                <div className="absolute right-0 top-10 w-52 rounded-xl border border-border/70 bg-card/95 p-1.5 shadow-xl supports-[backdrop-filter]:backdrop-blur-sm z-50">
                   <button
                     type="button"
                     className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
-                    onClick={() => {
-                      setIsSettingsOpen(true)
-                      setIsUserMenuOpen(false)
-                    }}
+                    onClick={() => { setIsSettingsOpen(true); setIsUserMenuOpen(false) }}
                   >
                     <span className="inline-flex items-center gap-2">
                       <Settings className="h-4 w-4" /> Settings
@@ -185,10 +115,7 @@ export function AppHeader() {
                   <button
                     type="button"
                     className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
-                    onClick={() => {
-                      toggleTheme()
-                      setIsUserMenuOpen(false)
-                    }}
+                    onClick={() => { toggleTheme(); setIsUserMenuOpen(false) }}
                   >
                     <span className="inline-flex items-center gap-2">
                       {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
@@ -199,6 +126,7 @@ export function AppHeader() {
               )}
             </div>
           </div>
+
         </div>
       </header>
 

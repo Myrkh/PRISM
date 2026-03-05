@@ -5,6 +5,7 @@ import { ProjectsPage } from '@/components/projects/ProjectsPage'
 import { SIFListPage } from '@/components/sif/SIFListPage'
 import { SIFDashboard } from '@/components/sif/SIFDashboard'
 import { SIFModal } from '@/components/sif/SIFModal'
+import { SIFWorkbenchLayout } from '@/components/layout/SIFWorkbenchLayout'
 
 export default function App() {
   const view   = useAppStore(s => s.view)
@@ -29,7 +30,9 @@ export default function App() {
 
       {view.type === 'sif-dashboard' && (
         <>
-          <SIFDashboard projectId={view.projectId} sifId={view.sifId} />
+          <SIFWorkbenchLayout projectId={view.projectId} sifId={view.sifId}>
+            <SIFDashboard projectId={view.projectId} sifId={view.sifId} />
+          </SIFWorkbenchLayout>
           <SIFModal projectId={view.projectId} />
         </>
       )}

@@ -30,25 +30,25 @@
   }
 
   .dark {
-    --background:           222 47% 7%;
-    --foreground:           210 40% 98%;
-    --card:                 222 42% 12%;
-    --card-foreground:      210 40% 98%;
-    --popover:              222 42% 12%;
-    --popover-foreground:   210 40% 98%;
-    --border:               217 33% 17%;
-    --input:                217 33% 17%;
-    --primary:              217 91% 60%;
-    --primary-foreground:   0 0% 100%;
-    --secondary:            217 33% 17%;
-    --secondary-foreground: 210 40% 98%;
-    --muted:                217 33% 17%;
-    --muted-foreground:     215 20% 65%;
-    --accent:               217 33% 17%;
-    --accent-foreground:    210 40% 98%;
+    --background:           214 16% 12%;   /* #1A1F24 */
+    --foreground:           210 35% 92%;
+    --card:                 211 14% 16%;   /* #23292F */
+    --card-foreground:      210 35% 92%;
+    --popover:              211 14% 16%;
+    --popover-foreground:   210 35% 92%;
+    --border:               213 16% 22%;
+    --input:                213 16% 22%;
+    --primary:              182 59% 57%;
+    --primary-foreground:   210 40% 98%;
+    --secondary:            213 17% 9%;    /* #14181C */
+    --secondary-foreground: 210 35% 92%;
+    --muted:                213 17% 9%;
+    --muted-foreground:     214 18% 66%;
+    --accent:               213 17% 9%;
+    --accent-foreground:    210 35% 92%;
     --destructive:          0 63% 50%;
     --destructive-foreground: 210 40% 98%;
-    --ring:                 217 91% 60%;
+    --ring:                 182 59% 57%;
   }
 
   /* No @apply here — use raw CSS vars to avoid Tailwind resolution order bug */
