@@ -1,12 +1,13 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useEffect } from 'react'
 import { CheckCircle2, AlertTriangle, LayoutDashboard, Network, BarChart3, Shield, Gauge, Sparkles, ArrowRight, FileText, FlaskConical, Activity, Radio, Zap, Clock, Edit3, Save, X, Plus, Minus } from 'lucide-react'
 import { ProofTestTab } from '@/components/prooftest/ProofTestTab'
 import { Button } from '@/components/ui/button'
 import { useAppStore, type SIFTab } from '@/store/appStore'
 import { SILBadge } from '@/components/shared/SILBadge'
 import { SILGauge } from '@/components/shared/SILGauge'
-import { SIFChainDiagram } from '@/components/architecture/SIFChainDiagram'
-import { ArchitectureBuilder } from '@/components/architecture/ArchitectureBuilder'
+import { LoopEditorFlow } from '@/components/architecture/LoopEditorFlow'
+import { LoopEditorRightPanel } from '@/components/architecture/LoopEditorRightPanel'
+import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { PFDChart } from '@/components/analysis/PFDChart'
 import { SILReportStudio } from '@/components/report/SILReportStudio'
 import { calcSIF, formatPFD, formatRRF, formatPct } from '@/core/math/pfdCalc'
@@ -21,10 +22,23 @@ interface Props { projectId: string; sifId: string }
 export function SIFDashboard({ projectId, sifId }: Props) {
   const view        = useAppStore(s => s.view)
   const setTab      = useAppStore(s => s.setTab)
+  const { setRightPanelOverride } = useLayout()
   const project     = useAppStore(s => s.projects.find(p => p.id === projectId))
   const sif         = project?.sifs.find(s => s.id === sifId)
 
   const activeTab = view.type === 'sif-dashboard' ? view.tab : 'overview'
+
+  // When architecture tab is active → mount LoopEditorRightPanel in the right panel
+  useEffect(() => {
+    if (activeTab === 'architecture' && sif) {
+      setRightPanelOverride(
+        <LoopEditorRightPanel sif={sif} projectId={projectId} />
+      )
+    } else {
+      setRightPanelOverride(null)
+    }
+    return () => { setRightPanelOverride(null) }
+  }, [activeTab, sif?.id, projectId])
   const result    = useMemo(() => sif ? calcSIF(sif) : null, [sif])
 
   // HAZOP edit state (used in Overview)
@@ -121,8 +135,13 @@ export function SIFDashboard({ projectId, sifId }: Props) {
     }
   }, [result, sif])
 
+  // Architecture tab: fills the flex-col card from SIFWorkbenchLayout
+  if (activeTab === 'architecture' && sif) {
+    return <LoopEditorFlow sif={sif} projectId={projectId} />
+  }
+
   return (
-    <div className="w-full px-6 py-5">
+    <div className="flex-1 overflow-y-auto min-h-0 px-6 py-5">
 
         {/* ════ OVERVIEW ════ */}
         {activeTab === 'overview' && (
@@ -195,7 +214,11 @@ export function SIFDashboard({ projectId, sifId }: Props) {
                   Edit architecture →
                 </Button>
               </div>
-              <SIFChainDiagram sif={sif} projectId={projectId} calcResult={result} />
+              {/* Chain summary — click to go to Loop Editor */}
+              <div className="rounded-lg border p-4 text-center cursor-pointer hover:bg-muted/10 transition-colors" onClick={() => setTab('architecture')} style={{ borderColor: '#2A3138', background: '#1D232A' }}>
+                <p className="text-xs text-muted-foreground mb-2">Diagramme de la chaîne de sécurité</p>
+                <p className="text-sm font-semibold" style={{ color: '#009BA4' }}>Ouvrir l'éditeur Loop Editor →</p>
+              </div>
             </div>
             </div>
 
@@ -384,28 +407,8 @@ export function SIFDashboard({ projectId, sifId }: Props) {
         </div>
         )}
 
-        {/* ════ ARCHITECTURE ════ */}
-        {activeTab === 'architecture' && (
-          <div className="space-y-6">
-            {/* Visual chain */}
-            <div className="rounded-xl border bg-card p-5 dark:bg-[#23292F] dark:border-[#323A43]">
-              <h3 className="text-sm font-semibold mb-1">Safety Chain Diagram</h3>
-              <p className="text-xs text-muted-foreground mb-4">
-                Click any component tag to edit its parameters
-              </p>
-              <SIFChainDiagram sif={sif} projectId={projectId} calcResult={result} />
-            </div>
-
-            {/* Interactive builder */}
-            <div className="rounded-xl border bg-card p-5 dark:bg-[#23292F] dark:border-[#323A43]">
-              <h3 className="text-sm font-semibold mb-1">Architecture Builder</h3>
-              <p className="text-xs text-muted-foreground mb-4">
-                Add subsystems, change architecture (MooN), add channels and components
-              </p>
-              <ArchitectureBuilder projectId={projectId} sifId={sifId} />
-            </div>
-          </div>
-        )}
+        {/* ════ ARCHITECTURE (Loop Editor) ════ */}
+        {/* architecture tab handled by early return above */}
 
         {/* ════ ANALYSIS ════ */}
         {activeTab === 'analysis' && (

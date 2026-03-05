@@ -18,7 +18,7 @@
  *  ─── [spacer] ───
  *  PanelRight toggle | Settings | LogOut
  */
-import { useMemo, useState, type ReactNode } from 'react'
+import { useMemo, useState, type ReactNode, createContext, useContext, useEffect } from 'react'
 import {
   Home, FolderPlus, FilePlus, BarChart3, ShieldCheck,
   Settings, LogOut,
@@ -43,6 +43,15 @@ const TEAL_DIM = '#5FD8D2'
 const TEXT     = '#DFE8F1'
 const TEXT_DIM = '#8FA0B1'
 const R        = 8    // border-radius used for tabs & cards
+
+// ─── CONTEXT pour le panneau de droite dynamique ───────────────────────────
+const LayoutContext = createContext<{ setRightPanelOverride: (panel: ReactNode | null) => void }>({
+  setRightPanelOverride: () => {}, // Fonction par défaut qui ne fait rien
+});
+
+// Hook custom pour une utilisation facile dans les composants enfants
+export const useLayout = () => useContext(LayoutContext);
+// ──────────────────────────────────────────────────────────────────────────
 
 // ── Center tab definitions ────────────────────────────────────────────────
 const TABS: { id: SIFTab; label: string; hint: string }[] = [
@@ -196,38 +205,41 @@ function ProjectTree({ projectId, sifId }: { projectId: string; sifId: string })
 // Renders tabs where the active one merges with the card below it.
 // cardBg must match the card background for seamless join.
 // ────────────────────────────────────────────────────────────────────────────
-function IntercalaireTabBar<T extends string>({
-  tabs, active, onSelect, cardBg, borderBottom = true,
+export function IntercalaireTabBar<T extends string>({
+  tabs, active, onSelect, cardBg,
 }: {
   tabs: readonly { id: T; label: string; hint?: string }[]
   active: T
   onSelect: (id: T) => void
   cardBg: string
-  borderBottom?: boolean
 }) {
   return (
     <div
-      className="flex items-end"
+      className="flex items-end border-b"
+      style={{ borderColor: BORDER }}
     >
-      {tabs.map((tab, i) => {
+      {tabs.map((tab) => {
         const isActive = tab.id === active
         return (
           <button
             key={tab.id} type="button"
             onClick={() => onSelect(tab.id)}
-            className="relative flex flex-col items-start gap-0 px-4 py-2 text-left transition-colors shrink-0"
+            className="relative flex flex-1 flex-col items-center justify-end gap-1 px-3 py-2 text-center transition-colors"
             style={isActive ? {
               background:   cardBg,
               borderTop:    `1px solid ${BORDER}`,
               borderLeft:   `1px solid ${BORDER}`,
               borderRight:  `1px solid ${BORDER}`,
-              borderBottom: `1px solid ${cardBg}`,   // invisible seam — same as card
+              borderBottom: `1px solid ${cardBg}`,
               borderRadius: `${R}px ${R}px 0 0`,
               color:        TEAL_DIM,
               marginBottom: '-1px',
               zIndex:       10,
             } : {
               color: TEXT_DIM,
+              borderTop: '1px solid transparent',
+              borderLeft: '1px solid transparent',
+              borderRight: '1px solid transparent',
             }}
             onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = TEXT }}
             onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = TEXT_DIM }}
@@ -252,7 +264,7 @@ function IntercalaireTabBar<T extends string>({
 //  activeIdx === tabs.length-1  → top-right corner is FLAT  (tab sits flush)
 //  otherwise                   → both top corners are rounded
 // ────────────────────────────────────────────────────────────────────────────
-function IntercalaireCard({
+export function IntercalaireCard({
   tabCount, activeIdx, children, cardBg = CARD_BG,
   className, style,
 }: {
@@ -432,9 +444,9 @@ function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) 
 // ────────────────────────────────────────────────────────────────────────────
 // MAIN LAYOUT
 // ────────────────────────────────────────────────────────────────────────────
-interface Props { projectId: string; sifId: string; children: ReactNode }
+interface Props { projectId: string; sifId: string; children: ReactNode; rightPanelContent?: ReactNode; }
 
-export function SIFWorkbenchLayout({ projectId, sifId, children }: Props) {
+export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelContent }: Props) {
   const view           = useAppStore(s => s.view)
   const setTab         = useAppStore(s => s.setTab)
   const navigate       = useAppStore(s => s.navigate)
@@ -448,125 +460,124 @@ export function SIFWorkbenchLayout({ projectId, sifId, children }: Props) {
   const [leftOpen,  setLeftOpen]  = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
 
-  if (!project || !sif) return <>{children}</>
-
   const activeTab  = view.type === 'sif-dashboard' ? view.tab : 'overview'
   const activeIdx  = TABS.findIndex(t => t.id === activeTab)
 
+  const [rightPanelOverride, setRightPanelOverride] = useState<ReactNode | null>(null);
+
+ 
+
+  if (!project || !sif) return <>{children}</>
+
   return (
-    <div
-      className="flex min-h-[calc(100vh-56px)]"
-      style={{ background: PAGE_BG }}
-    >
-      {/* ════════ ICON RAIL (always visible, 48px) ════════ */}
+    <LayoutContext.Provider value={{ setRightPanelOverride }}>
       <div
-        className="flex shrink-0 flex-col items-center gap-1.5 py-3 border-r"
-        style={{ width: 48, background: RAIL_BG, borderColor: BORDER }}
+        className="flex h-[calc(100vh-56px)]"
+        style={{ background: PAGE_BG }}
       >
-        {/* Toggle left panel */}
-        <RailBtn
-          Icon={leftOpen ? PanelLeftClose : PanelLeftOpen}
-          label={leftOpen ? 'Fermer volet projet' : 'Ouvrir volet projet'}
-          onClick={() => setLeftOpen(v => !v)}
-          active={leftOpen}
-        />
-         {/* Toggle right panel */}
-         <RailBtn
-          Icon={rightOpen ? PanelRightClose : PanelRightOpen}
-          label={rightOpen ? 'Fermer volet propriétés' : 'Ouvrir volet propriétés'}
-          onClick={() => setRightOpen(v => !v)}
-          active={rightOpen}
-        />
-
-        <RailDivider />
-
-        {/* Home */}
-        <RailBtn Icon={Home}       label="Accueil"         onClick={() => navigate({ type: 'projects' })} />
-        {/* New project */}
-        <RailBtn Icon={FolderPlus} label="Nouveau projet"  onClick={openNewProject} />
-        {/* New SIF */}
-        <RailBtn Icon={FilePlus}   label="Nouvelle SIF"    onClick={openNewSIF} />
-
-        <RailDivider />
-
-        {/* Quick-nav to tabs */}
-        <RailBtn Icon={BarChart3}   label="Calculations" onClick={() => setTab('analysis')}   active={activeTab === 'analysis'}   />
-        <RailBtn Icon={ShieldCheck} label="Compliance"   onClick={() => setTab('compliance')} active={activeTab === 'compliance'} />
-
-        {/* Spacer */}
-        <div className="flex-1" />
-
-       
-
-        <RailDivider />
-
-        <RailBtn Icon={Settings} label="Paramètres" onClick={() => navigate({ type: 'projects' })} />
-        <RailBtn Icon={LogOut}   label="Projets"    onClick={() => navigate({ type: 'projects' })} danger />
-      </div>
-
-      {/* ════════ LEFT PANEL (project tree, collapsible) ════════ */}
-      <div
-        className="flex shrink-0 flex-col border-r overflow-hidden transition-all duration-200"
-        style={{
-          width:      leftOpen ? 240 : 0,
-          opacity:    leftOpen ? 1 : 0,
-          borderColor: BORDER,
-          background: PANEL_BG,
-        }}
-      >
-        {leftOpen && (
-          <>
-            <ProjectTree projectId={projectId} sifId={sifId} />
-            <button
-              type="button"
-              onClick={() => navigate({ type: 'projects' })}
-              className="flex h-10 shrink-0 items-center gap-2 border-t px-4 text-xs transition-colors hover:bg-[#20262D]"
-              style={{ borderColor: BORDER, color: TEXT_DIM }}
-            >
-              <Settings size={13} /> Settings
-            </button>
-          </>
-        )}
-      </div>
-
-      {/* ════════ MAIN AREA (title + tabs + content row) ════════ */}
-      <div className="flex flex-1 min-w-0 flex-col">
-
-        {/* ── Full-width tab bar (spans content + right panel) ── */}
-        <div className="px-5 pt-2 shrink-0">
-          <IntercalaireTabBar
-            tabs={TABS}
-            active={activeTab}
-            onSelect={(id) => setTab(id as SIFTab)}
-            cardBg={CARD_BG}
+        {/* ════════ ICON RAIL (always visible, 48px) ════════ */}
+        <div
+          className="flex shrink-0 flex-col items-center gap-1.5 py-3 border-r"
+          style={{ width: 48, background: RAIL_BG, borderColor: BORDER }}
+        >
+          {/* Toggle left panel */}
+          <RailBtn
+            Icon={leftOpen ? PanelLeftClose : PanelLeftOpen}
+            label={leftOpen ? 'Fermer volet projet' : 'Ouvrir volet projet'}
+            onClick={() => setLeftOpen(v => !v)}
+            active={leftOpen}
           />
+           {/* Toggle right panel */}
+           <RailBtn
+            Icon={rightOpen ? PanelRightClose : PanelRightOpen}
+            label={rightOpen ? 'Fermer volet propriétés' : 'Ouvrir volet propriétés'}
+            onClick={() => setRightOpen(v => !v)}
+            active={rightOpen}
+          />
+
+          <RailDivider />
+
+          {/* Home */}
+          <RailBtn Icon={Home}       label="Accueil"         onClick={() => navigate({ type: 'projects' })} />
+          {/* New project */}
+          <RailBtn Icon={FolderPlus} label="Nouveau projet"  onClick={openNewProject} />
+          {/* New SIF */}
+          <RailBtn Icon={FilePlus}   label="Nouvelle SIF"    onClick={openNewSIF} />
+
+          <RailDivider />
+
+          {/* Quick-nav to tabs */}
+          <RailBtn Icon={BarChart3}   label="Calculations" onClick={() => setTab('analysis')}   active={activeTab === 'analysis'}   />
+          <RailBtn Icon={ShieldCheck} label="Compliance"   onClick={() => setTab('compliance')} active={activeTab === 'compliance'} />
+
+          {/* Spacer */}
+          <div className="flex-1" />
+
+         
+
+          <RailDivider />
+
+          <RailBtn Icon={Settings} label="Paramètres" onClick={() => navigate({ type: 'projects' })} />
+          <RailBtn Icon={LogOut}   label="Projets"    onClick={() => navigate({ type: 'projects' })} danger />
         </div>
 
-        {/* ── Content row: [card] + [right panel] ── */}
-        <div className="flex flex-1 min-h-0 px-5 pb-5 pt-0 gap-0">
-
-          {/* Center content card — corners adapt to active tab */}
-          <IntercalaireCard
-            tabCount={TABS.length}
-            activeIdx={activeIdx}
-            className="flex-1 min-w-0 overflow-auto"
-            style={{ minHeight: 0 }}
-          >
-            {children}
-          </IntercalaireCard>
-
-          {/* Right panel — collapsible, sits below the tab bar */}
-          {rightOpen && (
-            <div
-              className="shrink-0 overflow-hidden transition-all duration-200"
-              style={{ width: 260, opacity: 1 }}
-            >
-              <RightPanel projectId={projectId} sifId={sifId} />
-            </div>
+        {/* ════════ LEFT PANEL (project tree, collapsible) ════════ */}
+        <div
+          className="flex shrink-0 flex-col border-r overflow-hidden transition-all duration-200"
+          style={{
+            width:      leftOpen ? 240 : 0,
+            opacity:    leftOpen ? 1 : 0,
+            borderColor: BORDER,
+            background: PANEL_BG,
+          }}
+        >
+          {leftOpen && (
+            <>
+              <ProjectTree projectId={projectId} sifId={sifId} />
+            </>
           )}
         </div>
 
+        {/* ════════ MAIN AREA (title + tabs + content row) ════════ */}
+        <div className="flex flex-1 min-w-0 flex-col">
+
+          {/* ── Full-width tab bar (spans content + right panel) ── */}
+          <div className="px-5 pt-2 shrink-0">
+            <IntercalaireTabBar
+              tabs={TABS}
+              active={activeTab}
+              onSelect={(id) => setTab(id as SIFTab)}
+              cardBg={CARD_BG}
+            />
+          </div>
+
+          {/* ── Content row: [card] + [right panel] ── */}
+          <div className="flex flex-1 min-h-0 px-5 pb-5 pt-0 gap-0">
+
+            {/* Center content card — corners adapt to active tab */}
+            <IntercalaireCard
+              tabCount={TABS.length}
+              activeIdx={activeIdx}
+              className="flex-1 min-w-0 overflow-auto"
+              style={{ minHeight: 0 }}
+            >
+              {children}
+            </IntercalaireCard>
+
+            {/* Right panel — collapsible, sits below the tab bar */}
+            {rightOpen && (
+              <div
+                className="shrink-0 overflow-hidden transition-all duration-200"
+                style={{ width: 260, opacity: 1 }}
+              >
+                {/* AFFICHE LE PANNEAU PRIORITAIRE (override), SINON CELUI PAR DÉFAUT */}
+                {rightPanelOverride || rightPanelContent || <RightPanel projectId={projectId} sifId={sifId} />}
+              </div>
+            )}
+          </div>
+
+        </div>
       </div>
-    </div>
+    </LayoutContext.Provider>
   )
 }

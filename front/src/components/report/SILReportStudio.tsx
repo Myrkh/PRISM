@@ -8,11 +8,13 @@
  *
  * Install required: npm install jspdf html2canvas  (optional — print fallback always works)
  */
-import { useMemo, useRef, useState, useCallback } from 'react'
+import { useMemo, useRef, useState, useCallback, useEffect } from 'react'
 import {
   Download, FileText, Settings2, ChevronDown, ChevronUp,
   CheckCircle2, AlertTriangle, Printer, Eye, EyeOff,
 } from 'lucide-react'
+import { useLayout } from '@/components/layout/SIFWorkbenchLayout';
+import { ReportConfigPanel } from './ReportConfigPanel';
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -35,7 +37,7 @@ interface Props {
   result: SIFCalcResult
 }
 
-interface ReportConfig {
+export interface ReportConfig {
   title: string
   docRef: string
   version: string
@@ -637,49 +639,11 @@ function ReportDocument({
   )
 }
 
-// ─── Config panel section ─────────────────────────────────────────────────
-function ConfigSection({
-  title, defaultOpen = true, children,
-}: {
-  title: string
-  defaultOpen?: boolean
-  children: React.ReactNode
-}) {
-  const [open, setOpen] = useState(defaultOpen)
-  return (
-    <div className="rounded-xl border bg-white overflow-hidden shadow-sm">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between px-4 py-3 hover:bg-muted/30 transition-colors"
-      >
-        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{title}</span>
-        {open ? <ChevronUp size={13} className="text-muted-foreground" /> : <ChevronDown size={13} className="text-muted-foreground" />}
-      </button>
-      {open && <div className="px-4 pb-4 space-y-3">{children}</div>}
-    </div>
-  )
-}
-
-function ToggleRow({
-  label, desc, value, onChange,
-}: {
-  label: string; desc?: string; value: boolean; onChange: (v: boolean) => void
-}) {
-  return (
-    <div className="flex items-center justify-between gap-3 py-1">
-      <div>
-        <p className="text-xs font-medium">{label}</p>
-        {desc && <p className="text-[10px] text-muted-foreground">{desc}</p>}
-      </div>
-      <Switch checked={value} onCheckedChange={onChange} />
-    </div>
-  )
-}
-
 // ─── Main component ───────────────────────────────────────────────────────
 export function SILReportStudio({ project, sif, result }: Props) {
   const PREVIEW_ID = 'sil-report-preview-v3'
   const [showPreview, setShowPreview] = useState(true)
+  const { setRightPanelOverride } = useLayout();
 
   const [cfg, setCfg] = useState<ReportConfig>({
     title: `${sif.sifNumber} — SIL Verification Report`,
@@ -722,104 +686,44 @@ export function SILReportStudio({ project, sif, result }: Props) {
       setIsExporting(false)
     }
   }
+// Ce `useEffect` s'exécute quand le composant s'affiche
+useEffect(() => {
+  // 1. On prépare notre panneau avec toutes ses données et fonctions
+  const panel = (
+    <ReportConfigPanel
+      cfg={cfg}
+      setCfg={set}
+      showPreview={showPreview}
+      onPrint={handlePrint}
+      isExporting={isExporting}
+    />
+  );
 
-  return (
-    <div className="flex gap-5">
-      {/* ── Config panel ── */}
-      <div className="w-72 shrink-0 space-y-3">
-        <div className="flex items-center justify-between">
-          <h3 className="text-sm font-semibold flex items-center gap-2">
-            <Settings2 size={15} style={{ color: '#009BA4' }} /> Report Studio
-          </h3>
-          <div className="flex items-center gap-1.5">
-            <Button variant="ghost" size="sm" onClick={() => setShowPreview(v => !v)} className="h-7 text-xs gap-1">
-              {showPreview ? <EyeOff size={12} /> : <Eye size={12} />}
-              {showPreview ? 'Hide' : 'Preview'}
-            </Button>
-            <Button size="sm" onClick={handlePrint} disabled={isExporting} className="h-7 text-xs gap-1.5 min-w-[110px]">
-              {isExporting
-                ? <><span className="animate-spin mr-1">⟳</span> Generating…</>
-                : <><Printer size={12} /> Export PDF</>
-              }
-            </Button>
-          </div>
-        </div>
+  // 2. On l'envoie au layout pour qu'il l'affiche dans le volet de droite
+  setRightPanelOverride(panel);
 
-        <ConfigSection title="Document">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Report title</Label>
-            <Input value={cfg.title} onChange={e => set('title', e.target.value)} className="text-xs h-8" />
-          </div>
-          <div className="grid grid-cols-2 gap-2">
-            <div className="space-y-1.5">
-              <Label className="text-xs">Doc reference</Label>
-              <Input value={cfg.docRef} onChange={e => set('docRef', e.target.value)} className="text-xs h-8 font-mono" />
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-xs">Version</Label>
-              <Input value={cfg.version} onChange={e => set('version', e.target.value)} className="text-xs h-8" />
-            </div>
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Confidentiality</Label>
-            <Input value={cfg.confidentialityLabel} onChange={e => set('confidentialityLabel', e.target.value)} className="text-xs h-8" />
-          </div>
-        </ConfigSection>
+  // 3. Quand on quitte cet onglet, on nettoie pour que le panneau par défaut revienne
+  return () => {
+    setRightPanelOverride(null);
+  };
+}, [cfg, set, showPreview, setShowPreview, handlePrint, isExporting, setRightPanelOverride]); // Le panneau se mettra à jour si une de ces valeurs change
 
-        <ConfigSection title="Content">
-          <div className="space-y-1.5">
-            <Label className="text-xs">Scope</Label>
-            <Textarea rows={3} value={cfg.scope} onChange={e => set('scope', e.target.value)} className="text-xs" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Assumptions</Label>
-            <Textarea rows={3} value={cfg.assumptions} onChange={e => set('assumptions', e.target.value)} className="text-xs" />
-          </div>
-          <div className="space-y-1.5">
-            <Label className="text-xs">Recommendations</Label>
-            <Textarea rows={3} value={cfg.recommendations} onChange={e => set('recommendations', e.target.value)} className="text-xs" />
-          </div>
-        </ConfigSection>
-
-        <ConfigSection title="Sections">
-          <ToggleRow label="PFD degradation chart" desc="Sawtooth SVG embedded in PDF" value={cfg.showPFDChart} onChange={v => set('showPFDChart', v)} />
-          <ToggleRow label="Subsystem table" value={cfg.showSubsystemTable} onChange={v => set('showSubsystemTable', v)} />
-          <ToggleRow label="Component parameters" value={cfg.showComponentTable} onChange={v => set('showComponentTable', v)} />
-          <ToggleRow label="Compliance matrix" value={cfg.showComplianceMatrix} onChange={v => set('showComplianceMatrix', v)} />
-          <ToggleRow label="Assumptions" value={cfg.showAssumptions} onChange={v => set('showAssumptions', v)} />
-          <ToggleRow label="Recommendations" value={cfg.showRecommendations} onChange={v => set('showRecommendations', v)} />
-        </ConfigSection>
-
-        <ConfigSection title="Signatures">
-          {(['preparedBy', 'checkedBy', 'approvedBy'] as const).map(k => (
-            <div key={k} className="space-y-1.5">
-              <Label className="text-xs capitalize">{k.replace('By', ' by')}</Label>
-              <Input value={cfg[k]} onChange={e => set(k, e.target.value)} className="text-xs h-8" />
-            </div>
-          ))}
-        </ConfigSection>
-
-        <div className="rounded-xl border border-gray-200 p-3 text-[10px] space-y-1" style={{ background: '#F0F4F8', color: '#8A94A6' }}>
-          <p><strong>Export: </strong>Opens print dialog → Save as PDF</p>
-          <p><strong>Chart: </strong>SVG embedded — renders in all PDF viewers</p>
-          <p><strong>Pages: </strong>Cover · Summary+Chart · Subsystems · Compliance</p>
+return (
+  <>
+    {/* Le contenu principal est maintenant juste la prévisualisation */}
+    {showPreview && (
+      <div className="flex-1 min-w-0 overflow-auto rounded-xl border p-4" style={{ background: '#F0F4F8' }}>
+        <div className="mx-auto shadow-2xl" style={{ maxWidth: 794 }}>
+          <ReportDocument
+            id={PREVIEW_ID}
+            project={project}
+            sif={sif}
+            result={result}
+            cfg={cfg}
+          />
         </div>
       </div>
-
-      {/* ── Preview ── */}
-      {showPreview && (
-        <div className="flex-1 min-w-0 overflow-auto rounded-xl border p-4" style={{ background: '#F0F4F8' }}>
-          <div className="mx-auto shadow-2xl" style={{ maxWidth: 794 }}>
-            <ReportDocument
-              id={PREVIEW_ID}
-              project={project}
-              sif={sif}
-              result={result}
-              cfg={cfg}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  )
+    )}
+  </>
+);
 }
