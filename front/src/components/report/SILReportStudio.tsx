@@ -23,6 +23,8 @@ import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { cn } from '@/lib/utils'
+import html2canvas from 'html2canvas'
+import { jsPDF } from 'jspdf'
 import {
   formatPFD, formatRRF, formatPct,
   calcSIF,
@@ -639,6 +641,46 @@ function ReportDocument({
   )
 }
 
+function ReportPanelBridge({
+  initialCfg,
+  onCfgChange,
+  onPrint,
+}: {
+  initialCfg: ReportConfig
+  onCfgChange: (cfg: ReportConfig) => void
+  onPrint: () => Promise<void> | void
+}) {
+  const [panelCfg, setPanelCfg] = useState<ReportConfig>(initialCfg)
+  const [isExporting, setIsExporting] = useState(false)
+
+  const set = useCallback(<K extends keyof ReportConfig>(key: K, value: ReportConfig[K]) => {
+    setPanelCfg(prev => {
+      const next = { ...prev, [key]: value }
+      onCfgChange(next)
+      return next
+    })
+  }, [onCfgChange])
+
+  const handlePrint = useCallback(async () => {
+    setIsExporting(true)
+    try {
+      await onPrint()
+    } finally {
+      setIsExporting(false)
+    }
+  }, [onPrint])
+
+  return (
+    <ReportConfigPanel
+      cfg={panelCfg}
+      setCfg={set}
+      showPreview
+      onPrint={handlePrint}
+      isExporting={isExporting}
+    />
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────
 export function SILReportStudio({ project, sif, result }: Props) {
   const PREVIEW_ID = 'sil-report-preview-v3'
@@ -667,46 +709,81 @@ export function SILReportStudio({ project, sif, result }: Props) {
     confidentialityLabel: 'Internal / Restricted',
   })
 
-  const set = useCallback(<K extends keyof ReportConfig>(key: K, value: ReportConfig[K]) => {
-    setCfg(prev => ({ ...prev, [key]: value }))
+  const handlePanelCfgChange = useCallback((next: ReportConfig) => {
+    setCfg(next)
   }, [])
 
-  const [isExporting, setIsExporting] = useState(false)
+  const handlePrint = useCallback(async () => {
+    const root = document.getElementById(PREVIEW_ID)
+    if (!root) return
 
-  const handlePrint = async () => {
-    const node = document.getElementById(PREVIEW_ID)
-    if (!node) return
+    const previousTitle = document.title
+    const safeTitle = `${cfg.docRef || sif.sifNumber || 'SIL-Report'}`.replace(/[^a-zA-Z0-9-_]+/g, '_')
 
-    setIsExporting(true)
     try {
-      // Runtime-safe fallback for constrained environments:
-      // rely on browser print and "Save as PDF".
+      // Ensure webfonts are loaded for a pixel-faithful render.
+      if (document.fonts?.ready) await document.fonts.ready
+
+      const pages = Array.from(root.querySelectorAll<HTMLElement>('.print-page'))
+      const targets = pages.length > 0 ? pages : [root as HTMLElement]
+
+      let pdf: jsPDF | null = null
+
+      for (let i = 0; i < targets.length; i += 1) {
+        const page = targets[i]
+        const canvas = await html2canvas(page, {
+          backgroundColor: '#ffffff',
+          scale: Math.max(2, window.devicePixelRatio || 1),
+          useCORS: true,
+          logging: false,
+          imageTimeout: 0,
+          windowWidth: page.scrollWidth,
+          windowHeight: page.scrollHeight,
+        })
+
+        const pageWidth = canvas.width
+        const pageHeight = canvas.height
+        const orientation = pageWidth > pageHeight ? 'landscape' : 'portrait'
+
+        if (!pdf) {
+          pdf = new jsPDF({
+            orientation,
+            unit: 'px',
+            format: [pageWidth, pageHeight],
+            compress: true,
+          })
+        } else {
+          pdf.addPage([pageWidth, pageHeight], orientation)
+        }
+
+        const image = canvas.toDataURL('image/png', 1)
+        pdf.addImage(image, 'PNG', 0, 0, pageWidth, pageHeight, undefined, 'FAST')
+      }
+
+      if (!pdf) return
+
+      document.title = safeTitle
+      pdf.save(`${safeTitle}.pdf`)
+    } catch (error) {
+      console.error('PDF export failed, fallback to print.', error)
       window.print()
     } finally {
-      setIsExporting(false)
+      document.title = previousTitle
     }
-  }
-// Ce `useEffect` s'exécute quand le composant s'affiche
+  }, [PREVIEW_ID, cfg.docRef, sif.sifNumber])
 useEffect(() => {
-  // 1. On prépare notre panneau avec toutes ses données et fonctions
-  const panel = (
-    <ReportConfigPanel
-      cfg={cfg}
-      setCfg={set}
-      showPreview={showPreview}
+  setRightPanelOverride(
+    <ReportPanelBridge
+      initialCfg={cfg}
+      onCfgChange={handlePanelCfgChange}
       onPrint={handlePrint}
-      isExporting={isExporting}
     />
-  );
+  )
 
-  // 2. On l'envoie au layout pour qu'il l'affiche dans le volet de droite
-  setRightPanelOverride(panel);
-
-  // 3. Quand on quitte cet onglet, on nettoie pour que le panneau par défaut revienne
   return () => {
-    setRightPanelOverride(null);
-  };
-}, [cfg, set, showPreview, setShowPreview, handlePrint, isExporting, setRightPanelOverride]); // Le panneau se mettra à jour si une de ces valeurs change
+    setRightPanelOverride(null)
+  }
+}, [sif.id, setRightPanelOverride, handlePanelCfgChange, handlePrint])
 
 return (
   <>

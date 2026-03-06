@@ -146,7 +146,7 @@ export interface SIFSubsystem {
 }
 
 // ─── SIF ──────────────────────────────────────────────────────────────────
-export type SIFStatus = 'draft' | 'in_review' | 'verified' | 'approved'
+export type SIFStatus = 'draft' | 'in_review' | 'verified' | 'approved' | 'archived'
 
 export interface SIF {
   id: string

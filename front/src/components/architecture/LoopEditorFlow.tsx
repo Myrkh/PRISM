@@ -115,12 +115,14 @@ function ChannelBlock({
 }) {
   const addComponent    = useAppStore(s => s.addComponent)
   const removeComponent = useAppStore(s => s.removeComponent)
+  const selectComponent = useAppStore(s => s.selectComponent)
   const [over, setOver] = useState(false)
 
   const handleAddComp = () => {
     const prefix = subsystem.type === 'sensor' ? 'PT' : subsystem.type === 'logic' ? 'PLC' : 'XV'
     const comp = DEFAULT_COMPONENT(subsystem.type, `${prefix}-${nanoid(4).toUpperCase()}`)
     addComponent(projectId, sifId, subsystem.id, channel.id, comp)
+    selectComponent(comp.id)
   }
 
   const handleDrop = (e: React.DragEvent) => {
@@ -135,6 +137,7 @@ function ChannelBlock({
     comp.factorized.lambda = lib.lambda
     comp.factorized.DCd    = lib.dc
     addComponent(projectId, sifId, subsystem.id, channel.id, comp)
+    selectComponent(comp.id)
   }
 
   return (
@@ -172,7 +175,10 @@ function ChannelBlock({
             color={color}
             selected={selectedId === comp.id}
             onSelect={() => onSelectComp(comp.id)}
-            onDelete={() => removeComponent(projectId, sifId, subsystem.id, channel.id, comp.id)}
+            onDelete={() => {
+              removeComponent(projectId, sifId, subsystem.id, channel.id, comp.id)
+              if (selectedId === comp.id) selectComponent(null)
+            }}
           />
         ))}
         {channel.components.length === 0 && (

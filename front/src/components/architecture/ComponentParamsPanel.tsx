@@ -185,16 +185,23 @@ export function ComponentParamsPanel({
   useEffect(() => { setLocal(component) }, [component.id])
 
   // Auto-save
-  const save = (updated: SIFComponent) => {
-    setLocal(updated)
-    updateComponent(projectId, sifId, subsystemId, channelId, updated)
+  const commit = (updater: (prev: SIFComponent) => SIFComponent) => {
+    setLocal(prev => {
+      const next = updater(prev)
+      updateComponent(projectId, sifId, subsystemId, channelId, next)
+      return next
+    })
   }
 
-  const upd = (patch: Partial<SIFComponent>) => save({ ...local, ...patch })
-  const updF = (patch: Partial<typeof local.factorized>) => save({ ...local, factorized: { ...local.factorized, ...patch } })
-  const updD = (patch: Partial<typeof local.developed>) => save({ ...local, developed: { ...local.developed, ...patch } })
-  const updT = (patch: Partial<typeof local.test>) => save({ ...local, test: { ...local.test, ...patch } })
-  const updA = (patch: Partial<typeof local.advanced>) => save({ ...local, advanced: { ...local.advanced, ...patch } })
+  const upd = (patch: Partial<SIFComponent>) => commit(prev => ({ ...prev, ...patch }))
+  const updF = (patch: Partial<typeof local.factorized>) =>
+    commit(prev => ({ ...prev, factorized: { ...prev.factorized, ...patch } }))
+  const updD = (patch: Partial<typeof local.developed>) =>
+    commit(prev => ({ ...prev, developed: { ...prev.developed, ...patch } }))
+  const updT = (patch: Partial<typeof local.test>) =>
+    commit(prev => ({ ...prev, test: { ...prev.test, ...patch } }))
+  const updA = (patch: Partial<typeof local.advanced>) =>
+    commit(prev => ({ ...prev, advanced: { ...prev.advanced, ...patch } }))
 
   // Computed live metrics
   const derived   = factorizedToDeveloped(local.factorized)

@@ -1,13 +1,16 @@
+
 /**
  * ProjectModal — PRISM v3
  *
- * Corrections vs version précédente :
- *  ✓ shouldUnregister: false → les champs conservent leur valeur entre onglets
- *  ✓ Bouton "Créer" visible sur TOUS les onglets (plus besoin d'aller au dernier)
- *  ✓ createProject / updateProject async avec loading state
- *  ✓ Gestion des erreurs Supabase dans la modale
+ * VERSION CORRIGÉE ET STABILISÉE
+ *
+ * Corrections intégrées :
+ *  ✓ Composants `StyledInput` et `StyledTextarea` utilisent `React.forwardRef`
+ *    pour être 100% compatibles avec `react-hook-form`.
+ *    Ceci corrige les problèmes de validation ("Requis") et de récapitulatif vide.
+ *  ✓ La logique existante est préservée.
  */
-import { useEffect, useState, forwardRef } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import {
   Folder, X, Check, ChevronRight, ChevronLeft, BookOpen, Loader2,
@@ -62,37 +65,56 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
   )
 }
 
-const StyledInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { error?: boolean }>(
-  ({ error, ...props }, ref) => {
-    return (
-      <input
-        {...props}
-        ref={ref}
-        className="w-full rounded-lg border px-3 py-2 text-sm outline-none transition-all"
-        style={{ background: BG, borderColor: error ? '#EF4444' : BORDER2, color: TEXT }}
-        onFocus={e => (e.target.style.borderColor = TEAL)}
-        onBlur={e => (e.target.style.borderColor = error ? '#EF4444' : BORDER2)}
-      />
-    )
-  }
-)
-StyledInput.displayName = 'StyledInput'
+// ✅ CORRECTION: Utilisation de React.forwardRef pour rendre le composant compatible
+const StyledInput = React.forwardRef<
+  HTMLInputElement,
+  React.InputHTMLAttributes<HTMLInputElement> & { error?: boolean }
+>((props, ref) => {
+  const { error, ...rest } = props;
+  return (
+    <input
+      ref={ref} // Le 'ref' est maintenant correctement passé à l'input
+      {...rest}
+      className="w-full rounded-lg border px-3 py-2 text-sm outline-none transition-all"
+      style={{ background: BG, borderColor: error ? '#EF4444' : BORDER2, color: TEXT }}
+      onFocus={(e) => {
+        e.target.style.borderColor = TEAL;
+        props.onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        props.onBlur?.(e); // Important pour la validation de react-hook-form
+        e.target.style.borderColor = props.error ? '#EF4444' : BORDER2;
+      }}
+    />
+  );
+});
+StyledInput.displayName = 'StyledInput'; // Pour le débogage
 
-const StyledTextarea = forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
-  (props, ref) => {
-    return (
-      <textarea
-        {...props}
-        ref={ref}
-        className="w-full rounded-lg border px-3 py-2 text-sm outline-none transition-all resize-none"
-        style={{ background: BG, borderColor: BORDER2, color: TEXT }}
-        onFocus={e => (e.target.style.borderColor = TEAL)}
-        onBlur={e => (e.target.style.borderColor = BORDER2)}
-      />
-    )
-  }
-)
-StyledTextarea.displayName = 'StyledTextarea'
+// ✅ CORRECTION: Idem pour le StyledTextarea
+const StyledTextarea = React.forwardRef<
+  HTMLTextAreaElement,
+  React.TextareaHTMLAttributes<HTMLTextAreaElement> & { error?: boolean }
+>((props, ref) => {
+  const { error, ...rest } = props;
+  return (
+    <textarea
+      ref={ref} // Le 'ref' est maintenant correctement passé au textarea
+      {...rest}
+      className="w-full rounded-lg border px-3 py-2 text-sm outline-none transition-all resize-none"
+      style={{ background: BG, borderColor: error ? '#EF4444' : BORDER2, color: TEXT }}
+      onFocus={(e) => {
+        e.target.style.borderColor = TEAL;
+        props.onFocus?.(e);
+      }}
+      onBlur={(e) => {
+        props.onBlur?.(e); // Important pour la validation
+        e.target.style.borderColor = props.error ? '#EF4444' : BORDER2;
+      }}
+    />
+  );
+});
+StyledTextarea.displayName = 'StyledTextarea';
+
 
 // ─── Main ─────────────────────────────────────────────────────────────────
 export function ProjectModal() {
@@ -108,12 +130,9 @@ export function ProjectModal() {
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState<string | null>(null)
 
-  // ── shouldUnregister: false ← FIX PRINCIPAL ──────────────────────────
-  // Sans ça, react-hook-form désinscrit les champs quand leur onglet
-  // démonte → les valeurs sont perdues → le récap est vide → submit échoue.
   const { register, handleSubmit, reset, control, watch, formState: { errors } } =
     useForm<FormValues>({
-      shouldUnregister: false,   // ← CRITIQUE
+      shouldUnregister: false,
       defaultValues: {
         name: '', ref: '', client: '', site: '', unit: '',
         standard: 'IEC61511', revision: 'A', description: '', status: 'active',
@@ -238,9 +257,6 @@ export function ProjectModal() {
 
         {/* Form */}
         <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col flex-1 min-h-0">
-          {/* Tab content — NOTE: tous les onglets sont montés simultanément
-              (display:block / display:none) pour que register() ne démonte pas.
-              shouldUnregister:false est une sécurité supplémentaire. */}
           <div className="flex-1 overflow-y-auto" style={{ background: CARD, margin: '0 24px',
             borderLeft: `1px solid ${BORDER}`, borderRight: `1px solid ${BORDER}`,
             borderRadius: `${activeIdx === 0 ? 0 : R}px ${activeIdx === TABS.length - 1 ? 0 : R}px ${R}px ${R}px` }}>
@@ -374,7 +390,6 @@ export function ProjectModal() {
 
           {/* Footer */}
           <div className="flex items-center justify-between px-6 py-4 shrink-0" style={{ borderTop: `1px solid ${BORDER}` }}>
-            {/* Dots */}
             <div className="flex gap-1.5">
               {TABS.map(tab => (
                 <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
@@ -385,7 +400,6 @@ export function ProjectModal() {
             </div>
 
             <div className="flex items-center gap-2">
-              {/* Précédent */}
               {activeIdx > 0 && (
                 <button type="button" onClick={() => setActiveTab(TABS[activeIdx - 1].id)}
                   className="flex items-center gap-1 rounded-lg border px-3 py-2 text-sm transition-colors"
@@ -395,7 +409,6 @@ export function ProjectModal() {
                   <ChevronLeft size={14} /> Précédent
                 </button>
               )}
-              {/* Suivant */}
               {activeIdx < TABS.length - 1 && (
                 <button type="button" onClick={() => setActiveTab(TABS[activeIdx + 1].id)}
                   className="flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors"
@@ -403,7 +416,6 @@ export function ProjectModal() {
                   Suivant <ChevronRight size={14} />
                 </button>
               )}
-              {/* Annuler */}
               <button type="button" onClick={closeModal}
                 className="rounded-lg border px-4 py-2 text-sm transition-colors"
                 style={{ borderColor: BORDER2, color: TEXT_DIM, background: BG }}
@@ -411,7 +423,6 @@ export function ProjectModal() {
                 onMouseLeave={e => (e.currentTarget.style.color = TEXT_DIM)}>
                 Annuler
               </button>
-              {/* Créer / Sauvegarder — toujours visible */}
               <button type="submit" disabled={submitting}
                 className="flex items-center gap-2 rounded-lg px-5 py-2 text-sm font-bold transition-all disabled:opacity-60"
                 style={{

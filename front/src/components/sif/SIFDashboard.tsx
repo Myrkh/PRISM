@@ -29,15 +29,15 @@ export function SIFDashboard({ projectId, sifId }: Props) {
   const activeTab = view.type === 'sif-dashboard' ? view.tab : 'overview'
 
   // When architecture tab is active → mount LoopEditorRightPanel in the right panel
+  // Architecture tab → LoopEditorRightPanel
+  // ProofTest tab → ProofTestTab mounts its own panel via useLayout (props-based, no context issue)
   useEffect(() => {
     if (activeTab === 'architecture' && sif) {
-      setRightPanelOverride(
-        <LoopEditorRightPanel sif={sif} projectId={projectId} />
-      )
-    } else {
+      setRightPanelOverride(<LoopEditorRightPanel sif={sif} projectId={projectId} />)
+    } else if (activeTab !== 'prooftest') {
       setRightPanelOverride(null)
     }
-    return () => { setRightPanelOverride(null) }
+    return () => { if (activeTab !== 'prooftest') setRightPanelOverride(null) }
   }, [activeTab, sif?.id, projectId])
   const result    = useMemo(() => sif ? calcSIF(sif) : null, [sif])
 

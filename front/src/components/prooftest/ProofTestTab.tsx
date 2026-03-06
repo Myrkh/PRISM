@@ -14,7 +14,7 @@
  *
  * DA: KORE — navy #003D5C, teal #009BA4, Inter font, rounded-2xl cards
  */
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState, useEffect } from 'react'
 import {
   Plus, Trash2, Pencil, Save, ChevronDown, ChevronUp,
   CheckCircle2, XCircle, Minus, AlertTriangle, Clock,
@@ -25,8 +25,13 @@ import { nanoid } from 'nanoid'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useAppStore } from '@/store/appStore'
+import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
+import { ProofTestRightPanel } from '@/components/prooftest/ProofTestRightPanel'
+import { ProofTestPDFExport } from '@/components/prooftest/ProofTestPDFExport'
 import type { Project, SIF } from '@/core/types'
 import { cn } from '@/lib/utils'
+
+// ─── ProofTestRightPanel props are passed via useLayout hook (see useEffect below) ───
 
 // ─── Tokens ───────────────────────────────────────────────────────────────
 const NAVY  = '#003D5C'
@@ -249,6 +254,7 @@ export function ProofTestTab({ project, sif }: Props) {
   const [editMode, setEditMode]     = useState(false)
   const [activeCampaign, setActiveCampaign] = useState<PTCampaign | null>(null)
   const [collapsed, setCollapsed]   = useState<Set<string>>(new Set())
+  const [showExport, setShowExport]   = useState(false)
 
   // ─ Procedure helpers ───────────────────────────────────────────────────
   const catsSorted = useMemo(() =>
@@ -357,6 +363,33 @@ export function ProofTestTab({ project, sif }: Props) {
   // ─ Status badges ───────────────────────────────────────────────────────
   const sm = STATUS_CFG[procedure.status]
 
+  // ─ updateActiveCampaign ─────────────────────────────────────────────
+  const updateActiveCampaign = (patch: Partial<PTCampaign>) =>
+    setActiveCampaign(prev => prev ? { ...prev, ...patch } : prev)
+
+  // ─ Mount right panel via layout context (no React context boundary issue) ──
+  const { setRightPanelOverride } = useLayout()
+  useEffect(() => {
+    setRightPanelOverride(
+      <ProofTestRightPanel
+        sif={sif}
+        view={view}
+        procedure={procedure}
+        campaigns={campaigns}
+        activeCampaign={activeCampaign}
+        isOverdue={isOverdue}
+        daysOverdue={daysOverdue}
+        nextDue={nextDue}
+        onSetView={setView}
+        onSetActiveCampaign={setActiveCampaign}
+        onUpdateActiveCampaign={updateActiveCampaign}
+        onSaveCampaign={saveCampaign}
+        onNewCampaign={newCampaign}
+      />
+    )
+    return () => setRightPanelOverride(null)
+  }, [view, procedure, campaigns, activeCampaign, isOverdue, daysOverdue, nextDue])
+
   // ─────────────────────────────────────────────────────────────────────
 
   return (
@@ -441,6 +474,13 @@ export function ProofTestTab({ project, sif }: Props) {
               </button>
             </>
           )}
+          {/* Export PDF — toujours visible */}
+          <button onClick={() => setShowExport(true)}
+            className="h-8 px-3 text-xs font-semibold rounded-xl border border-gray-200 text-gray-600 hover:border-[#009BA4] hover:text-[#009BA4] flex items-center gap-1.5 transition-all"
+            title="Exporter en PDF"
+          >
+            <Download size={12} />PDF
+          </button>
         </div>
       </div>
 
@@ -934,6 +974,16 @@ export function ProofTestTab({ project, sif }: Props) {
             </>
           )}
         </div>
+      )}
+    {/* PDF Export modal */}
+      {showExport && (
+        <ProofTestPDFExport
+          sif={sif}
+          project={project}
+          procedure={procedure}
+          campaigns={campaigns}
+          onClose={() => setShowExport(false)}
+        />
       )}
     </div>
   )

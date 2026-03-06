@@ -1,243 +1,348 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { useAppStore, type SIFTab } from '@/store/appStore'
 import {
-  FolderKanban,
-  LayoutDashboard,
-  Moon,
-  Plus,
-  Search,
-  Settings,
-  Sun,
+  Search, Settings, Moon, Sun, FolderPlus, FilePlus,
+  LayoutDashboard, Network, BarChart3, Shield, FlaskConical,
+  FileText, Home, ChevronRight, Pencil, Keyboard, ListChecks, History,
 } from 'lucide-react'
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Input } from '@/components/ui/input'
-import { cn } from '@/lib/utils'
-import { useAppStore } from '@/store/appStore'
 
-type CommandItem = {
-  id: string
-  label: string
-  hint: string
-  group: 'Navigation' | 'Creation' | 'Workspace'
-  keywords: string
-  run: () => void
-}
+// ─── Design tokens PRISM dark ─────────────────────────────────────────────
+const BG      = '#0C1117'
+const PANEL   = '#14181C'
+const CARD    = '#1D232A'
+const BORDER  = '#2A3138'
+const TEXT    = '#DFE8F1'
+const TEXT_DIM= '#8FA0B1'
+const TEAL    = '#009BA4'
+const TEAL_DIM= '#5FD8D2'
 
-interface CommandPaletteProps {
-  onOpenSettings: () => void
-}
+// ─── Tab config ───────────────────────────────────────────────────────────
+const TABS: { id: SIFTab; label: string; Icon: React.ElementType }[] = [
+  { id: 'overview',     label: 'Dashboard',   Icon: LayoutDashboard },
+  { id: 'architecture', label: 'Loop Editor', Icon: Network         },
+  { id: 'analysis',     label: 'Calculations',Icon: BarChart3       },
+  { id: 'compliance',   label: 'Compliance',  Icon: Shield          },
+  { id: 'prooftest',    label: 'Proof Test',  Icon: FlaskConical    },
+  { id: 'report',       label: 'Reports',     Icon: FileText        },
+]
 
-export function CommandPalette({ onOpenSettings }: CommandPaletteProps) {
-  const projects = useAppStore(s => s.projects)
-  const view = useAppStore(s => s.view)
-  const isDark = useAppStore(s => s.isDark)
-  const navigate = useAppStore(s => s.navigate)
-  const openNewProject = useAppStore(s => s.openNewProject)
-  const openNewSIF = useAppStore(s => s.openNewSIF)
-  const toggleTheme = useAppStore(s => s.toggleTheme)
+export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const [open, setOpen]   = useState(false)
+  const [search, setSearch] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
 
-  const [open, setOpen] = useState(false)
-  const [query, setQuery] = useState('')
+  const projects        = useAppStore(s => s.projects)
+  const view            = useAppStore(s => s.view)
+  const navigate        = useAppStore(s => s.navigate)
+  const setTab          = useAppStore(s => s.setTab)
+  const isDark          = useAppStore(s => s.isDark)
+  const toggleTheme     = useAppStore(s => s.toggleTheme)
+  const openNewProject  = useAppStore(s => s.openNewProject)
+  const openNewSIF      = useAppStore(s => s.openNewSIF)
+  const openEditProject = useAppStore(s => s.openEditProject)
+  const openEditSIF     = useAppStore(s => s.openEditSIF)
 
+  // Projet + SIF courants (si on est dans un dashboard)
+  const currentProjectId = view.type === 'sif-dashboard' ? view.projectId : null
+  const currentSifId     = view.type === 'sif-dashboard' ? view.sifId     : null
+  const currentProject   = currentProjectId ? projects.find(p => p.id === currentProjectId) : null
+  const currentSif       = currentProject && currentSifId
+    ? currentProject.sifs.find(s => s.id === currentSifId)
+    : null
+
+  // ─ Keyboard ──────────────────────────────────────────────────────────
   useEffect(() => {
-    const onShortcut = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === 'k') {
-        event.preventDefault()
+    const down = (e: KeyboardEvent) => {
+      if (e.key === 'k' && (e.metaKey || e.ctrlKey)) {
+        e.preventDefault()
         setOpen(v => !v)
       }
+      if (e.key === 'Escape') setOpen(false)
     }
-
-    document.addEventListener('keydown', onShortcut)
-    return () => document.removeEventListener('keydown', onShortcut)
+    document.addEventListener('keydown', down)
+    return () => document.removeEventListener('keydown', down)
   }, [])
 
-  const commands = useMemo<CommandItem[]>(() => {
-    const items: CommandItem[] = [
+  useEffect(() => {
+    if (open) { setSearch(''); setTimeout(() => inputRef.current?.focus(), 50) }
+  }, [open])
+
+  const run = (fn: () => void) => { setOpen(false); fn() }
+
+  // ─ Groups ─────────────────────────────────────────────────────────────
+
+  // Groupe : Vue courante (contextuel)
+  const currentViewGroup = currentSif && currentProject ? {
+    heading: `${currentSif.sifNumber} — ${currentSif.title || 'Sans titre'}`,
+    items: [
+      ...TABS.map(tab => ({
+        label: `Aller à ${tab.label}`,
+        keywords: `tab ${tab.id} ${tab.label}`,
+        Icon: tab.Icon,
+        onSelect: () => run(() => setTab(tab.id)),
+        isActive: view.type === 'sif-dashboard' && view.tab === tab.id,
+      })),
       {
-        id: 'nav-projects',
-        label: 'Open all projects',
-        hint: 'Go to global workspace home',
-        group: 'Navigation',
-        keywords: 'projects home workspace',
-        run: () => navigate({ type: 'projects' }),
+        label: 'Modifier cette SIF',
+        keywords: 'éditer modifier sif',
+        Icon: Pencil,
+        onSelect: () => run(() => openEditSIF(currentSif.id)),
+        isActive: false,
+      },
+    ],
+  } : null
+
+  // Groupe : Créer
+  const createGroup = {
+    heading: 'Créer',
+    items: [
+      {
+        label: 'Nouveau projet',
+        keywords: 'créer nouveau projet new project',
+        Icon: FolderPlus,
+        onSelect: () => run(openNewProject),
+        isActive: false,
       },
       {
-        id: 'create-project',
-        label: 'Create new project',
-        hint: 'Open project creation modal',
-        group: 'Creation',
-        keywords: 'new create project',
-        run: () => {
-          navigate({ type: 'projects' })
-          openNewProject()
-        },
+        label: currentProject
+          ? `Nouvelle SIF dans ${currentProject.name}`
+          : 'Nouvelle SIF',
+        keywords: 'créer nouvelle sif new',
+        Icon: FilePlus,
+        onSelect: () => run(() => openNewSIF(currentProjectId ?? undefined)),
+        isActive: false,
       },
-      {
-        id: 'workspace-settings',
-        label: 'Open settings',
-        hint: 'Theme and workspace preferences',
-        group: 'Workspace',
-        keywords: 'settings preferences appearance',
-        run: onOpenSettings,
-      },
-      {
-        id: 'workspace-theme',
-        label: isDark ? 'Switch to light mode' : 'Switch to dark mode',
-        hint: 'Toggle appearance theme',
-        group: 'Workspace',
-        keywords: 'theme dark light appearance',
-        run: toggleTheme,
-      },
-    ]
-
-    projects.forEach(project => {
-      items.push({
-        id: `project:${project.id}`,
-        label: `Open project · ${project.name}`,
-        hint: `${project.sifs.length} SIF${project.sifs.length > 1 ? 's' : ''}`,
-        group: 'Navigation',
-        keywords: `${project.name} ${project.ref} project`,
-        run: () => navigate({ type: 'sif-list', projectId: project.id }),
-      })
-
-      if (view.type !== 'projects' && view.projectId === project.id) {
-        items.push({
-          id: `create-sif:${project.id}`,
-          label: `Create new SIF in ${project.name}`,
-          hint: 'Open SIF modal',
-          group: 'Creation',
-          keywords: `new sif create ${project.name}`,
-          run: openNewSIF,
-        })
-      }
-
-      project.sifs.forEach(sif => {
-        items.push({
-          id: `sif:${project.id}:${sif.id}`,
-          label: `${sif.sifNumber} · ${sif.title || 'Untitled SIF'}`,
-          hint: project.name,
-          group: 'Navigation',
-          keywords: `${project.name} ${sif.sifNumber} ${sif.title}`,
-          run: () => navigate({ type: 'sif-dashboard', projectId: project.id, sifId: sif.id, tab: 'overview' }),
-        })
-      })
-    })
-
-    return items
-  }, [isDark, navigate, onOpenSettings, openNewProject, openNewSIF, projects, toggleTheme, view])
-
-  const filtered = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    if (!q) return commands
-
-    return commands.filter(item => {
-      const haystack = `${item.label} ${item.hint} ${item.keywords}`.toLowerCase()
-      return haystack.includes(q)
-    })
-  }, [commands, query])
-
-  const grouped = useMemo(() => {
-    const buckets: Record<CommandItem['group'], CommandItem[]> = {
-      Navigation: [],
-      Creation: [],
-      Workspace: [],
-    }
-
-    filtered.forEach(item => buckets[item.group].push(item))
-    return buckets
-  }, [filtered])
-
-  const runCommand = (run: () => void) => {
-    run()
-    setOpen(false)
-    setQuery('')
+    ],
   }
+
+  // Groupe : Navigation projets
+  const projectsGroup = {
+    heading: 'Projets',
+    items: projects.map(p => ({
+      label: p.name,
+      keywords: `projet project ${p.name} ${p.ref} ${p.client}`,
+      Icon: FolderPlus,
+      onSelect: () => run(() => {
+        const firstSif = p.sifs[0]
+        if (firstSif) navigate({ type: 'sif-dashboard', projectId: p.id, sifId: firstSif.id, tab: 'overview' })
+        else navigate({ type: 'projects' })
+      }),
+      isActive: currentProjectId === p.id,
+    })),
+  }
+
+  // Groupe : Navigation SIFs (toutes)
+  const sifsGroup = {
+    heading: 'SIFs',
+    items: projects.flatMap(p =>
+      p.sifs.map(s => ({
+        label: `${s.sifNumber}${s.title ? ' — ' + s.title : ''}`,
+        keywords: `sif ${s.sifNumber} ${s.title} ${s.processTag} ${p.name}`,
+        Icon: Shield,
+        meta: p.name,
+        onSelect: () => run(() => navigate({ type: 'sif-dashboard', projectId: p.id, sifId: s.id, tab: 'overview' })),
+        isActive: currentSifId === s.id,
+      }))
+    ),
+  }
+
+  // Groupe : Général
+  const generalGroup = {
+    heading: 'Général',
+    items: [
+      {
+        label: 'Tableau de bord (accueil)',
+        keywords: 'accueil home dashboard projets',
+        Icon: Home,
+        onSelect: () => run(() => navigate({ type: 'projects' })),
+        isActive: view.type === 'projects',
+      },
+      {
+        label: isDark ? 'Passer en mode clair' : 'Passer en mode sombre',
+        keywords: 'theme dark light mode',
+        Icon: isDark ? Sun : Moon,
+        onSelect: () => run(toggleTheme),
+        isActive: false,
+      },
+      {
+        label: 'Review Queue',
+        keywords: 'review queue backlog priorités',
+        Icon: ListChecks,
+        onSelect: () => run(() => navigate({ type: 'review-queue' })),
+        isActive: view.type === 'review-queue',
+      },
+      {
+        label: 'Audit Log',
+        keywords: 'audit log historique timeline',
+        Icon: History,
+        onSelect: () => run(() => navigate({ type: 'audit-log' })),
+        isActive: view.type === 'audit-log',
+      },
+      {
+        label: 'Paramètres',
+        keywords: 'settings paramètres',
+        Icon: Settings,
+        onSelect: () => run(onOpenSettings),
+        isActive: false,
+      },
+    ],
+  }
+
+  // Filtrage par search
+  const filterItems = (items: typeof generalGroup.items) => {
+    if (!search.trim()) return items
+    const q = search.toLowerCase()
+    return items.filter(item =>
+      item.label.toLowerCase().includes(q) ||
+      item.keywords.toLowerCase().includes(q)
+    )
+  }
+
+  const groups = [
+    ...(currentViewGroup ? [currentViewGroup] : []),
+    createGroup,
+    projectsGroup,
+    sifsGroup,
+    generalGroup,
+  ].map(g => ({ ...g, items: filterItems(g.items as typeof generalGroup.items) }))
+    .filter(g => g.items.length > 0)
 
   return (
     <>
+      {/* Trigger button */}
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="hidden lg:inline-flex h-9 items-center gap-2 rounded-lg border border-border/70 bg-card/70 px-3 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        className="hidden lg:inline-flex h-8 items-center gap-2 rounded-lg px-3 text-xs transition-colors"
+        style={{ color: TEXT_DIM, border: `1px solid ${BORDER}`, background: 'transparent' }}
+        onMouseEnter={e => { e.currentTarget.style.borderColor = TEAL; e.currentTarget.style.color = TEXT }}
+        onMouseLeave={e => { e.currentTarget.style.borderColor = BORDER; e.currentTarget.style.color = TEXT_DIM }}
       >
-        <Search className="h-3.5 w-3.5" />
-        Quick actions
-        <span className="rounded border border-border/80 bg-muted/40 px-1.5 py-0.5 text-[10px]">⌘K</span>
+        <Search size={13} />
+        Actions rapides
+        <span className="rounded px-1.5 py-0.5 text-[9px] font-mono font-bold"
+          style={{ background: '#0C1117', border: `1px solid ${BORDER}`, color: TEXT_DIM }}>
+          ⌘K
+        </span>
       </button>
 
-      <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-w-2xl p-0 overflow-hidden">
-          <DialogHeader className="px-4 pt-4 pb-2">
-            <DialogTitle className="text-sm">Command center</DialogTitle>
-          </DialogHeader>
+      {/* Overlay — z-[60] pour passer au-dessus du header z-50 */}
+      {open && (
+        <div
+          className="fixed inset-0 z-[60] flex items-start justify-center pt-[12vh]"
+          style={{ background: 'rgba(0,0,0,0.72)', backdropFilter: 'blur(6px)' }}
+          onClick={() => setOpen(false)}
+        >
+          {/* Palette */}
+          <div
+            className="relative flex flex-col rounded-2xl border shadow-2xl overflow-hidden"
+            style={{
+              background: PANEL, borderColor: BORDER,
+              width: '90%', maxWidth: 580,
+              maxHeight: '70vh',
+              boxShadow: `0 0 0 1px ${BORDER}, 0 32px 80px rgba(0,0,0,0.7), 0 0 60px ${TEAL}08`,
+            }}
+            onClick={e => e.stopPropagation()}
+          >
+            {/* Search input */}
+            <div className="flex items-center gap-3 px-4 border-b shrink-0"
+              style={{ borderColor: BORDER }}>
+              <Search size={15} style={{ color: TEXT_DIM, flexShrink: 0 }} />
+              <input
+                ref={inputRef}
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                onKeyDown={e => e.key === 'Escape' && setOpen(false)}
+                placeholder="Rechercher une action, SIF, projet…"
+                className="flex-1 h-12 bg-transparent text-sm outline-none"
+                style={{ color: TEXT }}
+              />
+              {search && (
+                <button onClick={() => setSearch('')}
+                  className="text-[10px] px-1.5 py-0.5 rounded"
+                  style={{ color: TEXT_DIM, border: `1px solid ${BORDER}` }}>
+                  esc
+                </button>
+              )}
+            </div>
 
-          <div className="px-4 pb-3">
-            <Input
-              value={query}
-              onChange={e => setQuery(e.target.value)}
-              placeholder="Search commands, projects or SIFs..."
-              className="h-10"
-              autoFocus
-            />
-          </div>
-
-          <div className="max-h-[52vh] overflow-y-auto px-2 pb-3">
-            {(['Navigation', 'Creation', 'Workspace'] as const).map(group => {
-              const items = grouped[group]
-              if (!items.length) return null
-
-              return (
-                <div key={group} className="px-2 py-1.5">
-                  <p className="mb-1.5 px-2 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">{group}</p>
-                  <div className="space-y-1">
-                    {items.map(item => {
-                      const Icon = item.group === 'Navigation'
-                        ? LayoutDashboard
-                        : item.group === 'Creation'
-                          ? Plus
-                          : item.id.includes('theme')
-                            ? (isDark ? Sun : Moon)
-                            : Settings
-
-                      return (
-                        <button
-                          key={item.id}
-                          type="button"
-                          onClick={() => runCommand(item.run)}
-                          className={cn(
-                            'w-full rounded-lg border border-transparent px-3 py-2 text-left transition-colors',
-                            'hover:border-border/70 hover:bg-muted/30',
-                          )}
-                        >
-                          <div className="flex items-start gap-2.5">
-                            <div className="mt-0.5 rounded-md border border-border/60 bg-background/70 p-1">
-                              <Icon className="h-3.5 w-3.5" />
-                            </div>
-                            <div className="min-w-0">
-                              <p className="text-sm font-medium truncate">{item.label}</p>
-                              <p className="text-xs text-muted-foreground truncate">{item.hint}</p>
-                            </div>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
+            {/* Results */}
+            <div className="flex-1 overflow-y-auto py-2">
+              {groups.length === 0 && (
+                <div className="py-12 text-center text-sm" style={{ color: TEXT_DIM }}>
+                  Aucun résultat pour « {search} »
                 </div>
-              )
-            })}
+              )}
 
-            {!filtered.length && (
-              <div className="px-4 py-10 text-center text-sm text-muted-foreground">
-                No command found for “{query}”.
-              </div>
-            )}
-          </div>
+              {groups.map(group => (
+                <div key={group.heading} className="mb-1">
+                  {/* Group heading */}
+                  <p className="px-4 py-1.5 text-[9px] font-bold uppercase tracking-widest"
+                    style={{ color: TEXT_DIM }}>
+                    {group.heading}
+                  </p>
 
-          <div className="border-t border-border/60 bg-muted/20 px-4 py-2 text-[11px] text-muted-foreground flex items-center justify-between">
-            <span>Use ⌘K / Ctrl+K anytime</span>
-            <span className="inline-flex items-center gap-1"><FolderKanban className="h-3 w-3" /> Designed for fast SIL workflows</span>
+                  {/* Items */}
+                  {(group.items as typeof generalGroup.items).map(item => (
+                    <button
+                      key={item.label}
+                      type="button"
+                      onClick={item.onSelect}
+                      className="group w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
+                      style={{ background: 'transparent' }}
+                      onMouseEnter={e => (e.currentTarget.style.background = '#1D232A')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      {/* Icon */}
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0 transition-colors"
+                        style={{
+                          background: item.isActive ? `${TEAL}20` : '#1D232A',
+                          border: `1px solid ${item.isActive ? TEAL + '50' : BORDER}`,
+                        }}>
+                        <item.Icon size={13} style={{ color: item.isActive ? TEAL : TEXT_DIM }} />
+                      </div>
+
+                      {/* Label + meta */}
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate" style={{ color: item.isActive ? TEAL_DIM : TEXT }}>
+                          {item.label}
+                        </p>
+                        {'meta' in item && item.meta && (
+                          <p className="text-[10px] truncate" style={{ color: TEXT_DIM }}>{item.meta as string}</p>
+                        )}
+                      </div>
+
+                      {/* Active indicator */}
+                      {item.isActive && (
+                        <span className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0"
+                          style={{ background: `${TEAL}20`, color: TEAL_DIM, border: `1px solid ${TEAL}40` }}>
+                          Actif
+                        </span>
+                      )}
+
+                      <ChevronRight size={12} style={{ color: BORDER, flexShrink: 0 }} className="group-hover:opacity-100 opacity-0 transition-opacity" />
+                    </button>
+                  ))}
+                </div>
+              ))}
+            </div>
+
+            {/* Footer */}
+            <div className="flex items-center gap-4 px-4 py-2.5 shrink-0 border-t"
+              style={{ borderColor: BORDER }}>
+              <span className="text-[10px]" style={{ color: TEXT_DIM }}>
+                <kbd className="font-mono px-1 rounded" style={{ border: `1px solid ${BORDER}` }}>↑↓</kbd> naviguer
+              </span>
+              <span className="text-[10px]" style={{ color: TEXT_DIM }}>
+                <kbd className="font-mono px-1 rounded" style={{ border: `1px solid ${BORDER}` }}>↵</kbd> sélectionner
+              </span>
+              <span className="text-[10px]" style={{ color: TEXT_DIM }}>
+                <kbd className="font-mono px-1 rounded" style={{ border: `1px solid ${BORDER}` }}>esc</kbd> fermer
+              </span>
+            </div>
           </div>
-        </DialogContent>
-      </Dialog>
+        </div>
+      )}
     </>
   )
 }
