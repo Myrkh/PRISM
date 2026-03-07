@@ -5,18 +5,18 @@
 // Cas de validation de référence IEC 61508-6 Annexe B
 // =============================================================================
 
-import { computeSIF, DEFAULT_OPTIONS } from '../src/index'
-import { computeComponentPFD } from '../src/pfd/component'
-import { computeSubsystemPFD } from '../src/pfd/subsystem'
-import { computeArchitecturalSIL } from '../src/architectural'
-import { computeSubsystemSTR } from '../src/str'
-import { pfdavgToSIL, minSIL } from '../src/utils/sil'
-import { toHours, fitToPerHour } from '../src/utils/units'
-import { binomialCoeff } from '../src/utils/stats'
-import { resolveFailureRates, makeDefaultComponentParams } from '../src/resolver'
+import { computeSIF, DEFAULT_OPTIONS } from '../src/engine/index'
+import { computeComponentPFD } from '../src/engine/pfd/component'
+import { computeSubsystemPFD } from '../src/engine/pfd/subsystem'
+import { computeArchitecturalSIL } from '../src/engine/architectural'
+import { computeSubsystemSTR } from '../src/engine/str'
+import { pfdavgToSIL, minSIL } from '../src/engine/utils/sil'
+import { toHours, fitToPerHour } from '../src/engine/utils/units'
+import { binomialCoeff } from '../src/engine/utils/stats'
+import { resolveFailureRates, makeDefaultComponentParams } from '../src/engine/resolver'
 import type {
   ComponentParams, ChannelDef, SIFDefinition, EngineInput,
-} from '../src/types/engine'
+} from '../src/engine/types/engine'
 
 // ---------------------------------------------------------------------------
 // Helpers pour les tests

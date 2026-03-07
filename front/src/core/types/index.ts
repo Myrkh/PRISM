@@ -20,6 +20,7 @@ export { SIL_META, ARCHITECTURE_META } from './sil.types'
 // ─── Components & Architecture ────────────────────────────────────────────
 export type {
   SubsystemType, ParamMode, TestType, NatureType, InstrumentCategory,
+  DeterminedCharacter, VoteType, CCFMethod, SubsystemCCF,
   FactorizedParams, DevelopedParams, TestParams, PartialTestParams, AdvancedParams,
   SIFComponent,
   BooleanGate, CustomBooleanArch, LibraryComponent,

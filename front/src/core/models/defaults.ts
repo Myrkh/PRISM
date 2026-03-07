@@ -4,6 +4,17 @@ import type {
   SubsystemType, Architecture,
 } from '@/core/types'
 
+function defaultDeterminedCharacter(subsystemType: SubsystemType): SIFComponent['determinedCharacter'] {
+  switch (subsystemType) {
+    case 'actuator':
+      return 'TYPE_A'
+    case 'sensor':
+    case 'logic':
+    default:
+      return 'TYPE_B'
+  }
+}
+
 export const DEFAULT_COMPONENT = (subsystemType: SubsystemType, tagName: string): SIFComponent => ({
   id: nanoid(),
   tagName,
@@ -18,6 +29,7 @@ export const DEFAULT_COMPONENT = (subsystemType: SubsystemType, tagName: string)
   dataSource: '',
   description: '',
   subsystemType,
+  determinedCharacter: defaultDeterminedCharacter(subsystemType),
   paramMode: 'factorized',
   factorized: {
     lambda: 1.5,
@@ -92,6 +104,12 @@ export const DEFAULT_SUBSYSTEM = (
     type,
     label: labels[type],
     architecture,
+    voteType: 'S',
+    ccf: {
+      beta: 0.05,
+      betaD: 0.025,
+      method: 'MAX',
+    },
     channels: Array.from({ length: channelCount }, (_, i) =>
       DEFAULT_CHANNEL(type, i, sifNumber)
     ),

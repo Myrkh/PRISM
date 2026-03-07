@@ -8,6 +8,7 @@
  */
 import { supabase } from './supabase'
 import type { Project, SIF, SIFRevision, SIFStatus } from '@/core/types'
+import { hydrateSIF } from '@/core/models/hydrate'
 
 // ═══════════════════════════════════════════════════════════════
 // MAPPERS — DB row → App type
@@ -33,7 +34,7 @@ function rowToProject(row: any): Omit<Project, 'sifs'> {
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToSIF(row: any): SIF {
-  return {
+  return hydrateSIF({
     id:                   row.id,
     projectId:            row.project_id,
     sifNumber:            row.sif_number        ?? '',
@@ -57,7 +58,7 @@ function rowToSIF(row: any): SIF {
     testCampaigns:        row.test_campaigns    ?? [],
     operationalEvents:    row.operational_events ?? [],
     hazopTrace:           row.hazop_trace       ?? undefined,
-  }
+  })
 }
 
 type ProjectInput = Omit<Project, 'id' | 'createdAt' | 'updatedAt' | 'sifs'>

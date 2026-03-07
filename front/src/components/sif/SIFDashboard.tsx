@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from 'react'
 import { CheckCircle2, AlertTriangle, LayoutDashboard, Network, BarChart3, Shield, Gauge, Sparkles, ArrowRight, FileText, FlaskConical, Activity, Radio, Zap, Clock, Edit3, Save, X, Plus, Minus } from 'lucide-react'
 import { ProofTestTab } from '@/components/prooftest/ProofTestTab'
 import { Button } from '@/components/ui/button'
-import { useAppStore, type SIFTab } from '@/store/appStore'
+import { useAppStore, selectSIFCalc, type SIFTab } from '@/store/appStore'
 import { SILBadge } from '@/components/shared/SILBadge'
 import { SILGauge } from '@/components/shared/SILGauge'
 import { LoopEditorFlow } from '@/components/architecture/LoopEditorFlow'
@@ -40,7 +40,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
     }
     return () => { if (activeTab !== 'prooftest') setRightPanelOverride(null) }
   }, [activeTab, sif, projectId])
-  const result    = useMemo(() => sif ? calcSIF(sif) : null, [sif])
+  const result    = useAppStore(s => selectSIFCalc(s, projectId, sifId)) ?? (sif ? calcSIF(sif) : null)
 
   // HAZOP edit state (used in Overview)
   const [editingHazop, setEditingHazop] = useState(false)

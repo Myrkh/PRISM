@@ -1,0 +1,13 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "noEmit": false,
+    "allowImportingTsExtensions": false,
+    "isolatedModules": false,
+    "outDir": "/tmp/safeloop-engine-smoke",
+    "rootDir": "."
+  },
+  "include": ["src/engine/**/*.ts", "engine-tests/**/*.ts"]
+}

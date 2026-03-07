@@ -10,7 +10,7 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
-import { DEFAULT_PROJECT, DEFAULT_SIF } from '@/core/models/defaults'
+import { DEFAULT_CHANNEL, DEFAULT_PROJECT, DEFAULT_SIF } from '@/core/models/defaults'
 import {
   dbCreateProject, dbUpdateProject, dbDeleteProject,
   dbCreateSIF, dbUpdateSIF, dbDeleteSIF,
@@ -25,7 +25,15 @@ import { selectSIF } from './selectors'
 // Re-export types for backward compatibility
 export type { AppView, SIFTab, SettingsSection, AppState } from './types'
 export { SETTINGS_SECTIONS } from './types'
-export { selectProject, selectSIF, selectCurrentSIF } from './selectors'
+export {
+  selectProject,
+  selectSIF,
+  selectCurrentSIF,
+  selectSIFCalc,
+  selectSIFEngineResult,
+  selectCurrentSIFCalc,
+  selectCurrentSIFEngineResult,
+} from './selectors'
 
 // ─── Debounced architecture sync ───────────────────────────────────────────
 const archSyncTimers = new Map<string, ReturnType<typeof setTimeout>>()
@@ -247,11 +255,12 @@ export const useAppStore = create<AppState>()(
 
       addChannel: (projectId, sifId, subsystemId) => {
         set(s => {
-          const sub = findSIF(s, projectId, sifId)?.subsystems.find(sub => sub.id === subsystemId)
-          if (!sub) return
+          const sif = findSIF(s, projectId, sifId)
+          const sub = sif?.subsystems.find(sub => sub.id === subsystemId)
+          if (!sif || !sub) return
           sub.channels = relabelChannels([
             ...sub.channels,
-            { id: crypto.randomUUID(), label: '', components: [] },
+            DEFAULT_CHANNEL(sub.type, sub.channels.length, sif.sifNumber),
           ])
         })
         scheduleArchSync(sifId, () => selectSIF(get(), projectId, sifId))

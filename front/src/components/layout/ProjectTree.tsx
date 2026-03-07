@@ -98,7 +98,11 @@ export function ProjectTree({ projectId, sifId }: Props) {
     const map = new Map<string, { project: (typeof projects)[number]; sif: (typeof projects)[number]['sifs'][number]; ok: boolean }>()
     projects.forEach(proj => {
       proj.sifs.forEach(s => {
-        map.set(s.id, { project: proj, sif: s, ok: calcSIF(s).meetsTarget })
+        map.set(s.id, {
+          project: proj,
+          sif: s,
+          ok: calcSIF(s, { projectStandard: proj.standard }).meetsTarget,
+        })
       })
     })
     return map
@@ -119,7 +123,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
     showProject?: boolean
     inTree?: boolean
   }) => {
-    const ok = sifLookup.get(s.id)?.ok ?? calcSIF(s).meetsTarget
+    const ok = sifLookup.get(s.id)?.ok ?? calcSIF(s, { projectStandard: proj.standard }).meetsTarget
     const cur = s.id === sifId && proj.id === projectId
     const isPinned = pinnedSet.has(s.id)
 
@@ -190,7 +194,10 @@ export function ProjectTree({ projectId, sifId }: Props) {
               <div className="mt-0.5 pl-2 space-y-1">
                 {group.projects.map(proj => {
                   const projOpen = openProjects.has(`p-${proj.id}`)
-                  const projOk = proj.sifs.length === 0 || proj.sifs.map(calcSIF).every(r => r.meetsTarget)
+                  const projOk = proj.sifs.length === 0 ||
+                    proj.sifs
+                      .map(sif => calcSIF(sif, { projectStandard: proj.standard }))
+                      .every(result => result.meetsTarget)
                   const isCurProj = proj.id === projectId
                   return (
                     <div key={proj.id}>

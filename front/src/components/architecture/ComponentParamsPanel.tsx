@@ -22,7 +22,7 @@ import {
 } from '@/core/math/pfdCalc'
 import type {
   SIFComponent, SubsystemType, ParamMode, TestType,
-  NatureType, InstrumentCategory,
+  NatureType, InstrumentCategory, DeterminedCharacter,
 } from '@/core/types'
 import { cn } from '@/lib/utils'
 import { BORDER, CARD_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } from '@/styles/tokens'
@@ -62,6 +62,11 @@ const TEST_TYPES: { value: TestType; label: string; desc: string }[] = [
   { value: 'online',  label: 'En ligne',        desc: 'Test complet en service'      },
   { value: 'partial', label: 'PST (partiel)',   desc: 'Course partielle (vanne)'     },
   { value: 'none',    label: 'Aucun test',      desc: 'Pas de test de preuve'        },
+]
+const DETERMINED_CHARACTER_OPTIONS: { value: DeterminedCharacter; label: string }[] = [
+  { value: 'TYPE_A', label: 'Type A' },
+  { value: 'TYPE_B', label: 'Type B' },
+  { value: 'NON_TYPE_AB', label: 'Non-Type-AB' },
 ]
 
 type PanelTab = 'identification' | 'parameters' | 'test' | 'advanced'
@@ -319,6 +324,13 @@ export function ComponentParamsPanel({
                 ]}
               />
             </FieldRow>
+            <FieldRow label="Caractérisation IEC 61508">
+              <StyledSelect
+                value={local.determinedCharacter ?? (subsystemType === 'actuator' ? 'TYPE_A' : 'TYPE_B')}
+                onChange={v => upd({ determinedCharacter: v as DeterminedCharacter })}
+                options={DETERMINED_CHARACTER_OPTIONS}
+              />
+            </FieldRow>
             <FieldRow label="Description">
               <textarea
                 value={local.description}
@@ -487,16 +499,22 @@ export function ComponentParamsPanel({
               />
             </FieldRow>
 
-            <SectionTitle>Facteur de défaillance commune</SectionTitle>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <SliderField
-                  label="β (β-factor)" value={local.advanced.gamma}
-                  min={0} max={0.2} step={0.005} format={formatPct}
-                  onChange={v => updA({ gamma: v })}
-                />
-              </div>
-            </div>
+            <SectionTitle>Facteurs qualité de test</SectionTitle>
+            <SliderField
+              label="γ — Défaillance due au test" value={local.advanced.gamma}
+              min={0} max={0.2} step={0.005} format={formatPct}
+              onChange={v => updA({ gamma: v })}
+            />
+            <SliderField
+              label="ω₁ — Erreur de remise en état" value={local.advanced.omega1}
+              min={0} max={1} step={0.005} format={formatPct}
+              onChange={v => updA({ omega1: v })}
+            />
+            <SliderField
+              label="ω₂ — Erreur de réparation" value={local.advanced.omega2}
+              min={0} max={1} step={0.005} format={formatPct}
+              onChange={v => updA({ omega2: v })}
+            />
 
             <SectionTitle>Couverture test de preuve</SectionTitle>
             <SliderField

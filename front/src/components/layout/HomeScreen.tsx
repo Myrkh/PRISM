@@ -40,7 +40,9 @@ export function HomeScreen() {
   const confirm = useConfirmDialog()
 
   const totalSIFs = projects.reduce((a, p) => a + p.sifs.length, 0)
-  const totalOk   = projects.reduce((a, p) => a + p.sifs.filter(s => calcSIF(s).meetsTarget).length, 0)
+  const totalOk   = projects.reduce((acc, project) => (
+    acc + project.sifs.filter(sif => calcSIF(sif, { projectStandard: project.standard }).meetsTarget).length
+  ), 0)
 
   // ─── Menu button helper ────────────────────────────────────────────────
   const MenuBtn = ({ icon: Icon, label, color, hoverColor, onClick }: {
@@ -118,7 +120,10 @@ export function HomeScreen() {
       {/* Projects */}
       <div className="space-y-6">
         {projects.map(proj => {
-          const projCalcs = proj.sifs.map(s => ({ sif: s, calc: calcSIF(s) }))
+          const projCalcs = proj.sifs.map(sif => ({
+            sif,
+            calc: calcSIF(sif, { projectStandard: proj.standard }),
+          }))
           const allOk     = projCalcs.length === 0 || projCalcs.every(x => x.calc.meetsTarget)
           const isArchived  = proj.status === 'archived'
           const isCompleted = proj.status === 'completed'
@@ -228,7 +233,7 @@ export function HomeScreen() {
               ) : (
                 <div className="divide-y" style={{ borderColor: BORDER }}>
                   {proj.sifs.map(sif => {
-                    const r   = calcSIF(sif)
+                    const r   = calcSIF(sif, { projectStandard: proj.standard })
                     const sifSc = statusColors[sif.status] ?? '#6B7280'
                     return (
                       <div key={sif.id}

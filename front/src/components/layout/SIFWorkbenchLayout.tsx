@@ -13,7 +13,7 @@
  *   – shared/StatusIcon.tsx
  */
 import { useMemo, useState, type ReactNode, createContext, useContext, useEffect } from 'react'
-import { useAppStore, type SIFTab } from '@/store/appStore'
+import { useAppStore, selectSIFCalc, type SIFTab } from '@/store/appStore'
 import { calcSIF, formatPFD, formatPct } from '@/core/math/pfdCalc'
 import { cn } from '@/lib/utils'
 import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL_DIM, TEXT, TEXT_DIM } from '@/styles/tokens'
@@ -55,7 +55,7 @@ function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) 
   const project  = projects.find(p => p.id === projectId)
   const sif      = project?.sifs.find(s => s.id === sifId)
   const [activeTab, setActiveTab] = useState<'properties' | 'matrix'>('properties')
-  const calc = useMemo(() => sif ? calcSIF(sif) : null, [sif])
+  const calc = useAppStore(s => selectSIFCalc(s, projectId, sifId)) ?? (sif ? calcSIF(sif) : null)
 
   if (!sif || !calc) return null
   const sub0  = calc.subsystems[0]

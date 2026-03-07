@@ -1,0 +1,20 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true
+  },
+  "include": [
+    "src/vite-env.d.ts",
+    "src/core/math/pfdCalc.ts",
+    "src/core/models/defaults.ts",
+    "src/core/types/**/*.ts",
+    "src/engine/**/*.ts",
+    "src/store/**/*.ts",
+    "src/components/architecture/ComponentParamsPanel.tsx",
+    "src/components/architecture/LoopEditorFlow.tsx",
+    "src/components/layout/HomeScreen.tsx",
+    "src/components/layout/ProjectTree.tsx",
+    "src/components/layout/SIFWorkbenchLayout.tsx",
+    "src/components/sif/SIFDashboard.tsx"
+  ]
+}

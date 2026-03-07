@@ -12,6 +12,9 @@ export type ParamMode = 'factorized' | 'developed'
 export type TestType = 'stopped' | 'online' | 'partial' | 'none'
 export type NatureType = 'instrument' | 'valve' | 'relay' | 'controller' | 'other'
 export type InstrumentCategory = 'transmitter' | 'switch' | 'valve' | 'positioner' | 'controller' | 'relay' | 'other'
+export type DeterminedCharacter = 'TYPE_A' | 'TYPE_B' | 'NON_TYPE_AB'
+export type VoteType = 'S' | 'A' | 'M'
+export type CCFMethod = 'MIN' | 'MAX' | 'AVERAGE' | 'GEOMETRIC' | 'QUADRATIC'
 
 export interface FactorizedParams {
   lambda: number           // total λ [h⁻¹ × 10⁻⁶]
@@ -56,6 +59,12 @@ export interface AdvancedParams {
   partialTest: PartialTestParams
 }
 
+export interface SubsystemCCF {
+  beta: number
+  betaD: number
+  method: CCFMethod
+}
+
 export interface SIFComponent {
   id: string
   tagName: string
@@ -66,6 +75,7 @@ export interface SIFComponent {
   dataSource: string
   description: string
   subsystemType: SubsystemType
+  determinedCharacter: DeterminedCharacter
   paramMode: ParamMode
   factorized: FactorizedParams
   developed: DevelopedParams
@@ -106,6 +116,8 @@ export interface SIFSubsystem {
   type: SubsystemType
   label: string
   architecture: Architecture
+  voteType: VoteType
+  ccf: SubsystemCCF
   customBooleanArch?: CustomBooleanArch
   channels: SIFChannel[]
 }

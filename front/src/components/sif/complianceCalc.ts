@@ -4,7 +4,7 @@
  * Pure computation of compliance checks for a SIF.
  * Extracted from SIFDashboard for reuse and testability.
  */
-import type { SIF, SIFCalcResult } from '@/core/types'
+import type { SIF, SIFCalcResult, SILLevel } from '@/core/types'
 import type { SIFTab } from '@/store/types'
 import { formatPct } from '@/core/math/pfdCalc'
 
@@ -12,7 +12,7 @@ export interface ComplianceSubsystemCheck {
   id: string
   label: string
   type: string
-  sil: number
+  sil: SILLevel
   checks: { label: string; value: string; ok: boolean }[]
   allOk: boolean
 }

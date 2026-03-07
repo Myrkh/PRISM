@@ -23,10 +23,10 @@ import {
   Plus, Trash2, ChevronDown, ChevronRight, X,
   Activity, Cpu, Zap, CheckCircle2,
 } from 'lucide-react'
-import { useAppStore } from '@/store/appStore'
+import { useAppStore, selectSIFCalc } from '@/store/appStore'
 import { calcSIF, calcComponentSFF, calcComponentDC, factorizedToDeveloped, formatPFD, formatPct } from '@/core/math/pfdCalc'
-import { DEFAULT_COMPONENT, DEFAULT_SUBSYSTEM } from '@/core/models/defaults'
-import { ARCHITECTURE_META, type Architecture, type SIF, type SIFComponent, type SIFSubsystem, type SIFChannel, type SubsystemType, type SubsystemCalcResult, type BooleanGate } from '@/core/types'
+import { DEFAULT_CHANNEL, DEFAULT_COMPONENT, DEFAULT_SUBSYSTEM } from '@/core/models/defaults'
+import { ARCHITECTURE_META, type Architecture, type SIF, type SIFComponent, type SIFSubsystem, type SIFChannel, type SubsystemType, type SubsystemCalcResult, type BooleanGate, type VoteType, type CCFMethod } from '@/core/types'
 import { BORDER, CARD_BG, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM, PANEL_BG, dark } from '@/styles/tokens'
 
 // ─── Design ──────────────────────────────────────────────────────────────
@@ -55,6 +55,7 @@ interface SubsystemNodeData {
   onRemoveSub: (subId: string) => void
   onUpdateArch: (subId: string, arch: Architecture) => void
   onUpdateCustomGate: (subId: string, gate: BooleanGate, expression: string) => void
+  onUpdateEngineSettings: (subId: string, patch: Pick<SIFSubsystem, 'voteType' | 'ccf'>) => void
 }
 
 interface AnimatedEdgeData { label?: string }
@@ -184,14 +185,17 @@ function ChannelBlock({
 }
 
 // ─── Architecture Selector ───────────────────────────────────────────────
-function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate }: {
+function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUpdateEngineSettings }: {
   subsystem: SIFSubsystem; color: string
   onUpdateArch: (subId: string, arch: Architecture) => void
   onUpdateCustomGate: (subId: string, gate: BooleanGate, expression: string) => void
+  onUpdateEngineSettings: (subId: string, patch: Pick<SIFSubsystem, 'voteType' | 'ccf'>) => void
 }) {
   const isCustom = subsystem.architecture === 'custom'
   const gate = subsystem.customBooleanArch?.gate ?? 'OR'
   const expr = subsystem.customBooleanArch?.expression ?? ''
+  const voteType = subsystem.voteType ?? 'S'
+  const ccf = subsystem.ccf ?? { beta: 0.05, betaD: 0.025, method: 'MAX' as CCFMethod }
 
   return (
     <div className="px-3 pb-2 space-y-2">
@@ -206,6 +210,73 @@ function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate }: {
             <option key={a} value={a}>{a === 'custom' ? 'Custom (booléen)' : `${a} — ${ARCHITECTURE_META[a].desc}`}</option>
           ))}
         </select>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Vote</span>
+          <select
+            value={voteType}
+            onChange={e => onUpdateEngineSettings(subsystem.id, { voteType: e.target.value as VoteType, ccf })}
+            className="w-full h-6 rounded border px-1 text-[10px] font-mono font-bold outline-none"
+            style={{ background: '#141A21', borderColor: `${color}30`, color }}
+          >
+            <option value="S">Standard (S)</option>
+            <option value="A">Availability (A)</option>
+            <option value="M">Maintenance (M)</option>
+          </select>
+        </div>
+        <div className="space-y-1">
+          <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>CCF</span>
+          <select
+            value={ccf.method}
+            onChange={e => onUpdateEngineSettings(subsystem.id, {
+              voteType,
+              ccf: { ...ccf, method: e.target.value as CCFMethod },
+            })}
+            className="w-full h-6 rounded border px-1 text-[10px] font-mono font-bold outline-none"
+            style={{ background: '#141A21', borderColor: `${color}30`, color }}
+          >
+            {(['MAX', 'AVERAGE', 'GEOMETRIC', 'MIN', 'QUADRATIC'] as CCFMethod[]).map(method => (
+              <option key={method} value={method}>{method}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
+        <div className="space-y-1">
+          <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>β</span>
+          <input
+            type="number"
+            min="0"
+            max="1"
+            step="0.005"
+            value={ccf.beta}
+            onChange={e => onUpdateEngineSettings(subsystem.id, {
+              voteType,
+              ccf: { ...ccf, beta: parseFloat(e.target.value) || 0 },
+            })}
+            className="w-full h-6 rounded border px-2 text-[10px] font-mono outline-none"
+            style={{ background: '#141A21', borderColor: `${color}30`, color: TEXT }}
+          />
+        </div>
+        <div className="space-y-1">
+          <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>βD</span>
+          <input
+            type="number"
+            min="0"
+            max="1"
+            step="0.005"
+            value={ccf.betaD}
+            onChange={e => onUpdateEngineSettings(subsystem.id, {
+              voteType,
+              ccf: { ...ccf, betaD: parseFloat(e.target.value) || 0 },
+            })}
+            className="w-full h-6 rounded border px-2 text-[10px] font-mono outline-none"
+            style={{ background: '#141A21', borderColor: `${color}30`, color: TEXT }}
+          />
+        </div>
       </div>
 
       {/* Custom boolean editor */}
@@ -241,7 +312,7 @@ function SubsystemNode({ data }: NodeProps<SubsystemNodeData>) {
   const {
     subsystem, calcResult, selectedId, projectId, sifId,
     onSelectComp, onAddChannel, onRemoveChannel, onRemoveSub,
-    onUpdateArch, onUpdateCustomGate,
+    onUpdateArch, onUpdateCustomGate, onUpdateEngineSettings,
   } = data
 
   const meta  = SUB_META[subsystem.type as SubsystemType]
@@ -273,7 +344,10 @@ function SubsystemNode({ data }: NodeProps<SubsystemNodeData>) {
       {/* Architecture selector */}
       {!collapsed && (
         <ArchSelector subsystem={subsystem} color={color}
-          onUpdateArch={onUpdateArch} onUpdateCustomGate={onUpdateCustomGate} />
+          onUpdateArch={onUpdateArch}
+          onUpdateCustomGate={onUpdateCustomGate}
+          onUpdateEngineSettings={onUpdateEngineSettings}
+        />
       )}
 
       {/* Metrics bar */}
@@ -356,7 +430,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
   const removeChannel   = useAppStore(s => s.removeChannel)
   const selectComponent = useAppStore(s => s.selectComponent)
   const selectedId      = useAppStore(s => s.selectedComponentId)
-  const calc            = useMemo(() => calcSIF(sif), [sif])
+  const calc            = useAppStore(s => selectSIFCalc(s, projectId, sif.id)) ?? calcSIF(sif)
 
   const handleSelectComp = useCallback((componentId: string) => {
     selectComponent(selectedId === componentId ? null : componentId)
@@ -388,12 +462,21 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
     const sub = sif.subsystems.find(s => s.id === subId)
     if (!sub) return
     // Adjust channel count to match architecture
-    const requiredChannels = ARCHITECTURE_META[arch]?.channels ?? 1
+    const requiredChannels = arch === 'custom'
+      ? Math.max(sub.channels.length, ARCHITECTURE_META.custom.channels)
+      : (ARCHITECTURE_META[arch]?.channels ?? 1)
     const currentChannels = sub.channels.length
     let channels = [...sub.channels]
+    if (requiredChannels < currentChannels) {
+      const removedChannels = channels.slice(requiredChannels)
+      if (removedChannels.some(channel => channel.components.some(comp => comp.id === selectedId))) {
+        selectComponent(null)
+      }
+      channels = channels.slice(0, requiredChannels)
+    }
     if (requiredChannels > currentChannels) {
       for (let i = currentChannels; i < requiredChannels; i++) {
-        channels.push({ id: crypto.randomUUID(), label: `Channel ${i + 1}`, components: [] })
+        channels.push(DEFAULT_CHANNEL(sub.type, i, sif.sifNumber))
       }
     }
     channels = channels.map((channel, index) => ({
@@ -407,7 +490,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
       customBooleanArch: arch === 'custom' ? (sub.customBooleanArch ?? { gate: 'OR', expression: '', manualHFT: 0 }) : undefined,
     }
     updateSubsystem(projectId, sif.id, updated)
-  }, [sif, projectId, updateSubsystem])
+  }, [sif, projectId, selectedId, selectComponent, updateSubsystem])
 
   const handleUpdateCustomGate = useCallback((subId: string, gate: BooleanGate, expression: string) => {
     const sub = sif.subsystems.find(s => s.id === subId)
@@ -415,6 +498,20 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
     updateSubsystem(projectId, sif.id, {
       ...sub,
       customBooleanArch: { gate, expression, manualHFT: gate === 'OR' ? 1 : 0 },
+    })
+  }, [sif, projectId, updateSubsystem])
+
+  const handleUpdateEngineSettings = useCallback((subId: string, patch: Pick<SIFSubsystem, 'voteType' | 'ccf'>) => {
+    const sub = sif.subsystems.find(s => s.id === subId)
+    if (!sub) return
+
+    updateSubsystem(projectId, sif.id, {
+      ...sub,
+      voteType: patch.voteType,
+      ccf: {
+        ...(sub.ccf ?? { beta: 0.05, betaD: 0.025, method: 'MAX' }),
+        ...patch.ccf,
+      },
     })
   }, [sif, projectId, updateSubsystem])
 
@@ -438,9 +535,10 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
           onRemoveSub: handleRemoveSub,
           onUpdateArch: handleUpdateArch,
           onUpdateCustomGate: handleUpdateCustomGate,
+          onUpdateEngineSettings: handleUpdateEngineSettings,
         },
       }))
-  }, [sif, selectedId, calc, projectId, handleSelectComp, handleAddChannel, handleRemoveChannel, handleRemoveSub, handleUpdateArch, handleUpdateCustomGate])
+  }, [sif, selectedId, calc, projectId, handleSelectComp, handleAddChannel, handleRemoveChannel, handleRemoveSub, handleUpdateArch, handleUpdateCustomGate, handleUpdateEngineSettings])
 
   const buildEdges = useCallback(() => {
     const ORDER = ['sensor', 'logic', 'actuator']
