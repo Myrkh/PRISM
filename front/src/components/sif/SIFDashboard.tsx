@@ -30,8 +30,8 @@ export function SIFDashboard({ projectId, sifId }: Props) {
   const activeTab = view.type === 'sif-dashboard' ? view.tab : 'overview'
 
   // When architecture tab is active → mount LoopEditorRightPanel in the right panel
-  // Architecture tab → LoopEditorRightPanel
-  // ProofTest tab → ProofTestTab mounts its own panel via useLayout (props-based, no context issue)
+  // Must depend on full `sif` object (not just sif.id) so the panel refreshes
+  // when component params are edited.
   useEffect(() => {
     if (activeTab === 'architecture' && sif) {
       setRightPanelOverride(<LoopEditorRightPanel sif={sif} projectId={projectId} />)
@@ -39,7 +39,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
       setRightPanelOverride(null)
     }
     return () => { if (activeTab !== 'prooftest') setRightPanelOverride(null) }
-  }, [activeTab, sif?.id, projectId])
+  }, [activeTab, sif, projectId])
   const result    = useMemo(() => sif ? calcSIF(sif) : null, [sif])
 
   // HAZOP edit state (used in Overview)

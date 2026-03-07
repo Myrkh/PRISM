@@ -89,6 +89,7 @@ export const radius = 8
 export const RAIL_BG  = dark.rail
 export const PANEL_BG = dark.panel
 export const CARD_BG  = dark.card
+export const SURFACE  = dark.card2    // Inner cards / table background — contrasts with CARD_BG
 export const PAGE_BG  = dark.page
 export const BORDER   = dark.border
 export const TEXT     = dark.text

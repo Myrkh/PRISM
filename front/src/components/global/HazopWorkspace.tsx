@@ -30,6 +30,9 @@ import type { Project, SIF, HAZOPTrace } from '@/core/types'
 import { calcSIF } from '@/core/math/pfdCalc'
 import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } from '@/styles/tokens'
 import { IntercalaireCard, IntercalaireTabBar, useLayout } from '@/components/layout/SIFWorkbenchLayout'
+import {
+  Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
+} from '@/components/ui/dialog'
 
 // ─── Design tokens ────────────────────────────────────────────────────────
 // ─── Risk matrix cell color ───────────────────────────────────────────────
@@ -73,6 +76,58 @@ interface HazopRowData {
   sif: SIF
   trace: HAZOPTrace
   project: Project
+}
+
+interface ScenarioDraft {
+  projectId: string
+  sifId: string
+  scenarioId: string
+  hazopNode: string
+  deviationCause: string
+  initiatingEvent: string
+  lopaRef: string
+  tmel: string
+  iplList: string
+  riskMatrix: string
+  hazopDate: string
+  lopaDate: string
+  hazopFacilitator: string
+}
+
+function scenarioSeed(projects: Project[], projectId: string): string {
+  const project = projects.find(p => p.id === projectId)
+  const next = (project?.sifs.filter(sif => sif.hazopTrace?.scenarioId).length ?? 0) + 1
+  return `SC-${String(next).padStart(3, '0')}`
+}
+
+function createScenarioDraft(projects: Project[], preferredProjectId?: string): ScenarioDraft {
+  const project = projects.find(p => p.id === preferredProjectId && p.sifs.length > 0)
+    ?? projects.find(p => p.sifs.length > 0)
+
+  return {
+    projectId: project?.id ?? '',
+    sifId: project?.sifs[0]?.id ?? '',
+    scenarioId: project ? scenarioSeed(projects, project.id) : '',
+    hazopNode: '',
+    deviationCause: '',
+    initiatingEvent: '',
+    lopaRef: '',
+    tmel: '0.001',
+    iplList: '',
+    riskMatrix: '',
+    hazopDate: '',
+    lopaDate: '',
+    hazopFacilitator: '',
+  }
+}
+
+function FieldLabel({ children }: { children: React.ReactNode }) {
+  return (
+    <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em]"
+      style={{ color: TEXT_DIM }}>
+      {children}
+    </label>
+  )
 }
 
 const HAZOP_RIGHT_TABS = [
@@ -580,10 +635,314 @@ function EmptyState({ hasSearch }: { hasSearch: boolean }) {
   )
 }
 
+function NewScenarioModal({
+  open,
+  onOpenChange,
+  projects,
+  draft,
+  setDraft,
+  onSubmit,
+}: {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  projects: Project[]
+  draft: ScenarioDraft
+  setDraft: React.Dispatch<React.SetStateAction<ScenarioDraft>>
+  onSubmit: () => void
+}) {
+  const selectedProject = projects.find(project => project.id === draft.projectId) ?? null
+  const sifOptions = selectedProject?.sifs ?? []
+  const selectedSif = sifOptions.find(sif => sif.id === draft.sifId) ?? null
+  const hasOverwriteRisk = !!selectedSif?.hazopTrace
+  const canSubmit = !!draft.projectId
+    && !!draft.sifId
+    && !!draft.scenarioId.trim()
+    && !!draft.hazopNode.trim()
+    && !!draft.deviationCause.trim()
+    && !!draft.iplList.trim()
+    && !!draft.riskMatrix.trim()
+    && Number(draft.tmel) > 0
+  const inputStyle = {
+    background: '#151B22',
+    borderColor: BORDER,
+    color: TEXT,
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-4xl border-0 bg-transparent p-0 shadow-none">
+        <div className="overflow-hidden rounded-[28px] border"
+          style={{
+            borderColor: BORDER,
+            background: 'linear-gradient(180deg, #1B222B 0%, #131920 100%)',
+            boxShadow: '0 24px 64px rgba(3, 7, 12, 0.48)',
+          }}>
+          <DialogHeader className="border-b px-7 py-6" style={{ borderColor: BORDER }}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: TEAL_DIM }}>
+              HAZOP / LOPA
+            </p>
+            <DialogTitle className="text-xl font-black" style={{ color: TEXT }}>
+              Nouveau scénario
+            </DialogTitle>
+            <p className="max-w-2xl text-[12px] leading-relaxed" style={{ color: TEXT_DIM }}>
+              La trace créée sera rattachée à une SIF existante. La table HAZOP indépendante arrivera plus tard,
+              donc cette modale remplit le registre actuel avec les champs attendus par le tableau.
+            </p>
+          </DialogHeader>
+
+          <div className="grid gap-6 px-7 py-6 lg:grid-cols-[1.2fr_0.8fr]">
+            <div className="space-y-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <FieldLabel>Projet</FieldLabel>
+                  <select
+                    value={draft.projectId}
+                    onChange={e => {
+                      const nextProjectId = e.target.value
+                      const nextProject = projects.find(project => project.id === nextProjectId)
+                      setDraft(prev => ({
+                        ...prev,
+                        projectId: nextProjectId,
+                        sifId: nextProject?.sifs[0]?.id ?? '',
+                        scenarioId: nextProjectId ? scenarioSeed(projects, nextProjectId) : '',
+                      }))
+                    }}
+                    className="h-11 w-full rounded-2xl border px-3 text-sm outline-none"
+                    style={inputStyle}
+                  >
+                    <option value="">Sélectionner un projet</option>
+                    {projects.map(project => (
+                      <option key={project.id} value={project.id}>{project.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <FieldLabel>SIF liée</FieldLabel>
+                  <select
+                    value={draft.sifId}
+                    onChange={e => setDraft(prev => ({ ...prev, sifId: e.target.value }))}
+                    className="h-11 w-full rounded-2xl border px-3 text-sm outline-none"
+                    style={inputStyle}
+                    disabled={!selectedProject}
+                  >
+                    <option value="">Sélectionner une SIF</option>
+                    {sifOptions.map(sif => (
+                      <option key={sif.id} value={sif.id}>
+                        {sif.sifNumber} · {sif.title}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <FieldLabel>ID scénario</FieldLabel>
+                  <input
+                    value={draft.scenarioId}
+                    onChange={e => setDraft(prev => ({ ...prev, scenarioId: e.target.value }))}
+                    placeholder="SC-001"
+                    className="h-11 w-full rounded-2xl border px-3 text-sm outline-none"
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <FieldLabel>Nœud HAZOP</FieldLabel>
+                  <input
+                    value={draft.hazopNode}
+                    onChange={e => setDraft(prev => ({ ...prev, hazopNode: e.target.value }))}
+                    placeholder="Node 3 - HP Separator"
+                    className="h-11 w-full rounded-2xl border px-3 text-sm outline-none"
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <FieldLabel>Déviation / Cause</FieldLabel>
+                  <textarea
+                    value={draft.deviationCause}
+                    onChange={e => setDraft(prev => ({ ...prev, deviationCause: e.target.value }))}
+                    placeholder="High pressure - blocked outlet"
+                    className="min-h-[112px] w-full rounded-2xl border px-3 py-3 text-sm outline-none resize-none"
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <FieldLabel>IPLs existants</FieldLabel>
+                  <textarea
+                    value={draft.iplList}
+                    onChange={e => setDraft(prev => ({ ...prev, iplList: e.target.value }))}
+                    placeholder="BPCS, PSV-101, operator response"
+                    className="min-h-[112px] w-full rounded-2xl border px-3 py-3 text-sm outline-none resize-none"
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <FieldLabel>Matrice de risque</FieldLabel>
+                  <input
+                    value={draft.riskMatrix}
+                    onChange={e => setDraft(prev => ({ ...prev, riskMatrix: e.target.value.toUpperCase() }))}
+                    placeholder="4C"
+                    className="h-11 w-full rounded-2xl border px-3 text-sm font-mono outline-none"
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <FieldLabel>TMEL [yr^-1]</FieldLabel>
+                  <input
+                    type="number"
+                    min={0}
+                    step="0.000001"
+                    value={draft.tmel}
+                    onChange={e => setDraft(prev => ({ ...prev, tmel: e.target.value }))}
+                    className="h-11 w-full rounded-2xl border px-3 text-sm font-mono outline-none"
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <FieldLabel>Référence LOPA</FieldLabel>
+                  <input
+                    value={draft.lopaRef}
+                    onChange={e => setDraft(prev => ({ ...prev, lopaRef: e.target.value }))}
+                    placeholder="LOPA-HTL-003"
+                    className="h-11 w-full rounded-2xl border px-3 text-sm outline-none"
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <FieldLabel>Événement initiateur</FieldLabel>
+                  <input
+                    value={draft.initiatingEvent}
+                    onChange={e => setDraft(prev => ({ ...prev, initiatingEvent: e.target.value }))}
+                    placeholder="Loss of outflow / CV-001 fails closed"
+                    className="h-11 w-full rounded-2xl border px-3 text-sm outline-none"
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <FieldLabel>Facilitateur HAZOP</FieldLabel>
+                  <input
+                    value={draft.hazopFacilitator}
+                    onChange={e => setDraft(prev => ({ ...prev, hazopFacilitator: e.target.value }))}
+                    placeholder="Nom Prénom"
+                    className="h-11 w-full rounded-2xl border px-3 text-sm outline-none"
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <FieldLabel>Date HAZOP</FieldLabel>
+                  <input
+                    type="date"
+                    value={draft.hazopDate}
+                    onChange={e => setDraft(prev => ({ ...prev, hazopDate: e.target.value }))}
+                    className="h-11 w-full rounded-2xl border px-3 text-sm font-mono outline-none"
+                    style={inputStyle}
+                  />
+                </div>
+                <div>
+                  <FieldLabel>Date LOPA</FieldLabel>
+                  <input
+                    type="date"
+                    value={draft.lopaDate}
+                    onChange={e => setDraft(prev => ({ ...prev, lopaDate: e.target.value }))}
+                    className="h-11 w-full rounded-2xl border px-3 text-sm font-mono outline-none"
+                    style={inputStyle}
+                  />
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="rounded-3xl border p-5"
+                style={{ borderColor: `${TEAL}3A`, background: `linear-gradient(180deg, ${TEAL}14 0%, rgba(0,0,0,0) 100%)` }}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: TEAL_DIM }}>
+                  Aperçu registre
+                </p>
+                <div className="mt-4 space-y-3 text-[12px]">
+                  {[
+                    ['Scénario', draft.scenarioId || '—'],
+                    ['Nœud HAZOP', draft.hazopNode || '—'],
+                    ['Déviation / Cause', draft.deviationCause || '—'],
+                    ['IPLs existants', draft.iplList || '—'],
+                    ['Matrice', draft.riskMatrix || '—'],
+                    ['TMEL', draft.tmel || '—'],
+                    ['SIF liée', selectedSif ? `${selectedSif.sifNumber}` : '—'],
+                  ].map(([label, value]) => (
+                    <div key={label} className="border-b pb-2 last:border-0 last:pb-0"
+                      style={{ borderColor: `${BORDER}AA` }}>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>
+                        {label}
+                      </p>
+                      <p className="mt-1" style={{ color: TEXT }}>{value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-3xl border p-5"
+                style={{ borderColor: BORDER, background: '#151B22' }}>
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: TEXT_DIM }}>
+                  Comportement
+                </p>
+                <p className="mt-3 text-[12px] leading-relaxed" style={{ color: TEXT_DIM }}>
+                  Le scénario est rattaché à la SIF sélectionnée et apparaît immédiatement dans le registre HAZOP/LOPA
+                  ainsi que dans la traçabilité de cette SIF.
+                </p>
+                <p className="mt-3 text-[11px]" style={{ color: TEXT_DIM }}>
+                  Champs requis : projet, SIF, ID scénario, nœud, déviation/cause, IPLs, matrice, TMEL.
+                </p>
+                {hasOverwriteRisk && (
+                  <div className="mt-4 rounded-2xl border px-3 py-2.5 text-[11px]"
+                    style={{ borderColor: '#F59E0B55', background: '#2B2110', color: '#FCD34D' }}>
+                    Cette SIF possède déjà une trace HAZOP. Enregistrer remplacera la trace actuelle.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="border-t px-7 py-5" style={{ borderColor: BORDER }}>
+            <button
+              type="button"
+              onClick={() => onOpenChange(false)}
+              className="rounded-2xl border px-4 py-2 text-xs font-bold transition-colors"
+              style={{ borderColor: BORDER, color: TEXT_DIM, background: '#151B22' }}
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={onSubmit}
+              disabled={!canSubmit}
+              className="rounded-2xl px-4 py-2 text-xs font-bold disabled:cursor-not-allowed disabled:opacity-40"
+              style={{ background: 'linear-gradient(135deg, #009BA4, #007A82)', color: '#fff' }}
+            >
+              Créer le scénario
+            </button>
+          </DialogFooter>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 // ─── Main workspace ───────────────────────────────────────────────────────
 export function HazopWorkspace() {
   const projects  = useAppStore(s => s.projects)
   const navigate  = useAppStore(s => s.navigate)
+  const updateHAZOPTrace = useAppStore(s => s.updateHAZOPTrace)
   const { setRightPanelOverride } = useLayout()
 
   const [search,       setSearch]       = useState('')
@@ -591,6 +950,8 @@ export function HazopWorkspace() {
   const [expandedRows,  setExpanded]     = useState<Set<string>>(new Set())
   const [selectedRowId, setSelectedRowId] = useState<string | null>(null)
   const [initiatingFrequency, setInitiatingFrequency] = useState<number>(1e-2)
+  const [isScenarioModalOpen, setIsScenarioModalOpen] = useState(false)
+  const [scenarioDraft, setScenarioDraft] = useState<ScenarioDraft>(() => createScenarioDraft([]))
 
   const handleNavigate = (projectId: string, sifId: string, tab: SIFTab) => {
     navigate({ type: 'sif-dashboard', projectId, sifId, tab })
@@ -661,6 +1022,50 @@ export function HazopWorkspace() {
     navigate({ type: 'sif-dashboard', projectId: selectedRow.project.id, sifId: selectedRow.sif.id, tab })
   }, [navigate, selectedRow])
 
+  const hasAnySif = projects.some(project => project.sifs.length > 0)
+
+  const openNewScenarioModal = useCallback(() => {
+    const preferredProjectId = projectFilter !== 'all'
+      ? projectFilter
+      : selectedRow?.project.id
+    setScenarioDraft(createScenarioDraft(projects, preferredProjectId))
+    setIsScenarioModalOpen(true)
+  }, [projectFilter, projects, selectedRow])
+
+  const submitScenario = useCallback(() => {
+    if (!scenarioDraft.projectId || !scenarioDraft.sifId) return
+    const tmel = Number(scenarioDraft.tmel)
+    if (!scenarioDraft.scenarioId.trim() || !scenarioDraft.hazopNode.trim() || !scenarioDraft.deviationCause.trim()) return
+    if (!scenarioDraft.iplList.trim() || !scenarioDraft.riskMatrix.trim() || !Number.isFinite(tmel) || tmel <= 0) return
+
+    const trace: HAZOPTrace = {
+      scenarioId: scenarioDraft.scenarioId.trim(),
+      hazopNode: scenarioDraft.hazopNode.trim(),
+      deviationCause: scenarioDraft.deviationCause.trim(),
+      initiatingEvent: scenarioDraft.initiatingEvent.trim(),
+      lopaRef: scenarioDraft.lopaRef.trim(),
+      tmel,
+      iplList: scenarioDraft.iplList.trim(),
+      riskMatrix: scenarioDraft.riskMatrix.trim().toUpperCase(),
+      hazopDate: scenarioDraft.hazopDate,
+      lopaDate: scenarioDraft.lopaDate,
+      hazopFacilitator: scenarioDraft.hazopFacilitator.trim(),
+    }
+
+    updateHAZOPTrace(scenarioDraft.projectId, scenarioDraft.sifId, trace)
+
+    const newRowId = `${scenarioDraft.projectId}:${scenarioDraft.sifId}`
+    setProjectFilter(scenarioDraft.projectId)
+    setSearch('')
+    setSelectedRowId(newRowId)
+    setExpanded(prev => {
+      const next = new Set(prev)
+      next.add(newRowId)
+      return next
+    })
+    setIsScenarioModalOpen(false)
+  }, [scenarioDraft, updateHAZOPTrace])
+
   useEffect(() => {
     setRightPanelOverride(
       <HazopRightPanel
@@ -728,7 +1133,16 @@ export function HazopWorkspace() {
 
           {/* Disabled Sprint 2 actions */}
           <ComingSoonBtn label="Importer CSV" Icon={Upload} />
-          <ComingSoonBtn label="Nouveau scénario" Icon={Plus} />
+          <button
+            type="button"
+            onClick={openNewScenarioModal}
+            disabled={!hasAnySif}
+            className="flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ background: CARD_BG, borderColor: BORDER, color: TEXT }}
+          >
+            <Plus size={12} />
+            Nouveau scénario
+          </button>
         </div>
       </div>
 
@@ -798,6 +1212,15 @@ export function HazopWorkspace() {
           {' '}— Table HAZOP indépendante, LOPA engine (fréquence résiduelle), création SIF depuis scénario, import CSV avec mapping
         </span>
       </div>
+
+      <NewScenarioModal
+        open={isScenarioModalOpen}
+        onOpenChange={setIsScenarioModalOpen}
+        projects={projects}
+        draft={scenarioDraft}
+        setDraft={setScenarioDraft}
+        onSubmit={submitScenario}
+      />
     </div>
   )
 }

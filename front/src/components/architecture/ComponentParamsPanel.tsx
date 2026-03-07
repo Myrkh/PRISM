@@ -177,8 +177,9 @@ export function ComponentParamsPanel({
   const [local, setLocal] = useState<SIFComponent>(component)
   const [activeTab, setActiveTab] = useState<PanelTab>('identification')
 
-  // Sync when component changes (different component selected)
-  useEffect(() => { setLocal(component) }, [component.id])
+  // Sync local state whenever the component prop changes
+  // (different component selected, OR same component re-selected after store update)
+  useEffect(() => { setLocal(component) }, [component])
 
   // Auto-save
   const commit = (updater: (prev: SIFComponent) => SIFComponent) => {

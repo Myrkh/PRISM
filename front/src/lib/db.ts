@@ -111,18 +111,42 @@ function sifToRow(data: Partial<SIF>) {
  * Charge tous les projets + leurs SIFs en 2 requêtes parallèles.
  */
 export async function fetchAllProjects(): Promise<Project[]> {
-  const [{ data: projRows, error: projErr }, { data: sifRows, error: sifErr }] =
+  const [
+    { data: projRows, error: projErr },
+    { data: sifRows, error: sifErr },
+    { data: procedureRows, error: procedureErr },
+    { data: campaignRows, error: campaignErr },
+  ] =
     await Promise.all([
       supabase.from('prism_projects').select('*').order('created_at'),
       supabase.from('prism_sifs').select('*').order('created_at'),
+      supabase.from('prism_proof_procedures').select('*').order('updated_at', { ascending: false }),
+      supabase.from('prism_proof_campaigns').select('*').order('date', { ascending: false }),
     ])
 
   if (projErr) throw new Error(`prism_projects: ${projErr.message}`)
   if (sifErr)  throw new Error(`prism_sifs: ${sifErr.message}`)
+  if (procedureErr) throw new Error(`prism_proof_procedures: ${procedureErr.message}`)
+  if (campaignErr)  throw new Error(`prism_proof_campaigns: ${campaignErr.message}`)
+
+  const proceduresBySif = (procedureRows ?? []).reduce<Record<string, any>>((acc, row) => {
+    const sifId = row.sif_id as string
+    if (!acc[sifId]) acc[sifId] = rowToProcedure(row)
+    return acc
+  }, {})
+
+  const campaignsBySif = (campaignRows ?? []).reduce<Record<string, any[]>>((acc, row) => {
+    const sifId = row.sif_id as string
+    ;(acc[sifId] ??= []).push(rowToCampaign(row))
+    return acc
+  }, {})
 
   const sifsByProject = (sifRows ?? []).reduce<Record<string, SIF[]>>((acc, row) => {
     const pid = row.project_id as string
-    ;(acc[pid] ??= []).push(rowToSIF(row))
+    const sif = rowToSIF(row)
+    sif.proofTestProcedure = proceduresBySif[sif.id] ?? sif.proofTestProcedure
+    sif.testCampaigns = campaignsBySif[sif.id] ?? sif.testCampaigns ?? []
+    ;(acc[pid] ??= []).push(sif)
     return acc
   }, {})
 
@@ -215,6 +239,8 @@ export async function dbFetchProcedure(sifId: string) {
     .from('prism_proof_procedures')
     .select('*')
     .eq('sif_id', sifId)
+    .order('updated_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
   if (error) throw new Error(`Fetch procédure: ${error.message}`)
   return data ? rowToProcedure(data) : null
@@ -315,11 +341,12 @@ export async function dbCreateCampaign(campaign: {
 }
 
 export async function dbUpdateCampaign(campaignId: string, patch: {
-  verdict?: string | null; team?: string; notes?: string
+  date?: string; verdict?: string | null; team?: string; notes?: string
   conductedBy?: string; witnessedBy?: string; stepResults?: unknown[]
 }): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row: Record<string, any> = {}
+  if (patch.date         !== undefined) row.date          = patch.date
   if (patch.verdict      !== undefined) row.verdict       = patch.verdict
   if (patch.team         !== undefined) row.team          = patch.team
   if (patch.notes        !== undefined) row.notes         = patch.notes

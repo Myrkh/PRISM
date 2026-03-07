@@ -83,6 +83,12 @@ export const STATUS_CFG: Record<Status, { label: string; bg: string; color: stri
 
 export const inputCls = 'h-8 px-3 text-xs rounded-xl border border-[#2A3138] bg-[#1D232A] text-[#DFE8F1] focus:outline-none focus:ring-2 focus:ring-[#009BA4]/30 focus:border-[#009BA4] transition-all'
 
+export function newPersistedId(): string {
+  return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
+    ? crypto.randomUUID()
+    : nanoid()
+}
+
 // ─── Default procedure factory ───────────────────────────────────────────
 export function defaultProcedure(sif: SIF): PTProcedure {
   const catPre: PTCategory  = { id: nanoid(), type: 'preliminary', title: 'Actions préliminaires', order: 0 }
@@ -104,7 +110,7 @@ export function defaultProcedure(sif: SIF): PTProcedure {
   ]
 
   return {
-    id: nanoid(), ref: `PT-${sif.sifNumber}-001`, revision: 'A', status: 'draft',
+    id: newPersistedId(), ref: `PT-${sif.sifNumber}-001`, revision: 'A', status: 'draft',
     periodicityMonths: 12,
     categories: [catPre, catTest, catFin],
     steps,

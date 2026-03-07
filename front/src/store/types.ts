@@ -103,12 +103,12 @@ export interface AppState {
   ) => void
 
   // ── Actions: Proof Test ──
-  updateProofTestProcedure: (projectId: string, sifId: string, procedure: ProofTestProcedure) => void
+  updateProofTestProcedure: (projectId: string, sifId: string, procedure: ProofTestProcedure) => Promise<void>
 
   // ── Actions: Campaigns ──
-  addTestCampaign: (projectId: string, sifId: string, campaign: TestCampaign) => void
-  updateTestCampaign: (projectId: string, sifId: string, campaign: TestCampaign) => void
-  removeTestCampaign: (projectId: string, sifId: string, campaignId: string) => void
+  addTestCampaign: (projectId: string, sifId: string, campaign: TestCampaign) => Promise<void>
+  updateTestCampaign: (projectId: string, sifId: string, campaign: TestCampaign) => Promise<void>
+  removeTestCampaign: (projectId: string, sifId: string, campaignId: string) => Promise<void>
 
   // ── Actions: Events ──
   addOperationalEvent: (projectId: string, sifId: string, event: OperationalEvent) => void

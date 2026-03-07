@@ -14,6 +14,8 @@ import { DEFAULT_PROJECT, DEFAULT_SIF } from '@/core/models/defaults'
 import {
   dbCreateProject, dbUpdateProject, dbDeleteProject,
   dbCreateSIF, dbUpdateSIF, dbDeleteSIF,
+  dbUpsertProcedure,
+  dbCreateCampaign, dbUpdateCampaign, dbDeleteCampaign,
   dbFetchRevisions, dbCreateRevision,
 } from '@/lib/db'
 import type { SIFRevision } from '@/core/types'
@@ -27,6 +29,15 @@ export { selectProject, selectSIF, selectCurrentSIF } from './selectors'
 
 // ─── Debounced architecture sync ───────────────────────────────────────────
 const archSyncTimers = new Map<string, ReturnType<typeof setTimeout>>()
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+
+function isUuid(value: string | null | undefined): value is string {
+  return !!value && UUID_RE.test(value)
+}
+
+function ensureUuid(value: string | null | undefined): string {
+  return isUuid(value) ? value : crypto.randomUUID()
+}
 
 function scheduleArchSync(sifId: string, getSIF: () => ReturnType<typeof selectSIF>) {
   const existing = archSyncTimers.get(sifId)
@@ -53,6 +64,13 @@ const findChannel = (s: AppState, projectId: string, sifId: string, subsystemId:
   findSIF(s, projectId, sifId)
     ?.subsystems.find(sub => sub.id === subsystemId)
     ?.channels.find(ch => ch.id === channelId)
+
+function relabelChannels<T extends { label: string }>(channels: T[]): T[] {
+  return channels.map((channel, index) => ({
+    ...channel,
+    label: `Channel ${index + 1}`,
+  }))
+}
 
 // ─── Store ─────────────────────────────────────────────────────────────────
 export const useAppStore = create<AppState>()(
@@ -230,7 +248,11 @@ export const useAppStore = create<AppState>()(
       addChannel: (projectId, sifId, subsystemId) => {
         set(s => {
           const sub = findSIF(s, projectId, sifId)?.subsystems.find(sub => sub.id === subsystemId)
-          if (sub) sub.channels.push({ id: crypto.randomUUID(), label: `Channel ${sub.channels.length + 1}`, components: [] })
+          if (!sub) return
+          sub.channels = relabelChannels([
+            ...sub.channels,
+            { id: crypto.randomUUID(), label: '', components: [] },
+          ])
         })
         scheduleArchSync(sifId, () => selectSIF(get(), projectId, sifId))
       },
@@ -238,7 +260,9 @@ export const useAppStore = create<AppState>()(
       removeChannel: (projectId, sifId, subsystemId, channelId) => {
         set(s => {
           const sub = findSIF(s, projectId, sifId)?.subsystems.find(sub => sub.id === subsystemId)
-          if (sub) sub.channels = sub.channels.filter(ch => ch.id !== channelId)
+          if (!sub) return
+          if (sub.channels.length <= 1) return
+          sub.channels = relabelChannels(sub.channels.filter(ch => ch.id !== channelId))
         })
         scheduleArchSync(sifId, () => selectSIF(get(), projectId, sifId))
       },
@@ -286,36 +310,133 @@ export const useAppStore = create<AppState>()(
       // ══════════════════════════════════════════════════════════════════════
       // PROOF TEST / CAMPAIGNS / EVENTS / HAZOP (fire-and-forget sync)
       // ══════════════════════════════════════════════════════════════════════
-      updateProofTestProcedure: (projectId, sifId, procedure) => {
-        set(s => { const sif = findSIF(s, projectId, sifId); if (sif) sif.proofTestProcedure = procedure })
-        dbUpdateSIF(sifId, { proofTestProcedure: procedure }).catch(console.error)
+      updateProofTestProcedure: async (projectId, sifId, procedure) => {
+        const persistedProcedure = { ...procedure, id: ensureUuid(procedure.id) }
+        const snapshot = selectSIF(get(), projectId, sifId)?.proofTestProcedure
+        set(s => { const sif = findSIF(s, projectId, sifId); if (sif) sif.proofTestProcedure = persistedProcedure })
+        try {
+          await dbUpsertProcedure({
+            id: persistedProcedure.id,
+            sifId,
+            projectId,
+            ref: persistedProcedure.ref,
+            revision: persistedProcedure.revision,
+            status: persistedProcedure.status,
+            periodicityMonths: persistedProcedure.periodicityMonths,
+            categories: persistedProcedure.categories,
+            steps: persistedProcedure.steps,
+            madeBy: persistedProcedure.madeBy,
+            madeByDate: persistedProcedure.madeByDate,
+            verifiedBy: persistedProcedure.verifiedBy,
+            verifiedByDate: persistedProcedure.verifiedByDate,
+            approvedBy: persistedProcedure.approvedBy,
+            approvedByDate: persistedProcedure.approvedByDate,
+            notes: persistedProcedure.notes,
+          })
+        } catch (err: unknown) {
+          set(s => { const sif = findSIF(s, projectId, sifId); if (sif) sif.proofTestProcedure = snapshot })
+          set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          throw err
+        }
       },
 
-      addTestCampaign: (projectId, sifId, campaign) => {
+      addTestCampaign: async (projectId, sifId, campaign) => {
+        const sifSnapshot = selectSIF(get(), projectId, sifId)
+        if (!sifSnapshot?.proofTestProcedure?.id) {
+          const err = new Error('Sauvegarde campagne: aucune procédure de proof test associée à cette SIF')
+          set(s => { s.syncError = err.message })
+          throw err
+        }
+        const persistedCampaign = { ...campaign, id: ensureUuid(campaign.id) }
+        const previousCampaigns = [...(sifSnapshot.testCampaigns ?? [])]
         set(s => {
           const sif = findSIF(s, projectId, sifId)
-          if (sif) { if (!sif.testCampaigns) sif.testCampaigns = []; sif.testCampaigns.unshift(campaign) }
+          if (sif) { if (!sif.testCampaigns) sif.testCampaigns = []; sif.testCampaigns.unshift(persistedCampaign) }
         })
-        const sif = selectSIF(get(), projectId, sifId)
-        if (sif) dbUpdateSIF(sifId, { testCampaigns: sif.testCampaigns }).catch(console.error)
+        try {
+          await dbCreateCampaign({
+            id: persistedCampaign.id,
+            procedureId: sifSnapshot.proofTestProcedure.id,
+            sifId,
+            projectId,
+            date: persistedCampaign.date,
+            team: persistedCampaign.team,
+            verdict: persistedCampaign.verdict,
+            notes: persistedCampaign.notes,
+            conductedBy: persistedCampaign.conductedBy,
+            witnessedBy: persistedCampaign.witnessedBy,
+            stepResults: persistedCampaign.stepResults,
+          })
+        } catch (err: unknown) {
+          set(s => { const sif = findSIF(s, projectId, sifId); if (sif) sif.testCampaigns = previousCampaigns })
+          set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          throw err
+        }
       },
 
-      updateTestCampaign: (projectId, sifId, campaign) => {
+      updateTestCampaign: async (projectId, sifId, campaign) => {
+        const sifSnapshot = selectSIF(get(), projectId, sifId)
+        if (!sifSnapshot?.proofTestProcedure?.id) {
+          const err = new Error('Sauvegarde campagne: aucune procédure de proof test associée à cette SIF')
+          set(s => { s.syncError = err.message })
+          throw err
+        }
+        const shouldCreate = !isUuid(campaign.id)
+        const persistedCampaign = { ...campaign, id: ensureUuid(campaign.id) }
+        const previousCampaigns = [...(selectSIF(get(), projectId, sifId)?.testCampaigns ?? [])]
         set(s => {
           const sif = findSIF(s, projectId, sifId)
-          if (sif?.testCampaigns) { const idx = sif.testCampaigns.findIndex(c => c.id === campaign.id); if (idx >= 0) sif.testCampaigns[idx] = campaign }
+          if (sif?.testCampaigns) {
+            const idx = sif.testCampaigns.findIndex(c => c.id === campaign.id)
+            if (idx >= 0) sif.testCampaigns[idx] = persistedCampaign
+          }
         })
-        const sif = selectSIF(get(), projectId, sifId)
-        if (sif) dbUpdateSIF(sifId, { testCampaigns: sif.testCampaigns }).catch(console.error)
+        try {
+          if (shouldCreate) {
+            await dbCreateCampaign({
+              id: persistedCampaign.id,
+              procedureId: sifSnapshot.proofTestProcedure.id,
+              sifId,
+              projectId,
+              date: persistedCampaign.date,
+              team: persistedCampaign.team,
+              verdict: persistedCampaign.verdict,
+              notes: persistedCampaign.notes,
+              conductedBy: persistedCampaign.conductedBy,
+              witnessedBy: persistedCampaign.witnessedBy,
+              stepResults: persistedCampaign.stepResults,
+            })
+          } else {
+            await dbUpdateCampaign(persistedCampaign.id, {
+              date: persistedCampaign.date,
+              verdict: persistedCampaign.verdict,
+              team: persistedCampaign.team,
+              notes: persistedCampaign.notes,
+              conductedBy: persistedCampaign.conductedBy,
+              witnessedBy: persistedCampaign.witnessedBy,
+              stepResults: persistedCampaign.stepResults,
+            })
+          }
+        } catch (err: unknown) {
+          set(s => { const sif = findSIF(s, projectId, sifId); if (sif) sif.testCampaigns = previousCampaigns })
+          set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          throw err
+        }
       },
 
-      removeTestCampaign: (projectId, sifId, campaignId) => {
+      removeTestCampaign: async (projectId, sifId, campaignId) => {
+        const previousCampaigns = [...(selectSIF(get(), projectId, sifId)?.testCampaigns ?? [])]
         set(s => {
           const sif = findSIF(s, projectId, sifId)
           if (sif?.testCampaigns) sif.testCampaigns = sif.testCampaigns.filter(c => c.id !== campaignId)
         })
-        const sif = selectSIF(get(), projectId, sifId)
-        if (sif) dbUpdateSIF(sifId, { testCampaigns: sif.testCampaigns }).catch(console.error)
+        try {
+          await dbDeleteCampaign(campaignId)
+        } catch (err: unknown) {
+          set(s => { const sif = findSIF(s, projectId, sifId); if (sif) sif.testCampaigns = previousCampaigns })
+          set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          throw err
+        }
       },
 
       addOperationalEvent: (projectId, sifId, event) => {
