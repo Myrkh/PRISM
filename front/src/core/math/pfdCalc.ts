@@ -34,10 +34,12 @@ import { hydrateSIF } from '@/core/models/hydrate'
 
 const FIT = 1e-9
 const HOURS_PER_YEAR = 8760
-const DEFAULT_MISSION_TIME = 10 * HOURS_PER_YEAR
+const DEFAULT_MISSION_TIME = 30 * HOURS_PER_YEAR
 
 export interface CalcAdapterOptions {
   projectStandard?: Project['standard']
+  missionTimeHours?: number
+  curvePoints?: number
 }
 
 const engineCache = new WeakMap<SIF, Map<string, EngineResult>>()
@@ -83,6 +85,36 @@ export function factorizedToDeveloped(p: FactorizedParams): DevelopedParams {
     lambda_DD: (lambdaD * p.DCd) / FIT,
     lambda_SU: (lambdaS * (1 - p.DCs)) / FIT,
     lambda_SD: (lambdaS * p.DCs) / FIT,
+  }
+}
+
+/**
+ * Convert developed params (FIT) back to factorized params
+ * ([h^-1 × 10^-6]). When one family is zero, keep the previous ratios to
+ * avoid collapsing the factorized representation to misleading defaults.
+ */
+export function developedToFactorized(
+  p: DevelopedParams,
+  fallback?: FactorizedParams,
+): FactorizedParams {
+  const lambdaDU = fitToHr(p.lambda_DU)
+  const lambdaDD = fitToHr(p.lambda_DD)
+  const lambdaSU = fitToHr(p.lambda_SU)
+  const lambdaSD = fitToHr(p.lambda_SD)
+
+  const lambdaDangerous = lambdaDU + lambdaDD
+  const lambdaSafe = lambdaSU + lambdaSD
+  const lambdaTotal = lambdaDangerous + lambdaSafe
+
+  const defaultLambdaDRatio = fallback?.lambdaDRatio ?? 0.25
+  const defaultDCd = fallback?.DCd ?? 0.7
+  const defaultDCs = fallback?.DCs ?? 1
+
+  return {
+    lambda: lambdaTotal / 1e-6,
+    lambdaDRatio: lambdaTotal > 0 ? lambdaDangerous / lambdaTotal : defaultLambdaDRatio,
+    DCd: lambdaDangerous > 0 ? lambdaDD / lambdaDangerous : defaultDCd,
+    DCs: lambdaSafe > 0 ? lambdaSD / lambdaSafe : defaultDCs,
   }
 }
 
@@ -340,7 +372,11 @@ function makeNeutralSubsystem(
   }
 }
 
-function resolveMissionTime(sif: SIF): number {
+function resolveMissionTime(sif: SIF, overrideHours?: number): number {
+  if (Number.isFinite(overrideHours) && (overrideHours ?? 0) > 0) {
+    return overrideHours as number
+  }
+
   const testWindows = sif.subsystems.flatMap(sub =>
     sub.channels.flatMap(ch =>
       ch.components.map(comp => toHours(comp.test.T1, comp.test.T1Unit))
@@ -368,7 +404,7 @@ function toEngineInput(sif: SIF, options?: CalcAdapterOptions): EngineInput {
   const engineSIF: EngineSIFDefinition = {
     id: sif.id,
     demandMode: sif.demandRate > 1 ? 'HIGH_DEMAND' : 'LOW_DEMAND',
-    missionTime: resolveMissionTime(sif),
+    missionTime: resolveMissionTime(sif, options?.missionTimeHours),
     sensors: sensors ? toEngineSubsystem(sensors, standard) : makeNeutralSubsystem('sensor', standard),
     solver: logic
       ? ({
@@ -390,9 +426,16 @@ function toEngineInput(sif: SIF, options?: CalcAdapterOptions): EngineInput {
       mrt: 8,
       computeSTR: true,
       computeCurve: false,
-      curvePoints: 200,
+      curvePoints: options?.curvePoints ?? 200,
     },
   }
+}
+
+function buildCalcCacheKey(options?: CalcAdapterOptions): string {
+  const standard = standardToEngine(options?.projectStandard)
+  const missionTime = Number.isFinite(options?.missionTimeHours) ? Math.round(options!.missionTimeHours!) : 'auto'
+  const curvePoints = options?.curvePoints ?? 200
+  return `${standard}|mt:${missionTime}|cp:${curvePoints}`
 }
 
 // ─── Cache-backed engine access ───────────────────────────────────────────
@@ -411,7 +454,7 @@ function setCached<T>(cache: WeakMap<SIF, Map<string, T>>, sif: SIF, key: string
 }
 
 export function calcSIFEngine(sif: SIF, options?: CalcAdapterOptions): EngineResult {
-  const key = standardToEngine(options?.projectStandard)
+  const key = buildCalcCacheKey(options)
   const cached = getCached(engineCache, sif, key)
   if (cached) return cached
 
@@ -519,42 +562,139 @@ function mapEngineSubsystemResult(
   }
 }
 
-function approxSawtoothAtTime(avgPFD: number, time: number, interval: number): number {
-  if (!isFinite(avgPFD) || avgPFD <= 0) return 1e-10
-  if (interval <= 0) return Math.max(avgPFD, 1e-10)
-
-  const peak = Math.max(avgPFD * 2, 1e-10)
-  const phase = (time % interval) / interval
-  return Math.max(peak * phase, 1e-10)
+function clampProbability(value: number): number {
+  if (!Number.isFinite(value)) return 0
+  return Math.min(Math.max(value, 0), 0.999999999)
 }
 
-function getSubsystemChartInterval(subsystem: SIFSubsystem): number {
-  const intervals = subsystem.channels.flatMap(channel =>
-    channel.components.map(component => toHours(component.test.T1, component.test.T1Unit))
-  ).filter(value => value > 0)
-
-  return intervals.length > 0 ? Math.min(...intervals) : HOURS_PER_YEAR
+function componentTestIntervalHours(component: SIFComponent): number {
+  if (component.test.testType === 'none') return 0
+  return toHours(component.test.T1, component.test.T1Unit)
 }
 
-function genChartData(sif: SIF, subsystemResults: SubsystemCalcResult[]): PFDChartPoint[] {
-  const POINTS = 300
-  const CYCLES = 3
-  const intervals = sif.subsystems.map(getSubsystemChartInterval)
-  const minTI = intervals.length > 0 ? Math.min(...intervals) : HOURS_PER_YEAR
+function componentFirstTestHours(component: SIFComponent): number {
+  return toHours(component.test.T0, component.test.T0Unit)
+}
 
-  return Array.from({ length: POINTS + 1 }, (_, index) => {
-    const time = (index / POINTS) * minTI * CYCLES
+function getChartHorizon(sif: SIF, options?: CalcAdapterOptions): number {
+  return resolveMissionTime(sif, options?.missionTimeHours)
+}
+
+function computePeriodicRamp(lambdaRate: number, time: number, T0: number, T1: number): number {
+  if (!Number.isFinite(lambdaRate) || lambdaRate <= 0 || time <= 0) return 0
+  if (!Number.isFinite(T1) || T1 <= 0) return lambdaRate * time
+
+  const firstTest = Math.max(T0, 0)
+  if (firstTest > 0 && time <= firstTest) {
+    return lambdaRate * time
+  }
+
+  const phase = firstTest > 0
+    ? (time - firstTest) % T1
+    : time % T1
+
+  return lambdaRate * Math.max(phase, 0)
+}
+
+function computeComponentChartPFD(component: SIFComponent, time: number, horizon: number): number {
+  const effective = getEffectiveDeveloped(component)
+  if (!effective) return 0
+
+  const lambdaDU = fitToHr(effective.lambda_DU)
+  const lambdaDD = fitToHr(effective.lambda_DD)
+  const MTTR = component.advanced.MTTR ?? 0
+  const ptc = Math.min(Math.max(component.advanced.proofTestCoverage ?? 1, 0), 1)
+  const sigma = Math.min(Math.max(component.advanced.sigma ?? 1, 0), 1)
+  const revealedFraction = Math.min(Math.max(ptc * sigma, 0), 1)
+  const unrevealedFraction = Math.min(Math.max(1 - revealedFraction, 0), 1)
+  const T1 = componentTestIntervalHours(component)
+  const T0 = componentFirstTestHours(component)
+  const lifetime = normalizeLifetime(component.advanced.lifetime) ?? horizon
+  const pfdDetected = lambdaDD * MTTR
+  const pfdRevealed = component.test.testType === 'none'
+    ? lambdaDU * revealedFraction * time
+    : computePeriodicRamp(lambdaDU * revealedFraction, time, T0, T1)
+  const pfdUnrevealed = lambdaDU * unrevealedFraction * Math.min(time, lifetime)
+
+  return clampProbability(pfdDetected + pfdRevealed + pfdUnrevealed)
+}
+
+function computeMooNUnavailability(channelPFDs: number[], M: number): number {
+  if (channelPFDs.length === 0) return 0
+
+  const N = channelPFDs.length
+  const safeM = Math.min(Math.max(M, 1), N)
+  let dp = Array<number>(N + 1).fill(0)
+  dp[0] = 1
+
+  for (const rawPfd of channelPFDs) {
+    const pfd = clampProbability(rawPfd)
+    const availability = 1 - pfd
+    const next = Array<number>(N + 1).fill(0)
+
+    for (let available = 0; available <= N; available++) {
+      if (dp[available] === 0) continue
+      next[available] += dp[available] * pfd
+      if (available < N) {
+        next[available + 1] += dp[available] * availability
+      }
+    }
+
+    dp = next
+  }
+
+  let unavailable = 0
+  for (let available = 0; available < safeM; available++) {
+    unavailable += dp[available] ?? 0
+  }
+
+  return clampProbability(unavailable)
+}
+
+function computeSubsystemChartPFD(subsystem: SIFSubsystem, time: number, horizon: number): number {
+  const voting = architectureToVoting(subsystem)
+  const channelPFDs = subsystem.channels.map(channel =>
+    channel.components.reduce((sum, component) => sum + computeComponentChartPFD(component, time, horizon), 0)
+  )
+
+  return computeMooNUnavailability(channelPFDs, voting.M)
+}
+
+function scaleSeriesToAverage(values: number[], targetAverage: number): number[] {
+  const average = values.reduce((sum, value) => sum + value, 0) / Math.max(values.length, 1)
+
+  if (!Number.isFinite(targetAverage) || targetAverage <= 0) {
+    return values.map(() => 1e-10)
+  }
+  if (!Number.isFinite(average) || average <= 0) {
+    return values.map(() => Math.max(targetAverage, 1e-10))
+  }
+
+  const factor = targetAverage / average
+  return values.map(value => Math.max(clampProbability(value * factor), 1e-10))
+}
+
+function genChartData(sif: SIF, subsystemResults: SubsystemCalcResult[], options?: CalcAdapterOptions): PFDChartPoint[] {
+  const POINTS = options?.curvePoints ?? 300
+  const horizon = getChartHorizon(sif, options)
+  const times = Array.from({ length: POINTS + 1 }, (_, index) => (index / POINTS) * horizon)
+
+  const seriesBySubsystem = sif.subsystems.map((subsystem, subsystemIndex) => {
+    const rawSeries = times.map(time => computeSubsystemChartPFD(subsystem, time, horizon))
+    const targetAverage = subsystemResults[subsystemIndex]?.PFD_avg ?? Number.NaN
+    return scaleSeriesToAverage(rawSeries, targetAverage)
+  })
+
+  return times.map((time, index) => {
     const point: PFDChartPoint = {
       t: parseFloat((time / HOURS_PER_YEAR).toFixed(4)),
       total: 0,
     }
 
     sif.subsystems.forEach((subsystem, subsystemIndex) => {
-      const avgPFD = subsystemResults[subsystemIndex]?.PFD_avg ?? Number.NaN
-      const interval = getSubsystemChartInterval(subsystem)
-      const value = approxSawtoothAtTime(avgPFD, time, interval)
+      const value = seriesBySubsystem[subsystemIndex]?.[index] ?? 1e-10
       point[subsystem.id] = value
-      point.total += value
+      point.total = 1 - (1 - point.total) * (1 - value)
     })
 
     point.total = Math.max(point.total, 1e-10)
@@ -587,6 +727,7 @@ export function calcSubsystemPFD(
     date: new Date().toISOString().split('T')[0],
     status: 'draft',
     subsystems: [subsystem],
+    assumptions: [],
     testCampaigns: [],
     operationalEvents: [],
   }
@@ -595,7 +736,7 @@ export function calcSubsystemPFD(
 }
 
 export function calcSIF(sif: SIF, options?: CalcAdapterOptions): SIFCalcResult {
-  const key = standardToEngine(options?.projectStandard)
+  const key = buildCalcCacheKey(options)
   const cached = getCached(calcCache, sif, key)
   if (cached) return cached
 
@@ -613,7 +754,7 @@ export function calcSIF(sif: SIF, options?: CalcAdapterOptions): SIFCalcResult {
       SIL: 0,
       meetsTarget: false,
       subsystems: fallbackSubsystems,
-      chartData: genChartData(normalizedSIF, fallbackSubsystems),
+      chartData: genChartData(normalizedSIF, fallbackSubsystems, options),
     }
   } else {
     const contributionByType = {
@@ -633,7 +774,7 @@ export function calcSIF(sif: SIF, options?: CalcAdapterOptions): SIFCalcResult {
       SIL: achievedSIL,
       meetsTarget: achievedSIL >= sif.targetSIL,
       subsystems: subsystemResults,
-      chartData: genChartData(normalizedSIF, subsystemResults),
+      chartData: genChartData(normalizedSIF, subsystemResults, options),
     }
   }
 

@@ -63,7 +63,7 @@ const TABS: { id: PanelTab; label: string; hint: string; Icon: React.ElementType
 
 type FormValues = Omit<SIF,
   'id' | 'projectId' | 'subsystems' | 'testCampaigns' |
-  'operationalEvents' | 'hazopTrace' | 'proofTestProcedure'>
+  'operationalEvents' | 'hazopTrace' | 'proofTestProcedure' | 'assumptions'>
 
 // ─── Sub-components ───────────────────────────────────────────────────────
 function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {

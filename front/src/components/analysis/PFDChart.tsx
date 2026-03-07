@@ -4,6 +4,7 @@ import {
 } from 'recharts'
 import { useAppStore } from '@/store/appStore'
 import { logTickFormatter, formatPFD } from '@/core/math/pfdCalc'
+import type { SIFAnalysisSettings } from '@/core/models/analysisSettings'
 import type { SIF, PFDChartPoint } from '@/core/types'
 
 const SIL_BANDS = [
@@ -13,17 +14,13 @@ const SIL_BANDS = [
   { y1: 1e-5, y2: 1e-4, fill: '#7C3AED', label: 'SIL 4', labelY: 5e-5 },
 ]
 
-const SUB_COLORS: Record<string, string> = {
-  sensor: '#0891B2', logic: '#6366F1', actuator: '#EA580C',
-}
-
 interface Props {
   sif: SIF
   chartData: PFDChartPoint[]
+  settings: SIFAnalysisSettings['chart']
 }
 
 function ChartTooltip({ active, payload, label }: any) {
-  const isDark = useAppStore(s => s.isDark)
   if (!active || !payload?.length) return null
 
   return (
@@ -41,29 +38,51 @@ function ChartTooltip({ active, payload, label }: any) {
   )
 }
 
-export function PFDChart({ sif, chartData }: Props) {
+function formatLinearTick(value: number): string {
+  if (!Number.isFinite(value)) return '0'
+  if (value === 0) return '0'
+  return value.toExponential(1).replace('e', 'E')
+}
+
+export function PFDChart({ sif, chartData, settings }: Props) {
   const isDark = useAppStore(s => s.isDark)
 
   const gridColor   = isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'
   const axisColor   = isDark ? '#374151' : '#E5E7EB'
   const tickColor   = isDark ? '#6B7280' : '#9CA3AF'
-  const totalColor  = isDark ? '#F9FAFB' : '#111827'
+  const totalColor  = settings.totalColor
+  const subsystemColors: Record<string, string> = {
+    sensor: settings.sensorColor,
+    logic: settings.logicColor,
+    actuator: settings.actuatorColor,
+  }
+  const values = chartData.flatMap(point => [
+    point.total,
+    ...sif.subsystems.map(subsystem => point[subsystem.id] ?? 0),
+  ]).filter((value): value is number => Number.isFinite(value) && value > 0)
+  const minPositive = values.length > 0 ? Math.min(...values) : 1e-8
+  const maxValue = values.length > 0 ? Math.max(...values) : 1e-3
+  const yDomain = settings.yScale === 'log'
+    ? [Math.max(Math.min(minPositive / 10, 1e-7), 1e-12), Math.max(maxValue * 1.1, 1e-5)]
+    : [0, Math.max(maxValue * 1.1, 1e-6)]
 
   return (
     <div className="rounded-xl border bg-card p-6">
       <div className="mb-5">
-        <h3 className="text-sm font-semibold">PFD Degradation — Sawtooth Pattern</h3>
+        <h3 className="text-sm font-semibold">{settings.title}</h3>
         <p className="text-xs text-muted-foreground mt-1 font-mono">
-          Proof test resets PFD at each TI · Log₁₀ scale · IEC 61511 §11
+          {settings.subtitle}
         </p>
       </div>
 
       <ResponsiveContainer width="100%" height={300}>
         <LineChart data={chartData} margin={{ top: 8, right: 64, bottom: 24, left: 16 }}>
-          <CartesianGrid strokeDasharray="2 6" stroke={gridColor} vertical={false} />
+          {settings.showGrid && (
+            <CartesianGrid strokeDasharray="2 6" stroke={gridColor} vertical={false} />
+          )}
 
           {/* SIL bands */}
-          {SIL_BANDS.map(({ y1, y2, fill, label }) => (
+          {settings.showSILBands && SIL_BANDS.map(({ y1, y2, fill, label }) => (
             <ReferenceArea
               key={label}
               y1={y1} y2={y2}
@@ -73,7 +92,7 @@ export function PFDChart({ sif, chartData }: Props) {
           ))}
 
           {/* SIL limit lines */}
-          {SIL_BANDS.map(({ y1, fill, label }) => (
+          {settings.showSILBands && SIL_BANDS.map(({ y1, fill, label }) => (
             <ReferenceLine
               key={label}
               y={y1}
@@ -97,38 +116,40 @@ export function PFDChart({ sif, chartData }: Props) {
             }}
           />
           <YAxis
-            scale="log"
-            domain={[1e-7, 0.5]}
+            scale={settings.yScale}
+            domain={yDomain}
             stroke={axisColor}
             tick={{ fill: tickColor, fontSize: 9, fontFamily: 'IBM Plex Mono, monospace' }}
-            tickFormatter={logTickFormatter}
+            tickFormatter={settings.yScale === 'log' ? logTickFormatter : formatLinearTick}
             label={{ value: 'PFD', angle: -90, position: 'insideLeft', fill: tickColor, fontSize: 10, offset: 8 }}
           />
 
           <Tooltip content={<ChartTooltip />} />
 
-          <Legend
-            formatter={(value, entry: any) => (
-              <span style={{
-                color: entry.dataKey === 'total'
-                  ? totalColor
-                  : sif.subsystems.find(s => s.id === entry.dataKey)?.type
-                    ? SUB_COLORS[sif.subsystems.find(s => s.id === entry.dataKey)!.type]
-                    : tickColor,
-                fontSize: 11,
-              }}>
-                {value}
-              </span>
-            )}
-          />
+          {settings.showLegend && (
+            <Legend
+              formatter={(value, entry: any) => (
+                <span style={{
+                  color: entry.dataKey === 'total'
+                    ? totalColor
+                    : sif.subsystems.find(s => s.id === entry.dataKey)?.type
+                      ? subsystemColors[sif.subsystems.find(s => s.id === entry.dataKey)!.type]
+                      : tickColor,
+                  fontSize: 11,
+                }}>
+                  {value}
+                </span>
+              )}
+            />
+          )}
 
-          {sif.subsystems.map(sub => (
+          {settings.showSubsystems && sif.subsystems.map(sub => (
             <Line
               key={sub.id}
               type="linear"
               dataKey={sub.id}
               name={sub.label}
-              stroke={SUB_COLORS[sub.type] ?? tickColor}
+              stroke={subsystemColors[sub.type] ?? tickColor}
               strokeWidth={1.5}
               dot={false}
               opacity={0.7}

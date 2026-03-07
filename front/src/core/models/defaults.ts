@@ -3,6 +3,8 @@ import type {
   SIFComponent, SIFChannel, SIFSubsystem, SIF, Project,
   SubsystemType, Architecture,
 } from '@/core/types'
+import { defaultBetaAssessment } from '@/core/math/betaFactor'
+import { defaultSIFAssumptions } from './sifAssumptions'
 
 function defaultDeterminedCharacter(subsystemType: SubsystemType): SIFComponent['determinedCharacter'] {
   switch (subsystemType) {
@@ -109,6 +111,7 @@ export const DEFAULT_SUBSYSTEM = (
       beta: 0.05,
       betaD: 0.025,
       method: 'MAX',
+      assessment: defaultBetaAssessment(type, architecture, channelCount),
     },
     channels: Array.from({ length: channelCount }, (_, i) =>
       DEFAULT_CHANNEL(type, i, sifNumber)
@@ -140,6 +143,7 @@ export const DEFAULT_SIF = (projectId: string, sifNumber: string): SIF => ({
     DEFAULT_SUBSYSTEM('logic',   sifNumber, '1oo1'),
     DEFAULT_SUBSYSTEM('actuator', sifNumber, '1oo1'),
   ],
+  assumptions: defaultSIFAssumptions(),
   testCampaigns: [],
   operationalEvents: [],
 })

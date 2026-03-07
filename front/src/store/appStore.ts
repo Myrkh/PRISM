@@ -12,6 +12,10 @@ import { devtools } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import { DEFAULT_CHANNEL, DEFAULT_PROJECT, DEFAULT_SIF } from '@/core/models/defaults'
 import {
+  clearLocalSIFAssumptions,
+  saveLocalSIFAssumptions,
+} from '@/core/models/sifAssumptions'
+import {
   dbCreateProject, dbUpdateProject, dbDeleteProject,
   dbCreateSIF, dbUpdateSIF, dbDeleteSIF,
   dbUpsertProcedure,
@@ -193,12 +197,14 @@ export const useAppStore = create<AppState>()(
         const nextNum = String((project.sifs.length + 1)).padStart(3, '0')
         const id = crypto.randomUUID()
         const sif = { ...DEFAULT_SIF(projectId, `SIF-${nextNum}`), ...data, id, projectId }
+        saveLocalSIFAssumptions(id, sif.assumptions)
         set(s => {
           const p = s.projects.find(p => p.id === projectId)
           if (p) { p.sifs.push(sif); p.updatedAt = new Date().toISOString() }
         })
         try { await dbCreateSIF(id, sif) }
         catch (err: unknown) {
+          clearLocalSIFAssumptions(id)
           set(s => { const p = s.projects.find(p => p.id === projectId); if (p) p.sifs = p.sifs.filter(sf => sf.id !== id) })
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
           throw err
@@ -207,6 +213,9 @@ export const useAppStore = create<AppState>()(
       },
 
       updateSIF: async (projectId, sifId, data) => {
+        if (data.assumptions !== undefined) {
+          saveLocalSIFAssumptions(sifId, data.assumptions)
+        }
         set(s => { const sif = findSIF(s, projectId, sifId); if (sif) Object.assign(sif, data) })
         try { await dbUpdateSIF(sifId, data) }
         catch (err: unknown) {
@@ -224,9 +233,15 @@ export const useAppStore = create<AppState>()(
           s.pinnedSIFIds = s.pinnedSIFIds.filter(id => id !== sifId)
           if (s.view.type === 'sif-dashboard' && s.view.sifId === sifId) s.view = { type: 'projects' }
         })
-        try { await dbDeleteSIF(sifId) }
+        try {
+          await dbDeleteSIF(sifId)
+          clearLocalSIFAssumptions(sifId)
+        }
         catch (err: unknown) {
-          if (snapshot) set(s => { const p = s.projects.find(p => p.id === projectId); if (p) p.sifs.push(snapshot); s.pinnedSIFIds = pinnedSnapshot })
+          if (snapshot) {
+            saveLocalSIFAssumptions(sifId, snapshot.assumptions)
+            set(s => { const p = s.projects.find(p => p.id === projectId); if (p) p.sifs.push(snapshot); s.pinnedSIFIds = pinnedSnapshot })
+          }
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
           throw err
         }

@@ -12,6 +12,21 @@ import type { HAZOPTrace } from './hazop.types'
 
 // ─── SIF ──────────────────────────────────────────────────────────────────
 export type SIFStatus = 'draft' | 'in_review' | 'verified' | 'approved' | 'archived'
+export type SIFAssumptionStatus = 'draft' | 'review' | 'validated'
+export type SIFAssumptionCategory = 'process' | 'proof' | 'architecture' | 'data' | 'governance' | 'other'
+export type SIFReferenceTab = 'overview' | 'architecture' | 'analysis' | 'compliance' | 'prooftest' | 'report'
+
+export interface SIFAssumption {
+  id: string
+  title: string
+  statement: string
+  rationale: string
+  status: SIFAssumptionStatus
+  owner: string
+  reviewDate: string
+  category: SIFAssumptionCategory
+  linkedTab: SIFReferenceTab
+}
 
 export interface SIF {
   id: string
@@ -33,6 +48,7 @@ export interface SIF {
   date: string
   status: SIFStatus
   subsystems: SIFSubsystem[]
+  assumptions: SIFAssumption[]
   // Traceability
   hazopTrace?: HAZOPTrace
   // Proof Test

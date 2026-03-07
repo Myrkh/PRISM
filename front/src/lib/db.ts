@@ -54,6 +54,7 @@ function rowToSIF(row: any): SIF {
     date:                 row.doc_date          ?? new Date().toISOString().split('T')[0],
     status:               row.status            ?? 'draft',
     subsystems:           row.subsystems        ?? [],
+    assumptions:          row.assumptions       ?? undefined,
     proofTestProcedure:   row.proof_test_procedure ?? undefined,
     testCampaigns:        row.test_campaigns    ?? [],
     operationalEvents:    row.operational_events ?? [],
@@ -97,11 +98,21 @@ function sifToRow(data: Partial<SIF>) {
   if (data.date            !== undefined) row.doc_date            = data.date
   if (data.status          !== undefined) row.status              = data.status
   if (data.subsystems      !== undefined) row.subsystems          = data.subsystems
+  if (data.assumptions     !== undefined) row.assumptions         = data.assumptions
   if (data.proofTestProcedure !== undefined) row.proof_test_procedure = data.proofTestProcedure
   if (data.testCampaigns   !== undefined) row.test_campaigns      = data.testCampaigns
   if (data.operationalEvents !== undefined) row.operational_events = data.operationalEvents
   if (data.hazopTrace      !== undefined) row.hazop_trace         = data.hazopTrace
   return row
+}
+
+function shouldRetryWithoutAssumptions(error: { message: string }): boolean {
+  const message = error.message.toLowerCase()
+  return message.includes('assumptions') && (
+    message.includes('column')
+    || message.includes('schema cache')
+    || message.includes('does not exist')
+  )
 }
 
 // ═══════════════════════════════════════════════════════════════
@@ -185,17 +196,38 @@ export async function dbDeleteProject(id: string): Promise<void> {
 // ═══════════════════════════════════════════════════════════════
 
 export async function dbCreateSIF(id: string, sif: SIF): Promise<void> {
+  const row: Record<string, unknown> = { id, ...sifToRow(sif) }
   const { error } = await supabase
     .from('prism_sifs')
-    .insert({ id, ...sifToRow(sif) })
+    .insert(row)
+  if (error && Object.prototype.hasOwnProperty.call(row, 'assumptions') && shouldRetryWithoutAssumptions(error)) {
+    const { assumptions, ...fallbackRow } = row
+    void assumptions
+    const { error: retryError } = await supabase
+      .from('prism_sifs')
+      .insert(fallbackRow)
+    if (retryError) throw new Error(`Création SIF: ${retryError.message}`)
+    return
+  }
   if (error) throw new Error(`Création SIF: ${error.message}`)
 }
 
 export async function dbUpdateSIF(sifId: string, data: Partial<SIF>): Promise<void> {
+  const row: Record<string, unknown> = sifToRow(data)
   const { error } = await supabase
     .from('prism_sifs')
-    .update(sifToRow(data))
+    .update(row)
     .eq('id', sifId)
+  if (error && Object.prototype.hasOwnProperty.call(row, 'assumptions') && shouldRetryWithoutAssumptions(error)) {
+    const { assumptions, ...fallbackRow } = row
+    void assumptions
+    const { error: retryError } = await supabase
+      .from('prism_sifs')
+      .update(fallbackRow)
+      .eq('id', sifId)
+    if (retryError) throw new Error(`Mise à jour SIF: ${retryError.message}`)
+    return
+  }
   if (error) throw new Error(`Mise à jour SIF: ${error.message}`)
 }
 

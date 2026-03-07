@@ -15,6 +15,9 @@ export type InstrumentCategory = 'transmitter' | 'switch' | 'valve' | 'positione
 export type DeterminedCharacter = 'TYPE_A' | 'TYPE_B' | 'NON_TYPE_AB'
 export type VoteType = 'S' | 'A' | 'M'
 export type CCFMethod = 'MIN' | 'MAX' | 'AVERAGE' | 'GEOMETRIC' | 'QUADRATIC'
+export type BetaAssessmentMode = 'manual' | 'iec61508'
+export type BetaAssessmentProfile = 'logic' | 'field'
+export type BetaDiagnosticIntervalUnit = 'min' | 'hr' | 'day'
 
 export interface FactorizedParams {
   lambda: number           // total λ [h⁻¹ × 10⁻⁶]
@@ -59,10 +62,23 @@ export interface AdvancedParams {
   partialTest: PartialTestParams
 }
 
+export interface BetaAssessmentConfig {
+  mode: BetaAssessmentMode
+  profile: BetaAssessmentProfile
+  selectedMeasureIds: string[]
+  diagnosticCoveragePct: number
+  diagnosticInterval: number
+  diagnosticIntervalUnit: BetaDiagnosticIntervalUnit
+  allowZCredit: boolean
+  mooN_M: number
+  mooN_N: number
+}
+
 export interface SubsystemCCF {
   beta: number
   betaD: number
   method: CCFMethod
+  assessment?: BetaAssessmentConfig
 }
 
 export interface SIFComponent {

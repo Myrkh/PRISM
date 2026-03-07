@@ -20,7 +20,7 @@ export { SIL_META, ARCHITECTURE_META } from './sil.types'
 // ─── Components & Architecture ────────────────────────────────────────────
 export type {
   SubsystemType, ParamMode, TestType, NatureType, InstrumentCategory,
-  DeterminedCharacter, VoteType, CCFMethod, SubsystemCCF,
+  DeterminedCharacter, VoteType, CCFMethod, BetaAssessmentMode, BetaAssessmentProfile, BetaDiagnosticIntervalUnit, BetaAssessmentConfig, SubsystemCCF,
   FactorizedParams, DevelopedParams, TestParams, PartialTestParams, AdvancedParams,
   SIFComponent,
   BooleanGate, CustomBooleanArch, LibraryComponent,
@@ -28,7 +28,17 @@ export type {
 } from './component.types'
 
 // ─── SIF & Project ────────────────────────────────────────────────────────
-export type { SIFStatus, SIF, ProjectStatus, Project, SIFRevision } from './sif.types'
+export type {
+  SIFStatus,
+  SIFAssumptionStatus,
+  SIFAssumptionCategory,
+  SIFReferenceTab,
+  SIFAssumption,
+  SIF,
+  ProjectStatus,
+  Project,
+  SIFRevision,
+} from './sif.types'
 
 // ─── Proof Test & Campaigns ──────────────────────────────────────────────
 export type {

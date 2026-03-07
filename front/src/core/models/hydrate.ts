@@ -13,7 +13,9 @@ import {
   type SubsystemType,
   type VoteType,
 } from '@/core/types'
+import { normalizeBetaAssessment } from '@/core/math/betaFactor'
 import { DEFAULT_CHANNEL, DEFAULT_COMPONENT, DEFAULT_SUBSYSTEM } from './defaults'
+import { hydrateSIFAssumptions } from './sifAssumptions'
 
 type UnknownRecord = Record<string, unknown>
 
@@ -186,6 +188,12 @@ function hydrateSubsystem(rawSubsystem: unknown, sifNumber: string): SIFSubsyste
       ...fallback.ccf,
       ...(ccf ?? {}),
       method: isCCFMethod(ccf?.method) ? ccf.method : fallback.ccf.method,
+      assessment: normalizeBetaAssessment(
+        ccf?.assessment,
+        subsystemType,
+        architecture,
+        channels.length,
+      ),
     },
     channels,
     customBooleanArch: architecture === 'custom'
@@ -197,6 +205,7 @@ function hydrateSubsystem(rawSubsystem: unknown, sifNumber: string): SIFSubsyste
 export function hydrateSIF(sif: SIF): SIF {
   return {
     ...sif,
+    assumptions: hydrateSIFAssumptions(sif.id, (sif as Partial<SIF>).assumptions),
     subsystems: asArray(sif.subsystems)
       .map(subsystem => hydrateSubsystem(subsystem, sif.sifNumber))
       .filter((subsystem): subsystem is SIFSubsystem => subsystem !== null),

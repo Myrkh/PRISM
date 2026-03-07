@@ -29,6 +29,7 @@ import {
   formatPFD, formatRRF, formatPct,
   calcSIF,
 } from '@/core/math/pfdCalc'
+import { assumptionsToReportText } from '@/core/models/sifAssumptions'
 import { SIL_META } from '@/core/types'
 import type { Project, SIF, SIFCalcResult, SILLevel } from '@/core/types'
 
@@ -693,7 +694,7 @@ export function SILReportStudio({ project, sif, result }: Props) {
     version: `Rev. ${sif.revision}`,
     scope: sif.description || 'Define the scope of this Safety Instrumented Function.',
     hazardDescription: sif.hazardousEvent || '',
-    assumptions: 'Failure rates are based on vendor data or industry databases (exida SERH, OREDA). Proof test intervals are assumed fully effective (coverage = 100%) unless otherwise stated. Common Cause Failure beta factors per IEC 61508-6 Annex D.',
+    assumptions: assumptionsToReportText(sif.assumptions),
     recommendations: result.meetsTarget
       ? `SIL ${sif.targetSIL} is achieved. Maintain proof test intervals and document any architectural changes during the operational life of the SIF.`
       : `Current architecture does not achieve SIL ${sif.targetSIL}. Consider: (1) increasing architecture redundancy, (2) reducing proof test interval T1, (3) improving diagnostic coverage.`,

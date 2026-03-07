@@ -9,22 +9,20 @@
  *
  * Auto-save : chaque modification sauvegarde immédiatement via updateComponent.
  */
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Tag, FlaskConical, ClipboardList, Settings2,
-  Activity, Cpu, Zap, CheckCircle2, AlertTriangle,
-  X, ChevronDown,
+  Activity, Cpu, Zap, X,
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import {
-  calcComponentSFF, calcComponentDC, factorizedToDeveloped,
-  formatPct, formatPFD,
+  calcComponentSFF, calcComponentDC, factorizedToDeveloped, developedToFactorized,
+  formatPct,
 } from '@/core/math/pfdCalc'
 import type {
   SIFComponent, SubsystemType, ParamMode, TestType,
   NatureType, InstrumentCategory, DeterminedCharacter,
 } from '@/core/types'
-import { cn } from '@/lib/utils'
 import { BORDER, CARD_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } from '@/styles/tokens'
 const PANEL = CARD_BG
 
@@ -68,6 +66,75 @@ const DETERMINED_CHARACTER_OPTIONS: { value: DeterminedCharacter; label: string 
   { value: 'TYPE_B', label: 'Type B' },
   { value: 'NON_TYPE_AB', label: 'Non-Type-AB' },
 ]
+type FactorizedLambdaUnit = 'FIT' | 'MICRO_PER_HOUR' | 'PER_HOUR'
+type DevelopedLambdaUnit = 'FIT' | 'PER_HOUR'
+
+const FACTORIZED_LAMBDA_UNITS: { value: FactorizedLambdaUnit; label: string }[] = [
+  { value: 'FIT', label: 'FIT' },
+  { value: 'MICRO_PER_HOUR', label: '10^-6 h^-1' },
+  { value: 'PER_HOUR', label: 'h^-1' },
+]
+const DEVELOPED_LAMBDA_UNITS: { value: DevelopedLambdaUnit; label: string }[] = [
+  { value: 'FIT', label: 'FIT' },
+  { value: 'PER_HOUR', label: 'h^-1' },
+]
+
+const FACTORIZED_TO_FIT = 1000
+const MICRO_PER_HOUR_TO_PER_HOUR = 1e-6
+const FIT_TO_PER_HOUR = 1e-9
+
+function factorizedLambdaToDisplay(value: number, unit: FactorizedLambdaUnit): number {
+  if (unit === 'FIT') return value * FACTORIZED_TO_FIT
+  if (unit === 'PER_HOUR') return value * MICRO_PER_HOUR_TO_PER_HOUR
+  return value
+}
+
+function displayToFactorizedLambda(value: number, unit: FactorizedLambdaUnit): number {
+  if (unit === 'FIT') return value / FACTORIZED_TO_FIT
+  if (unit === 'PER_HOUR') return value / MICRO_PER_HOUR_TO_PER_HOUR
+  return value
+}
+
+function developedLambdaToDisplay(value: number, unit: DevelopedLambdaUnit): number {
+  return unit === 'PER_HOUR' ? value * FIT_TO_PER_HOUR : value
+}
+
+function displayToDevelopedLambda(value: number, unit: DevelopedLambdaUnit): number {
+  return unit === 'PER_HOUR' ? value / FIT_TO_PER_HOUR : value
+}
+
+function parseNumericText(raw: string): number | null {
+  const normalized = raw.trim().replace(',', '.')
+  if (!normalized) return null
+  const value = Number(normalized)
+  return Number.isFinite(value) ? value : null
+}
+
+function formatEditableNumber(value: number): string {
+  if (!Number.isFinite(value)) return ''
+  if (value === 0) return '0'
+
+  const magnitude = Math.abs(value)
+  if (magnitude >= 1e4 || magnitude < 1e-2) {
+    return value.toExponential(3).replace('e', 'E')
+  }
+
+  return String(value)
+}
+
+function synchronizeComponentParams(component: SIFComponent): SIFComponent {
+  if (component.paramMode === 'factorized') {
+    return {
+      ...component,
+      developed: factorizedToDeveloped(component.factorized),
+    }
+  }
+
+  return {
+    ...component,
+    factorized: developedToFactorized(component.developed, component.factorized),
+  }
+}
 
 type PanelTab = 'identification' | 'parameters' | 'test' | 'advanced'
 const PANEL_TABS: { id: PanelTab; label: string; Icon: React.ElementType }[] = [
@@ -99,6 +166,75 @@ function StyledInput({ value, onChange, placeholder, type = 'text', step }: {
       style={{ background: BG, borderColor: BORDER2, color: TEXT }}
       onFocus={e => (e.target.style.borderColor = TEAL)}
       onBlur={e => (e.target.style.borderColor = BORDER2)}
+    />
+  )
+}
+
+function ScientificInput({
+  value,
+  onCommit,
+  placeholder,
+}: {
+  value: number
+  onCommit: (value: number) => void
+  placeholder?: string
+}) {
+  const [draft, setDraft] = useState(() => formatEditableNumber(value))
+  const [invalid, setInvalid] = useState(false)
+
+  useEffect(() => {
+    setDraft(formatEditableNumber(value))
+    setInvalid(false)
+  }, [value])
+
+  const commitDraft = () => {
+    const parsed = parseNumericText(draft)
+    if (parsed === null) {
+      setDraft(formatEditableNumber(value))
+      setInvalid(false)
+      return
+    }
+
+    setInvalid(false)
+    onCommit(parsed)
+  }
+
+  return (
+    <input
+      type="text"
+      inputMode="decimal"
+      value={draft}
+      onChange={e => {
+        setDraft(e.target.value)
+        if (invalid) setInvalid(false)
+      }}
+      onBlur={() => {
+        const parsed = parseNumericText(draft)
+        if (parsed === null) {
+          setInvalid(draft.trim().length > 0)
+          setDraft(draft.trim().length > 0 ? draft : formatEditableNumber(value))
+          return
+        }
+        commitDraft()
+      }}
+      onKeyDown={e => {
+        if (e.key === 'Enter') {
+          e.preventDefault()
+          commitDraft()
+        }
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          setDraft(formatEditableNumber(value))
+          setInvalid(false)
+        }
+      }}
+      placeholder={placeholder}
+      className="w-full rounded-md border px-2 py-1.5 text-xs outline-none transition-colors font-mono"
+      style={{
+        background: BG,
+        borderColor: invalid ? '#EF4444' : BORDER2,
+        color: TEXT,
+      }}
     />
   )
 }
@@ -179,17 +315,19 @@ export function ComponentParamsPanel({
   component, subsystemType, projectId, sifId, subsystemId, channelId, onClose,
 }: Props) {
   const updateComponent = useAppStore(s => s.updateComponent)
-  const [local, setLocal] = useState<SIFComponent>(component)
+  const [local, setLocal] = useState<SIFComponent>(() => synchronizeComponentParams(component))
   const [activeTab, setActiveTab] = useState<PanelTab>('identification')
+  const [factorizedLambdaUnit, setFactorizedLambdaUnit] = useState<FactorizedLambdaUnit>('FIT')
+  const [developedLambdaUnit, setDevelopedLambdaUnit] = useState<DevelopedLambdaUnit>('FIT')
 
   // Sync local state whenever the component prop changes
   // (different component selected, OR same component re-selected after store update)
-  useEffect(() => { setLocal(component) }, [component])
+  useEffect(() => { setLocal(synchronizeComponentParams(component)) }, [component])
 
   // Auto-save
   const commit = (updater: (prev: SIFComponent) => SIFComponent) => {
     setLocal(prev => {
-      const next = updater(prev)
+      const next = synchronizeComponentParams(updater(prev))
       updateComponent(projectId, sifId, subsystemId, channelId, next)
       return next
     })
@@ -367,11 +505,46 @@ export function ComponentParamsPanel({
 
             {local.paramMode === 'factorized' ? (
               <>
-                <SliderField
-                  label="λ total [FIT]" value={local.factorized.lambda}
-                  min={0.01} max={30} step={0.01} format={v => `${v.toFixed(2)} FIT`}
-                  onChange={v => updF({ lambda: v })} color={meta.color}
-                />
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>
+                      λ total
+                    </label>
+                    <div className="flex rounded-md p-0.5" style={{ background: BG }}>
+                      {FACTORIZED_LAMBDA_UNITS.map(unit => (
+                        <button
+                          key={unit.value}
+                          type="button"
+                          onClick={() => setFactorizedLambdaUnit(unit.value)}
+                          className="rounded px-2 py-1 text-[10px] font-bold font-mono transition-all"
+                          style={factorizedLambdaUnit === unit.value
+                            ? { background: TEAL, color: '#fff' }
+                            : { color: TEXT_DIM }}
+                        >
+                          {unit.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <ScientificInput
+                    value={factorizedLambdaToDisplay(local.factorized.lambda, factorizedLambdaUnit)}
+                    onCommit={value => updF({ lambda: displayToFactorizedLambda(value, factorizedLambdaUnit) })}
+                    placeholder={
+                      factorizedLambdaUnit === 'FIT'
+                        ? 'Ex. 1500 ou 1.50E3'
+                        : factorizedLambdaUnit === 'PER_HOUR'
+                          ? 'Ex. 1.50E-6'
+                          : 'Ex. 1.5 ou 1.50E0'
+                    }
+                  />
+                  <p className="text-[10px] mt-1" style={{ color: TEXT_DIM }}>
+                    {factorizedLambdaUnit === 'FIT'
+                      ? 'Saisie libre en FIT. Exemple equivalent: 1500 FIT = 1.50E-6 h^-1.'
+                      : factorizedLambdaUnit === 'PER_HOUR'
+                        ? 'Saisie libre en h^-1 absolu. Exemple: 1.50E-6 h^-1 = 1500 FIT.'
+                        : 'Saisie libre en 10^-6 h^-1. Exemple: 1.5 = 1500 FIT.'}
+                  </p>
+                </div>
                 <SliderField
                   label="λD/λ ratio" value={local.factorized.lambdaDRatio}
                   min={0} max={1} step={0.01} format={v => formatPct(v)}
@@ -391,20 +564,53 @@ export function ComponentParamsPanel({
               </>
             ) : (
               <>
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>
+                      Unite des lambdas developpes
+                    </label>
+                    <div className="flex rounded-md p-0.5" style={{ background: BG }}>
+                      {DEVELOPED_LAMBDA_UNITS.map(unit => (
+                        <button
+                          key={unit.value}
+                          type="button"
+                          onClick={() => setDevelopedLambdaUnit(unit.value)}
+                          className="rounded px-2 py-1 text-[10px] font-bold font-mono transition-all"
+                          style={developedLambdaUnit === unit.value
+                            ? { background: TEAL, color: '#fff' }
+                            : { color: TEXT_DIM }}
+                        >
+                          {unit.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <p className="text-[10px]" style={{ color: TEXT_DIM }}>
+                    {developedLambdaUnit === 'FIT'
+                      ? 'Saisie libre en FIT. Exemple equivalent: 113 FIT = 1.13E-7 h^-1.'
+                      : 'Saisie libre en h^-1 absolu. Exemple: 1.13E-7 h^-1 = 113 FIT.'}
+                  </p>
+                </div>
                 {[
                   { key: 'lambda_DU', label: 'λDU [FIT]' },
                   { key: 'lambda_DD', label: 'λDD [FIT]' },
                   { key: 'lambda_SU', label: 'λSU [FIT]' },
                   { key: 'lambda_SD', label: 'λSD [FIT]' },
                 ].map(({ key, label }) => (
-                  <FieldRow key={key} label={label}>
-                    <StyledInput
-                      type="number" step="0.001"
-                      value={local.developed[key as keyof typeof local.developed] as number}
-                      onChange={v => updD({ [key]: parseFloat(v) || 0 })}
+                  <FieldRow
+                    key={key}
+                    label={`${label.split(' ')[0]} [${developedLambdaUnit === 'FIT' ? 'FIT' : 'h^-1'}]`}
+                  >
+                    <ScientificInput
+                      value={developedLambdaToDisplay(local.developed[key as keyof typeof local.developed] as number, developedLambdaUnit)}
+                      onCommit={value => updD({ [key]: displayToDevelopedLambda(value, developedLambdaUnit) })}
+                      placeholder={developedLambdaUnit === 'FIT' ? 'Ex. 1.13E2' : 'Ex. 1.13E-7'}
                     />
                   </FieldRow>
                 ))}
+                <p className="text-[10px] -mt-1" style={{ color: TEXT_DIM }}>
+                  Saisie libre, avec ou sans notation scientifique.
+                </p>
               </>
             )}
 
