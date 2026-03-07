@@ -5,17 +5,11 @@ import {
   LayoutDashboard, Network, BarChart3, Shield, FlaskConical,
   FileText, Home, ChevronRight, Pencil, Keyboard, ListChecks, History,
 } from 'lucide-react'
+import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
+
+const PANEL = dark.panel
 
 // ─── Design tokens PRISM dark ─────────────────────────────────────────────
-const BG      = '#0C1117'
-const PANEL   = '#14181C'
-const CARD    = '#1D232A'
-const BORDER  = '#2A3138'
-const TEXT    = '#DFE8F1'
-const TEXT_DIM= '#8FA0B1'
-const TEAL    = '#009BA4'
-const TEAL_DIM= '#5FD8D2'
-
 // ─── Tab config ───────────────────────────────────────────────────────────
 const TABS: { id: SIFTab; label: string; Icon: React.ElementType }[] = [
   { id: 'overview',     label: 'Dashboard',   Icon: LayoutDashboard },

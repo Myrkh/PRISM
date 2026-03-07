@@ -25,17 +25,13 @@ import type {
   NatureType, InstrumentCategory,
 } from '@/core/types'
 import { cn } from '@/lib/utils'
+import { BORDER, CARD_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } from '@/styles/tokens'
+const PANEL = CARD_BG
 
 // ─── Design tokens ────────────────────────────────────────────────────────
-const PANEL    = '#23292F'
 const CARD     = '#1D232A'
 const BG       = '#141A21'
-const BORDER   = '#2A3138'
 const BORDER2  = '#363F49'
-const TEXT     = '#DFE8F1'
-const TEXT_DIM = '#8FA0B1'
-const TEAL     = '#009BA4'
-const TEAL_DIM = '#5FD8D2'
 const R        = 6
 
 const TYPE_META: Record<SubsystemType, { color: string; label: string; Icon: React.ElementType }> = {

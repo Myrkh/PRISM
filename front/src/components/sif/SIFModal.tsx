@@ -17,19 +17,14 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import type { SIF, SIFStatus, SILLevel } from '@/core/types'
+import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, R, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
+
+const PANEL = dark.panel
+const BG = dark.page
+const CARD = dark.card
 
 // ─── Design tokens ────────────────────────────────────────────────────────
-const BG       = '#0C1117'
-const PANEL    = '#14181C'
-const CARD     = '#1D232A'
-const BORDER   = '#2A3138'
 const BORDER2  = '#363F49'
-const TEXT     = '#DFE8F1'
-const TEXT_DIM = '#8FA0B1'
-const TEAL     = '#009BA4'
-const TEAL_DIM = '#5FD8D2'
-const R        = 8
-
 const SIL_CFG: Record<number, { color: string; bg: string; border: string; label: string; pfd: string }> = {
   1: { color: '#16A34A', bg: '#052E16', border: '#15803D', label: 'SIL 1', pfd: '10⁻² → 10⁻¹' },
   2: { color: '#2563EB', bg: '#0F1B3D', border: '#1D4ED8', label: 'SIL 2', pfd: '10⁻³ → 10⁻²' },

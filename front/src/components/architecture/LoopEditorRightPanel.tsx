@@ -26,18 +26,14 @@ import {
 import { useAppStore } from '@/store/appStore'
 import { ComponentParamsPanel } from './ComponentParamsPanel'
 import type { SubsystemType, SIF } from '@/core/types'
+import { LIBRARY_CATALOG } from '@/features/library'
+import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, R, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
+
+const PANEL = dark.panel
+const CARD = dark.card
+const BG = dark.page
 
 // ─── Design tokens ────────────────────────────────────────────────────────
-const PANEL    = '#14181C'
-const CARD     = '#23292F'
-const BG       = '#1A1F24'
-const BORDER   = '#2A3138'
-const TEXT     = '#DFE8F1'
-const TEXT_DIM = '#8FA0B1'
-const TEAL     = '#009BA4'
-const TEAL_DIM = '#5FD8D2'
-const R        = 8
-
 // ─── Subsystem meta ───────────────────────────────────────────────────────
 const SUB_META: Record<SubsystemType, { color: string; label: string; Icon: React.ElementType }> = {
   sensor:   { color: '#0284C7', label: 'Capteur(s)',    Icon: Activity },
@@ -45,26 +41,9 @@ const SUB_META: Record<SubsystemType, { color: string; label: string; Icon: Reac
   actuator: { color: '#EA580C', label: 'Actionneur(s)', Icon: Zap      },
 }
 
-// ─── Library catalogue ────────────────────────────────────────────────────
-export const LIBRARY_ITEMS: {
-  type: SubsystemType; category: string; name: string; lambda: number; dc: number
-}[] = [
-  { type: 'sensor',   category: 'Transmetteur',  name: 'PT (pression)',    lambda: 1.5,  dc: 0.70 },
-  { type: 'sensor',   category: 'Transmetteur',  name: 'TT (température)', lambda: 1.2,  dc: 0.65 },
-  { type: 'sensor',   category: 'Transmetteur',  name: 'FT (débit)',       lambda: 2.0,  dc: 0.70 },
-  { type: 'sensor',   category: 'Transmetteur',  name: 'LT (niveau)',      lambda: 1.8,  dc: 0.65 },
-  { type: 'sensor',   category: 'Pressoswitche', name: 'PS (pression)',    lambda: 3.5,  dc: 0.50 },
-  { type: 'sensor',   category: 'Pressoswitche', name: 'TS (température)', lambda: 2.8,  dc: 0.45 },
-  { type: 'logic',    category: 'PLC Sécurité',  name: 'Safety PLC',       lambda: 0.25, dc: 0.99 },
-  { type: 'logic',    category: 'PLC Sécurité',  name: 'Safety Controller',lambda: 0.30, dc: 0.99 },
-  { type: 'logic',    category: 'Relais',        name: 'Relais sécurité',  lambda: 0.8,  dc: 0.90 },
-  { type: 'logic',    category: 'Relais',        name: 'Relais interposé', lambda: 1.2,  dc: 0.85 },
-  { type: 'actuator', category: 'Vanne',         name: 'Vanne on/off',     lambda: 5.0,  dc: 0.65 },
-  { type: 'actuator', category: 'Vanne',         name: 'Vanne solénoïde',  lambda: 3.5,  dc: 0.65 },
-  { type: 'actuator', category: 'Vanne',         name: 'Vanne motorisée',  lambda: 4.5,  dc: 0.60 },
-  { type: 'actuator', category: 'Pompe',         name: "Pompe d'arrêt",    lambda: 4.0,  dc: 0.60 },
-  { type: 'actuator', category: 'Pompe',         name: 'Compresseur',      lambda: 6.0,  dc: 0.55 },
-]
+// ─── Library catalogue (single source of truth) ─────────────────────────
+// Re-exported for backward compat — actual data lives in features/library
+export const LIBRARY_ITEMS = LIBRARY_CATALOG
 
 // ─── Tab definitions ──────────────────────────────────────────────────────
 type PanelTab = 'library' | 'component'

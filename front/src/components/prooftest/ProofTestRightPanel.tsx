@@ -24,18 +24,13 @@ import {
 } from '@/components/layout/SIFWorkbenchLayout'
 import { calcSIF, formatPFD } from '@/core/math/pfdCalc'
 import type { SIF } from '@/core/types'
+import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, R, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
+
+const PANEL = dark.panel
+const CARD = dark.card
+const BG = dark.page
 
 // ─── Design tokens — identiques à LoopEditorRightPanel ───────────────────
-const PANEL    = '#14181C'
-const CARD     = '#23292F'
-const BG       = '#1A1F24'
-const BORDER   = '#2A3138'
-const TEXT     = '#DFE8F1'
-const TEXT_DIM = '#8FA0B1'
-const TEAL     = '#009BA4'
-const TEAL_DIM = '#5FD8D2'
-const R        = 8
-
 // ─── Types miroirs (évite d'importer depuis ProofTestTab) ─────────────────
 type PTView     = 'procedure' | 'execution' | 'history'
 type Verdict    = 'pass' | 'fail' | 'conditional' | null

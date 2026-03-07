@@ -7,7 +7,7 @@
  * — Les mutations architecture sont groupées (subsystems JSONB)
  */
 import { supabase } from './supabase'
-import type { Project, SIF } from '@/core/types'
+import type { Project, SIF, SIFRevision, SIFStatus } from '@/core/types'
 
 // ═══════════════════════════════════════════════════════════════
 // MAPPERS — DB row → App type
@@ -339,4 +339,75 @@ export async function dbDeleteCampaign(campaignId: string): Promise<void> {
     .delete()
     .eq('id', campaignId)
   if (error) throw new Error(`Suppression campagne: ${error.message}`)
+}
+// ═══════════════════════════════════════════════════════════════
+// SIF REVISIONS
+// ═══════════════════════════════════════════════════════════════
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToRevision(row: any): SIFRevision {
+  return {
+    id:                row.id,
+    sifId:             row.sif_id,
+    projectId:         row.project_id,
+    revisionLabel:     row.revision_label    ?? '',
+    status:            (row.status           ?? 'draft') as SIFStatus,
+    changeDescription: row.change_description ?? '',
+    createdBy:         row.created_by        ?? '',
+    createdAt:         row.created_at,
+    snapshot:          row.snapshot          ?? {},
+  }
+}
+
+/**
+ * Fetch all revisions for a SIF, sorted newest first.
+ */
+export async function dbFetchRevisions(sifId: string): Promise<SIFRevision[]> {
+  const { data, error } = await supabase
+    .from('prism_sif_revisions')
+    .select('*')
+    .eq('sif_id', sifId)
+    .order('created_at', { ascending: false })
+  if (error) throw new Error(`Fetch révisions: ${error.message}`)
+  return (data ?? []).map(rowToRevision)
+}
+
+/**
+ * Insert a new frozen revision snapshot.
+ * The snapshot field should be a complete copy of the SIF at that point.
+ */
+export async function dbCreateRevision(revision: {
+  id: string
+  sifId: string
+  projectId: string
+  revisionLabel: string
+  status: SIFStatus
+  changeDescription: string
+  createdBy: string
+  snapshot: SIF
+}): Promise<void> {
+  const { error } = await supabase
+    .from('prism_sif_revisions')
+    .insert({
+      id:                 revision.id,
+      sif_id:             revision.sifId,
+      project_id:         revision.projectId,
+      revision_label:     revision.revisionLabel,
+      status:             revision.status,
+      change_description: revision.changeDescription,
+      created_by:         revision.createdBy,
+      snapshot:           revision.snapshot,
+    })
+  if (error) throw new Error(`Création révision: ${error.message}`)
+}
+
+/**
+ * Delete a revision by id (admin use only — revisions are normally immutable).
+ */
+export async function dbDeleteRevision(revisionId: string): Promise<void> {
+  const { error } = await supabase
+    .from('prism_sif_revisions')
+    .delete()
+    .eq('id', revisionId)
+  if (error) throw new Error(`Suppression révision: ${error.message}`)
 }

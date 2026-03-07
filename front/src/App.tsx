@@ -22,6 +22,8 @@ import { ProjectModal } from '@/components/projects/ProjectModal'
 import { SettingsWorkspace } from '@/components/settings/SettingsWorkspace'
 import { ReviewQueueWorkspace } from '@/components/global/ReviewQueueWorkspace'
 import { AuditLogWorkspace } from '@/components/global/AuditLogWorkspace'
+import { SIFHistoryWorkspace } from '@/components/global/SIFHistoryWorkspace'
+import { HazopWorkspace } from '@/components/global/HazopWorkspace'
 import { fetchAllProjects } from '@/lib/db'
 
 // ─── Hash routing ─────────────────────────────────────────────────────────
@@ -33,6 +35,8 @@ function viewToHash(view: AppView): string {
   if (view.type === 'settings') return `#/settings/${view.section}`
   if (view.type === 'review-queue') return '#/review'
   if (view.type === 'audit-log') return '#/audit'
+  if (view.type === 'sif-history') return '#/history'
+  if (view.type === 'hazop') return '#/hazop'
   return '#/'
 }
 
@@ -54,6 +58,8 @@ function hashToView(hash: string): AppView | null {
   }
   if (path === '/review') return { type: 'review-queue' }
   if (path === '/audit') return { type: 'audit-log' }
+  if (path === '/history') return { type: 'sif-history' }
+  if (path === '/hazop') return { type: 'hazop' }
   if (path === '/') return { type: 'projects' }
   return null
 }
@@ -62,15 +68,39 @@ function hashToView(hash: string): AppView | null {
 
 function LoadingScreen() {
   return (
-    <div className="fixed inset-0 flex flex-col items-center justify-center gap-4"
-      style={{ background: '#0C1117' }}>
-      <div className="flex gap-1.5">
-        {[0, 1, 2].map(i => (
-          <div key={i} className="w-2 h-2 rounded-full animate-pulse"
-            style={{ background: '#009BA4', animationDelay: `${i * 150}ms` }} />
-        ))}
+    <div
+      className="fixed inset-0 flex items-center justify-center"
+      style={{ background: 'radial-gradient(1200px 600px at 50% 10%, #111A23 0%, #0C1117 55%)' }}
+    >
+      <div
+        className="flex w-[320px] flex-col items-center gap-4 rounded-2xl border px-6 py-7"
+        style={{ background: '#1A2028CC', borderColor: '#2A3340' }}
+      >
+        <div className="relative">
+          <div className="absolute inset-0 rounded-2xl blur-xl" style={{ background: '#009BA433' }} />
+          <div
+            className="relative h-14 w-14 rounded-xl border flex items-center justify-center"
+            style={{ background: '#0F151D', borderColor: '#2E3948' }}
+          >
+            <img src="/favicon2.png" alt="PRISM" className="h-9 w-9 object-contain" />
+          </div>
+        </div>
+
+        <div className="text-center">
+          <p className="text-sm font-semibold tracking-wide" style={{ color: '#5FD8D2' }}>Chargement PRISM…</p>
+          <p className="mt-1 text-[11px]" style={{ color: '#8FA0B1' }}>Synchronisation des projets et SIF</p>
+        </div>
+
+        <div className="flex gap-1.5">
+          {[0, 1, 2].map(i => (
+            <div
+              key={i}
+              className="h-1.5 w-1.5 rounded-full animate-pulse"
+              style={{ background: '#009BA4', animationDelay: `${i * 150}ms` }}
+            />
+          ))}
+        </div>
       </div>
-      <p className="text-sm font-medium" style={{ color: '#5FD8D2' }}>Chargement PRISM…</p>
     </div>
   )
 }
@@ -205,6 +235,12 @@ export default function App() {
         )}
         {view.type === 'audit-log' && (
           <AuditLogWorkspace />
+        )}
+        {view.type === 'sif-history' && (
+          <SIFHistoryWorkspace />
+        )}
+        {view.type === 'hazop' && (
+          <HazopWorkspace />
         )}
         {view.type === 'sif-dashboard' && (
           <SIFDashboard projectId={view.projectId} sifId={view.sifId} />

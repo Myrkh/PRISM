@@ -4,6 +4,7 @@ import { useAppStore, type SIFTab } from '@/store/appStore'
 import { IntercalaireCard, IntercalaireTabBar, useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { calcSIF, formatPFD } from '@/core/math/pfdCalc'
 import { cn } from '@/lib/utils'
+import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } from '@/styles/tokens'
 
 type ReviewIssueType = 'sil_gap' | 'proof_test' | 'traceability'
 type Severity = 'high' | 'medium' | 'low'
@@ -46,9 +47,6 @@ function issueLabel(type: ReviewIssueType): string {
 const REVIEW_RIGHT_TABS = [
   { id: 'filters' as const, label: 'Filters', Icon: SlidersHorizontal },
   { id: 'details' as const, label: 'Details', Icon: FileWarning },
-]
-const REVIEW_MAIN_TAB = [
-  { id: 'review' as const, label: 'Review Queue', hint: 'Queue events', Icon: ListChecks },
 ]
 
 function ReviewQueueRightPanel({
@@ -349,89 +347,96 @@ export function ReviewQueueWorkspace() {
   ])
 
   return (
-    <div className="flex h-full min-h-0 flex-1 flex-col overflow-hidden">
-      <div className="px-5 pt-2 shrink-0">
-        <IntercalaireTabBar tabs={REVIEW_MAIN_TAB} active="review" onSelect={() => {}} cardBg="#23292F" stretch={false} />
-      </div>
-      <div className="flex flex-1 min-h-0 px-5 pb-5 pt-0">
-        <IntercalaireCard tabCount={1} activeIdx={0} className="flex-1 min-w-0 overflow-hidden flex flex-col" style={{ minHeight: 0 }}>
-          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-5">
-            <div className="mb-4 flex justify-end">
-              <div className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: '#2A3138', color: '#8FA0B1', background: '#14181C' }}>
-                {filteredItems.length} item(s)
-              </div>
-            </div>
-
-            {filteredItems.length === 0 ? (
-              <div className="flex min-h-[220px] items-center justify-center rounded-xl border" style={{ borderColor: '#2A3138', background: '#14181C' }}>
-                <p className="text-sm" style={{ color: '#8FA0B1' }}>No items match current filters.</p>
-              </div>
-            ) : (
-              <div className="overflow-hidden rounded-xl border" style={{ borderColor: '#2A3138', background: '#14181C' }}>
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b" style={{ borderColor: '#2A3138', background: '#1D232A' }}>
-                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Priority</th>
-                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Issue</th>
-                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>SIF</th>
-                      <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Snapshot</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {filteredItems.map(item => {
-                      const active = item.id === selectedId
-                      return (
-                        <tr
-                          key={item.id}
-                          className={cn('cursor-pointer border-b last:border-b-0', active ? 'bg-[#1E2A33]' : 'hover:bg-[#1D232A]')}
-                          style={{ borderColor: '#2A3138' }}
-                          onClick={() => setSelectedId(item.id)}
-                        >
-                          <td className="px-4 py-3">
-                            <span
-                              className={cn(
-                                'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold',
-                                item.severity === 'high' && 'border-red-400/40 bg-red-500/10 text-red-300',
-                                item.severity === 'medium' && 'border-amber-400/40 bg-amber-500/10 text-amber-300',
-                                item.severity === 'low' && 'border-blue-400/40 bg-blue-500/10 text-blue-300',
-                              )}
-                            >
-                              {item.severity === 'high' && <AlertTriangle size={11} />}
-                              {item.severity === 'medium' && <Clock3 size={11} />}
-                              {item.severity === 'low' && <FileWarning size={11} />}
-                              {severityLabel(item.severity)}
-                            </span>
-                          </td>
-                          <td className="px-4 py-3">
-                            <div className="flex items-center gap-2">
-                              {item.type === 'sil_gap' && <ShieldAlert size={13} className="text-red-400" />}
-                              {item.type === 'proof_test' && <Clock3 size={13} className="text-amber-400" />}
-                              {item.type === 'traceability' && <FileWarning size={13} className="text-blue-400" />}
-                              <div>
-                                <p className="text-sm font-semibold" style={{ color: '#DFE8F1' }}>{issueLabel(item.type)}</p>
-                                <p className="text-xs" style={{ color: '#8FA0B1' }}>{item.message}</p>
-                              </div>
-                            </div>
-                          </td>
-                          <td className="px-4 py-3">
-                            <p className="text-sm font-semibold" style={{ color: '#DFE8F1' }}>{item.sifNumber}</p>
-                            <p className="text-xs" style={{ color: '#8FA0B1' }}>{item.projectName}</p>
-                          </td>
-                          <td className="px-4 py-3">
-                            <p className="text-xs font-mono" style={{ color: '#8FA0B1' }}>
-                              SIL {item.achievedSIL} / Target {item.targetSIL}
-                            </p>
-                            <p className="text-xs font-mono" style={{ color: '#8FA0B1' }}>PFDavg {formatPFD(item.pfd)}</p>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
+    <div className="flex flex-1 min-h-0 flex-col overflow-hidden" style={{ background: PAGE_BG }}>
+      <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: BORDER, background: PANEL_BG }}>
+        <div className="flex items-center gap-3">
+          <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: `${TEAL}20`, border: `1px solid ${TEAL}30` }}>
+            <ListChecks size={15} style={{ color: TEAL }} />
           </div>
-        </IntercalaireCard>
+          <div>
+            <h1 className="text-sm font-black" style={{ color: TEXT }}>Review Queue</h1>
+            <p className="text-[10px]" style={{ color: TEXT_DIM }}>
+              {filteredItems.length} item{filteredItems.length !== 1 ? 's' : ''} filtré{filteredItems.length !== 1 ? 's' : ''} · {items.length} total
+            </p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2 rounded-xl border px-3 h-8 text-xs" style={{ borderColor: BORDER, background: CARD_BG, color: TEXT_DIM }}>
+          <span>High: {highCount}</span>
+          <span>·</span>
+          <span>Medium: {mediumCount}</span>
+          <span>·</span>
+          <span>Low: {lowCount}</span>
+        </div>
+      </div>
+      <div className="flex-1 overflow-auto min-h-0">
+        {filteredItems.length === 0 ? (
+          <div className="flex min-h-[220px] items-center justify-center rounded-xl border mx-6 my-4" style={{ borderColor: '#2A3138', background: '#14181C' }}>
+            <p className="text-sm" style={{ color: '#8FA0B1' }}>No items match current filters.</p>
+          </div>
+        ) : (
+          <div className="mx-6 my-4 overflow-hidden rounded-2xl border" style={{ borderColor: '#2A3138', background: '#14181C' }}>
+            <table className="w-full">
+              <thead>
+                <tr className="border-b" style={{ borderColor: '#2A3138', background: '#1D232A' }}>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Priority</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Issue</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>SIF</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Snapshot</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredItems.map(item => {
+                  const active = item.id === selectedId
+                  return (
+                    <tr
+                      key={item.id}
+                      className={cn('cursor-pointer border-b last:border-b-0', active ? 'bg-[#1E2A33]' : 'hover:bg-[#1D232A]')}
+                      style={{ borderColor: '#2A3138' }}
+                      onClick={() => setSelectedId(item.id)}
+                    >
+                      <td className="px-4 py-3">
+                        <span
+                          className={cn(
+                            'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold',
+                            item.severity === 'high' && 'border-red-400/40 bg-red-500/10 text-red-300',
+                            item.severity === 'medium' && 'border-amber-400/40 bg-amber-500/10 text-amber-300',
+                            item.severity === 'low' && 'border-blue-400/40 bg-blue-500/10 text-blue-300',
+                          )}
+                        >
+                          {item.severity === 'high' && <AlertTriangle size={11} />}
+                          {item.severity === 'medium' && <Clock3 size={11} />}
+                          {item.severity === 'low' && <FileWarning size={11} />}
+                          {severityLabel(item.severity)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          {item.type === 'sil_gap' && <ShieldAlert size={13} className="text-red-400" />}
+                          {item.type === 'proof_test' && <Clock3 size={13} className="text-amber-400" />}
+                          {item.type === 'traceability' && <FileWarning size={13} className="text-blue-400" />}
+                          <div>
+                            <p className="text-sm font-semibold" style={{ color: '#DFE8F1' }}>{issueLabel(item.type)}</p>
+                            <p className="text-xs" style={{ color: '#8FA0B1' }}>{item.message}</p>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-sm font-semibold" style={{ color: '#DFE8F1' }}>{item.sifNumber}</p>
+                        <p className="text-xs" style={{ color: '#8FA0B1' }}>{item.projectName}</p>
+                      </td>
+                      <td className="px-4 py-3">
+                        <p className="text-xs font-mono" style={{ color: '#8FA0B1' }}>
+                          SIL {item.achievedSIL} / Target {item.targetSIL}
+                        </p>
+                        <p className="text-xs font-mono" style={{ color: '#8FA0B1' }}>PFDavg {formatPFD(item.pfd)}</p>
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   )

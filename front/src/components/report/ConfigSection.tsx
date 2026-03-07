@@ -3,12 +3,10 @@
 import { useState } from 'react';
 import { ChevronDown, ChevronUp } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
+import { CARD_BG, TEXT, TEXT_DIM } from '@/styles/tokens'
 
 // Couleurs du thème pour la cohérence visuelle
-const CARD_BG = '#23292F';
 const BORDER = '#2F3740';
-const TEXT_DIM = '#8FA0B1';
-const TEXT = '#DFE8F1';
 
 export function ConfigSection({
   title,

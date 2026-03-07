@@ -36,13 +36,9 @@ import {
   Info, Save, X, Activity, Cpu, Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { NAVY, NAVY2, PAGE_BG, TEAL } from '@/styles/tokens'
 
 // ─── KORE tokens ──────────────────────────────────────────────────────────
-const NAVY  = '#003D5C'
-const NAVY2 = '#002A42'
-const TEAL  = '#009BA4'
-const BG    = '#F0F4F8'
-
 // ─── Subsystem accent colours ─────────────────────────────────────────────
 const TYPE_META: Record<string, { color: string; label: string; Icon: React.ElementType }> = {
   sensor:   { color: '#0284C7', label: 'Capteur',     Icon: Activity },

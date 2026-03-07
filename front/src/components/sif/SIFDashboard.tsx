@@ -11,6 +11,7 @@ import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { PFDChart } from '@/components/analysis/PFDChart'
 import { SILReportStudio } from '@/components/report/SILReportStudio'
 import { calcSIF, formatPFD, formatRRF, formatPct } from '@/core/math/pfdCalc'
+import { computeCompliance } from '@/components/sif/complianceCalc'
 import { cn } from '@/lib/utils'
 
 const SUB_COLORS: Record<string, string> = {
@@ -51,89 +52,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
 
   if (!project || !sif || !result) return null
 
-  const compliance = useMemo(() => {
-    const subsystemChecks = result.subsystems.map((sub, i) => {
-      const subsystem = sif.subsystems[i]
-      const sffReq = sub.HFT === 0 ? 0.6 : 0.9
-
-      const checks = [
-        { label: `SFF ≥ ${formatPct(sffReq)}`, value: formatPct(sub.SFF), ok: sub.SFF >= sffReq },
-        { label: `HFT ≥ ${sub.SIL >= 2 ? 1 : 0}`, value: String(sub.HFT), ok: sub.HFT >= (sub.SIL >= 2 ? 1 : 0) },
-        { label: 'DC ≥ 60 %', value: formatPct(sub.DC), ok: sub.DC >= 0.6 },
-        { label: 'Architecture', value: subsystem?.architecture ?? '—', ok: true },
-      ]
-
-      return {
-        id: sub.subsystemId,
-        label: subsystem?.label ?? 'Subsystem',
-        type: sub.type,
-        sil: sub.SIL,
-        checks,
-        allOk: checks.every(c => c.ok),
-      }
-    })
-
-    const totalChecks = subsystemChecks.reduce((acc, sub) => acc + sub.checks.length, 0)
-    const passedChecks = subsystemChecks.reduce((acc, sub) => acc + sub.checks.filter(c => c.ok).length, 0)
-    const subsystemPassRate = totalChecks ? passedChecks / totalChecks : 0
-
-    const metadataFields = [
-      sif.pid,
-      sif.location,
-      sif.processTag,
-      sif.hazardousEvent,
-      sif.madeBy,
-      sif.verifiedBy,
-      sif.approvedBy,
-    ]
-    const metadataCompletion = metadataFields.filter(Boolean).length / metadataFields.length
-
-    const targetScore = result.meetsTarget ? 1 : 0
-    const score = Math.round((targetScore * 45 + subsystemPassRate * 40 + metadataCompletion * 15) * 100) / 100
-
-    const actions: { title: string; hint: string; tab: SIFTab }[] = []
-
-    if (!result.meetsTarget) {
-      actions.push({
-        title: 'Increase architectural robustness',
-        hint: 'Adjust MooN architecture, diagnostics, and proof test interval to reach target SIL.',
-        tab: 'architecture',
-      })
-    }
-
-    if (subsystemChecks.some(sub => sub.checks.some(check => check.label.startsWith('DC') && !check.ok))) {
-      actions.push({
-        title: 'Improve diagnostic coverage',
-        hint: 'Review DC assumptions and improve test strategy in component parameters.',
-        tab: 'analysis',
-      })
-    }
-
-    if (metadataCompletion < 1) {
-      actions.push({
-        title: 'Complete traceability fields',
-        hint: 'Fill P&ID, hazard description, and approver fields for audit readiness.',
-        tab: 'overview',
-      })
-    }
-
-    if (!actions.length) {
-      actions.push({
-        title: 'Compliance baseline looks solid',
-        hint: 'Proceed with independent review and export a report package.',
-        tab: 'compliance',
-      })
-    }
-
-    return {
-      subsystemChecks,
-      score,
-      passedChecks,
-      totalChecks,
-      metadataCompletion,
-      actions: actions.slice(0, 3),
-    }
-  }, [result, sif])
+  const compliance = useMemo(() => computeCompliance(sif, result), [result, sif])
 
   // Architecture tab: fills the flex-col card from SIFWorkbenchLayout
   if (activeTab === 'architecture' && sif) {

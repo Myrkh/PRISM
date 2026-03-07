@@ -6,13 +6,13 @@
  * Ce fichier ne fait que le canvas : nœuds, edges, toolbar.
  */
 
-// @ts-nocheck
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import ReactFlow, {
   Background, Controls, MiniMap,
   Handle, Position,
   useNodesState, useEdgesState,
   BaseEdge, EdgeLabelRenderer, getBezierPath,
+  type NodeProps, type EdgeProps,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 
@@ -24,18 +24,31 @@ import {
 import { useAppStore } from '@/store/appStore'
 import { calcSIF, calcComponentSFF, calcComponentDC, factorizedToDeveloped, formatPFD, formatPct } from '@/core/math/pfdCalc'
 import { DEFAULT_COMPONENT, DEFAULT_SUBSYSTEM } from '@/core/models/defaults'
-import type { SIF, SIFComponent, SIFSubsystem, SIFChannel, SubsystemType } from '@/core/types'
+import type { SIF, SIFComponent, SIFSubsystem, SIFChannel, SubsystemType, SubsystemCalcResult } from '@/core/types'
+import { BORDER, CARD_BG, PAGE_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
+
+const BG       = dark.rail
+const CARD     = dark.card2
+const CARD2    = dark.card
+
+// ─── ReactFlow data types ────────────────────────────────────────────────
+interface SubsystemNodeData {
+  subsystem: SIFSubsystem
+  calcResult: SubsystemCalcResult | undefined
+  selectedId: string | null
+  projectId: string
+  sifId: string
+  onSelectComp: (id: string) => void
+  onAddChannel: (subId: string) => void
+  onRemoveChannel: (subId: string, chId: string) => void
+  onRemoveSub: (subId: string) => void
+}
+
+interface AnimatedEdgeData {
+  label?: string
+}
 
 // ─── Design tokens ────────────────────────────────────────────────────────
-const BG       = '#0F1318'
-const CARD     = '#1D232A'
-const CARD2    = '#23292F'
-const BORDER   = '#2A3138'
-const TEXT     = '#DFE8F1'
-const TEXT_DIM = '#8FA0B1'
-const TEAL     = '#009BA4'
-const TEAL_DIM = '#5FD8D2'
-
 const SUB_META: Record<SubsystemType, { color: string; label: string; Icon: React.ElementType }> = {
   sensor:   { color: '#0284C7', label: 'Capteur(s)',    Icon: Activity },
   logic:    { color: '#7C3AED', label: 'Logique',       Icon: Cpu      },
@@ -194,7 +207,7 @@ function ChannelBlock({
 
 // ─── Subsystem Node (ReactFlow custom node) ───────────────────────────────
 // NOTE: defined before NODE_TYPES so it's in scope when NODE_TYPES is created
-function SubsystemNode({ data }: any) {
+function SubsystemNode({ data }: NodeProps<SubsystemNodeData>) {
   const {
     subsystem, calcResult, selectedId, projectId, sifId,
     onSelectComp, onAddChannel, onRemoveChannel, onRemoveSub,
@@ -274,7 +287,7 @@ function SubsystemNode({ data }: any) {
 }
 
 // ─── Animated Edge ────────────────────────────────────────────────────────
-function AnimatedEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data }: any) {
+function AnimatedEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data }: EdgeProps<AnimatedEdgeData>) {
   const [edgePath, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition })
   return (
     <>

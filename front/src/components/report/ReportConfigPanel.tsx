@@ -5,6 +5,8 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import type { ReportConfig } from './reportTypes';
 import { ToggleRow } from './ConfigSection';
+import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL_DIM, TEXT, TEXT_DIM } from '@/styles/tokens'
+const BG = PAGE_BG
 
 interface ReportConfigPanelProps {
   cfg: ReportConfig;
@@ -15,13 +17,6 @@ interface ReportConfigPanelProps {
 }
 
 // Design tokens copied from other right panels for consistency
-const PANEL_BG = '#14181C';
-const CARD_BG = '#23292F';
-const BG = '#1A1F24'; // Background for inner cards
-const BORDER = '#2A3138';
-const TEXT = '#DFE8F1';
-const TEXT_DIM = '#8FA0B1';
-const TEAL_DIM = '#5FD8D2';
 const R = 8; // border-radius
 
 const TABS = [{ id: 'studio', label: 'Report Studio', Icon: Settings2 }];

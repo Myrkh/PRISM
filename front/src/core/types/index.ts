@@ -328,57 +328,27 @@ export interface ProofTestProcedure {
   notes: string
 }
 
-// ─── Test Campaign (field execution) ─────────────────────────────────────
+// ─── Test Campaign ───────────────────────────────────────────────────────
 export type CampaignVerdict = 'pass' | 'fail' | 'conditional'
 
 /**
  * Per-step result recorded during campaign execution.
- * result: 'oui' | 'non' | 'na' → matches expectedResultType
- * measuredValue: the actual value measured (for 'valeur' steps)
- * conformant: did the result match expected? (computed or manually set)
+ *   result   → 'oui' | 'non' | 'na'  (matches expectedResultType)
+ *   conformant → did the result match expected? (computed or manually set)
  */
 export interface StepResult {
   stepId: string
   result: 'oui' | 'non' | 'na' | null
-  measuredValue: string   // actual value for 'valeur' steps
+  measuredValue: string            // actual value for 'valeur' steps
   conformant: boolean | null
   comment: string
 }
 
 export interface TestCampaign {
   id: string
-  date: string
+  date: string                     // ISO date
   team: string
-  operatingMode: string
-  verdict: CampaignVerdict
-  notes: string
-  stepResults: StepResult[]
-  conductedBy: string
-  witnessedBy: string
-  reviewedBy: string
-}
-
-// ─── Test Campaign (field result) ─────────────────────────────────────────
-export type CampaignVerdict = 'pass' | 'fail' | 'conditional'
-
-export interface StepResult {
-  stepId: string
-  done: boolean
-  result: 'pass' | 'fail' | 'na'
-  measuredValue: string
-  comment: string
-}
-
-export interface TestCampaign {
-  id: string
-  date: string               // ISO date
-  team: string
-  operatingMode: string      // e.g. "Normal operation"
-  processLoad: string        // e.g. "75% load"
-  // Measured performance
-  sifResponseTimeMs: number
-  valveReactionTimeMs: number
-  // Result
+  operatingMode: string            // e.g. "Normal operation"
   verdict: CampaignVerdict
   notes: string
   stepResults: StepResult[]
@@ -386,6 +356,10 @@ export interface TestCampaign {
   conductedBy: string
   witnessedBy: string
   reviewedBy: string
+  // Optional extended fields (future use — SIL Live monitoring)
+  processLoad?: string             // e.g. "75% load"
+  sifResponseTimeMs?: number
+  valveReactionTimeMs?: number
 }
 
 // ─── Operational Events (SIL Live) ────────────────────────────────────────
@@ -409,13 +383,25 @@ export interface OperationalEvent {
   resolvedDate?: string
 }
 
-// ─── Extended SIF (appended fields) ──────────────────────────────────────
-// NOTE: The SIF interface above is extended here by re-declaration merging
-// is not supported. We add to the original SIF interface directly via the
-// extended version below. Replace the SIF interface in this file with
-// SIFExtended, and rename it SIF.
-// Fields added to SIF:
-//   hazopTrace?: HAZOPTrace
-//   proofTestProcedure?: ProofTestProcedure
-//   testCampaigns: TestCampaign[]
-//   operationalEvents: OperationalEvent[]
+
+// ─── SIF Revisions (history snapshots) ───────────────────────────────────
+/**
+ * Snapshot immutable d'une SIF à un instant T.
+ * Créé manuellement via "+ Révision" dans SIFHistoryWorkspace.
+ * Persisted dans prism_sif_revisions (JSONB snapshot).
+ */
+export interface SIFRevision {
+  id: string
+  sifId: string
+  projectId: string
+  revisionLabel: string      // 'A', 'B', '0', '1', …
+  status: SIFStatus
+  changeDescription: string  // e.g. "Architecture modifiée — ajout capteur redondant"
+  createdBy: string
+  createdAt: string          // ISO string
+  snapshot: SIF              // full frozen copy of the SIF at that revision
+}
+
+// ─── Extended SIF ────────────────────────────────────────────────────────
+// All extended fields (hazopTrace, proofTestProcedure, testCampaigns,
+// operationalEvents) are defined directly on the SIF interface above.

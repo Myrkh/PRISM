@@ -14,17 +14,13 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import type { Project, ProjectStatus } from '@/core/types'
+import { BORDER, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } from '@/styles/tokens'
+const PANEL = PANEL_BG
 
 // ─── Design tokens ────────────────────────────────────────────────────────
 const BG      = '#0C1117'
-const PANEL   = '#14181C'
 const CARD    = '#1D232A'
-const BORDER  = '#2A3138'
 const BORDER2 = '#363F49'
-const TEXT    = '#DFE8F1'
-const TEXT_DIM= '#8FA0B1'
-const TEAL    = '#009BA4'
-const TEAL_DIM= '#5FD8D2'
 const R       = 8
 
 const STANDARD_CFG = [
