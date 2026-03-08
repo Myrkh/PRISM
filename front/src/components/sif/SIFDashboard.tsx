@@ -1,9 +1,9 @@
 import { useMemo, useState, useEffect } from 'react'
-import { CheckCircle2, AlertTriangle, FileText, FlaskConical, Activity, Radio, Zap, Edit3, Save, X } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CheckCircle2, ClipboardCheck, FileWarning, Radio, ShieldCheck } from 'lucide-react'
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts'
 import { ProofTestTab } from '@/components/prooftest/ProofTestTab'
 import { Button } from '@/components/ui/button'
-import { useAppStore } from '@/store/appStore'
+import { useAppStore, type SIFTab } from '@/store/appStore'
 import { SILBadge } from '@/components/shared/SILBadge'
 import { SILGauge } from '@/components/shared/SILGauge'
 import { LoopEditorFlow } from '@/components/architecture/LoopEditorFlow'
@@ -12,6 +12,7 @@ import { PFDChart } from '@/components/analysis/PFDChart'
 import { AnalysisRightPanel } from '@/components/analysis/AnalysisRightPanel'
 import { ComplianceTab } from '@/components/sif/ComplianceTab'
 import { ComplianceRightPanel } from '@/components/sif/ComplianceRightPanel'
+import { OverviewRightPanel } from '@/components/sif/OverviewRightPanel'
 import { SIFVerdictBanner } from '@/components/sif/SIFVerdictBanner'
 import { SILReportStudio } from '@/components/report/SILReportStudio'
 import { calcSIF, formatPFD, formatRRF, formatPct } from '@/core/math/pfdCalc'
@@ -23,9 +24,10 @@ import {
   saveSIFAnalysisSettings,
 } from '@/core/models/analysisSettings'
 import { computeCompliance } from '@/components/sif/complianceCalc'
+import { getOverviewMetrics } from '@/components/sif/overviewMetrics'
 import type { SILLevel, SIFAssumption } from '@/core/types'
 import { cn } from '@/lib/utils'
-import { BORDER, TEXT_DIM } from '@/styles/tokens'
+import { BORDER, CARD_BG, PAGE_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic } from '@/styles/tokens'
 
 interface ContributionRow {
   key: string
@@ -52,10 +54,51 @@ function ContributionTooltip({ active, payload }: any) {
   )
 }
 
+const OVERVIEW_ACTION_CTA: Record<SIFTab, string> = {
+  overview: 'Review below',
+  architecture: 'Open Loop Editor',
+  analysis: 'Open Calculations',
+  compliance: 'Open Compliance',
+  prooftest: 'Open Proof Test',
+  report: 'Open Reports',
+}
+
+const OPERATIONAL_HEALTH_META = {
+  healthy: {
+    label: 'Healthy',
+    color: semantic.success,
+    bg: `${semantic.success}1A`,
+    border: `${semantic.success}33`,
+    Icon: CheckCircle2,
+  },
+  watch: {
+    label: 'Watch list',
+    color: semantic.warning,
+    bg: `${semantic.warning}1A`,
+    border: `${semantic.warning}33`,
+    Icon: AlertTriangle,
+  },
+  critical: {
+    label: 'Action required',
+    color: semantic.error,
+    bg: `${semantic.error}1A`,
+    border: `${semantic.error}33`,
+    Icon: AlertTriangle,
+  },
+  unknown: {
+    label: 'No data',
+    color: TEXT_DIM,
+    bg: `${TEXT_DIM}12`,
+    border: `${TEXT_DIM}22`,
+    Icon: Radio,
+  },
+} as const
+
 interface Props { projectId: string; sifId: string }
 
 export function SIFDashboard({ projectId, sifId }: Props) {
   const view        = useAppStore(s => s.view)
+  const navigate    = useAppStore(s => s.navigate)
   const setTab      = useAppStore(s => s.setTab)
   const updateSIF   = useAppStore(s => s.updateSIF)
   const { setRightPanelOverride } = useLayout()
@@ -105,7 +148,17 @@ export function SIFDashboard({ projectId, sifId }: Props) {
   // Tabs with their own contextual right panels are responsible for mounting them.
   // This dashboard effect only manages the panels it owns directly.
   useEffect(() => {
-    if (activeTab === 'analysis' && sif) {
+    if (activeTab === 'overview' && sif && result && compliance) {
+      setRightPanelOverride(
+        <OverviewRightPanel
+          sif={sif}
+          result={result}
+          compliance={compliance}
+          onSelectTab={setTab}
+        />,
+      )
+      return () => setRightPanelOverride(null)
+    } else if (activeTab === 'analysis' && sif) {
       setRightPanelOverride(
         <AnalysisRightPanel
           settings={analysisSettings}
@@ -144,16 +197,14 @@ export function SIFDashboard({ projectId, sifId }: Props) {
     updateSIF,
   ])
 
-  // HAZOP edit state (used in Overview)
-  const [editingHazop, setEditingHazop] = useState(false)
-  const [hazopDraft, setHazopDraft]     = useState<Record<string, any>>(sif?.hazopTrace ?? {
-    hazopNode: '', scenarioId: '', deviationCause: '', initiatingEvent: '',
-    lopaRef: '', tmel: 0.001, iplList: '', riskMatrix: '', hazopDate: '', lopaDate: '', hazopFacilitator: '',
-  })
-  const updateHAZOP = useAppStore(s => s.updateHAZOPTrace)
+  const overviewMetrics = useMemo(
+    () => (sif && result && compliance ? getOverviewMetrics(sif, result, compliance) : null),
+    [compliance, result, sif],
+  )
 
-  if (!project || !sif || !result || !compliance) return null
   const contributionRows = useMemo<ContributionRow[]>(() => {
+    if (!result || !sif) return []
+
     const totalPFD = Number.isFinite(result.PFD_avg) && result.PFD_avg > 0 ? result.PFD_avg : 0
 
     return result.subsystems.map((sub, index) => ({
@@ -169,6 +220,8 @@ export function SIFDashboard({ projectId, sifId }: Props) {
     }))
   }, [getSubsystemColor, result, sif])
 
+  if (!project || !sif || !result || !compliance || !overviewMetrics) return null
+
   const contributionTableRows: ContributionRow[] = [
     ...contributionRows,
     {
@@ -182,6 +235,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
     },
   ]
   const contributionPieRows = contributionRows.filter(row => row.contributionPct > 0)
+  const operationalHealth = OPERATIONAL_HEALTH_META[overviewMetrics.operationalHealth]
 
   // Architecture tab: fills the flex-col card from SIFWorkbenchLayout
   if (activeTab === 'architecture' && sif) {
@@ -194,265 +248,308 @@ export function SIFDashboard({ projectId, sifId }: Props) {
         {/* ════ OVERVIEW ════ */}
         {activeTab === 'overview' && (
           <div className="space-y-5">
-            <div className="rounded-b-xl space-y-5">
-            {/* KPI strip */}
-            <div className="grid grid-cols-3 gap-4">
-              {/* Main SIF */}
-              <div className={cn(
-                'col-span-3 rounded-xl border p-5 flex items-center justify-between gap-4 bg-card dark:bg-[#23292F] dark:border-[#323A43]',
-                result.meetsTarget
-                  ? 'border-emerald-200 dark:border-emerald-900'
-                  : 'border-red-200 dark:border-red-900',
-              )}>
-                <div className="space-y-1.5">
-                  <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-                    Total SIF — PFD avg
-                  </p>
-                  <p className="text-3xl font-bold font-mono tracking-tight">
-                    {formatPFD(result.PFD_avg)}
-                  </p>
-                  <p className="text-xs text-muted-foreground font-mono">
-                    RRF = {formatRRF(result.RRF)} · {sif.subsystems.map(s => s.architecture).join(' + ')}
-                  </p>
-                  <div className="flex items-center gap-3 pt-1">
-                    <SILBadge sil={result.SIL} size="md" />
-                    {result.meetsTarget
-                      ? <span className="text-xs text-emerald-500 flex items-center gap-1"><CheckCircle2 size={11}/> Meets SIL {sif.targetSIL} target</span>
-                      : <span className="text-xs text-red-500 flex items-center gap-1"><AlertTriangle size={11}/> Below SIL {sif.targetSIL} target</span>
-                    }
+            <div className="grid gap-4 xl:grid-cols-[minmax(0,1.8fr)_minmax(320px,1fr)]">
+              <div className="rounded-xl border p-5" style={{ borderColor: BORDER, background: CARD_BG }}>
+                <div className="flex items-start justify-between gap-6">
+                  <div className="space-y-3">
+                    <div className="space-y-1.5">
+                      <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+                        Design status
+                      </p>
+                      <h2 className="text-2xl font-black tracking-tight" style={{ color: TEXT }}>
+                        {sif.sifNumber} · {sif.title || 'Untitled SIF'}
+                      </h2>
+                      <p className="text-sm leading-relaxed" style={{ color: TEXT_DIM }}>
+                        {sif.hazardousEvent || 'No hazardous event has been documented yet.'}
+                      </p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <SILBadge sil={result.SIL} size="md" />
+                      <span
+                        className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold"
+                        style={{
+                          color: result.meetsTarget ? semantic.success : semantic.error,
+                          background: result.meetsTarget ? `${semantic.success}14` : `${semantic.error}14`,
+                          borderColor: result.meetsTarget ? `${semantic.success}2E` : `${semantic.error}2E`,
+                        }}
+                      >
+                        {result.meetsTarget ? <CheckCircle2 size={11} /> : <AlertTriangle size={11} />}
+                        {result.meetsTarget ? `Meets SIL ${sif.targetSIL}` : `Below SIL ${sif.targetSIL}`}
+                      </span>
+                    </div>
+
+                    <div className="grid gap-3 sm:grid-cols-3">
+                      {[
+                        { label: 'PFDavg', value: formatPFD(result.PFD_avg), tone: TEXT },
+                        { label: 'RRF', value: formatRRF(result.RRF), tone: TEXT },
+                        { label: 'Architectures', value: sif.subsystems.map(subsystem => subsystem.architecture).join(' + '), tone: TEAL_DIM, mono: false },
+                      ].map(item => (
+                        <div key={item.label} className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                          <p className="text-[9px] uppercase tracking-wider mb-1" style={{ color: TEXT_DIM }}>{item.label}</p>
+                          <p className={cn('text-sm font-bold', item.mono !== false && 'font-mono')} style={{ color: item.tone }}>{item.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="hidden shrink-0 xl:block">
+                    <SILGauge pfd={result.PFD_avg} size={118} />
                   </div>
                 </div>
-                <SILGauge pfd={result.PFD_avg} size={110} />
               </div>
 
-              {/* Per-subsystem KPIs */}
+              <div className="rounded-xl border p-5 space-y-4" style={{ borderColor: BORDER, background: CARD_BG }}>
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+                    Attention required
+                  </p>
+                  <h3 className="mt-1 text-sm font-semibold" style={{ color: TEXT }}>
+                    Priority queue for this SIF
+                  </h3>
+                </div>
+
+                <div className="space-y-2">
+                  {overviewMetrics.actions.slice(0, 3).map((action, index) => (
+                    <div key={action.id} className="rounded-lg border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-[11px] font-bold" style={{ borderColor: BORDER, background: CARD_BG, color: TEAL_DIM }}>
+                          {index + 1}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold" style={{ color: TEXT }}>{action.title}</p>
+                          <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{action.hint}</p>
+                        </div>
+                      </div>
+
+                      <button
+                        type="button"
+                        onClick={() => setTab(action.tab)}
+                        className="mt-3 inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-semibold"
+                        style={{ borderColor: `${TEAL}55`, background: `${TEAL}12`, color: TEAL_DIM }}
+                      >
+                        {OVERVIEW_ACTION_CTA[action.tab]}
+                        <ArrowRight size={12} />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
               {result.subsystems.map((sub, i) => {
                 const subsystem = sif.subsystems[i]
                 const color = getSubsystemColor(sub.type)
+
                 return (
-                  <div key={sub.subsystemId} className="rounded-xl border bg-card p-4 space-y-1.5 dark:bg-[#23292F] dark:border-[#323A43]">
-                    <div className="flex justify-between items-start">
-                      <span className="text-xs font-semibold" style={{ color }}>{subsystem?.label}</span>
+                  <div key={sub.subsystemId} className="rounded-xl border p-4 space-y-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-xs font-semibold" style={{ color }}>{subsystem?.label}</p>
+                        <p className="text-[10px] uppercase tracking-wide" style={{ color: TEXT_DIM }}>{sub.type}</p>
+                      </div>
                       <SILBadge sil={sub.SIL} size="sm" />
                     </div>
-                    <p className="text-lg font-bold font-mono" style={{ color }}>
-                      {formatPFD(sub.PFD_avg)}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground font-mono">
-                      {subsystem?.architecture} · SFF {formatPct(sub.SFF)}
-                    </p>
-                    <p className="text-[11px] text-muted-foreground font-mono">
-                      DC {formatPct(sub.DC)} · HFT {sub.HFT}
-                    </p>
+
+                    <p className="text-lg font-bold font-mono" style={{ color }}>{formatPFD(sub.PFD_avg)}</p>
+                    <div className="grid grid-cols-3 gap-2 text-[11px]">
+                      {[
+                        { label: 'Arch', value: subsystem?.architecture || '—' },
+                        { label: 'SFF', value: formatPct(sub.SFF) },
+                        { label: 'DC', value: formatPct(sub.DC) },
+                      ].map(item => (
+                        <div key={item.label} className="rounded-md border px-2 py-1.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                          <p className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{item.label}</p>
+                          <p className="mt-0.5 font-mono font-semibold" style={{ color: TEXT }}>{item.value}</p>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="text-[11px] font-mono" style={{ color: TEXT_DIM }}>HFT {sub.HFT} · RRF {formatRRF(sub.RRF)}</p>
                   </div>
                 )
               })}
             </div>
 
-            {/* SIF Chain diagram */}
-            <div className="rounded-xl border bg-card p-5 dark:bg-[#23292F] dark:border-[#323A43]">
-              <div className="flex items-center justify-between mb-4">
+            <div className="rounded-xl border p-5 space-y-4" style={{ borderColor: BORDER, background: CARD_BG }}>
+              <div className="flex items-start justify-between gap-4">
                 <div>
-                  <h3 className="text-sm font-semibold">Safety Chain</h3>
-                  <p className="text-xs text-muted-foreground mt-0.5">
-                    Process demand → Sensor(s) → Logic → Actuator(s) → Safe state
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+                    Design path
+                  </p>
+                  <h3 className="mt-1 text-sm font-semibold" style={{ color: TEXT }}>
+                    Safety chain
+                  </h3>
+                  <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>
+                    Process demand to safe state, using the current subsystem sequence.
                   </p>
                 </div>
-                <Button variant="outline" size="sm" onClick={() => setTab('architecture')} className="text-xs h-7">
-                  Edit architecture →
+                <Button variant="outline" size="sm" onClick={() => setTab('architecture')} className="h-7 text-xs">
+                  Open Loop Editor
                 </Button>
               </div>
-              {/* Chain summary — click to go to Loop Editor */}
-              <div className="rounded-lg border p-4 text-center cursor-pointer hover:bg-muted/10 transition-colors" onClick={() => setTab('architecture')} style={{ borderColor: '#2A3138', background: '#1D232A' }}>
-                <p className="text-xs text-muted-foreground mb-2">Diagramme de la chaîne de sécurité</p>
-                <p className="text-sm font-semibold" style={{ color: '#009BA4' }}>Ouvrir l'éditeur Loop Editor →</p>
+
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="rounded-lg border px-3 py-2 text-xs font-semibold" style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}>
+                  Process demand
+                </div>
+                {sif.subsystems.map((subsystem, index) => (
+                  <div key={subsystem.id} className="contents">
+                    <ArrowRight size={14} style={{ color: TEXT_DIM }} />
+                    <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                      <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{subsystem.type}</p>
+                      <p className="text-xs font-semibold" style={{ color: getSubsystemColor(subsystem.type) }}>{subsystem.label || `Subsystem ${index + 1}`}</p>
+                      <p className="text-[11px] font-mono" style={{ color: TEXT_DIM }}>{subsystem.architecture}</p>
+                    </div>
+                  </div>
+                ))}
+                <ArrowRight size={14} style={{ color: TEXT_DIM }} />
+                <div className="rounded-lg border px-3 py-2 text-xs font-semibold" style={{ borderColor: BORDER, background: PAGE_BG, color: TEAL_DIM }}>
+                  Safe state
+                </div>
               </div>
             </div>
-            </div>
 
-            {/* Metadata */}
-            <div className="rounded-xl border bg-card p-5 dark:bg-[#23292F] dark:border-[#323A43]">
-              <h3 className="text-sm font-semibold mb-4">SIF Identification</h3>
-              <div className="grid grid-cols-3 gap-x-8 gap-y-3">
+            <div className="rounded-xl border p-5 space-y-4" style={{ borderColor: BORDER, background: CARD_BG }}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+                    Operational status
+                  </p>
+                  <h3 className="mt-1 text-sm font-semibold" style={{ color: TEXT }}>
+                    SIL Live
+                  </h3>
+                  <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>
+                    Current confidence signal from proof test evidence and operational events.
+                  </p>
+                </div>
+
+                <span
+                  className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold"
+                  style={{ color: operationalHealth.color, background: operationalHealth.bg, borderColor: operationalHealth.border }}
+                >
+                  <operationalHealth.Icon size={11} />
+                  {operationalHealth.label}
+                </span>
+              </div>
+
+              <div className="grid gap-3 md:grid-cols-4">
                 {[
-                  ['P&ID', sif.pid],
-                  ['Location', sif.location],
-                  ['Process tag', sif.processTag],
-                  ['Demand rate', sif.demandRate ? `${sif.demandRate} yr⁻¹` : ''],
-                  ['Required RRF', sif.rrfRequired?.toString() ?? ''],
-                  ['Hazardous event', sif.hazardousEvent],
-                  ['Made by', sif.madeBy],
-                  ['Verified by', sif.verifiedBy],
-                  ['Approved by', sif.approvedBy],
-                ].map(([label, value]) => (
-                  <div key={label}>
-                    <p className="text-[10px] text-muted-foreground font-medium uppercase tracking-wider mb-0.5">{label}</p>
-                    <p className="text-sm">{value || <span className="text-muted-foreground/40">—</span>}</p>
+                  { label: 'Operational confidence', value: overviewMetrics.recentCampaigns.length || sif.operationalEvents.length ? `${overviewMetrics.operationalScore}/100` : '—', tone: operationalHealth.color },
+                  { label: 'Next proof test', value: overviewMetrics.nextDue ? overviewMetrics.nextDue.toLocaleDateString() : 'Not scheduled', tone: overviewMetrics.isOverdue ? semantic.error : TEXT },
+                  { label: 'Bypass / inhibit', value: `${overviewMetrics.bypassHours.toFixed(1)} h`, tone: TEXT },
+                  { label: 'Open faults', value: String(overviewMetrics.openFaults), tone: overviewMetrics.openFaults > 0 ? semantic.error : semantic.success },
+                ].map(item => (
+                  <div key={item.label} className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                    <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_DIM }}>{item.label}</p>
+                    <p className="mt-1 text-xl font-black font-mono" style={{ color: item.tone }}>{item.value}</p>
                   </div>
                 ))}
               </div>
+
+              <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {overviewMetrics.recentCampaigns.slice(0, 8).map(campaign => {
+                    const verdictMeta = campaign.verdict === 'pass'
+                      ? { label: 'Pass', color: semantic.success, bg: `${semantic.success}1A` }
+                      : campaign.verdict === 'fail'
+                        ? { label: 'Fail', color: semantic.error, bg: `${semantic.error}1A` }
+                        : { label: 'Conditional', color: semantic.warning, bg: `${semantic.warning}1A` }
+
+                    return (
+                      <span
+                        key={campaign.id}
+                        title={campaign.date}
+                        className="inline-flex h-6 items-center rounded-md border px-2 text-[10px] font-bold"
+                        style={{ color: verdictMeta.color, borderColor: `${verdictMeta.color}33`, background: verdictMeta.bg }}
+                      >
+                        {verdictMeta.label}
+                      </span>
+                    )
+                  })}
+                  {overviewMetrics.recentCampaigns.length === 0 && (
+                    <span className="text-xs" style={{ color: TEXT_DIM }}>No campaigns recorded yet.</span>
+                  )}
+                </div>
+
+                <Button variant="outline" size="sm" onClick={() => setTab('prooftest')} className="h-7 text-xs">
+                  Open Proof Test
+                </Button>
+              </div>
             </div>
-          
-          {/* ─ SIL Live ─ */}
-          {(() => {
-            const campaigns = (sif.testCampaigns ?? []).slice().sort((a, b) => b.date.localeCompare(a.date))
-            const events = sif.operationalEvents ?? []
-            const lastC = campaigns[0]
-            const proc = sif.proofTestProcedure
-            const periodicityMs = (proc?.periodicityMonths ?? 12) * 30.44 * 24 * 3600000
-            const nextDue = lastC ? new Date(new Date(lastC.date).getTime() + periodicityMs) : null
-            const isOverdue = nextDue ? nextDue < new Date() : false
-            const bypassHours = events
-              .filter(e => e.type === 'bypass' || e.type === 'inhibit' || e.type === 'override')
-              .reduce((acc, e) => acc + (e.duration ?? 0), 0)
-            const openFaults = events.filter(e => e.type === 'fault_detected' && !e.resolvedDate).length
-            const failCount = campaigns.filter(c => c.verdict === 'fail').length
-            const conditionalCount = campaigns.filter(c => c.verdict === 'conditional').length
-            const score = Math.max(0, Math.min(100,
-              100
-              - (isOverdue ? 30 : 0)
-              - failCount * 20
-              - conditionalCount * 8
-              - Math.min(20, openFaults * 10)
-              - Math.min(15, Math.round(bypassHours / 8))
-            ))
 
-            const liveStatus = score >= 85 ? 'nominal' : score >= 65 ? 'watch' : score > 0 ? 'critical' : 'unknown'
-            const statusMeta = {
-              nominal: { label: 'Operational SIL confidence — Healthy', color: '#16A34A', bg: '#F0FDF4', borderColor: '#BBF7D0' },
-              watch: { label: 'Operational SIL confidence — Watch list', color: '#D97706', bg: '#FFFBEB', borderColor: '#FDE68A' },
-              critical: { label: 'Operational SIL confidence — Action required', color: '#DC2626', bg: '#FEF2F2', borderColor: '#FECACA' },
-              unknown: { label: 'Operational SIL confidence — No data', color: '#6B7280', bg: '#F9FAFB', borderColor: '#E5E7EB' },
-            }
-            const sm = statusMeta[liveStatus]
-
-            return (
-              <div>
-                <div className="flex items-baseline gap-2.5 mb-3">
-                  <span className="text-xs font-mono font-bold text-primary/50">04</span>
-                  <div>
-                    <h2 className="text-sm font-bold tracking-tight">SIL Live — Operational Status</h2>
-                    <p className="text-xs text-muted-foreground mt-0.5">Operational confidence score from proof tests + field events</p>
-                  </div>
+            <div className="rounded-xl border p-5 space-y-4" style={{ borderColor: BORDER, background: CARD_BG }}>
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+                    Governance status
+                  </p>
+                  <h3 className="mt-1 text-sm font-semibold" style={{ color: TEXT }}>
+                    HAZOP / LOPA traceability
+                  </h3>
+                  <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>
+                    Audit readiness across context, evidence, assumptions, and HAZOP linkage.
+                  </p>
                 </div>
-                <div className="rounded-xl border-2 overflow-hidden" style={{ borderColor: sm.borderColor }}>
-                  <div className="flex items-center gap-2 px-4 py-2.5 text-xs font-semibold" style={{ background: sm.bg, color: sm.color }}>
-                    <Radio size={12} />
-                    {sm.label}
+
+                <div className="flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    <div className="h-1.5 w-24 overflow-hidden rounded-full" style={{ background: PAGE_BG }}>
+                      <div className="h-full rounded-full" style={{ width: `${overviewMetrics.tracePct}%`, background: TEAL }} />
+                    </div>
+                    <span className="text-xs font-mono font-semibold" style={{ color: TEXT_DIM }}>{overviewMetrics.tracePct}%</span>
                   </div>
-                  <div className="grid grid-cols-4 gap-3 p-4 bg-card">
-                    <div className="rounded-lg border bg-muted/20 px-3 py-2.5">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Design SIL</p>
-                      <p className="text-xl font-black font-mono text-blue-600">SIL {sif.targetSIL}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 px-3 py-2.5">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Operational confidence</p>
-                      <p className="text-xl font-black font-mono" style={{ color: sm.color }}>{campaigns.length ? `${score}/100` : '—'}</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 px-3 py-2.5">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Bypass/inhibit exposure</p>
-                      <p className="text-xl font-black font-mono">{bypassHours.toFixed(1)} h</p>
-                    </div>
-                    <div className="rounded-lg border bg-muted/20 px-3 py-2.5">
-                      <p className="text-[10px] uppercase tracking-wider text-muted-foreground font-semibold">Open faults</p>
-                      <p className={cn('text-xl font-black font-mono', openFaults > 0 ? 'text-red-500' : 'text-emerald-500')}>
-                        {openFaults}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="px-4 pb-4 flex items-center justify-between text-xs text-muted-foreground">
-                    <div className="flex gap-1 flex-wrap">
-                      {campaigns.slice(0, 8).map(c => (
-                        <span key={c.id} title={c.date} className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold"
-                          style={{
-                            background: c.verdict === 'pass' ? '#F0FDF4' : c.verdict === 'fail' ? '#FEF2F2' : '#FFFBEB',
-                            color: c.verdict === 'pass' ? '#16A34A' : c.verdict === 'fail' ? '#DC2626' : '#D97706',
-                            border: `1px solid ${c.verdict === 'pass' ? '#BBF7D0' : c.verdict === 'fail' ? '#FECACA' : '#FDE68A'}`,
-                          }}
-                        >
-                          {c.verdict === 'pass' ? '✓' : c.verdict === 'fail' ? '✗' : '!'}
-                        </span>
-                      ))}
-                      {campaigns.length === 0 && <span>No campaigns recorded</span>}
-                    </div>
-                    {nextDue && (
-                      <p>
-                        Next due: <span className={isOverdue ? 'text-red-500 font-semibold' : 'font-semibold'}>{nextDue.toLocaleDateString()}</span>
-                      </p>
-                    )}
-                  </div>
+                  <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => navigate({ type: 'hazop' })}>
+                    Open HAZOP / LOPA
+                  </Button>
                 </div>
               </div>
-            )
-          })()}
 
-          {/* ─ HAZOP/LOPA Traceability ─ */}
-          {(() => {
-            const trace = sif.hazopTrace
-            const fields = [trace?.hazopNode, trace?.scenarioId, trace?.lopaRef, trace?.initiatingEvent, trace?.iplList, trace?.hazopFacilitator]
-            const tracePct = Math.round(fields.filter(Boolean).length / fields.length * 100)
-
-            return (
-              <div>
-                <div className="flex items-end justify-between gap-4 mb-3">
-                  <div className="flex items-baseline gap-2.5">
-                    <span className="text-xs font-mono font-bold text-primary/50">05</span>
-                    <div>
-                      <h2 className="text-sm font-bold tracking-tight">HAZOP / LOPA Traceability</h2>
-                      <p className="text-xs text-muted-foreground mt-0.5">Causal chain: HAZOP scenario → LOPA → SIF justification</p>
+              <div className="grid gap-3 md:grid-cols-4">
+                {[
+                  { label: 'Metadata ready', value: `${overviewMetrics.metadataPct}%`, detail: compliance.missingMetadata.length ? `${compliance.missingMetadata.length} fields still missing` : 'All core fields documented', Icon: ClipboardCheck },
+                  { label: 'Evidence package', value: `${overviewMetrics.evidenceCompleteCount}/${overviewMetrics.evidenceTotalCount}`, detail: 'Completed evidence items', Icon: ShieldCheck },
+                  { label: 'Assumptions to review', value: String(overviewMetrics.pendingAssumptions), detail: `${overviewMetrics.reviewedAssumptions} already validated`, Icon: FileWarning },
+                  { label: 'Approval chain', value: `${overviewMetrics.approvalFilledCount}/3`, detail: 'Made / Verified / Approved', Icon: CheckCircle2 },
+                ].map(item => (
+                  <div key={item.label} className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-[10px] uppercase tracking-wider font-semibold" style={{ color: TEXT_DIM }}>{item.label}</p>
+                        <p className="mt-1 text-xl font-black font-mono" style={{ color: TEAL_DIM }}>{item.value}</p>
+                      </div>
+                      <item.Icon size={14} style={{ color: TEAL_DIM, flexShrink: 0 }} />
                     </div>
+                    <p className="mt-2 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>{item.detail}</p>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2">
-                      <div className="w-24 h-1.5 rounded-full bg-muted overflow-hidden">
-                        <div className="h-full bg-violet-500 rounded-full" style={{ width: `${tracePct}%` }} />
-                      </div>
-                      <span className="text-xs font-mono font-semibold text-muted-foreground">{tracePct}%</span>
-                    </div>
-                    {editingHazop ? (
-                      <div className="flex gap-1.5">
-                        <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setEditingHazop(false)}>
-                          <X size={11} className="mr-1" /> Cancel
-                        </Button>
-                        <Button size="sm" className="h-7 text-xs gap-1.5" onClick={() => { updateHAZOP(project.id, sif.id, hazopDraft as any); setEditingHazop(false) }}>
-                          <Save size={11} /> Save
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button size="sm" variant="outline" className="h-7 text-xs gap-1.5" onClick={() => { setHazopDraft(sif.hazopTrace ?? hazopDraft); setEditingHazop(true) }}>
-                        <Edit3 size={11} /> Edit
-                      </Button>
-                    )}
-                  </div>
-                </div>
+                ))}
+              </div>
 
-                <div className="rounded-xl border bg-card overflow-hidden">
-                  <div className="grid grid-cols-3 divide-x divide-y">
-                    {[
-                      ['HAZOP Node',           editingHazop ? <input className="w-full bg-transparent text-sm outline-none border-b border-primary/30 pb-0.5" value={hazopDraft.hazopNode} onChange={e => setHazopDraft(d => ({ ...d, hazopNode: e.target.value }))} /> : (trace?.hazopNode || null)],
-                      ['Scenario ID',          editingHazop ? <input className="w-full bg-transparent text-sm outline-none border-b border-primary/30 pb-0.5" value={hazopDraft.scenarioId} onChange={e => setHazopDraft(d => ({ ...d, scenarioId: e.target.value }))} /> : (trace?.scenarioId || null)],
-                      ['Risk Matrix',          editingHazop ? <input className="w-full bg-transparent text-sm outline-none border-b border-primary/30 pb-0.5" placeholder="e.g. 4C" value={hazopDraft.riskMatrix} onChange={e => setHazopDraft(d => ({ ...d, riskMatrix: e.target.value }))} /> : (trace?.riskMatrix || null)],
-                      ['LOPA Reference',       editingHazop ? <input className="w-full bg-transparent text-sm outline-none border-b border-primary/30 pb-0.5" value={hazopDraft.lopaRef} onChange={e => setHazopDraft(d => ({ ...d, lopaRef: e.target.value }))} /> : (trace?.lopaRef || null)],
-                      ['Initiating Event',     editingHazop ? <input className="w-full bg-transparent text-sm outline-none border-b border-primary/30 pb-0.5" value={hazopDraft.initiatingEvent} onChange={e => setHazopDraft(d => ({ ...d, initiatingEvent: e.target.value }))} /> : (trace?.initiatingEvent || null)],
-                      ['TMEL [yr⁻¹]',         editingHazop ? <input type="number" step="0.0001" className="w-full bg-transparent text-sm font-mono outline-none border-b border-primary/30 pb-0.5" value={hazopDraft.tmel} onChange={e => setHazopDraft(d => ({ ...d, tmel: +e.target.value }))} /> : (trace?.tmel?.toExponential(2) || null)],
-                      ['Independent IPLs',     editingHazop ? <input className="w-full bg-transparent text-sm outline-none border-b border-primary/30 pb-0.5" placeholder="e.g. BPCS, PSV-101" value={hazopDraft.iplList} onChange={e => setHazopDraft(d => ({ ...d, iplList: e.target.value }))} /> : (trace?.iplList || null)],
-                      ['HAZOP Facilitator',    editingHazop ? <input className="w-full bg-transparent text-sm outline-none border-b border-primary/30 pb-0.5" value={hazopDraft.hazopFacilitator} onChange={e => setHazopDraft(d => ({ ...d, hazopFacilitator: e.target.value }))} /> : (trace?.hazopFacilitator || null)],
-                      ['HAZOP Date',           editingHazop ? <input type="date" className="w-full bg-transparent text-sm font-mono outline-none border-b border-primary/30 pb-0.5" value={hazopDraft.hazopDate} onChange={e => setHazopDraft(d => ({ ...d, hazopDate: e.target.value }))} /> : (trace?.hazopDate || null)],
-                    ].map(([label, value]) => (
-                      <div key={label as string} className="px-4 py-3.5">
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-muted-foreground mb-1">{label}</p>
-                        {typeof value === 'string' || value === null
-                          ? <p className="text-sm font-medium">{value || <span className="text-muted-foreground/30 font-normal">—</span>}</p>
-                          : value
-                        }
-                      </div>
-                    ))}
-                  </div>
+              <div className="rounded-xl border overflow-hidden" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                <div className="grid grid-cols-1 divide-y md:grid-cols-3 md:divide-x md:divide-y-0" style={{ borderColor: BORDER }}>
+                  {[
+                    ['HAZOP Node', sif.hazopTrace?.hazopNode || null],
+                    ['Scenario ID', sif.hazopTrace?.scenarioId || null],
+                    ['Risk Matrix', sif.hazopTrace?.riskMatrix || null],
+                    ['LOPA Reference', sif.hazopTrace?.lopaRef || null],
+                    ['Initiating Event', sif.hazopTrace?.initiatingEvent || null],
+                    ['TMEL [yr⁻¹]', sif.hazopTrace?.tmel ? sif.hazopTrace.tmel.toExponential(2) : null],
+                    ['Independent IPLs', sif.hazopTrace?.iplList || null],
+                    ['HAZOP Facilitator', sif.hazopTrace?.hazopFacilitator || null],
+                    ['HAZOP Date', sif.hazopTrace?.hazopDate || null],
+                  ].map(([label, value]) => (
+                    <div key={label as string} className="px-4 py-3.5">
+                      <p className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: TEXT_DIM }}>{label}</p>
+                      {typeof value === 'string' || value === null
+                        ? <p className="text-sm font-medium" style={{ color: TEXT }}>{value || <span style={{ color: `${TEXT_DIM}66` }}>—</span>}</p>
+                        : value
+                      }
+                    </div>
+                  ))}
                 </div>
               </div>
-            )
-          })()}
-        </div>
+            </div>
+          </div>
         )}
 
         {/* ════ ARCHITECTURE (Loop Editor) ════ */}

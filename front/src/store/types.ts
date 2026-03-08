@@ -33,6 +33,8 @@ export type AppView =
   | { type: 'sif-dashboard'; projectId: string; sifId: string; tab: SIFTab }
 
 export type SIFTab = 'overview' | 'architecture' | 'analysis' | 'compliance' | 'prooftest' | 'report'
+export type RightPanelSection = 'analysis' | 'compliance' | 'prooftest'
+export type RightPanelTabsState = Record<RightPanelSection, string | null>
 
 // ─── State interface ───────────────────────────────────────────────────────
 export interface AppState {
@@ -51,6 +53,7 @@ export interface AppState {
   // ── UI ──
   selectedComponentId: string | null
   pinnedSIFIds: string[]
+  rightPanelTabs: RightPanelTabsState
   isProjectModalOpen: boolean
   editingProjectId: string | null
   isSIFModalOpen: boolean
@@ -61,6 +64,7 @@ export interface AppState {
   navigate: (view: AppView) => void
   setTab: (tab: SIFTab) => void
   togglePinnedSIF: (sifId: string) => void
+  setRightPanelTab: (section: RightPanelSection, tab: string | null) => void
   toggleTheme: () => void
   setTheme: (isDark: boolean) => void
 

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Clock3, LineChart, PieChart, RotateCcw } from 'lucide-react'
 import { Switch } from '@/components/ui/switch'
 import {
@@ -6,6 +6,7 @@ import {
   IntercalaireTabBar,
 } from '@/components/layout/SIFWorkbenchLayout'
 import type { SIFAnalysisSettings } from '@/core/models/analysisSettings'
+import { useAppStore } from '@/store/appStore'
 import { BORDER, CARD_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
 
 const BG = dark.page
@@ -179,11 +180,19 @@ function ColorField({
 
 export function AnalysisRightPanel({ settings, onChange, onReset }: Props) {
   const [activeTab, setActiveTab] = useState<PanelTab>('general')
+  const selectedRightPanelTab = useAppStore(s => s.rightPanelTabs.analysis)
+  const setRightPanelTab = useAppStore(s => s.setRightPanelTab)
 
   const activeIdx = useMemo(
     () => PANEL_TABS.findIndex(tab => tab.id === activeTab),
     [activeTab],
   )
+
+  useEffect(() => {
+    if (selectedRightPanelTab && PANEL_TABS.some(tab => tab.id === selectedRightPanelTab)) {
+      setActiveTab(selectedRightPanelTab as PanelTab)
+    }
+  }, [selectedRightPanelTab])
 
   const setGeneral = (patch: Partial<SIFAnalysisSettings['general']>) =>
     onChange({ ...settings, general: { ...settings.general, ...patch } })
@@ -194,21 +203,26 @@ export function AnalysisRightPanel({ settings, onChange, onReset }: Props) {
 
   return (
     <div
-      className="flex h-full flex-col overflow-hidden border-l"
-      style={{ borderColor: BORDER, background: PANEL_BG }}
+      className="flex h-full flex-col overflow-hidden"
+      style={{ background: PANEL_BG }}
     >
-      <div className="px-3 pt-3 shrink-0">
-        <IntercalaireTabBar
-          tabs={PANEL_TABS}
-          active={activeTab}
-          onSelect={id => setActiveTab(id as PanelTab)}
-          cardBg={CARD_BG}
-          labelSize="sm"
-        />
-      </div>
+      <div className="flex-1 overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
+        <div className="sticky top-0 z-10 px-3 pt-3" style={{ background: PANEL_BG }}>
+          <IntercalaireTabBar
+            tabs={PANEL_TABS}
+            active={activeTab}
+            onSelect={id => {
+              const nextTab = id as PanelTab
+              setActiveTab(nextTab)
+              setRightPanelTab('analysis', nextTab)
+            }}
+            cardBg={CARD_BG}
+            labelSize="sm"
+          />
+        </div>
 
-      <div className="flex-1 overflow-y-auto px-3 pb-3">
-        <IntercalaireCard tabCount={PANEL_TABS.length} activeIdx={activeIdx} className="p-3 space-y-3">
+        <div className="px-3 pb-3">
+          <IntercalaireCard tabCount={PANEL_TABS.length} activeIdx={activeIdx} className="p-3 space-y-3">
           <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: BG }}>
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -444,7 +458,8 @@ export function AnalysisRightPanel({ settings, onChange, onReset }: Props) {
               </FieldCard>
             </>
           )}
-        </IntercalaireCard>
+          </IntercalaireCard>
+        </div>
       </div>
     </div>
   )

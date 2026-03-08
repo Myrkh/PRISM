@@ -39,8 +39,8 @@ export function CCFBetaRightPanel({
 }: Props) {
   return (
     <div
-      className="flex h-full flex-col overflow-hidden border-l"
-      style={{ borderColor: BORDER, background: PANEL_BG }}
+      className="flex h-full flex-col overflow-hidden"
+      style={{ background: PANEL_BG }}
     >
       <div className="border-b px-3 pb-3 pt-3" style={{ borderColor: BORDER }}>
         <div className="flex items-center gap-2">

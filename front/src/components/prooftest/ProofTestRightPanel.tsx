@@ -13,7 +13,7 @@
  *  📋 Statut   — IEC 61511 · Échéance · Équipements · SIL context · CTA
  *  ⚗  En cours — Progression · Non-conformités · Verdict · Signatures · Clôturer
  */
-import { useState, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   CheckCircle2, XCircle, AlertTriangle, FlaskConical,
   ClipboardCheck, Activity, Cpu, Zap, Plus,
@@ -24,6 +24,7 @@ import {
 } from '@/components/layout/SIFWorkbenchLayout'
 import { calcSIF, formatPFD } from '@/core/math/pfdCalc'
 import type { SIF } from '@/core/types'
+import { useAppStore } from '@/store/appStore'
 import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, R, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
 
 const PANEL = dark.panel
@@ -388,16 +389,25 @@ function CampaignContent(props: ProofTestRightPanelProps) {
 // ─── Main export ──────────────────────────────────────────────────────────
 export function ProofTestRightPanel(props: ProofTestRightPanelProps) {
   const [activeTab, setActiveTab] = useState<PanelTab>('status')
+  const selectedRightPanelTab = useAppStore(s => s.rightPanelTabs.prooftest)
+  const setRightPanelTab = useAppStore(s => s.setRightPanelTab)
   const activeIdx = PANEL_TABS.findIndex(t => t.id === activeTab)
-// Auto-switch to campaign tab when a new test is started from the procedure view
+  // Auto-switch to campaign tab when a new test is started from the procedure view
   // We detect this by checking if the activeCampaign prop is new.
   const isNewCampaign = props.activeCampaign && props.activeCampaign.stepResults.length === 0
-  
-  useState(() => {
+
+  useEffect(() => {
+    if (selectedRightPanelTab && PANEL_TABS.some(tab => tab.id === selectedRightPanelTab)) {
+      setActiveTab(selectedRightPanelTab as PanelTab)
+    }
+  }, [selectedRightPanelTab])
+
+  useEffect(() => {
     if (isNewCampaign) {
       setActiveTab('campaign')
+      setRightPanelTab('prooftest', 'campaign')
     }
-  })
+  }, [isNewCampaign, setRightPanelTab])
   return (
     <div className="flex flex-col h-full overflow-hidden" style={{ background: PANEL }}>
 
@@ -411,7 +421,10 @@ export function ProofTestRightPanel(props: ProofTestRightPanelProps) {
 
             return (
               <button key={tab.id} type="button"
-                onClick={() => setActiveTab(tab.id)}
+                onClick={() => {
+                  setActiveTab(tab.id)
+                  setRightPanelTab('prooftest', tab.id)
+                }}
                 className="relative flex items-center gap-1.5 px-3 py-2 text-left transition-colors shrink-0"
                 style={isActive ? {
                   background:   CARD,

@@ -34,6 +34,7 @@ import type {
   ComplianceResult,
   ComplianceTechnicalFinding,
 } from './complianceCalc'
+import { useAppStore } from '@/store/appStore'
 import { BORDER, CARD_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM, dark, semantic } from '@/styles/tokens'
 
 type PanelTab = 'summary' | 'gap' | 'assumptions' | 'evidence'
@@ -302,6 +303,8 @@ export function ComplianceRightPanel({
   onUpdateAssumptions,
 }: Props) {
   const [activeTab, setActiveTab] = useState<PanelTab>('summary')
+  const selectedRightPanelTab = useAppStore(s => s.rightPanelTabs.compliance)
+  const setRightPanelTab = useAppStore(s => s.setRightPanelTab)
   const [assumptionDrafts, setAssumptionDrafts] = useState<SIFAssumption[]>(() => normalizeSIFAssumptions(sif.assumptions))
   const [assumptionsDirty, setAssumptionsDirty] = useState(false)
   const [assumptionsSaving, setAssumptionsSaving] = useState(false)
@@ -323,6 +326,12 @@ export function ComplianceRightPanel({
     'Compliant'
 
   useEffect(() => {
+    if (selectedRightPanelTab && PANEL_TABS.some(tab => tab.id === selectedRightPanelTab)) {
+      setActiveTab(selectedRightPanelTab as PanelTab)
+    }
+  }, [selectedRightPanelTab])
+
+  useEffect(() => {
     setAssumptionDrafts(normalizeSIFAssumptions(sif.assumptions))
     setAssumptionsDirty(false)
     setAssumptionsError(null)
@@ -331,14 +340,16 @@ export function ComplianceRightPanel({
   useEffect(() => {
     if (selectedGapId) {
       setActiveTab('gap')
+      setRightPanelTab('compliance', 'gap')
     }
-  }, [selectedGapId])
+  }, [selectedGapId, setRightPanelTab])
 
   useEffect(() => {
     if (selectedEvidenceId) {
       setActiveTab('evidence')
+      setRightPanelTab('compliance', 'evidence')
     }
-  }, [selectedEvidenceId])
+  }, [selectedEvidenceId, setRightPanelTab])
 
   const updateAssumption = <K extends keyof SIFAssumption>(
     assumptionId: string,
@@ -390,19 +401,24 @@ export function ComplianceRightPanel({
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden border-l" style={{ borderColor: BORDER, background: PANEL_BG }}>
-      <div className="px-3 pt-3 shrink-0">
-        <IntercalaireTabBar
-          tabs={PANEL_TABS}
-          active={activeTab}
-          onSelect={id => setActiveTab(id as PanelTab)}
-          cardBg={CARD_BG}
-          labelSize="sm"
-        />
-      </div>
+    <div className="flex h-full flex-col overflow-hidden" style={{ background: PANEL_BG }}>
+      <div className="flex-1 overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
+        <div className="sticky top-0 z-10 px-3 pt-3" style={{ background: PANEL_BG }}>
+          <IntercalaireTabBar
+            tabs={PANEL_TABS}
+            active={activeTab}
+            onSelect={id => {
+              const nextTab = id as PanelTab
+              setActiveTab(nextTab)
+              setRightPanelTab('compliance', nextTab)
+            }}
+            cardBg={CARD_BG}
+            labelSize="sm"
+          />
+        </div>
 
-      <div className="px-3 pb-3 flex-1 overflow-y-auto">
-        <IntercalaireCard tabCount={PANEL_TABS.length} activeIdx={activeIdx} className="p-3 space-y-3">
+        <div className="px-3 pb-3">
+          <IntercalaireCard tabCount={PANEL_TABS.length} activeIdx={activeIdx} className="p-3 space-y-3">
           {activeTab === 'summary' && (
             <>
               <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: dark.page }}>
@@ -511,14 +527,12 @@ export function ComplianceRightPanel({
             <>
               <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: dark.page }}>
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <SectionLabel>Assumption Register</SectionLabel>
-                    <p className="mt-2 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-                      This is the explicit SIF assumption register used for proof and governance. Keep it short, defensible, and auditable.
-                    </p>
-                  </div>
+                  <SectionLabel>Assumption Register</SectionLabel>
                   <StatusPill status={registerReviews === 0 ? 'ok' : 'review'} />
                 </div>
+                <p className="mt-2 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+                  This is the explicit SIF assumption register used for proof and governance. Keep it short, defensible, and auditable.
+                </p>
 
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <InfoCard label="Register items" value={String(assumptionDrafts.length)} />
@@ -574,14 +588,12 @@ export function ComplianceRightPanel({
               <div className="space-y-3">
                 {assumptionDrafts.map(assumption => (
                   <div key={assumption.id} className="rounded-xl border p-3" style={{ borderColor: BORDER, background: dark.page }}>
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
-                        <SectionLabel>Register Item</SectionLabel>
-                        <p className="mt-1 text-sm font-semibold" style={{ color: TEXT }}>
-                          {assumption.title || 'Untitled assumption'}
-                        </p>
-                      </div>
-                      <div className="flex items-center gap-2">
+                    <div className="space-y-2">
+                      <SectionLabel>Register Item</SectionLabel>
+                      <p className="text-sm font-semibold" style={{ color: TEXT }}>
+                        {assumption.title || 'Untitled assumption'}
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
                         <StatusPill status={assumption.status} />
                         <button
                           type="button"
@@ -671,11 +683,13 @@ export function ComplianceRightPanel({
                         </div>
                       </div>
 
-                      <div className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: dark.card2 }}>
+                      <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: dark.card2 }}>
                         <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
                           Link this assumption to the most relevant SIF workspace so reviewers can jump to the source context.
                         </p>
-                        <JumpButton label="Open linked tab" tab={assumption.linkedTab} onSelectTab={onSelectTab} />
+                        <div className="mt-2">
+                          <JumpButton label="Open linked tab" tab={assumption.linkedTab} onSelectTab={onSelectTab} />
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -746,7 +760,8 @@ export function ComplianceRightPanel({
               </div>
             </>
           )}
-        </IntercalaireCard>
+          </IntercalaireCard>
+        </div>
       </div>
     </div>
   )

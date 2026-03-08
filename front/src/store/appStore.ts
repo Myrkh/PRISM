@@ -100,6 +100,11 @@ export const useAppStore = create<AppState>()(
       view: { type: 'projects' },
       selectedComponentId: null,
       pinnedSIFIds: [],
+      rightPanelTabs: {
+        analysis: null,
+        compliance: null,
+        prooftest: null,
+      },
       isProjectModalOpen: false,
       editingProjectId: null,
       isSIFModalOpen: false,
@@ -119,6 +124,10 @@ export const useAppStore = create<AppState>()(
         const idx = s.pinnedSIFIds.indexOf(sifId)
         if (idx >= 0) s.pinnedSIFIds.splice(idx, 1)
         else s.pinnedSIFIds.unshift(sifId)
+      }),
+
+      setRightPanelTab: (section, tab) => set(s => {
+        s.rightPanelTabs[section] = tab
       }),
 
       toggleTheme: () => set(s => { s.isDark = !s.isDark }),

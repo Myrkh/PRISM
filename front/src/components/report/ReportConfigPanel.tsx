@@ -39,7 +39,7 @@ export function ReportConfigPanel({
   return (
     <div
       className="flex flex-col h-full overflow-hidden"
-      style={{ borderLeft: `1px solid ${BORDER}`, background: PANEL_BG }}
+      style={{ background: PANEL_BG }}
     >
       {/* 1. Tab Bar Header */}
       <div className="px-3 pt-3 shrink-0">

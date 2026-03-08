@@ -4,13 +4,13 @@
  * Tab bar "intercalaire" style (physical folder tabs).
  * Used for main SIF tabs, right panel tabs, and anywhere tabs are needed.
  */
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BORDER, TEAL_DIM, TEXT, TEXT_DIM, R } from '@/styles/tokens'
 import { cn } from '@/lib/utils'
 
 // ─── IntercalaireTabBar ──────────────────────────────────────────────────
 export function IntercalaireTabBar<T extends string>({
-  tabs, active, onSelect, cardBg, stretch = true, align = 'center', labelSize = 'md',
+  tabs, active, onSelect, cardBg, stretch = true, align = 'center', labelSize = 'md', showHints = true, autoHideHintsOnOverflow = false,
 }: {
   tabs: readonly { id: T; label: string; hint?: string; Icon?: React.ElementType }[]
   active: T
@@ -19,16 +19,42 @@ export function IntercalaireTabBar<T extends string>({
   stretch?: boolean
   align?: 'center' | 'start'
   labelSize?: 'md' | 'sm'
+  showHints?: boolean
+  autoHideHintsOnOverflow?: boolean
 }) {
-  return (
-    <div className="flex items-end border-b" style={{ borderColor: BORDER }}>
+  const measurementRef = useRef<HTMLDivElement | null>(null)
+  const [hideHintsForOverflow, setHideHintsForOverflow] = useState(false)
+
+  useEffect(() => {
+    const node = measurementRef.current
+    if (!autoHideHintsOnOverflow || !showHints || !node || typeof ResizeObserver === 'undefined') {
+      setHideHintsForOverflow(false)
+      return
+    }
+
+    const updateOverflowState = () => {
+      setHideHintsForOverflow(node.scrollWidth > node.clientWidth + 1)
+    }
+
+    updateOverflowState()
+
+    const observer = new ResizeObserver(() => updateOverflowState())
+    observer.observe(node)
+
+    return () => observer.disconnect()
+  }, [align, autoHideHintsOnOverflow, labelSize, showHints, stretch, tabs])
+
+  const shouldShowHints = showHints && !(autoHideHintsOnOverflow && hideHintsForOverflow)
+
+  const renderTabBar = (renderHints: boolean, ref?: React.Ref<HTMLDivElement>) => (
+    <div ref={ref} className="flex items-end border-b" style={{ borderColor: BORDER }}>
       {tabs.map(tab => {
         const isActive = tab.id === active
         const Icon = tab.Icon
         return (
           <button key={tab.id} type="button" onClick={() => onSelect(tab.id)}
             className={cn(
-              'relative flex flex-col justify-end gap-1 px-3 py-2 transition-colors',
+              'relative flex min-w-0 flex-col justify-end gap-1 overflow-hidden px-3 py-2 transition-colors',
               stretch ? 'flex-1' : 'shrink-0',
               align === 'start' ? 'items-start text-left' : 'items-center text-center',
             )}
@@ -47,16 +73,16 @@ export function IntercalaireTabBar<T extends string>({
             onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = TEXT_DIM }}>
             <span
               className={cn(
-                'inline-flex items-center gap-1.5 font-semibold leading-tight whitespace-nowrap',
+                'inline-flex max-w-full items-center gap-1.5 overflow-hidden font-semibold leading-tight whitespace-nowrap',
                 labelSize === 'sm' ? 'text-[11px]' : 'text-[13px]',
               )}
             >
               {Icon && <Icon size={labelSize === 'sm' ? 10 : 12} />}
-              {tab.label}
+              <span className="truncate">{tab.label}</span>
             </span>
-            {tab.hint && (
+            {renderHints && tab.hint && (
               <span
-                className={cn('leading-tight whitespace-nowrap', labelSize === 'sm' ? 'text-[8px]' : 'text-[10px]')}
+                className={cn('max-w-full truncate leading-tight whitespace-nowrap', labelSize === 'sm' ? 'text-[8px]' : 'text-[10px]')}
                 style={{ color: isActive ? `${TEAL_DIM}80` : TEXT_DIM }}>
                 {tab.hint}
               </span>
@@ -64,6 +90,17 @@ export function IntercalaireTabBar<T extends string>({
           </button>
         )
       })}
+    </div>
+  )
+
+  return (
+    <div className="relative">
+      {renderTabBar(shouldShowHints)}
+      {autoHideHintsOnOverflow && showHints && (
+        <div className="pointer-events-none absolute inset-0 h-0 overflow-hidden invisible" aria-hidden="true">
+          {renderTabBar(true, measurementRef)}
+        </div>
+      )}
     </div>
   )
 }
