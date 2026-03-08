@@ -29,6 +29,7 @@ export type AppView =
   | { type: 'review-queue' }
   | { type: 'audit-log' }
   | { type: 'sif-history' }
+  | { type: 'engine' }
   | { type: 'hazop' }
   | { type: 'sif-dashboard'; projectId: string; sifId: string; tab: SIFTab }
 
@@ -127,4 +128,10 @@ export interface AppState {
     projectId: string, sifId: string,
     data: { revisionLabel: string; changeDescription: string; createdBy: string },
   ) => Promise<void>
+  publishRevision: (
+    projectId: string,
+    sifId: string,
+    data: { changeDescription: string; createdBy: string },
+  ) => Promise<void>
+  startNextRevision: (projectId: string, sifId: string) => Promise<void>
 }

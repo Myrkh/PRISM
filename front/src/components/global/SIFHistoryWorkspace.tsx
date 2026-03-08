@@ -1,22 +1,22 @@
 /**
- * SIFHistoryWorkspace — PRISM v3 Sprint 2
+ * SIFHistoryWorkspace — PRISM
  *
- * Sprint 2 :
- *   ✓ Snapshots réels depuis prism_sif_revisions (lazy-load on expand)
- *   ✓ Modal "+ Révision" — snapshot avec revisionLabel + description + auteur
- *   ✓ "Comparer ↔" — actif dès que ≥ 2 révisions disponibles
- *   ✓ Delta inline entre révisions (texte bleu, style GED)
- *   ✓ SIFRevisionCompare modal plein écran
+ * Published revision browser:
+ *   ✓ Lazy-loaded snapshots from prism_sif_revisions
+ *   ✓ Real PDF downloads from Supabase Storage per revision
+ *   ✓ Revision compare modal
+ *   ✓ Inline deltas between published revisions
  */
 import { useState, useMemo, useEffect } from 'react'
 import {
   ChevronDown, ChevronRight, GitBranch, GitCompare,
-  FileText, FilePlus, Search,
-  ExternalLink, Download, X, Loader2, BarChart3, ShieldCheck, SlidersHorizontal,
+  FileText, Search,
+  ExternalLink, Download, Loader2, BarChart3, ShieldCheck, SlidersHorizontal,
 } from 'lucide-react'
 import { useAppStore, type SIFTab } from '@/store/appStore'
 import { calcSIF, formatPFD } from '@/core/math/pfdCalc'
 import type { Project, SIF, SIFStatus, SIFRevision } from '@/core/types'
+import { downloadRevisionArtifact } from '@/lib/revisionArtifacts'
 import { SIFRevisionCompare } from './SIFRevisionCompare'
 import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } from '@/styles/tokens'
 import { IntercalaireCard, IntercalaireTabBar, useLayout } from '@/components/layout/SIFWorkbenchLayout'
@@ -82,107 +82,15 @@ function InlineDelta({ older, newer }: { older: SIFRevision; newer: SIFRevision 
   )
 }
 
-// ─── New revision modal ───────────────────────────────────────────────────
-interface NewRevisionModalProps {
-  sif: SIF
-  onClose: () => void
-  onConfirm: (revisionLabel: string, changeDescription: string, createdBy: string) => Promise<void>
-}
-
-function NewRevisionModal({ sif, onClose, onConfirm }: NewRevisionModalProps) {
-  const [revisionLabel,     setRevisionLabel]     = useState(sif.revision || 'A')
-  const [changeDescription, setChangeDescription] = useState('')
-  const [createdBy,         setCreatedBy]         = useState(sif.madeBy || '')
-  const [saving,            setSaving]            = useState(false)
-  const [error,             setError]             = useState<string | null>(null)
-
-  const handleSubmit = async () => {
-    if (!revisionLabel.trim()) { setError('Le label de révision est requis.'); return }
-    setSaving(true)
-    setError(null)
-    try {
-      await onConfirm(revisionLabel.trim(), changeDescription.trim(), createdBy.trim())
-      onClose()
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : 'Erreur lors de la création.')
-      setSaving(false)
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center"
-      style={{ background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(3px)' }}>
-      <div className="rounded-2xl overflow-hidden shadow-2xl"
-        style={{ width: 440, background: PANEL_BG, border: `1px solid ${BORDER}` }}>
-
-        <div className="flex items-center justify-between px-5 py-4 border-b" style={{ borderColor: BORDER }}>
-          <div className="flex items-center gap-2">
-            <FilePlus size={15} style={{ color: TEAL }} />
-            <span className="text-sm font-black" style={{ color: TEXT }}>Nouvelle révision</span>
-          </div>
-          <button type="button" onClick={onClose}
-            className="flex h-7 w-7 items-center justify-center rounded-lg"
-            style={{ color: TEXT_DIM }}
-            onMouseEnter={e => { e.currentTarget.style.color = '#EF4444' }}
-            onMouseLeave={e => { e.currentTarget.style.color = TEXT_DIM }}>
-            <X size={14} />
-          </button>
-        </div>
-
-        <div className="px-5 py-4 flex flex-col gap-4">
-          <p className="text-[11px]" style={{ color: TEXT_DIM }}>
-            Un snapshot de l'état actuel de{' '}
-            <strong style={{ color: TEXT }}>{sif.sifNumber}</strong> sera figé.
-          </p>
-          {[
-            { label: 'Label de révision *', value: revisionLabel, set: setRevisionLabel, placeholder: 'ex. B, C, 2, Rev.D…' },
-            { label: 'Objet de la révision', value: changeDescription, set: setChangeDescription, placeholder: 'ex. Architecture modifiée — capteur redondant ajouté' },
-            { label: 'Établi par', value: createdBy, set: setCreatedBy, placeholder: 'Nom Prénom' },
-          ].map(field => (
-            <div key={field.label} className="flex flex-col gap-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{field.label}</label>
-              <input type="text" value={field.value} onChange={e => field.set(e.target.value)}
-                placeholder={field.placeholder}
-                className="h-9 rounded-lg border px-3 text-sm outline-none"
-                style={{ background: CARD_BG, borderColor: BORDER, color: TEXT }}
-                onFocus={e => { e.currentTarget.style.borderColor = TEAL }}
-                onBlur={e => { e.currentTarget.style.borderColor = BORDER }}
-              />
-            </div>
-          ))}
-          {error && <p className="text-[11px] px-3 py-2 rounded-lg" style={{ background: '#EF444415', color: '#F87171' }}>{error}</p>}
-        </div>
-
-        <div className="flex items-center justify-end gap-2 px-5 py-4 border-t" style={{ borderColor: BORDER }}>
-          <button type="button" onClick={onClose}
-            className="px-4 py-2 rounded-lg text-[12px] font-semibold border"
-            style={{ borderColor: BORDER, color: TEXT_DIM, background: 'transparent' }}>
-            Annuler
-          </button>
-          <button type="button" onClick={handleSubmit}
-            disabled={saving || !revisionLabel.trim()}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-[12px] font-black"
-            style={{ background: 'linear-gradient(135deg, #009BA4, #007A82)', color: '#fff', opacity: saving || !revisionLabel.trim() ? 0.5 : 1 }}>
-            {saving && <Loader2 size={12} className="animate-spin" />}
-            Créer le snapshot
-          </button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
 // ─── Expanded revision list ───────────────────────────────────────────────
 function RevisionList({
-  sif, revisions, loading, onCompare, onNavigate,
+  revisions, loading, onCompare, onDownloadArtifact,
 }: {
-  sif: SIF
   revisions: SIFRevision[]
   loading: boolean
   onCompare: (older: SIFRevision, newer: SIFRevision) => void
-  onNavigate: (tab: SIFTab) => void
+  onDownloadArtifact: (revision: SIFRevision, kind: 'report' | 'prooftest') => Promise<void>
 }) {
-  void sif // used for context, may be used later
   return (
     <div className="overflow-hidden rounded-xl border" style={{ borderColor: `${TEAL}35`, background: '#121820' }}>
       <div className="overflow-x-auto">
@@ -193,7 +101,7 @@ function RevisionList({
           <col style={{ width: '120px' }} />
           <col style={{ width: '160px' }} />
           <col style={{ width: 'auto' }} />
-          <col style={{ width: '220px' }} />
+          <col style={{ width: '320px' }} />
         </colgroup>
         <thead>
           <tr className="border-b" style={{ borderColor: BORDER, background: '#1D232A' }}>
@@ -244,12 +152,35 @@ function RevisionList({
                     <td className="px-4 py-2.5 align-top text-[11px] truncate" style={{ color: TEXT_DIM }}>{rev.changeDescription || '—'}</td>
                     <td className="px-4 py-2.5 align-top whitespace-nowrap">
                       <div className="flex items-center gap-1.5">
-                        <button type="button" onClick={() => onNavigate('report')}
-                          className="flex items-center gap-1 px-2 py-1 rounded text-[10px] border transition-colors whitespace-nowrap"
+                        <button type="button" onClick={() => { void onDownloadArtifact(rev, 'report') }}
+                          disabled={rev.reportArtifact.status !== 'ready'}
+                          className="flex items-center gap-1 px-2 py-1 rounded text-[10px] border transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
                           style={{ borderColor: BORDER, color: TEXT_DIM }}
-                          onMouseEnter={e => { e.currentTarget.style.color = TEAL; e.currentTarget.style.borderColor = TEAL }}
-                          onMouseLeave={e => { e.currentTarget.style.color = TEXT_DIM; e.currentTarget.style.borderColor = BORDER }}>
-                          <Download size={10} /> PDF
+                          onMouseEnter={e => {
+                            if (rev.reportArtifact.status !== 'ready') return
+                            e.currentTarget.style.color = TEAL
+                            e.currentTarget.style.borderColor = TEAL
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.color = TEXT_DIM
+                            e.currentTarget.style.borderColor = BORDER
+                          }}>
+                          <Download size={10} /> Report PDF
+                        </button>
+                        <button type="button" onClick={() => { void onDownloadArtifact(rev, 'prooftest') }}
+                          disabled={rev.proofTestArtifact.status !== 'ready'}
+                          className="flex items-center gap-1 px-2 py-1 rounded text-[10px] border transition-colors whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"
+                          style={{ borderColor: BORDER, color: TEXT_DIM }}
+                          onMouseEnter={e => {
+                            if (rev.proofTestArtifact.status !== 'ready') return
+                            e.currentTarget.style.color = TEAL
+                            e.currentTarget.style.borderColor = TEAL
+                          }}
+                          onMouseLeave={e => {
+                            e.currentTarget.style.color = TEXT_DIM
+                            e.currentTarget.style.borderColor = BORDER
+                          }}>
+                          <Download size={10} /> Proof Test PDF
                         </button>
                         {prev && (
                           <button type="button" onClick={() => onCompare(prev, rev)}
@@ -287,15 +218,15 @@ function RevisionList({
 
 // ─── SIF row ──────────────────────────────────────────────────────────────
 function SIFRow({
-  sif, project, isExpanded, onToggle, onNavigate, onNewRevision, onCompare,
+  sif, project, isExpanded, onToggle, onNavigate, onCompare, onDownloadArtifact,
 }: {
   sif: SIF
   project: Project
   isExpanded: boolean
   onToggle: () => void
   onNavigate: (tab: SIFTab) => void
-  onNewRevision: () => void
   onCompare: (older: SIFRevision, newer: SIFRevision) => void
+  onDownloadArtifact: (revision: SIFRevision, kind: 'report' | 'prooftest') => Promise<void>
 }) {
   void project
   const revisions      = useAppStore(s => s.revisions[sif.id] ?? null)
@@ -346,8 +277,8 @@ function SIFRow({
         <td className="px-4 py-3 whitespace-nowrap">
           <div className="flex items-center gap-1.5">
             {[
-              { label: 'Ouvrir', Icon: ExternalLink, onClick: () => onNavigate('overview') },
-              { label: 'PDF',    Icon: Download,     onClick: () => onNavigate('report') },
+              { label: 'Open', Icon: ExternalLink, onClick: () => onNavigate('overview') },
+              { label: 'Report', Icon: FileText, onClick: () => onNavigate('report') },
             ].map(btn => (
               <button key={btn.label} type="button" onClick={btn.onClick}
                 className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors"
@@ -357,13 +288,6 @@ function SIFRow({
                 <btn.Icon size={11} /> {btn.label}
               </button>
             ))}
-            <button type="button" onClick={onNewRevision}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors"
-              style={{ borderColor: `${TEAL}60`, color: TEAL, background: `${TEAL}10` }}
-              onMouseEnter={e => { e.currentTarget.style.background = `${TEAL}22` }}
-              onMouseLeave={e => { e.currentTarget.style.background = `${TEAL}10` }}>
-              <FilePlus size={11} /> + Révision
-            </button>
           </div>
         </td>
       </tr>
@@ -372,11 +296,10 @@ function SIFRow({
         <tr style={{ background: `${TEAL}04` }}>
           <td colSpan={10} className="px-4 py-3">
             <RevisionList
-              sif={sif}
               revisions={revisions ?? []}
               loading={loadingRevs}
               onCompare={onCompare}
-              onNavigate={onNavigate}
+              onDownloadArtifact={onDownloadArtifact}
             />
           </td>
         </tr>
@@ -430,14 +353,14 @@ function SIFHistoryHeaderRow() {
 
 // ─── Project section ──────────────────────────────────────────────────────
 function ProjectSection({
-  project, expandedSIFs, onToggleSIF, onNavigate, onNewRevision, onCompare,
+  project, expandedSIFs, onToggleSIF, onNavigate, onCompare, onDownloadArtifact,
 }: {
   project: Project
   expandedSIFs: Set<string>
   onToggleSIF: (id: string) => void
   onNavigate: (projectId: string, sifId: string, tab: SIFTab) => void
-  onNewRevision: (projectId: string, sif: SIF) => void
   onCompare: (older: SIFRevision, newer: SIFRevision) => void
+  onDownloadArtifact: (revision: SIFRevision, kind: 'report' | 'prooftest') => Promise<void>
 }) {
   const [collapsed, setCollapsed] = useState(false)
   if (project.sifs.length === 0) return null
@@ -476,8 +399,8 @@ function ProjectSection({
                       isExpanded={expandedSIFs.has(sif.id)}
                       onToggle={() => onToggleSIF(sif.id)}
                       onNavigate={(tab) => onNavigate(project.id, sif.id, tab)}
-                      onNewRevision={() => onNewRevision(project.id, sif)}
                       onCompare={onCompare}
+                      onDownloadArtifact={onDownloadArtifact}
                     />
                   ))}
                 </tbody>
@@ -658,7 +581,7 @@ function HistoryRightPanel({
 export function SIFHistoryWorkspace() {
   const projects       = useAppStore(s => s.projects)
   const navigate       = useAppStore(s => s.navigate)
-  const createRevision = useAppStore(s => s.createRevision)
+  const setSyncError   = useAppStore(s => s.setSyncError)
   const revisionsBySif = useAppStore(s => s.revisions)
   const { setRightPanelOverride } = useLayout()
 
@@ -666,7 +589,6 @@ export function SIFHistoryWorkspace() {
   const [statusFilter,  setStatusFilter] = useState<'all' | SIFStatus>('all')
   const [authorFilter,  setAuthorFilter] = useState<string>('all')
   const [expandedSIFs,  setExpanded]    = useState<Set<string>>(new Set())
-  const [newRevTarget,  setNewRevTarget] = useState<{ projectId: string; sif: SIF } | null>(null)
   const [compareTarget, setCompareTarget] = useState<{ older: SIFRevision; newer: SIFRevision } | null>(null)
 
   const handleNavigate = (projectId: string, sifId: string, tab: SIFTab) =>
@@ -675,10 +597,12 @@ export function SIFHistoryWorkspace() {
   const handleToggleSIF = (sifId: string) =>
     setExpanded(prev => { const n = new Set(prev); n.has(sifId) ? n.delete(sifId) : n.add(sifId); return n })
 
-  const handleCreateRevision = async (revisionLabel: string, changeDescription: string, createdBy: string) => {
-    if (!newRevTarget) return
-    await createRevision(newRevTarget.projectId, newRevTarget.sif.id, { revisionLabel, changeDescription, createdBy })
-    setExpanded(prev => new Set([...prev, newRevTarget.sif.id]))
+  const handleDownloadArtifact = async (revision: SIFRevision, kind: 'report' | 'prooftest') => {
+    try {
+      await downloadRevisionArtifact(kind === 'report' ? revision.reportArtifact : revision.proofTestArtifact)
+    } catch (err: unknown) {
+      setSyncError(err instanceof Error ? err.message : String(err))
+    }
   }
 
   const authorOptions = useMemo(() => {
@@ -809,8 +733,8 @@ export function SIFHistoryWorkspace() {
                   expandedSIFs={expandedSIFs}
                   onToggleSIF={handleToggleSIF}
                   onNavigate={handleNavigate}
-                  onNewRevision={(pid, sif) => setNewRevTarget({ projectId: pid, sif })}
                   onCompare={(older, newer) => setCompareTarget({ older, newer })}
+                  onDownloadArtifact={handleDownloadArtifact}
                 />
               ))}
             </div>
@@ -819,13 +743,6 @@ export function SIFHistoryWorkspace() {
       </div>
 
       {/* Modals */}
-      {newRevTarget && (
-        <NewRevisionModal
-          sif={newRevTarget.sif}
-          onClose={() => setNewRevTarget(null)}
-          onConfirm={handleCreateRevision}
-        />
-      )}
       {compareTarget && (
         <SIFRevisionCompare
           older={compareTarget.older}

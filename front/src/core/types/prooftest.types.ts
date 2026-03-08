@@ -19,6 +19,7 @@ export type ProofTestLocation = (typeof PROOF_TEST_LOCATIONS)[number] | string
 
 // ─── Proof Test Result Types ─────────────────────────────────────────────
 export type ProofTestResultType = 'oui_non' | 'valeur' | 'personnalisé'
+export type ProofTestResponseCheckType = 'valve_open' | 'valve_close' | 'sif_response'
 
 export interface ProofTestStep {
   id: string
@@ -41,6 +42,15 @@ export interface ProofTestCategory {
   color: string
 }
 
+export interface ProofTestResponseCheck {
+  id: string
+  label: string
+  description: string
+  type: ProofTestResponseCheckType
+  expectedMs: number | null
+  maxAllowedMs: number | null
+}
+
 export const CATEGORY_TYPE_META: Record<ProofTestCategoryType, { defaultTitle: string; color: string; locked: boolean }> = {
   preliminary: { defaultTitle: 'Actions préliminaires', color: '#6B7280', locked: true  },
   test:        { defaultTitle: 'Test',                  color: '#009BA4', locked: false },
@@ -58,6 +68,7 @@ export interface ProofTestProcedure {
   periodicityMonths: number
   categories: ProofTestCategory[]
   steps: ProofTestStep[]
+  responseChecks: ProofTestResponseCheck[]
   madeBy: string
   madeByDate: string
   verifiedBy: string
@@ -78,6 +89,23 @@ export interface StepResult {
   comment: string
 }
 
+export interface ProofTestResponseMeasurement {
+  checkId: string
+  measuredMs: string
+  comment: string
+}
+
+export type ProofTestArtifactStatus = 'missing' | 'pending' | 'ready' | 'error'
+
+export interface ProofTestCampaignArtifact {
+  bucket: string
+  path: string | null
+  fileName: string | null
+  status: ProofTestArtifactStatus
+  generatedAt: string | null
+  error: string | null
+}
+
 export interface TestCampaign {
   id: string
   date: string
@@ -86,6 +114,10 @@ export interface TestCampaign {
   verdict: CampaignVerdict
   notes: string
   stepResults: StepResult[]
+  responseMeasurements: ProofTestResponseMeasurement[]
+  procedureSnapshot: ProofTestProcedure | null
+  pdfArtifact: ProofTestCampaignArtifact
+  closedAt: string | null
   conductedBy: string
   witnessedBy: string
   reviewedBy: string

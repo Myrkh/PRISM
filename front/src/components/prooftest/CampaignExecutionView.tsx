@@ -6,9 +6,12 @@
  */
 import { Plus, FlaskConical } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BORDER, SURFACE, TEAL, TEXT, TEXT_DIM, NAVY } from '@/styles/tokens'
+import { BORDER, SURFACE, TEAL, TEXT, TEXT_DIM } from '@/styles/tokens'
 import { ResultInput, ExpectedValueDisplay } from './ResultWidgets'
-import type { PTStep, PTStepResult, PTCategory, PTCampaign, Verdict } from './proofTestTypes'
+import { ResponseMeasurementsCard } from './ResponseMeasurementsCard'
+import type {
+  PTStep, PTStepResult, PTCategory, PTCampaign, Verdict, PTResponseCheck, PTResponseMeasurement,
+} from './proofTestTypes'
 import { CAT_META, inputCls } from './proofTestTypes'
 
 const TABLE_BG      = '#14181C'
@@ -21,13 +24,15 @@ interface Props {
   setActiveCampaign: React.Dispatch<React.SetStateAction<PTCampaign | null>>
   catsSorted: PTCategory[]
   stepsFor: (catId: string) => PTStep[]
+  responseChecks: PTResponseCheck[]
   updateStepResult: (stepId: string, patch: Partial<PTStepResult>) => void
+  updateResponseMeasurement: (checkId: string, patch: Partial<PTResponseMeasurement>) => void
   onNewCampaign: () => void
 }
 
 export function CampaignExecutionView({
   activeCampaign, setActiveCampaign,
-  catsSorted, stepsFor, updateStepResult,
+  catsSorted, stepsFor, responseChecks, updateStepResult, updateResponseMeasurement,
   onNewCampaign,
 }: Props) {
   if (!activeCampaign) {
@@ -45,22 +50,33 @@ export function CampaignExecutionView({
     )
   }
 
+  const readOnly = Boolean(activeCampaign.closedAt)
+
   return (
     <div className="space-y-3">
+      {readOnly && (
+        <div className="rounded-2xl border px-4 py-3 text-xs"
+          style={{ background: '#0F1B3D', borderColor: '#1D4ED830', color: '#BFDBFE' }}>
+          Cette campagne est cloturee et figee. Elle reste consultable, mais n est plus editable.
+        </div>
+      )}
+
       {/* Campaign meta */}
       <div className="rounded-2xl border shadow-sm p-5" style={{ background: SURFACE, borderColor: BORDER_VIS }}>
         <div className="grid grid-cols-3 gap-4">
           <div>
             <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: TEXT_DIM }}>Date du test</p>
             <input type="date" value={activeCampaign.date}
+              disabled={readOnly}
               onChange={e => setActiveCampaign(p => p && ({ ...p, date: e.target.value }))}
-              className={cn(inputCls, 'w-full')} />
+              className={cn(inputCls, 'w-full disabled:opacity-60 disabled:cursor-not-allowed')} />
           </div>
           <div>
             <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: TEXT_DIM }}>Équipe / Référence</p>
             <input value={activeCampaign.team} placeholder="ex: EQ-01 / Maintenance"
+              disabled={readOnly}
               onChange={e => setActiveCampaign(p => p && ({ ...p, team: e.target.value }))}
-              className={cn(inputCls, 'w-full')} />
+              className={cn(inputCls, 'w-full disabled:opacity-60 disabled:cursor-not-allowed')} />
           </div>
           <div>
             <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: TEXT_DIM }}>Verdict</p>
@@ -71,8 +87,9 @@ export function CampaignExecutionView({
                 { v: 'fail' as Verdict,         label: 'FAIL',        bg: '#DC2626' },
               ]).map(({ v, label, bg }) => (
                 <button key={v}
+                  disabled={readOnly}
                   onClick={() => setActiveCampaign(p => p && ({ ...p, verdict: v }))}
-                  className="text-[9px] font-bold px-2 py-1 rounded border transition-all"
+                  className="text-[9px] font-bold px-2 py-1 rounded border transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   style={activeCampaign.verdict === v
                     ? { background: bg, color: 'white', borderColor: bg }
                     : { background: TABLE_BG, color: TEXT_DIM, borderColor: BORDER_VIS }
@@ -132,13 +149,14 @@ export function CampaignExecutionView({
                         <ExpectedValueDisplay step={step} />
                       </td>
                       <td className="px-4 py-3">
-                        <ResultInput step={step} result={sr} onChange={patch => updateStepResult(step.id, patch)} />
+                        <ResultInput step={step} result={sr} disabled={readOnly} onChange={patch => updateStepResult(step.id, patch)} />
                       </td>
                       <td className="px-4 py-3">
                         <input value={sr?.comment ?? ''}
+                          disabled={readOnly}
                           onChange={e => updateStepResult(step.id, { comment: e.target.value })}
                           placeholder="Remarque…"
-                          className="w-full bg-transparent text-[10px] outline-none border-b border-transparent focus:border-[#009BA4] py-0.5 placeholder:text-[#8FA0B1] transition-all"
+                          className="w-full bg-transparent text-[10px] outline-none border-b border-transparent focus:border-[#009BA4] py-0.5 placeholder:text-[#8FA0B1] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                           style={{ color: TEXT }}
                         />
                       </td>
@@ -151,6 +169,13 @@ export function CampaignExecutionView({
         )
       })}
 
+      <ResponseMeasurementsCard
+        activeCampaign={activeCampaign}
+        responseChecks={responseChecks}
+        readOnly={readOnly}
+        updateResponseMeasurement={updateResponseMeasurement}
+      />
+
       {/* Campaign signatures */}
       <div className="rounded-2xl border shadow-sm p-5" style={{ background: SURFACE, borderColor: BORDER_VIS }}>
         <div className="grid grid-cols-2 gap-4">
@@ -161,8 +186,9 @@ export function CampaignExecutionView({
             <div key={k}>
               <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: TEXT_DIM }}>{label}</p>
               <input value={activeCampaign[k]} placeholder="Nom Prénom"
+                disabled={readOnly}
                 onChange={e => setActiveCampaign(p => p && ({ ...p, [k]: e.target.value }))}
-                className={cn(inputCls, 'w-full')} />
+                className={cn(inputCls, 'w-full disabled:opacity-60 disabled:cursor-not-allowed')} />
             </div>
           ))}
         </div>

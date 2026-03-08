@@ -43,7 +43,11 @@ interface PTStepResult {
 }
 interface PTCampaign {
   id: string; date: string; team: string; verdict: Verdict; notes: string
-  stepResults: PTStepResult[]; conductedBy: string; witnessedBy: string
+  stepResults: PTStepResult[]; responseMeasurements: { checkId: string; measuredMs: string; comment: string }[]
+  procedureSnapshot: PTProcedure | null
+  pdfArtifact: { bucket: string; path: string | null; fileName: string | null; status: 'missing' | 'pending' | 'ready' | 'error'; generatedAt: string | null; error: string | null }
+  closedAt: string | null
+  conductedBy: string; witnessedBy: string
 }
 interface PTStep {
   id: string; categoryId: string; order: number
@@ -56,7 +60,11 @@ interface PTProcedure {
   periodicityMonths: number
   categories: { id: string; type: 'preliminary' | 'test' | 'final'; title: string; order: number }[]
   steps: PTStep[]
-  madeBy: string; verifiedBy: string; approvedBy: string; notes: string
+  responseChecks: { id: string; label: string; description: string; type: 'valve_open' | 'valve_close' | 'sif_response'; expectedMs: number | null; maxAllowedMs: number | null }[]
+  madeBy: string; madeByDate: string
+  verifiedBy: string; verifiedByDate: string
+  approvedBy: string; approvedByDate: string
+  notes: string
 }
 
 // ─── Props ────────────────────────────────────────────────────────────────
@@ -267,6 +275,7 @@ function CampaignContent(props: ProofTestRightPanelProps) {
   const fails     = activeCampaign.stepResults.filter(r => r.result === 'non' || r.conformant === false)
   const pct       = total > 0 ? filled / total : 0
   const ringColor = fails.length > 0 ? '#EF4444' : pct >= 1 ? '#4ADE80' : TEAL
+  const readOnly = Boolean(activeCampaign.closedAt)
 
   const nonConform = fails.map(r => {
     const step = procedure.steps.find(s => s.id === r.stepId)
@@ -338,8 +347,9 @@ function CampaignContent(props: ProofTestRightPanelProps) {
             { v: 'fail'        as Verdict, label: 'FAIL', color: '#DC2626' },
           ]).map(({ v, label, color }) => (
             <button key={label} type="button"
+              disabled={readOnly}
               onClick={() => onUpdateActiveCampaign({ verdict: v })}
-              className="rounded-lg border py-1.5 text-[10px] font-bold transition-all"
+              className="rounded-lg border py-1.5 text-[10px] font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               style={activeCampaign.verdict === v
                 ? { background: color, color: '#fff', borderColor: color }
                 : { background: BG, color: TEXT_DIM, borderColor: BORDER }}>
@@ -361,9 +371,10 @@ function CampaignContent(props: ProofTestRightPanelProps) {
               <p className="text-[9px] font-semibold mb-1" style={{ color: TEXT_DIM }}>{label}</p>
               <input
                 value={activeCampaign[k] ?? ''}
+                disabled={readOnly}
                 onChange={e => onUpdateActiveCampaign({ [k]: e.target.value })}
                 placeholder="Nom Prénom"
-                className="w-full rounded-lg border px-2.5 py-1.5 text-xs outline-none transition-all"
+                className="w-full rounded-lg border px-2.5 py-1.5 text-xs outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                 style={{ background: BG, borderColor: BORDER, color: TEXT }}
                 onFocus={e => { e.currentTarget.style.borderColor = TEAL }}
                 onBlur={e =>  { e.currentTarget.style.borderColor = BORDER }}
@@ -376,11 +387,11 @@ function CampaignContent(props: ProofTestRightPanelProps) {
       {/* Clôturer */}
       <button
         onClick={onSaveCampaign}
-        disabled={!activeCampaign.verdict}
+        disabled={!activeCampaign.verdict || readOnly}
         className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
         style={{ background: 'linear-gradient(135deg, #003D5C, #002A42)', color: '#fff',
           boxShadow: '0 4px 12px rgba(0,61,92,0.35)' }}>
-        <ClipboardCheck size={13} /> Clôturer le test
+        <ClipboardCheck size={13} /> {readOnly ? 'Campagne figée' : 'Clôturer le test'}
       </button>
     </div>
   )

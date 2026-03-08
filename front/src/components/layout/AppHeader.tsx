@@ -69,6 +69,9 @@ export function AppHeader() {
           {view.type === 'audit-log' && (
             <h1 className="text-[15px] font-bold truncate text-foreground">Audit Log</h1>
           )}
+          {view.type === 'engine' && (
+            <h1 className="text-[15px] font-bold truncate text-foreground">Engine</h1>
+          )}
         </div>
 
         {/* Right Zone: Actions */}

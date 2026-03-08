@@ -7,8 +7,10 @@
  * — Les mutations architecture sont groupées (subsystems JSONB)
  */
 import { supabase } from './supabase'
-import type { Project, SIF, SIFRevision, SIFStatus } from '@/core/types'
+import type { Project, SIF, SIFRevision, SIFRevisionArtifact, SIFStatus } from '@/core/types'
 import { hydrateSIF } from '@/core/models/hydrate'
+import { createDefaultProofTestCampaignArtifact } from '@/core/models/proofTestCampaignWorkflow'
+import { createDefaultRevisionArtifact } from '@/core/models/revisionWorkflow'
 
 // ═══════════════════════════════════════════════════════════════
 // MAPPERS — DB row → App type
@@ -39,6 +41,8 @@ function rowToSIF(row: any): SIF {
     projectId:            row.project_id,
     sifNumber:            row.sif_number        ?? '',
     revision:             row.revision          ?? 'A',
+    revisionLockedAt:     row.revision_locked_at ?? null,
+    lockedRevisionId:     row.locked_revision_id ?? null,
     title:                row.title             ?? '',
     description:          row.description       ?? '',
     pid:                  row.pid               ?? '',
@@ -83,6 +87,8 @@ function sifToRow(data: Partial<SIF>) {
   if (data.projectId       !== undefined) row.project_id          = data.projectId
   if (data.sifNumber       !== undefined) row.sif_number          = data.sifNumber
   if (data.revision        !== undefined) row.revision            = data.revision
+  if (data.revisionLockedAt !== undefined) row.revision_locked_at = data.revisionLockedAt
+  if (data.lockedRevisionId !== undefined) row.locked_revision_id = data.lockedRevisionId
   if (data.title           !== undefined) row.title               = data.title
   if (data.description     !== undefined) row.description         = data.description
   if (data.pid             !== undefined) row.pid                 = data.pid
@@ -255,6 +261,7 @@ function rowToProcedure(row: any) {
     periodicityMonths:  Number(row.periodicity_months ?? 12),
     categories:         row.categories    ?? [],
     steps:              row.steps         ?? [],
+    responseChecks:     row.response_checks ?? [],
     madeBy:             row.made_by       ?? '',
     madeByDate:         row.made_by_date  ?? '',
     verifiedBy:         row.verified_by   ?? '',
@@ -282,7 +289,7 @@ export async function dbFetchProcedure(sifId: string) {
 export async function dbUpsertProcedure(procedure: {
   id: string; sifId: string; projectId: string
   ref: string; revision: string; status: string; periodicityMonths: number
-  categories: unknown[]; steps: unknown[]
+  categories: unknown[]; steps: unknown[]; responseChecks: unknown[]
   madeBy: string; madeByDate: string; verifiedBy: string; verifiedByDate: string
   approvedBy: string; approvedByDate: string; notes: string
 }): Promise<void> {
@@ -298,6 +305,7 @@ export async function dbUpsertProcedure(procedure: {
       periodicity_months:   procedure.periodicityMonths,
       categories:           procedure.categories,
       steps:                procedure.steps,
+      response_checks:      procedure.responseChecks,
       made_by:              procedure.madeBy,
       made_by_date:         procedure.madeByDate,
       verified_by:          procedure.verifiedBy,
@@ -335,6 +343,14 @@ function rowToCampaign(row: any) {
     conductedBy:  row.conducted_by  ?? '',
     witnessedBy:  row.witnessed_by  ?? '',
     stepResults:  row.step_results  ?? [],
+    responseMeasurements: row.response_measurements ?? [],
+    procedureSnapshot: typeof row.procedure_snapshot === 'object' && row.procedure_snapshot !== null
+      ? row.procedure_snapshot
+      : null,
+    pdfArtifact: typeof row.pdf_artifact === 'object' && row.pdf_artifact !== null
+      ? { ...createDefaultProofTestCampaignArtifact(), ...row.pdf_artifact, bucket: 'prism_prooftest' }
+      : createDefaultProofTestCampaignArtifact(),
+    closedAt:     row.closed_at     ?? null,
     createdAt:    row.created_at,
     updatedAt:    row.updated_at,
   }
@@ -353,7 +369,8 @@ export async function dbFetchCampaigns(procedureId: string) {
 export async function dbCreateCampaign(campaign: {
   id: string; procedureId: string; sifId: string; projectId: string
   date: string; team: string; verdict: string | null; notes: string
-  conductedBy: string; witnessedBy: string; stepResults: unknown[]
+  conductedBy: string; witnessedBy: string; stepResults: unknown[]; responseMeasurements: unknown[]
+  procedureSnapshot: unknown; pdfArtifact: unknown; closedAt: string | null
 }): Promise<void> {
   const { error } = await supabase
     .from('prism_proof_campaigns')
@@ -369,13 +386,18 @@ export async function dbCreateCampaign(campaign: {
       conducted_by:  campaign.conductedBy,
       witnessed_by:  campaign.witnessedBy,
       step_results:  campaign.stepResults,
+      response_measurements: campaign.responseMeasurements,
+      procedure_snapshot: campaign.procedureSnapshot,
+      pdf_artifact: campaign.pdfArtifact,
+      closed_at: campaign.closedAt,
     })
   if (error) throw new Error(`Création campagne: ${error.message}`)
 }
 
 export async function dbUpdateCampaign(campaignId: string, patch: {
   date?: string; verdict?: string | null; team?: string; notes?: string
-  conductedBy?: string; witnessedBy?: string; stepResults?: unknown[]
+  conductedBy?: string; witnessedBy?: string; stepResults?: unknown[]; responseMeasurements?: unknown[]
+  procedureSnapshot?: unknown; pdfArtifact?: unknown; closedAt?: string | null
 }): Promise<void> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const row: Record<string, any> = {}
@@ -386,6 +408,10 @@ export async function dbUpdateCampaign(campaignId: string, patch: {
   if (patch.conductedBy  !== undefined) row.conducted_by  = patch.conductedBy
   if (patch.witnessedBy  !== undefined) row.witnessed_by  = patch.witnessedBy
   if (patch.stepResults  !== undefined) row.step_results  = patch.stepResults
+  if (patch.responseMeasurements !== undefined) row.response_measurements = patch.responseMeasurements
+  if (patch.procedureSnapshot !== undefined) row.procedure_snapshot = patch.procedureSnapshot
+  if (patch.pdfArtifact !== undefined) row.pdf_artifact = patch.pdfArtifact
+  if (patch.closedAt !== undefined) row.closed_at = patch.closedAt
   const { error } = await supabase
     .from('prism_proof_campaigns')
     .update(row)
@@ -405,6 +431,15 @@ export async function dbDeleteCampaign(campaignId: string): Promise<void> {
 // ═══════════════════════════════════════════════════════════════
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToRevisionArtifact(row: any, bucket: string): SIFRevisionArtifact {
+  return {
+    ...createDefaultRevisionArtifact(bucket),
+    ...(typeof row === 'object' && row !== null ? row : {}),
+    bucket,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 function rowToRevision(row: any): SIFRevision {
   return {
     id:                row.id,
@@ -415,7 +450,12 @@ function rowToRevision(row: any): SIFRevision {
     changeDescription: row.change_description ?? '',
     createdBy:         row.created_by        ?? '',
     createdAt:         row.created_at,
-    snapshot:          row.snapshot          ?? {},
+    snapshot:          hydrateSIF(row.snapshot ?? {}),
+    reportArtifact:    rowToRevisionArtifact(row.report_artifact, 'prism_report'),
+    proofTestArtifact: rowToRevisionArtifact(row.proof_test_artifact, 'prism_prooftest'),
+    reportConfigSnapshot: typeof row.report_config_snapshot === 'object' && row.report_config_snapshot !== null
+      ? row.report_config_snapshot
+      : null,
   }
 }
 
@@ -445,6 +485,9 @@ export async function dbCreateRevision(revision: {
   changeDescription: string
   createdBy: string
   snapshot: SIF
+  reportArtifact: SIFRevisionArtifact
+  proofTestArtifact: SIFRevisionArtifact
+  reportConfigSnapshot: Record<string, unknown> | null
 }): Promise<void> {
   const { error } = await supabase
     .from('prism_sif_revisions')
@@ -457,6 +500,9 @@ export async function dbCreateRevision(revision: {
       change_description: revision.changeDescription,
       created_by:         revision.createdBy,
       snapshot:           revision.snapshot,
+      report_artifact:    revision.reportArtifact,
+      proof_test_artifact: revision.proofTestArtifact,
+      report_config_snapshot: revision.reportConfigSnapshot,
     })
   if (error) throw new Error(`Création révision: ${error.message}`)
 }

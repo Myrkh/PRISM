@@ -15,6 +15,16 @@ export type SIFStatus = 'draft' | 'in_review' | 'verified' | 'approved' | 'archi
 export type SIFAssumptionStatus = 'draft' | 'review' | 'validated'
 export type SIFAssumptionCategory = 'process' | 'proof' | 'architecture' | 'data' | 'governance' | 'other'
 export type SIFReferenceTab = 'overview' | 'architecture' | 'analysis' | 'compliance' | 'prooftest' | 'report'
+export type RevisionArtifactStatus = 'missing' | 'pending' | 'ready' | 'error'
+
+export interface SIFRevisionArtifact {
+  bucket: string
+  path: string | null
+  fileName: string | null
+  status: RevisionArtifactStatus
+  generatedAt: string | null
+  error: string | null
+}
 
 export interface SIFAssumption {
   id: string
@@ -33,6 +43,8 @@ export interface SIF {
   projectId: string
   sifNumber: string
   revision: string
+  revisionLockedAt?: string | null
+  lockedRevisionId?: string | null
   title: string
   description: string
   pid: string
@@ -88,4 +100,7 @@ export interface SIFRevision {
   createdBy: string
   createdAt: string
   snapshot: SIF
+  reportArtifact: SIFRevisionArtifact
+  proofTestArtifact: SIFRevisionArtifact
+  reportConfigSnapshot: Record<string, unknown> | null
 }

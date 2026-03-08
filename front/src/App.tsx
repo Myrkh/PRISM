@@ -23,6 +23,7 @@ import { SettingsWorkspace } from '@/components/settings/SettingsWorkspace'
 import { ReviewQueueWorkspace } from '@/components/global/ReviewQueueWorkspace'
 import { AuditLogWorkspace } from '@/components/global/AuditLogWorkspace'
 import { SIFHistoryWorkspace } from '@/components/global/SIFHistoryWorkspace'
+import { EngineWorkspace } from '@/components/global/EngineWorkspace'
 import { HazopWorkspace } from '@/components/global/HazopWorkspace'
 import { fetchAllProjects } from '@/lib/db'
 
@@ -36,6 +37,7 @@ function viewToHash(view: AppView): string {
   if (view.type === 'review-queue') return '#/review'
   if (view.type === 'audit-log') return '#/audit'
   if (view.type === 'sif-history') return '#/history'
+  if (view.type === 'engine') return '#/engine'
   if (view.type === 'hazop') return '#/hazop'
   return '#/'
 }
@@ -59,6 +61,7 @@ function hashToView(hash: string): AppView | null {
   if (path === '/review') return { type: 'review-queue' }
   if (path === '/audit') return { type: 'audit-log' }
   if (path === '/history') return { type: 'sif-history' }
+  if (path === '/engine') return { type: 'engine' }
   if (path === '/hazop') return { type: 'hazop' }
   if (path === '/') return { type: 'projects' }
   return null
@@ -238,6 +241,9 @@ export default function App() {
         )}
         {view.type === 'sif-history' && (
           <SIFHistoryWorkspace />
+        )}
+        {view.type === 'engine' && (
+          <EngineWorkspace />
         )}
         {view.type === 'hazop' && (
           <HazopWorkspace />

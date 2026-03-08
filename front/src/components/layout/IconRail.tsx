@@ -7,6 +7,7 @@
 import { useState } from 'react'
 import {
   Home, FolderPlus, FilePlus, ListChecks, History, GitBranch, FlaskConical,
+  Cpu,
   Settings, LogOut,
   PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
 } from 'lucide-react'
@@ -54,13 +55,14 @@ interface IconRailProps {
   showReview: boolean
   showAudit: boolean
   showHistory: boolean
+  showEngine: boolean
   showHazop: boolean
   projectId?: string
 }
 
 export function IconRail({
   leftOpen, rightOpen, onToggleLeft, onToggleRight,
-  showRightToggle, showHome, showSettings, showReview, showAudit, showHistory, showHazop,
+  showRightToggle, showHome, showSettings, showReview, showAudit, showHistory, showEngine, showHazop,
   projectId,
 }: IconRailProps) {
   const navigate       = useAppStore(s => s.navigate)
@@ -86,6 +88,7 @@ export function IconRail({
       <RailBtn Icon={ListChecks}   label="Review Queue"   onClick={() => navigate({ type: 'review-queue' })} active={showReview}  />
       <RailBtn Icon={History}      label="Audit Log"      onClick={() => navigate({ type: 'audit-log' })}   active={showAudit}   />
       <RailBtn Icon={GitBranch}    label="SIF History"    onClick={() => navigate({ type: 'sif-history' })} active={showHistory} />
+      <RailBtn Icon={Cpu}          label="Engine"         onClick={() => navigate({ type: 'engine' })}      active={showEngine}  />
       <RailBtn Icon={FlaskConical} label="HAZOP / LOPA"   onClick={() => navigate({ type: 'hazop' })}       active={showHazop}   />
       <div className="flex-1" />
       <RailDivider />

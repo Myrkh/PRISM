@@ -19,9 +19,10 @@ export function ResultBadge({ r }: { r: StepResultValue }) {
 }
 
 // ─── Result input (campaign execution) ───────────────────────────────────
-export function ResultInput({ step, result, onChange }: {
+export function ResultInput({ step, result, disabled = false, onChange }: {
   step: PTStep
   result: PTStepResult | undefined
+  disabled?: boolean
   onChange: (r: Partial<PTStepResult>) => void
 }) {
   const r = result?.result ?? null
@@ -32,9 +33,10 @@ export function ResultInput({ step, result, onChange }: {
       <div className="flex items-center gap-1">
         {(['oui', 'non', 'na'] as StepResultValue[]).map(v => (
           <button key={v as string}
+            disabled={disabled}
             onClick={() => onChange({ result: r === v ? null : v })}
             className={cn(
-              'text-[9px] font-bold px-2 py-0.5 rounded border transition-all',
+              'text-[9px] font-bold px-2 py-0.5 rounded border transition-all disabled:opacity-50 disabled:cursor-not-allowed',
               r === v && v === 'oui' ? 'bg-emerald-500 text-white border-emerald-500' :
               r === v && v === 'non' ? 'bg-red-500 text-white border-red-500' :
               r === v && v === 'na'  ? 'bg-gray-400 text-white border-gray-400' :
@@ -54,11 +56,12 @@ export function ResultInput({ step, result, onChange }: {
     return (
       <div className="flex items-center gap-1.5">
         <input
+          disabled={disabled}
           value={val}
           onChange={e => onChange({ measuredValue: e.target.value, conformant: null })}
           placeholder="Valeur mesurée…"
           className={cn(
-            'w-28 text-xs h-7 px-2 rounded-lg border focus:outline-none focus:ring-1 transition-all',
+            'w-28 text-xs h-7 px-2 rounded-lg border focus:outline-none focus:ring-1 transition-all disabled:opacity-60 disabled:cursor-not-allowed',
             conformant === true  ? 'border-emerald-400 focus:ring-emerald-400/30' :
             conformant === false ? 'border-red-400 focus:ring-red-400/30' :
             'border-[#363F49] focus:ring-[#009BA4]/30 focus:border-[#009BA4]',
@@ -74,10 +77,11 @@ export function ResultInput({ step, result, onChange }: {
   // personnalisé
   return (
     <input
+      disabled={disabled}
       value={val}
       onChange={e => onChange({ measuredValue: e.target.value })}
       placeholder="Résultat…"
-      className="w-36 text-xs h-7 px-2 rounded-lg border border-[#363F49] focus:outline-none focus:ring-1 focus:ring-[#009BA4]/30 focus:border-[#009BA4]"
+      className="w-36 text-xs h-7 px-2 rounded-lg border border-[#363F49] focus:outline-none focus:ring-1 focus:ring-[#009BA4]/30 focus:border-[#009BA4] disabled:opacity-60 disabled:cursor-not-allowed"
       style={{ background: '#1D232A', color: '#DFE8F1' }}
     />
   )

@@ -19,10 +19,22 @@ import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { ProofTestRightPanel } from '@/components/prooftest/ProofTestRightPanel'
 import { ProofTestPDFExport } from '@/components/prooftest/ProofTestPDFExport'
 import type { Project, SIF } from '@/core/types'
+import { downloadRevisionArtifact } from '@/lib/revisionArtifacts'
 import { cn } from '@/lib/utils'
 import { BORDER, NAVY, TEAL, TEXT_DIM } from '@/styles/tokens'
-import type { PTStep, PTStepResult, PTCampaign, PTProcedure, Verdict } from './proofTestTypes'
-import { inputCls, defaultProcedure, newPersistedId } from './proofTestTypes'
+import type {
+  PTStep, PTStepResult, PTCampaign, PTProcedure, Verdict, PTResponseCheck, PTResponseMeasurement,
+} from './proofTestTypes'
+import {
+  createDefaultCampaignArtifact,
+  createResponseCheck,
+  createResponseMeasurement,
+  defaultProcedure,
+  getResponseMeasurementStatus,
+  inputCls,
+  newPersistedId,
+  syncResponseMeasurements,
+} from './proofTestTypes'
 
 // ── Views ────────────────────────────────────────────────────────────────
 import { ProcedureView } from './ProcedureView'
@@ -34,20 +46,74 @@ type View = 'procedure' | 'execution' | 'history'
 
 interface Props { project: Project; sif: SIF }
 
+function normalizeProcedureState(sif: SIF, procedureRaw: unknown): PTProcedure {
+  const fallback = defaultProcedure(sif)
+  const source = typeof procedureRaw === 'object' && procedureRaw !== null ? procedureRaw as Partial<PTProcedure> : null
+  if (!source || !Array.isArray(source.categories) || !Array.isArray(source.steps)) return fallback
+  return {
+    ...fallback,
+    ...source,
+    responseChecks: Array.isArray(source.responseChecks) ? source.responseChecks : [],
+  }
+}
+
+function normalizeCampaignState(campaignRaw: unknown): PTCampaign | null {
+  const source = typeof campaignRaw === 'object' && campaignRaw !== null ? campaignRaw as Partial<PTCampaign> : null
+  if (!source || typeof source.id !== 'string') return null
+  return {
+    id: source.id,
+    date: typeof source.date === 'string' ? source.date : '',
+    team: typeof source.team === 'string' ? source.team : '',
+    verdict: (source.verdict ?? null) as Verdict,
+    notes: typeof source.notes === 'string' ? source.notes : '',
+    stepResults: Array.isArray(source.stepResults) ? source.stepResults : [],
+    responseMeasurements: Array.isArray(source.responseMeasurements) ? source.responseMeasurements : [],
+    procedureSnapshot: typeof source.procedureSnapshot === 'object' && source.procedureSnapshot !== null
+      ? source.procedureSnapshot as PTProcedure
+      : null,
+    pdfArtifact: typeof source.pdfArtifact === 'object' && source.pdfArtifact !== null
+      ? { ...createDefaultCampaignArtifact(), ...source.pdfArtifact }
+      : createDefaultCampaignArtifact(),
+    closedAt: typeof source.closedAt === 'string' ? source.closedAt : null,
+    conductedBy: typeof source.conductedBy === 'string' ? source.conductedBy : '',
+    witnessedBy: typeof source.witnessedBy === 'string' ? source.witnessedBy : '',
+  }
+}
+
+function computeCampaignVerdict(
+  procedure: PTProcedure,
+  stepResults: PTStepResult[],
+  responseMeasurements: PTResponseMeasurement[],
+  previousVerdict: Verdict,
+): Verdict {
+  if (stepResults.some(result => result.result === 'non' || result.conformant === false)) return 'fail'
+
+  const hasResponseFailure = procedure.responseChecks.some(check => (
+    getResponseMeasurementStatus(check, responseMeasurements.find(measurement => measurement.checkId === check.id)) === 'fail'
+  ))
+  if (hasResponseFailure) return 'fail'
+
+  const allStepsCompleted = procedure.steps.every(step => (
+    stepResults.some(result => result.stepId === step.id && result.result !== null)
+  ))
+  const allResponsesPassed = procedure.responseChecks.every(check => (
+    getResponseMeasurementStatus(check, responseMeasurements.find(measurement => measurement.checkId === check.id)) === 'pass'
+  ))
+
+  if (allStepsCompleted && allResponsesPassed) return 'pass'
+  return previousVerdict
+}
+
 export function ProofTestTab({ project, sif }: Props) {
   const updateProofTestProcedure = useAppStore(s => s.updateProofTestProcedure)
   const addTestCampaign = useAppStore(s => s.addTestCampaign)
   const updateTestCampaign = useAppStore(s => s.updateTestCampaign)
 
   // ── State ──────────────────────────────────────────────────────────────
-  const [procedure, setProcedure] = useState<PTProcedure>(() => {
-    const stored = sif.proofTestProcedure as unknown as PTProcedure | undefined
-    if (stored && Array.isArray(stored.categories) && Array.isArray(stored.steps)) return stored
-    return defaultProcedure(sif)
-  })
+  const [procedure, setProcedure] = useState<PTProcedure>(() => normalizeProcedureState(sif, sif.proofTestProcedure))
   const [campaigns, setCampaigns]           = useState<PTCampaign[]>(() => {
-    const stored = sif.testCampaigns as unknown as PTCampaign[] | undefined
-    return Array.isArray(stored) ? stored : []
+    const stored = Array.isArray(sif.testCampaigns) ? sif.testCampaigns : []
+    return stored.map(normalizeCampaignState).filter((campaign): campaign is PTCampaign => campaign !== null)
   })
   const [view, setView]                     = useState<View>('procedure')
   const [editMode, setEditMode]             = useState(false)
@@ -56,20 +122,20 @@ export function ProofTestTab({ project, sif }: Props) {
   const [showExport, setShowExport]         = useState(false)
   const [isSavingProcedure, setIsSavingProcedure] = useState(false)
   const [isSavingCampaign, setIsSavingCampaign] = useState(false)
+  const isProcedureLocked = Boolean(sif.revisionLockedAt)
 
   useEffect(() => {
-    const stored = sif.proofTestProcedure as unknown as PTProcedure | undefined
-    if (stored && Array.isArray(stored.categories) && Array.isArray(stored.steps)) {
-      setProcedure(stored)
-      return
-    }
-    setProcedure(defaultProcedure(sif))
+    setProcedure(normalizeProcedureState(sif, sif.proofTestProcedure))
   }, [sif.id, sif.proofTestProcedure])
 
   useEffect(() => {
-    const stored = sif.testCampaigns as unknown as PTCampaign[] | undefined
-    setCampaigns(Array.isArray(stored) ? stored : [])
+    const stored = Array.isArray(sif.testCampaigns) ? sif.testCampaigns : []
+    setCampaigns(stored.map(normalizeCampaignState).filter((campaign): campaign is PTCampaign => campaign !== null))
   }, [sif.id, sif.testCampaigns])
+
+  useEffect(() => {
+    if (isProcedureLocked) setEditMode(false)
+  }, [isProcedureLocked])
 
   // ── Procedure helpers ──────────────────────────────────────────────────
   const catsSorted = useMemo(() =>
@@ -119,6 +185,21 @@ export function ProofTestTab({ project, sif }: Props) {
   const updateCategory = (id: string, title: string) =>
     setProcedure(p => ({ ...p, categories: p.categories.map(c => c.id === id ? { ...c, title } : c) }))
 
+  const addResponseCheck = () =>
+    setProcedure(p => ({ ...p, responseChecks: [...p.responseChecks, createResponseCheck()] }))
+
+  const updateResponseCheck = (id: string, patch: Partial<PTResponseCheck>) =>
+    setProcedure(p => ({
+      ...p,
+      responseChecks: p.responseChecks.map(check => check.id === id ? { ...check, ...patch } : check),
+    }))
+
+  const removeResponseCheck = (id: string) =>
+    setProcedure(p => ({
+      ...p,
+      responseChecks: p.responseChecks.filter(check => check.id !== id),
+    }))
+
   const saveProcedure = async () => {
     setIsSavingProcedure(true)
     try {
@@ -140,6 +221,10 @@ export function ProofTestTab({ project, sif }: Props) {
     stepResults: procedure.steps.map(s => ({
       stepId: s.id, result: null, measuredValue: '', conformant: null, comment: '',
     })),
+    responseMeasurements: syncResponseMeasurements(procedure.responseChecks, []),
+    procedureSnapshot: null,
+    pdfArtifact: createDefaultCampaignArtifact(),
+    closedAt: null,
     conductedBy: '', witnessedBy: '',
   })
 
@@ -147,33 +232,52 @@ export function ProofTestTab({ project, sif }: Props) {
     if (!activeCampaign) return
     setActiveCampaign(prev => {
       if (!prev) return prev
+      if (prev.closedAt) return prev
+      const campaignProcedure = prev.procedureSnapshot ?? procedure
       const exists = prev.stepResults.find(r => r.stepId === stepId)
       const newResults = exists
         ? prev.stepResults.map(r => r.stepId === stepId ? { ...r, ...patch } : r)
         : [...prev.stepResults, { stepId, result: null, measuredValue: '', conformant: null, comment: '', ...patch }]
-      const done = newResults.filter(r => r.result !== null).length
-      const fails = newResults.filter(r => r.result === 'non').length
-      const verdict: Verdict = done === procedure.steps.length
-        ? fails > 0 ? 'fail' : 'pass'
-        : prev.verdict
+      const verdict = computeCampaignVerdict(campaignProcedure, newResults, prev.responseMeasurements, prev.verdict)
       return { ...prev, stepResults: newResults, verdict }
+    })
+  }
+
+  const updateResponseMeasurement = (checkId: string, patch: Partial<PTResponseMeasurement>) => {
+    if (!activeCampaign) return
+    setActiveCampaign(prev => {
+      if (!prev) return prev
+      if (prev.closedAt) return prev
+      const campaignProcedure = prev.procedureSnapshot ?? procedure
+      const merged = syncResponseMeasurements(campaignProcedure.responseChecks, prev.responseMeasurements)
+      const exists = merged.find(measurement => measurement.checkId === checkId)
+      const responseMeasurements = exists
+        ? merged.map(measurement => measurement.checkId === checkId ? { ...measurement, ...patch } : measurement)
+        : [...merged, { ...createResponseMeasurement(checkId), ...patch }]
+      const verdict = computeCampaignVerdict(campaignProcedure, prev.stepResults, responseMeasurements, prev.verdict)
+      return { ...prev, responseMeasurements, verdict }
     })
   }
 
   const saveCampaign = async () => {
     if (!activeCampaign) return
+    const finalizedCampaign: PTCampaign = {
+      ...activeCampaign,
+      procedureSnapshot: JSON.parse(JSON.stringify(procedure)) as PTProcedure,
+      pdfArtifact: activeCampaign.pdfArtifact ?? createDefaultCampaignArtifact(),
+      closedAt: activeCampaign.closedAt ?? new Date().toISOString(),
+    }
     const previousCampaigns = campaigns
-    const exists = previousCampaigns.some(c => c.id === activeCampaign.id)
+    const exists = previousCampaigns.some(c => c.id === finalizedCampaign.id)
     const nextCampaigns = exists
-      ? previousCampaigns.map(c => c.id === activeCampaign.id ? activeCampaign : c)
-      : [activeCampaign, ...previousCampaigns]
+      ? previousCampaigns.map(c => c.id === finalizedCampaign.id ? finalizedCampaign : c)
+      : [finalizedCampaign, ...previousCampaigns]
 
     setIsSavingCampaign(true)
     setCampaigns(nextCampaigns)
     try {
-      await updateProofTestProcedure(project.id, sif.id, procedure as any)
-      if (exists) await updateTestCampaign(project.id, sif.id, activeCampaign as any)
-      else await addTestCampaign(project.id, sif.id, activeCampaign as any)
+      if (exists) await updateTestCampaign(project.id, sif.id, finalizedCampaign as any)
+      else await addTestCampaign(project.id, sif.id, finalizedCampaign as any)
       setActiveCampaign(null)
       setView('history')
     } catch {
@@ -185,6 +289,13 @@ export function ProofTestTab({ project, sif }: Props) {
 
   const updateActiveCampaign = (patch: Partial<PTCampaign>) =>
     setActiveCampaign(prev => prev ? { ...prev, ...patch } : prev)
+
+  const executionProcedure = activeCampaign?.procedureSnapshot ?? procedure
+  const executionCatsSorted = useMemo(() =>
+    [...(executionProcedure.categories ?? [])].sort((a, b) => a.order - b.order),
+  [executionProcedure.categories])
+  const executionStepsFor = (catId: string) =>
+    executionProcedure.steps.filter(step => step.categoryId === catId).sort((left, right) => left.order - right.order)
 
   // ── Overdue check ──────────────────────────────────────────────────────
   const lastCampaign = campaigns[0]
@@ -199,7 +310,7 @@ export function ProofTestTab({ project, sif }: Props) {
   useEffect(() => {
     setRightPanelOverride(
       <ProofTestRightPanel
-        sif={sif} view={view} procedure={procedure} campaigns={campaigns}
+        sif={sif} view={view} procedure={executionProcedure} campaigns={campaigns}
         activeCampaign={activeCampaign} isOverdue={isOverdue}
         daysOverdue={daysOverdue} nextDue={nextDue}
         onSetView={setView} onSetActiveCampaign={setActiveCampaign}
@@ -208,7 +319,7 @@ export function ProofTestTab({ project, sif }: Props) {
       />
     )
     return () => setRightPanelOverride(null)
-  }, [view, procedure, campaigns, activeCampaign, isOverdue, daysOverdue, nextDue])
+  }, [view, executionProcedure, campaigns, activeCampaign, isOverdue, daysOverdue, nextDue])
 
   // ── Render ─────────────────────────────────────────────────────────────
   return (
@@ -221,6 +332,16 @@ export function ProofTestTab({ project, sif }: Props) {
           <AlertTriangle size={15} className="text-red-500 shrink-0" />
           <p className="text-xs font-medium" style={{ color: '#FCA5A5' }}>
             Test en retard de <strong>{daysOverdue} jours</strong> — dernier test : {lastCampaign?.date} · Périodicité : {procedure.periodicityMonths} mois
+          </p>
+        </div>
+      )}
+
+      {isProcedureLocked && view === 'procedure' && (
+        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border"
+          style={{ background: '#0F1B3D', borderColor: '#1D4ED830' }}>
+          <AlertTriangle size={15} className="shrink-0" style={{ color: '#60A5FA' }} />
+          <p className="text-xs font-medium" style={{ color: '#BFDBFE' }}>
+            Procédure figée sur la révision publiée. L exécution et l historique des campagnes restent disponibles.
           </p>
         </div>
       )}
@@ -257,15 +378,16 @@ export function ProofTestTab({ project, sif }: Props) {
             </>
           ) : (
             <button onClick={() => setEditMode(true)}
+              disabled={isProcedureLocked}
               className="h-8 px-3 text-xs font-semibold rounded-xl border text-[#8FA0B1] hover:border-[#009BA4] hover:text-[#009BA4] flex items-center gap-1.5 transition-all"
-              style={{ borderColor: BORDER, background: '#1D232A' }}><Pencil size={12} />Modifier</button>
+              style={{ borderColor: BORDER, background: '#1D232A' }}><Pencil size={12} />{isProcedureLocked ? 'Figée' : 'Modifier'}</button>
           ))}
           {view === 'execution' && !activeCampaign && (
             <button onClick={() => setActiveCampaign(newCampaign())}
               className="h-8 px-4 text-xs font-semibold text-white rounded-xl flex items-center gap-1.5 shadow-sm"
               style={{ background: TEAL }}><Plus size={13} />Nouveau test</button>
           )}
-          {view === 'execution' && activeCampaign && (
+          {view === 'execution' && activeCampaign && !activeCampaign.closedAt && (
             <>
               <button onClick={() => setActiveCampaign(null)}
                 className={cn(inputCls, 'px-3 text-[#8FA0B1] hover:text-red-500 cursor-pointer')}>Annuler</button>
@@ -274,6 +396,10 @@ export function ProofTestTab({ project, sif }: Props) {
                 className="h-8 px-4 text-xs font-semibold text-white rounded-xl flex items-center gap-1.5 shadow-sm"
                 style={{ background: NAVY }}><Save size={12} />{isSavingCampaign ? 'Sauvegarde…' : 'Clôturer le test'}</button>
             </>
+          )}
+          {view === 'execution' && activeCampaign && activeCampaign.closedAt && (
+            <button onClick={() => setActiveCampaign(null)}
+              className={cn(inputCls, 'px-3 text-[#8FA0B1] cursor-pointer')}>Fermer</button>
           )}
           <button onClick={() => setShowExport(true)}
             className="h-8 px-3 text-xs font-semibold rounded-xl border text-[#8FA0B1] hover:border-[#009BA4] hover:text-[#009BA4] flex items-center gap-1.5 transition-all"
@@ -290,13 +416,18 @@ export function ProofTestTab({ project, sif }: Props) {
           catsSorted={catsSorted} stepsFor={stepsFor}
           updateStep={updateStep} addStep={addStep} deleteStep={deleteStep}
           addTestCategory={addTestCategory} deleteCategory={deleteCategory} updateCategory={updateCategory}
+          addResponseCheck={addResponseCheck}
+          updateResponseCheck={updateResponseCheck}
+          removeResponseCheck={removeResponseCheck}
         />
       )}
 
       {view === 'execution' && (
         <CampaignExecutionView
           activeCampaign={activeCampaign} setActiveCampaign={setActiveCampaign}
-          catsSorted={catsSorted} stepsFor={stepsFor} updateStepResult={updateStepResult}
+          catsSorted={executionCatsSorted} stepsFor={executionStepsFor} responseChecks={executionProcedure.responseChecks}
+          updateStepResult={updateStepResult}
+          updateResponseMeasurement={updateResponseMeasurement}
           onNewCampaign={() => setActiveCampaign(newCampaign())}
         />
       )}
@@ -304,6 +435,7 @@ export function ProofTestTab({ project, sif }: Props) {
       {view === 'history' && (
         <CampaignHistoryView
           campaigns={campaigns}
+          onDownloadCampaignPdf={campaign => downloadRevisionArtifact(campaign.pdfArtifact)}
           onViewCampaign={(c) => { setActiveCampaign(c); setView('execution') }}
         />
       )}

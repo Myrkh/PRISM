@@ -15,9 +15,10 @@ const BORDER_VIS    = '#363F49'
 interface Props {
   campaigns: PTCampaign[]
   onViewCampaign: (campaign: PTCampaign) => void
+  onDownloadCampaignPdf: (campaign: PTCampaign) => Promise<void>
 }
 
-export function CampaignHistoryView({ campaigns, onViewCampaign }: Props) {
+export function CampaignHistoryView({ campaigns, onViewCampaign, onDownloadCampaignPdf }: Props) {
   if (campaigns.length === 0) {
     return (
       <div className="rounded-2xl border shadow-sm p-16 text-center" style={{ background: SURFACE, borderColor: BORDER_VIS }}>
@@ -51,7 +52,7 @@ export function CampaignHistoryView({ campaigns, onViewCampaign }: Props) {
         <table className="w-full text-xs">
           <thead>
             <tr style={{ background: TABLE_HEAD_BG }}>
-              {['Date', 'Équipe', 'Verdict', 'Étapes OK', 'Réalisé par', 'Témoin', ''].map(h => (
+              {['Date', 'Procédure', 'Équipe', 'Verdict', 'Étapes OK', 'Réalisé par', 'Témoin', 'PDF', ''].map(h => (
                 <th key={h} className="px-4 py-3 text-left text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{h}</th>
               ))}
             </tr>
@@ -72,6 +73,9 @@ export function CampaignHistoryView({ campaigns, onViewCampaign }: Props) {
                   onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'transparent' }}
                 >
                   <td className="px-4 py-3 font-mono" style={{ color: TEXT }}>{c.date}</td>
+                  <td className="px-4 py-3 font-mono" style={{ color: TEXT }}>
+                    {c.procedureSnapshot ? `${c.procedureSnapshot.ref} · Rev. ${c.procedureSnapshot.revision}` : '—'}
+                  </td>
                   <td className="px-4 py-3" style={{ color: TEXT }}>{c.team || '—'}</td>
                   <td className="px-4 py-3">
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded border"
@@ -84,6 +88,17 @@ export function CampaignHistoryView({ campaigns, onViewCampaign }: Props) {
                   </td>
                   <td className="px-4 py-3" style={{ color: TEXT }}>{c.conductedBy || '—'}</td>
                   <td className="px-4 py-3" style={{ color: TEXT }}>{c.witnessedBy || '—'}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      type="button"
+                      onClick={() => { void onDownloadCampaignPdf(c) }}
+                      disabled={c.pdfArtifact.status !== 'ready'}
+                      className="text-[10px] font-semibold transition-colors hover:underline disabled:opacity-40 disabled:cursor-not-allowed"
+                      style={{ color: c.pdfArtifact.status === 'ready' ? TEAL : TEXT_DIM }}
+                    >
+                      PDF
+                    </button>
+                  </td>
                   <td className="px-4 py-3">
                     <button onClick={() => onViewCampaign(c)}
                       className="text-[10px] font-semibold transition-colors hover:underline"

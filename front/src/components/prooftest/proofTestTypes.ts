@@ -17,6 +17,7 @@ export type CatType    = 'preliminary' | 'test' | 'final'
 export type Status     = 'draft' | 'ifr' | 'approved'
 export type Verdict    = 'pass' | 'fail' | 'conditional' | null
 export type StepResultValue = 'oui' | 'non' | 'na' | null
+export type ResponseCheckType = 'valve_open' | 'valve_close' | 'sif_response'
 
 export interface PTStep {
   id: string
@@ -35,12 +36,39 @@ export interface PTCategory {
   order: number
 }
 
+export interface PTResponseCheck {
+  id: string
+  label: string
+  description: string
+  type: ResponseCheckType
+  expectedMs: number | null
+  maxAllowedMs: number | null
+}
+
 export interface PTStepResult {
   stepId: string
   result: StepResultValue
   measuredValue: string
   conformant: boolean | null
   comment: string
+}
+
+export interface PTResponseMeasurement {
+  checkId: string
+  measuredMs: string
+  comment: string
+}
+
+export type PTResponseMeasurementStatus = 'pending' | 'pass' | 'fail'
+export type PTArtifactStatus = 'missing' | 'pending' | 'ready' | 'error'
+
+export interface PTCampaignArtifact {
+  bucket: string
+  path: string | null
+  fileName: string | null
+  status: PTArtifactStatus
+  generatedAt: string | null
+  error: string | null
 }
 
 export interface PTCampaign {
@@ -50,6 +78,10 @@ export interface PTCampaign {
   verdict: Verdict
   notes: string
   stepResults: PTStepResult[]
+  responseMeasurements: PTResponseMeasurement[]
+  procedureSnapshot: PTProcedure | null
+  pdfArtifact: PTCampaignArtifact
+  closedAt: string | null
   conductedBy: string
   witnessedBy: string
 }
@@ -62,6 +94,7 @@ export interface PTProcedure {
   periodicityMonths: number
   categories: PTCategory[]
   steps: PTStep[]
+  responseChecks: PTResponseCheck[]
   madeBy: string; madeByDate: string
   verifiedBy: string; verifiedByDate: string
   approvedBy: string; approvedByDate: string
@@ -73,6 +106,12 @@ export const CAT_META: Record<CatType, { label: string; color: string; locked: b
   preliminary: { label: 'Actions préliminaires', color: '#6B7280', locked: true  },
   test:        { label: 'Test',                  color: TEAL,      locked: false },
   final:       { label: 'Actions finales',       color: NAVY,      locked: true  },
+}
+
+export const RESPONSE_CHECK_TYPE_META: Record<ResponseCheckType, { label: string; color: string }> = {
+  valve_open: { label: 'Valve opening', color: '#0891B2' },
+  valve_close: { label: 'Valve closing', color: '#EA580C' },
+  sif_response: { label: 'SIF response', color: '#7C3AED' },
 }
 
 export const STATUS_CFG: Record<Status, { label: string; bg: string; color: string; border: string }> = {
@@ -87,6 +126,63 @@ export function newPersistedId(): string {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'
     ? crypto.randomUUID()
     : nanoid()
+}
+
+export function createResponseCheck(): PTResponseCheck {
+  return {
+    id: nanoid(),
+    label: '',
+    description: '',
+    type: 'sif_response',
+    expectedMs: null,
+    maxAllowedMs: null,
+  }
+}
+
+export function createResponseMeasurement(checkId: string): PTResponseMeasurement {
+  return {
+    checkId,
+    measuredMs: '',
+    comment: '',
+  }
+}
+
+export function createDefaultCampaignArtifact(bucket = 'prism_prooftest'): PTCampaignArtifact {
+  return {
+    bucket,
+    path: null,
+    fileName: null,
+    status: 'missing',
+    generatedAt: null,
+    error: null,
+  }
+}
+
+export function syncResponseMeasurements(
+  checks: PTResponseCheck[],
+  measurements: PTResponseMeasurement[] = [],
+): PTResponseMeasurement[] {
+  return checks.map(check => (
+    measurements.find(measurement => measurement.checkId === check.id)
+    ?? createResponseMeasurement(check.id)
+  ))
+}
+
+export function parseMeasuredMs(value: string): number | null {
+  if (!value.trim()) return null
+  const normalized = Number(value.replace(',', '.'))
+  return Number.isFinite(normalized) ? normalized : null
+}
+
+export function getResponseMeasurementStatus(
+  check: PTResponseCheck,
+  measurement?: PTResponseMeasurement | null,
+): PTResponseMeasurementStatus {
+  const measured = parseMeasuredMs(measurement?.measuredMs ?? '')
+  if (measured === null) return 'pending'
+  if (check.maxAllowedMs !== null) return measured <= check.maxAllowedMs ? 'pass' : 'fail'
+  if (check.expectedMs !== null) return measured <= check.expectedMs ? 'pass' : 'fail'
+  return 'pass'
 }
 
 // ─── Default procedure factory ───────────────────────────────────────────
@@ -114,6 +210,7 @@ export function defaultProcedure(sif: SIF): PTProcedure {
     periodicityMonths: 12,
     categories: [catPre, catTest, catFin],
     steps,
+    responseChecks: [],
     madeBy: sif.madeBy || '', madeByDate: '',
     verifiedBy: sif.verifiedBy || '', verifiedByDate: '',
     approvedBy: '', approvedByDate: '',

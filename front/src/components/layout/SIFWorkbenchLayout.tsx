@@ -153,7 +153,7 @@ function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) 
   )
 }
 
-function GlobalRightPanelPlaceholder({ mode }: { mode: 'review' | 'audit' | 'history' | 'hazop' }) {
+function GlobalRightPanelPlaceholder({ mode }: { mode: 'review' | 'audit' | 'history' | 'engine' | 'hazop' }) {
   return (
     <div className="flex h-full flex-col overflow-hidden px-4 py-4"
       style={{ background: PANEL_BG }}>
@@ -161,11 +161,14 @@ function GlobalRightPanelPlaceholder({ mode }: { mode: 'review' | 'audit' | 'his
         {mode === 'review' ? 'Review Queue'
           : mode === 'audit' ? 'Audit Log'
           : mode === 'history' ? 'SIF History'
+          : mode === 'engine' ? 'Engine'
           : 'HAZOP / LOPA'}
       </p>
       <div className="mt-3 rounded-xl border px-3 py-4 text-xs"
         style={{ borderColor: BORDER, color: TEXT_DIM, background: '#1D232A' }}>
-        Select a row in the center table to inspect details and actions.
+        {mode === 'engine'
+          ? 'Engine overview, integration status, and backend contract details appear here.'
+          : 'Select a row in the center table to inspect details and actions.'}
       </div>
     </div>
   )
@@ -202,13 +205,14 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
   const showReview    = view.type === 'review-queue'
   const showAudit     = view.type === 'audit-log'
   const showHistory   = view.type === 'sif-history'
+  const showEngine    = view.type === 'engine'
   const showHazop     = view.type === 'hazop'
-  const showGlobal    = showReview || showAudit || showHistory || showHazop
+  const showGlobal    = showReview || showAudit || showHistory || showEngine || showHazop
   const showDashboard = view.type === 'sif-dashboard' && !!project && !!sif
   const showHome      = !showSettings && !showDashboard && !showGlobal
 
   useEffect(() => {
-    if (view.type === 'review-queue' || view.type === 'audit-log') {
+    if (view.type === 'review-queue' || view.type === 'audit-log' || view.type === 'engine') {
       setRightOpen(true)
     }
   }, [view.type])
@@ -287,7 +291,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
           showRightToggle={showDashboard || showGlobal}
           showHome={showHome} showSettings={showSettings}
           showReview={showReview} showAudit={showAudit}
-          showHistory={showHistory} showHazop={showHazop}
+          showHistory={showHistory} showEngine={showEngine} showHazop={showHazop}
           projectId={projectId}
         />
 
@@ -333,7 +337,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
               )}
               <div className="min-h-0 overflow-hidden transition-all duration-200">
                 {rightPanelOverride || <GlobalRightPanelPlaceholder
-                  mode={showReview ? 'review' : showAudit ? 'audit' : showHistory ? 'history' : 'hazop'} />}
+                  mode={showReview ? 'review' : showAudit ? 'audit' : showHistory ? 'history' : showEngine ? 'engine' : 'hazop'} />}
               </div>
             </div>
           ) : (

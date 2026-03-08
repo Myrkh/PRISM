@@ -124,6 +124,8 @@ export const DEFAULT_SIF = (projectId: string, sifNumber: string): SIF => ({
   projectId,
   sifNumber,
   revision: 'A',
+  revisionLockedAt: null,
+  lockedRevisionId: null,
   title: `SIF ${sifNumber}`,
   description: '',
   pid: '',

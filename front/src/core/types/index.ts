@@ -33,6 +33,8 @@ export type {
   SIFAssumptionStatus,
   SIFAssumptionCategory,
   SIFReferenceTab,
+  RevisionArtifactStatus,
+  SIFRevisionArtifact,
   SIFAssumption,
   SIF,
   ProjectStatus,
@@ -44,7 +46,10 @@ export type {
 export type {
   ProofTestLocation, ProofTestResultType, ProofTestStep,
   ProofTestCategoryType, ProofTestCategory,
+  ProofTestResponseCheckType, ProofTestResponseCheck,
   ProofTestProcedureStatus, ProofTestProcedure,
+  ProofTestResponseMeasurement,
+  ProofTestArtifactStatus, ProofTestCampaignArtifact,
   CampaignVerdict, StepResult, TestCampaign,
   OperationalEventType, OperationalEvent,
 } from './prooftest.types'

@@ -8,9 +8,10 @@ import {
   Plus, Trash2, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BORDER, SURFACE, TEAL, TEXT, TEXT_DIM, NAVY } from '@/styles/tokens'
+import { BORDER, SURFACE, TEAL, TEXT, TEXT_DIM } from '@/styles/tokens'
 import { ExpectedValueDisplay } from './ResultWidgets'
-import type { PTStep, PTCategory, PTProcedure, PTCampaign, ResultType } from './proofTestTypes'
+import { ResponseChecksCard } from './ResponseChecksCard'
+import type { PTStep, PTCategory, PTProcedure, PTCampaign, ResultType, PTResponseCheck } from './proofTestTypes'
 import { LOCATIONS, CAT_META, STATUS_CFG, inputCls } from './proofTestTypes'
 
 // ─── Table design tokens ─────────────────────────────────────────────────
@@ -37,6 +38,9 @@ interface Props {
   addTestCategory: () => void
   deleteCategory: (id: string) => void
   updateCategory: (id: string, title: string) => void
+  addResponseCheck: () => void
+  updateResponseCheck: (id: string, patch: Partial<PTResponseCheck>) => void
+  removeResponseCheck: (id: string) => void
 }
 
 export function ProcedureView({
@@ -44,6 +48,7 @@ export function ProcedureView({
   collapsed, setCollapsed, isOverdue, daysOverdue, nextDue,
   catsSorted, stepsFor, updateStep, addStep, deleteStep,
   addTestCategory, deleteCategory, updateCategory,
+  addResponseCheck, updateResponseCheck, removeResponseCheck,
 }: Props) {
   const sm = STATUS_CFG[procedure.status]
 
@@ -251,6 +256,14 @@ export function ProcedureView({
           style={{ color: TEXT_DIM, borderColor: BORDER, background: SURFACE }}
         ><Plus size={14} />Ajouter une catégorie de test</button>
       )}
+
+      <ResponseChecksCard
+        editMode={editMode}
+        responseChecks={procedure.responseChecks}
+        addResponseCheck={addResponseCheck}
+        updateResponseCheck={updateResponseCheck}
+        removeResponseCheck={removeResponseCheck}
+      />
 
       {/* Signatures */}
       <div className="rounded-2xl border shadow-sm p-5" style={{ background: SURFACE, borderColor: BORDER_VIS }}>

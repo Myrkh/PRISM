@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { AlertTriangle, ArrowRight, CheckCircle2, FileText, ShieldCheck } from 'lucide-react'
+import { ArrowRight, ShieldCheck } from 'lucide-react'
 import type { SIF, SIFCalcResult } from '@/core/types'
 import type { SIFTab } from '@/store/types'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
@@ -7,6 +7,7 @@ import { IntercalaireCard, IntercalaireTabBar } from '@/components/layout/Interc
 import { SILBadge } from '@/components/shared/SILBadge'
 import { formatPFD, formatRRF } from '@/core/math/pfdCalc'
 import { getOverviewMetrics } from '@/components/sif/overviewMetrics'
+import { OVERVIEW_OPERATIONAL_HEALTH_META, OVERVIEW_PANEL_CTA } from '@/components/sif/overviewUi'
 import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic } from '@/styles/tokens'
 
 const OVERVIEW_RIGHT_TABS = [
@@ -14,46 +15,6 @@ const OVERVIEW_RIGHT_TABS = [
   { id: 'actions' as const, label: 'Actions' },
   { id: 'context' as const, label: 'Context' },
 ]
-
-const TAB_CTA: Record<SIFTab, string> = {
-  overview: 'Review on dashboard',
-  architecture: 'Open Loop Editor',
-  analysis: 'Open Calculations',
-  compliance: 'Open Compliance',
-  prooftest: 'Open Proof Test',
-  report: 'Open Reports',
-}
-
-const HEALTH_META = {
-  healthy: {
-    label: 'Healthy',
-    color: semantic.success,
-    bg: `${semantic.success}1A`,
-    border: `${semantic.success}33`,
-    Icon: CheckCircle2,
-  },
-  watch: {
-    label: 'Watch list',
-    color: semantic.warning,
-    bg: `${semantic.warning}1A`,
-    border: `${semantic.warning}33`,
-    Icon: AlertTriangle,
-  },
-  critical: {
-    label: 'Action required',
-    color: semantic.error,
-    bg: `${semantic.error}1A`,
-    border: `${semantic.error}33`,
-    Icon: AlertTriangle,
-  },
-  unknown: {
-    label: 'No data',
-    color: TEXT_DIM,
-    bg: `${TEXT_DIM}12`,
-    border: `${TEXT_DIM}22`,
-    Icon: FileText,
-  },
-} as const
 
 interface Props {
   sif: SIF
@@ -66,7 +27,7 @@ export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Pro
   const [activeTab, setActiveTab] = useState<(typeof OVERVIEW_RIGHT_TABS)[number]['id']>('snapshot')
   const metrics = useMemo(() => getOverviewMetrics(sif, result, compliance), [compliance, result, sif])
   const activeIndex = OVERVIEW_RIGHT_TABS.findIndex(tab => tab.id === activeTab)
-  const health = HEALTH_META[metrics.operationalHealth]
+  const health = OVERVIEW_OPERATIONAL_HEALTH_META[metrics.operationalHealth]
 
   return (
     <div className="flex h-full flex-col overflow-hidden" style={{ background: PANEL_BG }}>
@@ -163,7 +124,7 @@ export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Pro
                       className="inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors"
                       style={{ borderColor: `${TEAL}55`, background: `${TEAL}12`, color: TEAL_DIM }}
                     >
-                      {TAB_CTA[action.tab]}
+                      {OVERVIEW_PANEL_CTA[action.tab]}
                       <ArrowRight size={12} />
                     </button>
                   </div>

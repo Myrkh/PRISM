@@ -20,9 +20,27 @@ import {
   dbCreateSIF, dbUpdateSIF, dbDeleteSIF,
   dbUpsertProcedure,
   dbCreateCampaign, dbUpdateCampaign, dbDeleteCampaign,
-  dbFetchRevisions, dbCreateRevision,
+  dbFetchRevisions, dbCreateRevision, dbDeleteRevision,
 } from '@/lib/db'
-import type { SIFRevision } from '@/core/types'
+import { uploadRevisionArtifact, removeRevisionArtifact } from '@/lib/revisionArtifacts'
+import {
+  createDefaultRevisionArtifact,
+  buildRevisionArtifactPath,
+  incrementRevisionLabel,
+} from '@/core/models/revisionWorkflow'
+import {
+  buildProofTestCampaignArtifactPath,
+  createDefaultProofTestCampaignArtifact,
+} from '@/core/models/proofTestCampaignWorkflow'
+import { calcSIF } from '@/core/math/pfdCalc'
+import {
+  DEFAULT_SIF_ANALYSIS_SETTINGS,
+  analysisSettingsToMissionTimeHours,
+  loadSIFAnalysisSettings,
+} from '@/core/models/analysisSettings'
+import { buildSILReportPdfBlob } from '@/components/report/silReportPdf'
+import { buildProofTestPdfBlob } from '@/components/prooftest/proofTestPdf'
+import type { Project, SIF, SIFRevision } from '@/core/types'
 import type { AppState } from './types'
 import { selectSIF } from './selectors'
 
@@ -58,7 +76,7 @@ function scheduleArchSync(sifId: string, getSIF: () => ReturnType<typeof selectS
   archSyncTimers.set(sifId, setTimeout(async () => {
     archSyncTimers.delete(sifId)
     const sif = getSIF()
-    if (!sif) return
+    if (!sif || sif.revisionLockedAt) return
     try {
       await dbUpdateSIF(sifId, { subsystems: sif.subsystems })
     } catch (err) {
@@ -82,6 +100,52 @@ function relabelChannels<T extends { label: string }>(channels: T[]): T[] {
     ...channel,
     label: `Channel ${index + 1}`,
   }))
+}
+
+function getProjectAndSIF(state: AppState, projectId: string, sifId: string): { project: Project; sif: SIF } | null {
+  const project = state.projects.find(entry => entry.id === projectId)
+  const sif = project?.sifs.find(entry => entry.id === sifId)
+  return project && sif ? { project, sif } : null
+}
+
+function ensureSIFEditable(
+  get: () => AppState,
+  set: (recipe: (state: AppState) => void) => void,
+  projectId: string,
+  sifId: string,
+): boolean {
+  const found = getProjectAndSIF(get(), projectId, sifId)
+  if (!found) return false
+  if (!found.sif.revisionLockedAt) return true
+
+  const message = `Revision ${found.sif.revision} is locked. Create a new revision to modify this SIF.`
+  set(s => { s.syncError = message })
+  return false
+}
+
+function ensureProofTestCampaignWritable(
+  get: () => AppState,
+  set: (recipe: (state: AppState) => void) => void,
+  projectId: string,
+  sifId: string,
+): boolean {
+  const found = getProjectAndSIF(get(), projectId, sifId)
+  if (!found) return false
+  if (!found.sif.proofTestProcedure) {
+    set(s => { s.syncError = 'No proof test procedure is linked to this SIF.' })
+    return false
+  }
+  if (!found.sif.revisionLockedAt) return true
+  if (found.sif.proofTestProcedure.status === 'approved') return true
+
+  const message = `Revision ${found.sif.revision} is locked and its proof test procedure is not approved.`
+  set(s => { s.syncError = message })
+  return false
+}
+
+function applySIFPatch(state: AppState, projectId: string, sifId: string, patch: Partial<SIF>) {
+  const sif = findSIF(state, projectId, sifId)
+  if (sif) Object.assign(sif, patch)
 }
 
 // ─── Store ─────────────────────────────────────────────────────────────────
@@ -222,10 +286,13 @@ export const useAppStore = create<AppState>()(
       },
 
       updateSIF: async (projectId, sifId, data) => {
+        if (!ensureSIFEditable(get, set, projectId, sifId)) {
+          throw new Error(`Revision is locked for SIF ${sifId}`)
+        }
         if (data.assumptions !== undefined) {
           saveLocalSIFAssumptions(sifId, data.assumptions)
         }
-        set(s => { const sif = findSIF(s, projectId, sifId); if (sif) Object.assign(sif, data) })
+        set(s => { applySIFPatch(s, projectId, sifId, data) })
         try { await dbUpdateSIF(sifId, data) }
         catch (err: unknown) {
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
@@ -260,11 +327,13 @@ export const useAppStore = create<AppState>()(
       // ARCHITECTURE (local + debounced Supabase)
       // ══════════════════════════════════════════════════════════════════════
       addSubsystem: (projectId, sifId, subsystem) => {
+        if (!ensureSIFEditable(get, set, projectId, sifId)) return
         set(s => { findSIF(s, projectId, sifId)?.subsystems.push(subsystem) })
         scheduleArchSync(sifId, () => selectSIF(get(), projectId, sifId))
       },
 
       updateSubsystem: (projectId, sifId, subsystem) => {
+        if (!ensureSIFEditable(get, set, projectId, sifId)) return
         set(s => {
           const sif = findSIF(s, projectId, sifId)
           if (sif) { const idx = sif.subsystems.findIndex(sub => sub.id === subsystem.id); if (idx >= 0) sif.subsystems[idx] = subsystem }
@@ -273,11 +342,13 @@ export const useAppStore = create<AppState>()(
       },
 
       removeSubsystem: (projectId, sifId, subsystemId) => {
+        if (!ensureSIFEditable(get, set, projectId, sifId)) return
         set(s => { const sif = findSIF(s, projectId, sifId); if (sif) sif.subsystems = sif.subsystems.filter(sub => sub.id !== subsystemId) })
         scheduleArchSync(sifId, () => selectSIF(get(), projectId, sifId))
       },
 
       addChannel: (projectId, sifId, subsystemId) => {
+        if (!ensureSIFEditable(get, set, projectId, sifId)) return
         set(s => {
           const sif = findSIF(s, projectId, sifId)
           const sub = sif?.subsystems.find(sub => sub.id === subsystemId)
@@ -291,6 +362,7 @@ export const useAppStore = create<AppState>()(
       },
 
       removeChannel: (projectId, sifId, subsystemId, channelId) => {
+        if (!ensureSIFEditable(get, set, projectId, sifId)) return
         set(s => {
           const sub = findSIF(s, projectId, sifId)?.subsystems.find(sub => sub.id === subsystemId)
           if (!sub) return
@@ -306,11 +378,13 @@ export const useAppStore = create<AppState>()(
       selectComponent: id => set(s => { s.selectedComponentId = id }),
 
       addComponent: (projectId, sifId, subsystemId, channelId, component) => {
+        if (!ensureSIFEditable(get, set, projectId, sifId)) return
         set(s => { findChannel(s, projectId, sifId, subsystemId, channelId)?.components.push(component) })
         scheduleArchSync(sifId, () => selectSIF(get(), projectId, sifId))
       },
 
       updateComponent: (projectId, sifId, subsystemId, channelId, component) => {
+        if (!ensureSIFEditable(get, set, projectId, sifId)) return
         set(s => {
           const ch = findChannel(s, projectId, sifId, subsystemId, channelId)
           if (ch) { const idx = ch.components.findIndex(c => c.id === component.id); if (idx >= 0) ch.components[idx] = component }
@@ -319,6 +393,7 @@ export const useAppStore = create<AppState>()(
       },
 
       removeComponent: (projectId, sifId, subsystemId, channelId, componentId) => {
+        if (!ensureSIFEditable(get, set, projectId, sifId)) return
         set(s => {
           const ch = findChannel(s, projectId, sifId, subsystemId, channelId)
           if (ch) ch.components = ch.components.filter(c => c.id !== componentId)
@@ -327,6 +402,7 @@ export const useAppStore = create<AppState>()(
       },
 
       moveComponent: (projectId, sifId, fromSubId, fromChannelId, fromIndex, toSubId, toChannelId, toIndex) => {
+        if (!ensureSIFEditable(get, set, projectId, sifId)) return
         set(s => {
           const sif = findSIF(s, projectId, sifId)
           if (!sif) return
@@ -344,6 +420,9 @@ export const useAppStore = create<AppState>()(
       // PROOF TEST / CAMPAIGNS / EVENTS / HAZOP (fire-and-forget sync)
       // ══════════════════════════════════════════════════════════════════════
       updateProofTestProcedure: async (projectId, sifId, procedure) => {
+        if (!ensureSIFEditable(get, set, projectId, sifId)) {
+          throw new Error(`Revision is locked for SIF ${sifId}`)
+        }
         const persistedProcedure = { ...procedure, id: ensureUuid(procedure.id) }
         const snapshot = selectSIF(get(), projectId, sifId)?.proofTestProcedure
         set(s => { const sif = findSIF(s, projectId, sifId); if (sif) sif.proofTestProcedure = persistedProcedure })
@@ -358,6 +437,7 @@ export const useAppStore = create<AppState>()(
             periodicityMonths: persistedProcedure.periodicityMonths,
             categories: persistedProcedure.categories,
             steps: persistedProcedure.steps,
+            responseChecks: persistedProcedure.responseChecks,
             madeBy: persistedProcedure.madeBy,
             madeByDate: persistedProcedure.madeByDate,
             verifiedBy: persistedProcedure.verifiedBy,
@@ -374,33 +454,91 @@ export const useAppStore = create<AppState>()(
       },
 
       addTestCampaign: async (projectId, sifId, campaign) => {
-        const sifSnapshot = selectSIF(get(), projectId, sifId)
-        if (!sifSnapshot?.proofTestProcedure?.id) {
+        if (!ensureProofTestCampaignWritable(get, set, projectId, sifId)) {
+          throw new Error(`Proof test campaigns are not writable for SIF ${sifId}`)
+        }
+        const found = getProjectAndSIF(get(), projectId, sifId)
+        if (!found?.sif.proofTestProcedure?.id) {
           const err = new Error('Sauvegarde campagne: aucune procédure de proof test associée à cette SIF')
           set(s => { s.syncError = err.message })
           throw err
         }
-        const persistedCampaign = { ...campaign, id: ensureUuid(campaign.id) }
+        const { project, sif: sifSnapshot } = found
+        const currentProcedure = sifSnapshot.proofTestProcedure!
+        const campaignId = ensureUuid(campaign.id)
+        const procedureSnapshot = campaign.procedureSnapshot
+          ? JSON.parse(JSON.stringify(campaign.procedureSnapshot))
+          : JSON.parse(JSON.stringify(currentProcedure))
+        const closedAt = campaign.closedAt ?? new Date().toISOString()
+        const campaignPath = buildProofTestCampaignArtifactPath({
+          project,
+          sif: sifSnapshot,
+          campaignId,
+          campaignDate: campaign.date || closedAt.split('T')[0],
+        })
+        const pendingArtifact: ReturnType<typeof createDefaultProofTestCampaignArtifact> = {
+          ...createDefaultProofTestCampaignArtifact(),
+          ...(campaign.pdfArtifact ?? {}),
+          bucket: 'prism_prooftest',
+          path: campaignPath.path,
+          fileName: campaignPath.fileName,
+          status: 'pending' as const,
+          error: null,
+        }
+        const persistedCampaign = {
+          ...campaign,
+          id: campaignId,
+          procedureSnapshot,
+          closedAt,
+          pdfArtifact: pendingArtifact,
+        }
         const previousCampaigns = [...(sifSnapshot.testCampaigns ?? [])]
         set(s => {
           const sif = findSIF(s, projectId, sifId)
           if (sif) { if (!sif.testCampaigns) sif.testCampaigns = []; sif.testCampaigns.unshift(persistedCampaign) }
         })
+        let uploadedArtifact: typeof persistedCampaign.pdfArtifact = persistedCampaign.pdfArtifact
         try {
+          const proofTestPdf = await buildProofTestPdfBlob({
+            project,
+            sif: {
+              ...sifSnapshot,
+              proofTestProcedure: procedureSnapshot,
+              testCampaigns: [persistedCampaign],
+            },
+            procedure: procedureSnapshot,
+            campaigns: [persistedCampaign],
+          })
+          uploadedArtifact = await uploadRevisionArtifact(persistedCampaign.pdfArtifact, proofTestPdf.blob)
+          const finalizedCampaign = { ...persistedCampaign, pdfArtifact: uploadedArtifact }
+
           await dbCreateCampaign({
-            id: persistedCampaign.id,
-            procedureId: sifSnapshot.proofTestProcedure.id,
+            id: finalizedCampaign.id,
+            procedureId: finalizedCampaign.procedureSnapshot?.id || currentProcedure.id,
             sifId,
             projectId,
-            date: persistedCampaign.date,
-            team: persistedCampaign.team,
-            verdict: persistedCampaign.verdict,
-            notes: persistedCampaign.notes,
-            conductedBy: persistedCampaign.conductedBy,
-            witnessedBy: persistedCampaign.witnessedBy,
-            stepResults: persistedCampaign.stepResults,
+            date: finalizedCampaign.date,
+            team: finalizedCampaign.team,
+            verdict: finalizedCampaign.verdict,
+            notes: finalizedCampaign.notes,
+            conductedBy: finalizedCampaign.conductedBy,
+            witnessedBy: finalizedCampaign.witnessedBy,
+            stepResults: finalizedCampaign.stepResults,
+            responseMeasurements: finalizedCampaign.responseMeasurements,
+            procedureSnapshot: finalizedCampaign.procedureSnapshot,
+            pdfArtifact: finalizedCampaign.pdfArtifact,
+            closedAt: finalizedCampaign.closedAt,
+          })
+          set(s => {
+            const sif = findSIF(s, projectId, sifId)
+            if (!sif?.testCampaigns) return
+            const idx = sif.testCampaigns.findIndex(entry => entry.id === finalizedCampaign.id)
+            if (idx >= 0) sif.testCampaigns[idx] = finalizedCampaign
           })
         } catch (err: unknown) {
+          if (uploadedArtifact.status === 'ready') {
+            await removeRevisionArtifact(uploadedArtifact)
+          }
           set(s => { const sif = findSIF(s, projectId, sifId); if (sif) sif.testCampaigns = previousCampaigns })
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
           throw err
@@ -408,9 +546,17 @@ export const useAppStore = create<AppState>()(
       },
 
       updateTestCampaign: async (projectId, sifId, campaign) => {
+        if (!ensureProofTestCampaignWritable(get, set, projectId, sifId)) {
+          throw new Error(`Proof test campaigns are not writable for SIF ${sifId}`)
+        }
         const sifSnapshot = selectSIF(get(), projectId, sifId)
         if (!sifSnapshot?.proofTestProcedure?.id) {
           const err = new Error('Sauvegarde campagne: aucune procédure de proof test associée à cette SIF')
+          set(s => { s.syncError = err.message })
+          throw err
+        }
+        if (campaign.closedAt && campaign.pdfArtifact?.status === 'ready') {
+          const err = new Error('This proof test campaign is closed and cannot be modified.')
           set(s => { s.syncError = err.message })
           throw err
         }
@@ -438,6 +584,10 @@ export const useAppStore = create<AppState>()(
               conductedBy: persistedCampaign.conductedBy,
               witnessedBy: persistedCampaign.witnessedBy,
               stepResults: persistedCampaign.stepResults,
+              responseMeasurements: persistedCampaign.responseMeasurements,
+              procedureSnapshot: persistedCampaign.procedureSnapshot,
+              pdfArtifact: persistedCampaign.pdfArtifact,
+              closedAt: persistedCampaign.closedAt,
             })
           } else {
             await dbUpdateCampaign(persistedCampaign.id, {
@@ -448,6 +598,10 @@ export const useAppStore = create<AppState>()(
               conductedBy: persistedCampaign.conductedBy,
               witnessedBy: persistedCampaign.witnessedBy,
               stepResults: persistedCampaign.stepResults,
+              responseMeasurements: persistedCampaign.responseMeasurements,
+              procedureSnapshot: persistedCampaign.procedureSnapshot,
+              pdfArtifact: persistedCampaign.pdfArtifact,
+              closedAt: persistedCampaign.closedAt,
             })
           }
         } catch (err: unknown) {
@@ -458,6 +612,9 @@ export const useAppStore = create<AppState>()(
       },
 
       removeTestCampaign: async (projectId, sifId, campaignId) => {
+        if (!ensureSIFEditable(get, set, projectId, sifId)) {
+          throw new Error(`Revision is locked for SIF ${sifId}`)
+        }
         const previousCampaigns = [...(selectSIF(get(), projectId, sifId)?.testCampaigns ?? [])]
         set(s => {
           const sif = findSIF(s, projectId, sifId)
@@ -473,6 +630,7 @@ export const useAppStore = create<AppState>()(
       },
 
       addOperationalEvent: (projectId, sifId, event) => {
+        if (!ensureSIFEditable(get, set, projectId, sifId)) return
         set(s => {
           const sif = findSIF(s, projectId, sifId)
           if (sif) { if (!sif.operationalEvents) sif.operationalEvents = []; sif.operationalEvents.unshift(event) }
@@ -482,6 +640,7 @@ export const useAppStore = create<AppState>()(
       },
 
       removeOperationalEvent: (projectId, sifId, eventId) => {
+        if (!ensureSIFEditable(get, set, projectId, sifId)) return
         set(s => {
           const sif = findSIF(s, projectId, sifId)
           if (sif?.operationalEvents) sif.operationalEvents = sif.operationalEvents.filter(e => e.id !== eventId)
@@ -491,6 +650,7 @@ export const useAppStore = create<AppState>()(
       },
 
       updateHAZOPTrace: (projectId, sifId, trace) => {
+        if (!ensureSIFEditable(get, set, projectId, sifId)) return
         set(s => { const sif = findSIF(s, projectId, sifId); if (sif) sif.hazopTrace = trace })
         dbUpdateSIF(sifId, { hazopTrace: trace }).catch(console.error)
       },
@@ -520,12 +680,186 @@ export const useAppStore = create<AppState>()(
           createdBy: data.createdBy,
           createdAt: new Date().toISOString(),
           snapshot: JSON.parse(JSON.stringify(sif)) as SIFRevision['snapshot'],
+          reportArtifact: createDefaultRevisionArtifact('prism_report'),
+          proofTestArtifact: createDefaultRevisionArtifact('prism_prooftest'),
+          reportConfigSnapshot: null,
         }
         set(s => { s.revisions[sifId] = [revision, ...(s.revisions[sifId] ?? [])] })
         try { await dbCreateRevision(revision) }
         catch (err: unknown) {
           set(s => { s.revisions[sifId] = (s.revisions[sifId] ?? []).filter(r => r.id !== id) })
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          throw err
+        }
+      },
+
+      publishRevision: async (projectId, sifId, data) => {
+        const found = getProjectAndSIF(get(), projectId, sifId)
+        if (!found) throw new Error(`SIF introuvable: ${sifId}`)
+        const { project, sif } = found
+        if (sif.revisionLockedAt) throw new Error(`Revision ${sif.revision} is already locked.`)
+
+        const revisionId = crypto.randomUUID()
+        const createdAt = new Date().toISOString()
+        const previousSIF = JSON.parse(JSON.stringify(sif)) as SIF
+        const publishedProcedure = sif.proofTestProcedure
+          ? {
+              ...sif.proofTestProcedure,
+              revision: sif.revision,
+              status: 'approved' as const,
+              approvedBy: sif.proofTestProcedure.approvedBy || sif.approvedBy,
+              approvedByDate: sif.proofTestProcedure.approvedByDate || createdAt.split('T')[0],
+            }
+          : sif.proofTestProcedure
+        const analysisSettings = loadSIFAnalysisSettings(sif.id) ?? DEFAULT_SIF_ANALYSIS_SETTINGS
+        const result = calcSIF(sif, {
+          projectStandard: project.standard,
+          missionTimeHours: analysisSettingsToMissionTimeHours(analysisSettings),
+          curvePoints: analysisSettings.chart.curvePoints,
+        })
+        const reportPdf = await buildSILReportPdfBlob({ project, sif, result })
+        const proofTestPdf = await buildProofTestPdfBlob({
+          sif,
+          project,
+          procedure: publishedProcedure,
+          campaigns: sif.testCampaigns,
+        })
+
+        const reportPath = buildRevisionArtifactPath({
+          bucket: 'prism_report',
+          project,
+          sif,
+          revisionId,
+          revisionLabel: sif.revision,
+          kind: 'report',
+        })
+        const proofTestPath = buildRevisionArtifactPath({
+          bucket: 'prism_prooftest',
+          project,
+          sif,
+          revisionId,
+          revisionLabel: sif.revision,
+          kind: 'prooftest',
+        })
+
+        let uploadedReport = createDefaultRevisionArtifact('prism_report')
+        let uploadedProofTest = createDefaultRevisionArtifact('prism_prooftest')
+        let revisionPersisted = false
+        const pendingArchSync = archSyncTimers.get(sifId)
+        if (pendingArchSync) {
+          clearTimeout(pendingArchSync)
+          archSyncTimers.delete(sifId)
+        }
+
+        try {
+          uploadedReport = await uploadRevisionArtifact({
+            ...uploadedReport,
+            path: reportPath.path,
+            fileName: reportPath.fileName,
+            status: 'pending',
+          }, reportPdf.blob)
+
+          uploadedProofTest = await uploadRevisionArtifact({
+            ...uploadedProofTest,
+            path: proofTestPath.path,
+            fileName: proofTestPath.fileName,
+            status: 'pending',
+          }, proofTestPdf.blob)
+
+          const revision: SIFRevision = {
+            id: revisionId,
+            sifId,
+            projectId,
+            revisionLabel: sif.revision,
+            status: 'approved',
+            changeDescription: data.changeDescription,
+            createdBy: data.createdBy,
+            createdAt,
+            snapshot: JSON.parse(JSON.stringify({
+              ...sif,
+              status: 'approved',
+              proofTestProcedure: publishedProcedure,
+            })) as SIFRevision['snapshot'],
+            reportArtifact: uploadedReport,
+            proofTestArtifact: uploadedProofTest,
+            reportConfigSnapshot: reportPdf.cfg as unknown as Record<string, unknown>,
+          }
+
+          set(s => {
+            applySIFPatch(s, projectId, sifId, {
+              status: 'approved',
+              revisionLockedAt: createdAt,
+              lockedRevisionId: revisionId,
+              proofTestProcedure: publishedProcedure,
+            })
+            s.revisions[sifId] = [revision, ...(s.revisions[sifId] ?? [])]
+          })
+
+          await dbCreateRevision(revision)
+          revisionPersisted = true
+          await dbUpdateSIF(sifId, {
+            status: 'approved',
+            revisionLockedAt: createdAt,
+            lockedRevisionId: revisionId,
+            proofTestProcedure: publishedProcedure,
+          })
+        } catch (err: unknown) {
+          if (revisionPersisted) {
+            await dbDeleteRevision(revisionId).catch(deleteErr => {
+              console.error('[PRISM] Failed to rollback published revision:', deleteErr)
+            })
+          }
+          await removeRevisionArtifact(uploadedProofTest)
+          await removeRevisionArtifact(uploadedReport)
+          set(s => {
+            s.revisions[sifId] = (s.revisions[sifId] ?? []).filter(revision => revision.id !== revisionId)
+            applySIFPatch(s, projectId, sifId, previousSIF)
+            s.syncError = err instanceof Error ? err.message : String(err)
+          })
+          throw err
+        }
+      },
+
+      startNextRevision: async (projectId, sifId) => {
+        const found = getProjectAndSIF(get(), projectId, sifId)
+        if (!found) throw new Error(`SIF introuvable: ${sifId}`)
+        const { sif } = found
+        if (!sif.revisionLockedAt) return
+
+        const previousSIF = JSON.parse(JSON.stringify(sif)) as SIF
+        const nextRevision = incrementRevisionLabel(sif.revision)
+        const nextDate = new Date().toISOString().split('T')[0]
+        const nextProcedure = sif.proofTestProcedure
+          ? {
+              ...sif.proofTestProcedure,
+              revision: nextRevision,
+              status: 'draft' as const,
+              verifiedBy: '',
+              verifiedByDate: '',
+              approvedBy: '',
+              approvedByDate: '',
+            }
+          : sif.proofTestProcedure
+
+        const patch: Partial<SIF> = {
+          revision: nextRevision,
+          status: 'draft',
+          date: nextDate,
+          revisionLockedAt: null,
+          lockedRevisionId: null,
+          verifiedBy: '',
+          approvedBy: '',
+          proofTestProcedure: nextProcedure,
+        }
+
+        set(s => { applySIFPatch(s, projectId, sifId, patch) })
+        try {
+          await dbUpdateSIF(sifId, patch)
+        } catch (err: unknown) {
+          set(s => {
+            applySIFPatch(s, projectId, sifId, previousSIF)
+            s.syncError = err instanceof Error ? err.message : String(err)
+          })
           throw err
         }
       },

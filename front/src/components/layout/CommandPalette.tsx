@@ -5,7 +5,7 @@ import {
   Search, Settings, Moon, Sun, FolderPlus, FilePlus,
   LayoutDashboard, Network, BarChart3, Shield, FlaskConical,
   FileText, Home, ChevronRight, Pencil, ListChecks, History,
-  ClipboardCheck, FileWarning, Lightbulb,
+  ClipboardCheck, Cpu, FileWarning, Lightbulb,
 } from 'lucide-react'
 import { BORDER, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
 
@@ -373,6 +373,15 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
         Icon: History,
         onSelect: () => run(() => navigate({ type: 'sif-history' })),
         isActive: view.type === 'sif-history',
+        level: 0,
+      },
+      {
+        id: 'engine',
+        label: 'Engine',
+        keywords: 'engine compute solver markov monte carlo python backend quant',
+        Icon: Cpu,
+        onSelect: () => run(() => navigate({ type: 'engine' })),
+        isActive: view.type === 'engine',
         level: 0,
       },
       {
