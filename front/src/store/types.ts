@@ -4,10 +4,16 @@
  * Navigation types, state interface, and tab definitions.
  * Extracted from appStore.ts for clarity.
  */
+import type { Session, User } from '@supabase/supabase-js'
 import type {
+  ComponentTemplate,
+  ComponentTemplateUpsertInput,
+  ProjectAccessSnapshot,
+  ProjectMemberStatus,
+  ProjectPermissionKey,
   Project, SIF, SIFSubsystem, SIFComponent,
   ProofTestProcedure, TestCampaign, OperationalEvent, HAZOPTrace,
-  SIFRevision,
+  OAuthProviderName, PasswordSignUpResult, SIFRevision, UserProfile,
 } from '@/core/types'
 
 // ─── Navigation ───────────────────────────────────────────────────────────
@@ -43,6 +49,18 @@ export interface AppState {
   projects: Project[]
   revisions: Record<string, SIFRevision[]>
   isDark: boolean
+  authSession: Session | null
+  authUser: User | null
+  profile: UserProfile | null
+  authLoading: boolean
+  authError: string | null
+  componentTemplates: ComponentTemplate[]
+  componentTemplatesLoading: boolean
+  componentTemplatesError: string | null
+  projectAccessByProject: Record<string, ProjectAccessSnapshot>
+  projectAccessLoading: boolean
+  projectAccessError: string | null
+  projectAccessProjectId: string | null
 
   // ── Sync ──
   isSyncing: boolean
@@ -68,10 +86,54 @@ export interface AppState {
   setRightPanelTab: (section: RightPanelSection, tab: string | null) => void
   toggleTheme: () => void
   setTheme: (isDark: boolean) => void
+  initializeAuth: () => Promise<void>
+  refreshProfile: () => Promise<void>
+  signInWithOAuth: (provider: OAuthProviderName) => Promise<void>
+  signInWithPassword: (email: string, password: string) => Promise<void>
+  signUpWithPassword: (
+    email: string,
+    password: string,
+    fullName: string,
+    metadata?: { company?: string; jobTitle?: string },
+  ) => Promise<PasswordSignUpResult>
+  requestPasswordReset: (email: string) => Promise<void>
+  signOut: () => Promise<void>
+  fetchComponentTemplates: (includeArchived?: boolean) => Promise<void>
+  saveComponentTemplate: (input: ComponentTemplateUpsertInput) => Promise<ComponentTemplate>
+  importComponentTemplates: (inputs: ComponentTemplateUpsertInput[]) => Promise<ComponentTemplate[]>
+  archiveComponentTemplate: (templateId: string) => Promise<void>
+  deleteComponentTemplate: (templateId: string) => Promise<void>
+  openProjectAccess: (projectId: string) => void
+  closeProjectAccess: () => void
+  fetchProjectAccess: (projectId: string) => Promise<void>
+  initializeProjectAccess: (projectId: string) => Promise<void>
+  createProjectRole: (
+    projectId: string,
+    input: { roleKey: string; name: string; description: string; color: string; sortOrder: number },
+  ) => Promise<void>
+  updateProjectRole: (
+    projectId: string,
+    roleId: string,
+    patch: { name?: string; description?: string; color?: string; sortOrder?: number },
+  ) => Promise<void>
+  deleteProjectRole: (projectId: string, roleId: string) => Promise<void>
+  setProjectRolePermission: (
+    projectId: string,
+    roleId: string,
+    permission: ProjectPermissionKey,
+    enabled: boolean,
+  ) => Promise<void>
+  addProjectMemberByEmail: (projectId: string, email: string, roleId: string) => Promise<void>
+  updateProjectMemberRole: (projectId: string, memberId: string, roleId: string) => Promise<void>
+  updateProjectMemberStatus: (projectId: string, memberId: string, status: ProjectMemberStatus) => Promise<void>
+  removeProjectMember: (projectId: string, memberId: string) => Promise<void>
 
   // ── Actions: Data ──
   setProjects: (projects: Project[]) => void
   setSyncError: (err: string | null) => void
+  setAuthError: (err: string | null) => void
+  setComponentTemplatesError: (err: string | null) => void
+  setProjectAccessError: (err: string | null) => void
 
   // ── Actions: Projects ──
   openNewProject: () => void

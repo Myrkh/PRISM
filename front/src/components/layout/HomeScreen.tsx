@@ -8,7 +8,7 @@
 import { useState, useRef } from 'react'
 import {
   FolderPlus, FilePlus, Folder,
-  CheckCircle2,
+  CheckCircle2, ShieldCheck,
   Pencil, Trash2, Archive, CheckCheck, MoreHorizontal, Plus, ChevronRight, X,
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
@@ -23,6 +23,7 @@ export function HomeScreen() {
   const navigate        = useAppStore(s => s.navigate)
   const openNewProject  = useAppStore(s => s.openNewProject)
   const openEditProject = useAppStore(s => s.openEditProject)
+  const openProjectAccess = useAppStore(s => s.openProjectAccess)
   const openNewSIF      = useAppStore(s => s.openNewSIF)
   const openEditSIF     = useAppStore(s => s.openEditSIF)
   const deleteProject   = useAppStore(s => s.deleteProject)
@@ -176,6 +177,10 @@ export function HomeScreen() {
                           <MenuBtn icon={Plus} label="Nouvelle SIF" hoverColor={TEAL} onClick={() => { openNewSIF(proj.id); closeMenu() }} />
                         )}
                         <MenuBtn icon={Pencil} label="Modifier" onClick={() => { openEditProject(proj.id); closeMenu() }} />
+                        <MenuBtn icon={ShieldCheck} label="Equipe & droits" hoverColor="#5FD8D2" onClick={() => {
+                          openProjectAccess(proj.id)
+                          closeMenu()
+                        }} />
                         {proj.status === 'active' && (
                           <MenuBtn icon={CheckCheck} label="Clôturer" hoverColor="#60A5FA" onClick={() => {
                             closeMenu()

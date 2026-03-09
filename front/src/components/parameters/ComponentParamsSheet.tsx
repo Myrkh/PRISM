@@ -76,6 +76,7 @@ const NAV: { id: NavTab; label: string; icon: React.ElementType; desc: string }[
 ]
 
 // ─── Shared input style ───────────────────────────────────────────────────
+const BG = PAGE_BG
 const inp = 'font-mono text-sm h-8 rounded-xl border-gray-200 focus:border-[#009BA4] focus:ring-1 focus:ring-[#009BA4]/30 transition-all'
 
 // ─── Sub-components ───────────────────────────────────────────────────────

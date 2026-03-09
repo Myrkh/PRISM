@@ -12,7 +12,7 @@
 import { useState, useEffect } from 'react'
 import {
   Tag, FlaskConical, ClipboardList, Settings2,
-  Activity, Cpu, Zap, X,
+  Activity, Cpu, Save, Zap, X,
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import {
@@ -20,9 +20,11 @@ import {
   formatPct,
 } from '@/core/math/pfdCalc'
 import type {
+  ComponentTemplateUpsertInput,
   SIFComponent, SubsystemType, ParamMode, TestType,
   NatureType, InstrumentCategory, DeterminedCharacter,
 } from '@/core/types'
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { BORDER, CARD_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } from '@/styles/tokens'
 const PANEL = CARD_BG
 
@@ -143,6 +145,35 @@ const PANEL_TABS: { id: PanelTab; label: string; Icon: React.ElementType }[] = [
   { id: 'test',           label: 'Test',    Icon: ClipboardList},
   { id: 'advanced',       label: 'Avancé',  Icon: Settings2    },
 ]
+
+const TEMPLATE_SCOPE_OPTIONS: {
+  value: ComponentTemplateUpsertInput['scope']
+  label: string
+  description: string
+}[] = [
+  { value: 'user', label: 'My Library', description: 'Disponible dans tous vos projets.' },
+  { value: 'project', label: 'Project', description: 'Visible seulement dans le projet courant.' },
+]
+
+const TEMPLATE_REVIEW_OPTIONS: {
+  value: NonNullable<ComponentTemplateUpsertInput['reviewStatus']>
+  label: string
+}[] = [
+  { value: 'draft', label: 'Draft' },
+  { value: 'review', label: 'Review' },
+  { value: 'approved', label: 'Approved' },
+]
+
+function tagsToInput(tags: string[]): string {
+  return tags.join(', ')
+}
+
+function inputToTags(raw: string): string[] {
+  return raw
+    .split(',')
+    .map(tag => tag.trim())
+    .filter((tag, index, all) => tag.length > 0 && all.indexOf(tag) === index)
+}
 
 // ─── Small reusable form widgets ──────────────────────────────────────────
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -315,14 +346,36 @@ export function ComponentParamsPanel({
   component, subsystemType, projectId, sifId, subsystemId, channelId, onClose,
 }: Props) {
   const updateComponent = useAppStore(s => s.updateComponent)
+  const saveComponentTemplate = useAppStore(s => s.saveComponentTemplate)
+  const setSyncError = useAppStore(s => s.setSyncError)
   const [local, setLocal] = useState<SIFComponent>(() => synchronizeComponentParams(component))
   const [activeTab, setActiveTab] = useState<PanelTab>('identification')
   const [factorizedLambdaUnit, setFactorizedLambdaUnit] = useState<FactorizedLambdaUnit>('FIT')
   const [developedLambdaUnit, setDevelopedLambdaUnit] = useState<DevelopedLambdaUnit>('FIT')
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false)
+  const [templateScope, setTemplateScope] = useState<ComponentTemplateUpsertInput['scope']>('user')
+  const [templateName, setTemplateName] = useState(component.instrumentType || component.tagName)
+  const [templateDescription, setTemplateDescription] = useState(component.description)
+  const [templateTags, setTemplateTags] = useState('')
+  const [templateSourceReference, setTemplateSourceReference] = useState('')
+  const [templateReviewStatus, setTemplateReviewStatus] = useState<NonNullable<ComponentTemplateUpsertInput['reviewStatus']>>('draft')
+  const [saveBusy, setSaveBusy] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
+  const [saveNotice, setSaveNotice] = useState<string | null>(null)
 
   // Sync local state whenever the component prop changes
   // (different component selected, OR same component re-selected after store update)
   useEffect(() => { setLocal(synchronizeComponentParams(component)) }, [component])
+  useEffect(() => {
+    setTemplateName(component.instrumentType || component.tagName)
+    setTemplateDescription(component.description)
+    setTemplateTags('')
+    setTemplateSourceReference('')
+    setTemplateReviewStatus('draft')
+    setTemplateScope('user')
+    setSaveError(null)
+    setSaveNotice(null)
+  }, [component])
 
   // Auto-save
   const commit = (updater: (prev: SIFComponent) => SIFComponent) => {
@@ -354,6 +407,54 @@ export function ComponentParamsPanel({
   const meta = TYPE_META[subsystemType]
   const activeIdx = PANEL_TABS.findIndex(t => t.id === activeTab)
 
+  const openSaveDialog = () => {
+    setTemplateName(local.instrumentType || local.tagName)
+    setTemplateDescription(local.description)
+    setTemplateTags(tagsToInput([
+      local.subsystemType,
+      local.instrumentCategory,
+      local.manufacturer,
+    ].filter(Boolean)))
+    setTemplateSourceReference('')
+    setTemplateReviewStatus('draft')
+    setTemplateScope('user')
+    setSaveError(null)
+    setIsSaveDialogOpen(true)
+  }
+
+  const submitTemplateSave = async () => {
+    const trimmedName = templateName.trim()
+    if (!trimmedName) {
+      setSaveError('Le nom du template est requis.')
+      return
+    }
+
+    setSaveBusy(true)
+    setSaveError(null)
+    setSyncError(null)
+
+    try {
+      await saveComponentTemplate({
+        scope: templateScope,
+        projectId: templateScope === 'project' ? projectId : null,
+        name: trimmedName,
+        description: templateDescription.trim(),
+        sourceReference: templateSourceReference.trim() || null,
+        tags: inputToTags(templateTags),
+        reviewStatus: templateReviewStatus,
+        componentSnapshot: local,
+      })
+      setIsSaveDialogOpen(false)
+      setSaveNotice(`Template enregistré dans ${templateScope === 'project' ? 'Project' : 'My Library'}.`)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      setSaveError(message)
+      setSyncError(message)
+    } finally {
+      setSaveBusy(false)
+    }
+  }
+
   return (
     <div className="flex flex-col h-full" style={{ background: PANEL }}>
       {/* ── Header ── */}
@@ -372,10 +473,21 @@ export function ComponentParamsPanel({
               </p>
             </div>
           </div>
-          <button onClick={onClose} className="shrink-0 rounded p-1 transition-colors hover:bg-red-900/30"
-            style={{ color: TEXT_DIM }}>
-            <X size={12} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={openSaveDialog}
+              className="inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-bold transition-colors"
+              style={{ borderColor: `${meta.color}45`, background: `${meta.color}12`, color: meta.color }}
+            >
+              <Save size={11} />
+              Template
+            </button>
+            <button onClick={onClose} className="shrink-0 rounded p-1 transition-colors hover:bg-red-900/30"
+              style={{ color: TEXT_DIM }}>
+              <X size={12} />
+            </button>
+          </div>
         </div>
 
         {/* Live metrics strip */}
@@ -385,6 +497,13 @@ export function ComponentParamsPanel({
           <LiveMetric label="λ"   value={`${local.factorized.lambda.toFixed(2)}`} />
           <LiveMetric label="T1"  value={`${local.test.T1}${local.test.T1Unit}`} />
         </div>
+
+        {saveNotice && (
+          <div className="mb-3 rounded-md border px-2.5 py-2 text-[10px]"
+            style={{ background: `${TEAL}08`, borderColor: `${TEAL}25`, color: TEAL_DIM }}>
+            {saveNotice}
+          </div>
+        )}
 
         {/* Tab bar intercalaire */}
         <div className="flex items-end" style={{ borderBottom: `1px solid ${BORDER}` }}>
@@ -751,6 +870,123 @@ export function ComponentParamsPanel({
         )}
 
       </div>
+
+      <Dialog open={isSaveDialogOpen} onOpenChange={open => {
+        setIsSaveDialogOpen(open)
+        if (!open) setSaveError(null)
+      }}>
+        <DialogContent className="max-w-xl border-[#2A3340] bg-[#111821] text-[#DFE8F1]">
+          <DialogHeader>
+            <DialogTitle>Enregistrer comme template SIL</DialogTitle>
+            <p className="text-sm" style={{ color: TEXT_DIM }}>
+              Snapshot complet du composant avec ses parametres IEC 61508, tests, donnees factorisees/developpees et reglages avances.
+            </p>
+          </DialogHeader>
+
+          <div className="space-y-3">
+            <FieldRow label="Nom du template">
+              <StyledInput value={templateName} onChange={setTemplateName} placeholder="Pressure transmitter — Rosemount 3051S" />
+            </FieldRow>
+
+            <FieldRow label="Scope">
+              <div className="grid grid-cols-2 gap-2">
+                {TEMPLATE_SCOPE_OPTIONS.map(option => {
+                  const isActive = option.value === templateScope
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => setTemplateScope(option.value)}
+                      className="rounded-lg border px-3 py-2 text-left transition-colors"
+                      style={isActive
+                        ? { borderColor: TEAL, background: `${TEAL}12`, color: TEXT }
+                        : { borderColor: BORDER2, background: BG, color: TEXT_DIM }}
+                    >
+                      <p className="text-xs font-semibold" style={{ color: isActive ? TEAL_DIM : TEXT }}>
+                        {option.label}
+                      </p>
+                      <p className="mt-1 text-[10px] leading-relaxed">
+                        {option.description}
+                      </p>
+                    </button>
+                  )
+                })}
+              </div>
+            </FieldRow>
+
+            <div className="grid grid-cols-2 gap-3">
+              <FieldRow label="Review status">
+                <StyledSelect
+                  value={templateReviewStatus}
+                  onChange={value => setTemplateReviewStatus(value as NonNullable<ComponentTemplateUpsertInput['reviewStatus']>)}
+                  options={TEMPLATE_REVIEW_OPTIONS}
+                />
+              </FieldRow>
+              <FieldRow label="Source reference">
+                <StyledInput value={templateSourceReference} onChange={setTemplateSourceReference} placeholder="SERH 2023, FMEDA ref, cert #" />
+              </FieldRow>
+            </div>
+
+            <FieldRow label="Tags">
+              <StyledInput
+                value={templateTags}
+                onChange={setTemplateTags}
+                placeholder="pressure, transmitter, rosemount, SIL2"
+              />
+            </FieldRow>
+
+            <FieldRow label="Description">
+              <textarea
+                value={templateDescription}
+                onChange={event => setTemplateDescription(event.target.value)}
+                rows={3}
+                className="w-full rounded-md border px-2 py-1.5 text-xs outline-none resize-none"
+                style={{ background: BG, borderColor: BORDER2, color: TEXT }}
+                placeholder="Description technique ou contexte d'utilisation…"
+              />
+            </FieldRow>
+
+            <div className="grid grid-cols-2 gap-3 rounded-lg border p-3"
+              style={{ borderColor: BORDER2, background: BG }}>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Fabricant</p>
+                <p className="mt-1 text-xs" style={{ color: TEXT }}>{local.manufacturer || 'Non renseigne'}</p>
+              </div>
+              <div>
+                <p className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Data source</p>
+                <p className="mt-1 text-xs" style={{ color: TEXT }}>{local.dataSource || 'Non renseignee'}</p>
+              </div>
+            </div>
+
+            {saveError && (
+              <div className="rounded-lg border px-3 py-2 text-[11px]"
+                style={{ background: '#7F1D1D20', borderColor: '#F8717130', color: '#FCA5A5' }}>
+                {saveError}
+              </div>
+            )}
+          </div>
+
+          <DialogFooter>
+            <button
+              type="button"
+              onClick={() => setIsSaveDialogOpen(false)}
+              className="rounded-md border px-3 py-2 text-xs font-semibold"
+              style={{ borderColor: BORDER2, background: BG, color: TEXT }}
+            >
+              Annuler
+            </button>
+            <button
+              type="button"
+              onClick={() => void submitTemplateSave()}
+              disabled={saveBusy}
+              className="rounded-md px-3 py-2 text-xs font-semibold disabled:opacity-50"
+              style={{ background: TEAL, color: '#041014' }}
+            >
+              {saveBusy ? 'Enregistrement…' : 'Enregistrer le template'}
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

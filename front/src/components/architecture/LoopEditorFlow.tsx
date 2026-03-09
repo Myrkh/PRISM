@@ -54,6 +54,7 @@ import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { CCFBetaRightPanel } from '@/components/architecture/CCFBetaRightPanel'
 import { CCFBetaWorkspace } from '@/components/architecture/CCFBetaWorkspace'
 import { LoopEditorRightPanel } from '@/components/architecture/LoopEditorRightPanel'
+import { instantiateComponentTemplate, parseLibraryDragPayload } from '@/features/library'
 import { BORDER, TEAL, TEAL_DIM, TEXT, TEXT_DIM, PANEL_BG, dark } from '@/styles/tokens'
 
 // ─── Design ──────────────────────────────────────────────────────────────
@@ -171,12 +172,10 @@ function ChannelBlock({
     e.preventDefault(); setOver(false)
     const raw = e.dataTransfer.getData('application/prism-lib')
     if (!raw) return
-    const lib = JSON.parse(raw)
-    const prefix = lib.type === 'sensor' ? 'PT' : lib.type === 'logic' ? 'PLC' : 'XV'
-    const comp = DEFAULT_COMPONENT(lib.type, `${prefix}-${nanoid(4).toUpperCase()}`)
-    comp.instrumentType    = lib.name
-    comp.factorized.lambda = lib.lambda
-    comp.factorized.DCd    = lib.dc
+    const template = parseLibraryDragPayload(raw)
+    if (!template || template.subsystemType !== subsystem.type) return
+    const prefix = template.subsystemType === 'sensor' ? 'PT' : template.subsystemType === 'logic' ? 'PLC' : 'XV'
+    const comp = instantiateComponentTemplate(template, `${prefix}-${nanoid(4).toUpperCase()}`)
     addComponent(projectId, sifId, subsystem.id, channel.id, comp)
     selectComponent(comp.id)
   }
@@ -825,7 +824,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
   }, [setRightPanelOverride])
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
+    <div className="flex h-full min-w-0 w-full flex-1 flex-col overflow-hidden">
 
       {workspaceMode === 'canvas' && (
         <div
@@ -1046,7 +1045,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
           />
         </div>
       ) : (
-        <div className="flex-1 min-h-0" style={{ background: CANVAS_BG }}>
+        <div className="flex-1 min-h-0 min-w-0 w-full" style={{ background: CANVAS_BG }}>
           <ReactFlow
             nodes={nodes} edges={edges}
             onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}

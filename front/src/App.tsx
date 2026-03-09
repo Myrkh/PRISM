@@ -19,6 +19,8 @@ import { SIFDashboard } from '@/components/sif/SIFDashboard'
 import { SIFModal } from '@/components/sif/SIFModal'
 import { SIFWorkbenchLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { ProjectModal } from '@/components/projects/ProjectModal'
+import { ProjectAccessDialog } from '@/components/projects/ProjectAccessDialog'
+import { AuthScreen } from '@/components/auth/AuthScreen'
 import { SettingsWorkspace } from '@/components/settings/SettingsWorkspace'
 import { ReviewQueueWorkspace } from '@/components/global/ReviewQueueWorkspace'
 import { AuditLogWorkspace } from '@/components/global/AuditLogWorkspace'
@@ -140,12 +142,18 @@ export default function App() {
   const isDark      = useAppStore(s => s.isDark)
   const projects    = useAppStore(s => s.projects)
   const setProjects = useAppStore(s => s.setProjects)
+  const initializeAuth = useAppStore(s => s.initializeAuth)
+  const authLoading = useAppStore(s => s.authLoading)
+  const authUser    = useAppStore(s => s.authUser)
   const syncError   = useAppStore(s => s.syncError)
   const setSyncError = useAppStore(s => s.setSyncError)
+  const authError   = useAppStore(s => s.authError)
+  const setAuthError = useAppStore(s => s.setAuthError)
 
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
   const lastNonSettingsViewRef = useRef<AppView>({ type: 'projects' })
+  const authUserId = authUser?.id ?? null
 
   // Dark mode
   useEffect(() => {
@@ -167,7 +175,11 @@ export default function App() {
     }
   }
 
-  useEffect(() => { loadData() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => { void initializeAuth() }, [initializeAuth])
+  useEffect(() => {
+    if (authLoading || !authUserId) return
+    void loadData()
+  }, [authLoading, authUserId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keep track of previous non-settings view for ESC exit in settings
   useEffect(() => {
@@ -200,6 +212,8 @@ export default function App() {
     return () => window.removeEventListener('popstate', sync)
   }, [loading]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  if (authLoading) return <LoadingScreen />
+  if (!authUser) return <AuthScreen />
   if (loading) return <LoadingScreen />
   if (loadError) return <ErrorScreen error={loadError} onRetry={loadData} />
 
@@ -215,6 +229,19 @@ export default function App() {
         >
           <span>⚠ Sync Supabase : {syncError}</span>
           <button onClick={() => setSyncError(null)}
+            className="ml-auto text-xs underline opacity-70 hover:opacity-100">
+            OK
+          </button>
+        </div>
+      )}
+
+      {authError && (
+        <div
+          className="fixed bottom-20 right-4 z-50 flex items-center gap-3 rounded-xl border px-4 py-3 shadow-xl text-sm"
+          style={{ background: '#1D232A', borderColor: '#F59E0B55', color: '#FBBF24', maxWidth: 420 }}
+        >
+          <span>⚠ Auth Supabase : {authError}</span>
+          <button onClick={() => setAuthError(null)}
             className="ml-auto text-xs underline opacity-70 hover:opacity-100">
             OK
           </button>
@@ -255,6 +282,7 @@ export default function App() {
 
       {/* Modales à la racine — disponibles depuis toutes les vues */}
       <ProjectModal />
+      <ProjectAccessDialog />
       <SIFModal />
     </div>
   )

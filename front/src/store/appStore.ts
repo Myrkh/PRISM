@@ -40,9 +40,48 @@ import {
 } from '@/core/models/analysisSettings'
 import { buildSILReportPdfBlob } from '@/components/report/silReportPdf'
 import { buildProofTestPdfBlob } from '@/components/prooftest/proofTestPdf'
-import type { Project, SIF, SIFRevision } from '@/core/types'
+import {
+  fetchProfile,
+  getCurrentSession,
+  requestPasswordReset,
+  signInWithOAuthProvider,
+  signInWithPasswordCredentials,
+  signOutCurrentUser,
+  signUpWithPasswordCredentials,
+  subscribeToAuthState,
+  upsertProfileFromUser,
+} from '@/lib/auth'
+import {
+  dbArchiveComponentTemplate,
+  dbDeleteComponentTemplate,
+  dbFetchComponentTemplates,
+  dbSaveComponentTemplate,
+  dbUpsertComponentTemplates,
+} from '@/lib/componentTemplates'
+import {
+  dbAddProjectMemberByEmail,
+  dbCreateProjectRole,
+  dbDeleteProjectRole,
+  dbFetchProjectAccess,
+  dbInitializeProjectAccess,
+  dbRemoveProjectMember,
+  dbSetProjectRolePermission,
+  dbUpdateProjectMemberRole,
+  dbUpdateProjectMemberStatus,
+  dbUpdateProjectRole,
+} from '@/lib/projectAccess'
+import type {
+  ComponentTemplate,
+  Project,
+  ProjectAccessSnapshot,
+  ProjectMemberStatus,
+  ProjectPermissionKey,
+  SIF,
+  SIFRevision,
+} from '@/core/types'
 import type { AppState } from './types'
 import { selectSIF } from './selectors'
+import type { Subscription } from '@supabase/supabase-js'
 
 // Re-export types for backward compatibility
 export type { AppView, SIFTab, SettingsSection, AppState } from './types'
@@ -60,6 +99,8 @@ export {
 // ─── Debounced architecture sync ───────────────────────────────────────────
 const archSyncTimers = new Map<string, ReturnType<typeof setTimeout>>()
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
+let authSubscription: Subscription | null = null
+let authInitPromise: Promise<void> | null = null
 
 function isUuid(value: string | null | undefined): value is string {
   return !!value && UUID_RE.test(value)
@@ -148,6 +189,45 @@ function applySIFPatch(state: AppState, projectId: string, sifId: string, patch:
   if (sif) Object.assign(sif, patch)
 }
 
+function upsertComponentTemplates(
+  current: ComponentTemplate[],
+  incoming: ComponentTemplate[],
+): ComponentTemplate[] {
+  const next = [...current]
+  for (const template of incoming) {
+    const idx = next.findIndex(entry => entry.id === template.id)
+    if (idx >= 0) next[idx] = template
+    else next.unshift(template)
+  }
+  return next.sort((a, b) => {
+    const left = a.updatedAt ?? a.createdAt ?? ''
+    const right = b.updatedAt ?? b.createdAt ?? ''
+    return right.localeCompare(left)
+  })
+}
+
+async function syncProjectAccessIntoState(
+  set: (recipe: (state: AppState) => void) => void,
+  projectId: string,
+): Promise<ProjectAccessSnapshot> {
+  const snapshot = await dbFetchProjectAccess(projectId)
+  set(state => {
+    state.projectAccessByProject[projectId] = snapshot
+    state.projectAccessLoading = false
+    state.projectAccessError = null
+  })
+  return snapshot
+}
+
+async function resolveProfileFromAuthState(user: AppState['authUser']) {
+  if (!user) return null
+  try {
+    return await upsertProfileFromUser(user)
+  } catch {
+    return await fetchProfile(user.id)
+  }
+}
+
 // ─── Store ─────────────────────────────────────────────────────────────────
 export const useAppStore = create<AppState>()(
   devtools(
@@ -159,6 +239,18 @@ export const useAppStore = create<AppState>()(
       projects: [],
       revisions: {},
       isDark: true,
+      authSession: null,
+      authUser: null,
+      profile: null,
+      authLoading: true,
+      authError: null,
+      componentTemplates: [],
+      componentTemplatesLoading: false,
+      componentTemplatesError: null,
+      projectAccessByProject: {},
+      projectAccessLoading: false,
+      projectAccessError: null,
+      projectAccessProjectId: null,
       isSyncing: false,
       syncError: null,
       view: { type: 'projects' },
@@ -196,6 +288,431 @@ export const useAppStore = create<AppState>()(
 
       toggleTheme: () => set(s => { s.isDark = !s.isDark }),
       setTheme: isDark => set(s => { s.isDark = isDark }),
+      initializeAuth: async () => {
+        if (authInitPromise) return authInitPromise
+
+        set(s => {
+          s.authLoading = true
+          s.authError = null
+        })
+
+        authInitPromise = (async () => {
+          if (!authSubscription) {
+            authSubscription = subscribeToAuthState((_event, session) => {
+              void (async () => {
+                try {
+                  const profile = await resolveProfileFromAuthState(session?.user ?? null)
+                  set(s => {
+                    s.authSession = session
+                    s.authUser = session?.user ?? null
+                    s.profile = profile
+                    s.authLoading = false
+                    s.authError = null
+                    if (!session?.user) {
+                      s.componentTemplates = []
+                      s.componentTemplatesError = null
+                      s.componentTemplatesLoading = false
+                      s.projectAccessByProject = {}
+                      s.projectAccessError = null
+                      s.projectAccessLoading = false
+                      s.projectAccessProjectId = null
+                    }
+                  })
+                } catch (err: unknown) {
+                  set(s => {
+                    s.authSession = session
+                    s.authUser = session?.user ?? null
+                    s.profile = null
+                    s.authLoading = false
+                    s.authError = err instanceof Error ? err.message : String(err)
+                    if (!session?.user) {
+                      s.componentTemplates = []
+                      s.componentTemplatesError = null
+                      s.componentTemplatesLoading = false
+                      s.projectAccessByProject = {}
+                      s.projectAccessError = null
+                      s.projectAccessLoading = false
+                      s.projectAccessProjectId = null
+                    }
+                  })
+                }
+              })()
+            })
+          }
+
+          try {
+            const session = await getCurrentSession()
+            const profile = await resolveProfileFromAuthState(session?.user ?? null)
+            set(s => {
+              s.authSession = session
+              s.authUser = session?.user ?? null
+              s.profile = profile
+              s.authLoading = false
+              s.authError = null
+              if (!session?.user) {
+                s.componentTemplates = []
+                s.componentTemplatesError = null
+                s.componentTemplatesLoading = false
+                s.projectAccessByProject = {}
+                s.projectAccessError = null
+                s.projectAccessLoading = false
+                s.projectAccessProjectId = null
+              }
+            })
+          } catch (err: unknown) {
+            set(s => {
+              s.authLoading = false
+              s.authError = err instanceof Error ? err.message : String(err)
+            })
+          }
+        })().finally(() => {
+          authInitPromise = null
+        })
+
+        return authInitPromise
+      },
+      refreshProfile: async () => {
+        const user = get().authUser
+        if (!user) {
+          set(s => { s.profile = null })
+          return
+        }
+
+        set(s => { s.authError = null })
+        try {
+          const profile = await resolveProfileFromAuthState(user)
+          set(s => { s.profile = profile })
+        } catch (err: unknown) {
+          set(s => { s.authError = err instanceof Error ? err.message : String(err) })
+          throw err
+        }
+      },
+      signInWithOAuth: async (provider) => {
+        set(s => {
+          s.authError = null
+          s.authLoading = true
+        })
+        try {
+          await signInWithOAuthProvider(provider)
+        } catch (err: unknown) {
+          set(s => {
+            s.authLoading = false
+            s.authError = err instanceof Error ? err.message : String(err)
+          })
+          throw err
+        }
+      },
+      signInWithPassword: async (email, password) => {
+        set(s => {
+          s.authError = null
+          s.authLoading = true
+        })
+        try {
+          await signInWithPasswordCredentials(email, password)
+        } catch (err: unknown) {
+          set(s => {
+            s.authLoading = false
+            s.authError = err instanceof Error ? err.message : String(err)
+          })
+          throw err
+        }
+      },
+      signUpWithPassword: async (email, password, fullName, metadata) => {
+        set(s => {
+          s.authError = null
+          s.authLoading = true
+        })
+        try {
+          const result = await signUpWithPasswordCredentials(email, password, fullName, metadata)
+          if (result === 'pending_confirmation') {
+            set(s => {
+              s.authLoading = false
+            })
+          }
+          return result
+        } catch (err: unknown) {
+          set(s => {
+            s.authLoading = false
+            s.authError = err instanceof Error ? err.message : String(err)
+          })
+          throw err
+        }
+      },
+      requestPasswordReset: async (email) => {
+        set(s => { s.authError = null })
+        try {
+          await requestPasswordReset(email)
+        } catch (err: unknown) {
+          set(s => { s.authError = err instanceof Error ? err.message : String(err) })
+          throw err
+        }
+      },
+      signOut: async () => {
+        set(s => { s.authError = null })
+        try {
+          await signOutCurrentUser()
+          set(s => {
+            s.authSession = null
+            s.authUser = null
+            s.profile = null
+            s.authLoading = false
+            s.componentTemplates = []
+            s.componentTemplatesError = null
+            s.componentTemplatesLoading = false
+            s.projectAccessByProject = {}
+            s.projectAccessError = null
+            s.projectAccessLoading = false
+            s.projectAccessProjectId = null
+          })
+        } catch (err: unknown) {
+          set(s => { s.authError = err instanceof Error ? err.message : String(err) })
+          throw err
+        }
+      },
+      fetchComponentTemplates: async (includeArchived = false) => {
+        set(s => {
+          s.componentTemplatesLoading = true
+          s.componentTemplatesError = null
+        })
+        try {
+          const templates = await dbFetchComponentTemplates(includeArchived)
+          set(s => {
+            s.componentTemplates = templates
+            s.componentTemplatesLoading = false
+            s.componentTemplatesError = null
+          })
+        } catch (err: unknown) {
+          set(s => {
+            s.componentTemplatesLoading = false
+            s.componentTemplatesError = err instanceof Error ? err.message : String(err)
+          })
+          throw err
+        }
+      },
+      saveComponentTemplate: async (input) => {
+        set(s => { s.componentTemplatesError = null })
+        try {
+          const template = await dbSaveComponentTemplate(input)
+          set(s => {
+            s.componentTemplates = upsertComponentTemplates(s.componentTemplates, [template])
+          })
+          return template
+        } catch (err: unknown) {
+          set(s => { s.componentTemplatesError = err instanceof Error ? err.message : String(err) })
+          throw err
+        }
+      },
+      importComponentTemplates: async (inputs) => {
+        set(s => {
+          s.componentTemplatesLoading = true
+          s.componentTemplatesError = null
+        })
+        try {
+          const imported = await dbUpsertComponentTemplates(inputs)
+          set(s => {
+            s.componentTemplates = upsertComponentTemplates(s.componentTemplates, imported)
+            s.componentTemplatesLoading = false
+          })
+          return imported
+        } catch (err: unknown) {
+          set(s => {
+            s.componentTemplatesLoading = false
+            s.componentTemplatesError = err instanceof Error ? err.message : String(err)
+          })
+          throw err
+        }
+      },
+      archiveComponentTemplate: async (templateId) => {
+        set(s => { s.componentTemplatesError = null })
+        try {
+          const archived = await dbArchiveComponentTemplate(templateId)
+          set(s => {
+            s.componentTemplates = upsertComponentTemplates(s.componentTemplates, [archived])
+          })
+        } catch (err: unknown) {
+          set(s => { s.componentTemplatesError = err instanceof Error ? err.message : String(err) })
+          throw err
+        }
+      },
+      deleteComponentTemplate: async (templateId) => {
+        set(s => { s.componentTemplatesError = null })
+        try {
+          await dbDeleteComponentTemplate(templateId)
+          set(s => {
+            s.componentTemplates = s.componentTemplates.filter(template => template.id !== templateId)
+          })
+        } catch (err: unknown) {
+          set(s => { s.componentTemplatesError = err instanceof Error ? err.message : String(err) })
+          throw err
+        }
+      },
+      openProjectAccess: (projectId) => set(s => {
+        s.projectAccessProjectId = projectId
+        s.projectAccessError = null
+      }),
+      closeProjectAccess: () => set(s => {
+        s.projectAccessProjectId = null
+        s.projectAccessError = null
+      }),
+      fetchProjectAccess: async (projectId) => {
+        set(s => {
+          s.projectAccessLoading = true
+          s.projectAccessError = null
+        })
+        try {
+          await syncProjectAccessIntoState(set, projectId)
+        } catch (err: unknown) {
+          set(s => {
+            s.projectAccessLoading = false
+            s.projectAccessError = err instanceof Error ? err.message : String(err)
+          })
+          throw err
+        }
+      },
+      initializeProjectAccess: async (projectId) => {
+        set(s => {
+          s.projectAccessLoading = true
+          s.projectAccessError = null
+        })
+        try {
+          await dbInitializeProjectAccess(projectId)
+          await syncProjectAccessIntoState(set, projectId)
+        } catch (err: unknown) {
+          set(s => {
+            s.projectAccessLoading = false
+            s.projectAccessError = err instanceof Error ? err.message : String(err)
+          })
+          throw err
+        }
+      },
+      createProjectRole: async (projectId, input) => {
+        set(s => {
+          s.projectAccessLoading = true
+          s.projectAccessError = null
+        })
+        try {
+          await dbCreateProjectRole({ projectId, ...input })
+          await syncProjectAccessIntoState(set, projectId)
+        } catch (err: unknown) {
+          set(s => {
+            s.projectAccessLoading = false
+            s.projectAccessError = err instanceof Error ? err.message : String(err)
+          })
+          throw err
+        }
+      },
+      updateProjectRole: async (projectId, roleId, patch) => {
+        set(s => {
+          s.projectAccessLoading = true
+          s.projectAccessError = null
+        })
+        try {
+          await dbUpdateProjectRole(roleId, patch)
+          await syncProjectAccessIntoState(set, projectId)
+        } catch (err: unknown) {
+          set(s => {
+            s.projectAccessLoading = false
+            s.projectAccessError = err instanceof Error ? err.message : String(err)
+          })
+          throw err
+        }
+      },
+      deleteProjectRole: async (projectId, roleId) => {
+        set(s => {
+          s.projectAccessLoading = true
+          s.projectAccessError = null
+        })
+        try {
+          await dbDeleteProjectRole(roleId)
+          await syncProjectAccessIntoState(set, projectId)
+        } catch (err: unknown) {
+          set(s => {
+            s.projectAccessLoading = false
+            s.projectAccessError = err instanceof Error ? err.message : String(err)
+          })
+          throw err
+        }
+      },
+      setProjectRolePermission: async (projectId, roleId, permission, enabled) => {
+        set(s => {
+          s.projectAccessLoading = true
+          s.projectAccessError = null
+        })
+        try {
+          await dbSetProjectRolePermission(roleId, permission, enabled)
+          await syncProjectAccessIntoState(set, projectId)
+        } catch (err: unknown) {
+          set(s => {
+            s.projectAccessLoading = false
+            s.projectAccessError = err instanceof Error ? err.message : String(err)
+          })
+          throw err
+        }
+      },
+      addProjectMemberByEmail: async (projectId, email, roleId) => {
+        set(s => {
+          s.projectAccessLoading = true
+          s.projectAccessError = null
+        })
+        try {
+          await dbAddProjectMemberByEmail(projectId, email, roleId)
+          await syncProjectAccessIntoState(set, projectId)
+        } catch (err: unknown) {
+          set(s => {
+            s.projectAccessLoading = false
+            s.projectAccessError = err instanceof Error ? err.message : String(err)
+          })
+          throw err
+        }
+      },
+      updateProjectMemberRole: async (projectId, memberId, roleId) => {
+        set(s => {
+          s.projectAccessLoading = true
+          s.projectAccessError = null
+        })
+        try {
+          await dbUpdateProjectMemberRole(memberId, roleId)
+          await syncProjectAccessIntoState(set, projectId)
+        } catch (err: unknown) {
+          set(s => {
+            s.projectAccessLoading = false
+            s.projectAccessError = err instanceof Error ? err.message : String(err)
+          })
+          throw err
+        }
+      },
+      updateProjectMemberStatus: async (projectId, memberId, status) => {
+        set(s => {
+          s.projectAccessLoading = true
+          s.projectAccessError = null
+        })
+        try {
+          await dbUpdateProjectMemberStatus(memberId, status)
+          await syncProjectAccessIntoState(set, projectId)
+        } catch (err: unknown) {
+          set(s => {
+            s.projectAccessLoading = false
+            s.projectAccessError = err instanceof Error ? err.message : String(err)
+          })
+          throw err
+        }
+      },
+      removeProjectMember: async (projectId, memberId) => {
+        set(s => {
+          s.projectAccessLoading = true
+          s.projectAccessError = null
+        })
+        try {
+          await dbRemoveProjectMember(memberId)
+          await syncProjectAccessIntoState(set, projectId)
+        } catch (err: unknown) {
+          set(s => {
+            s.projectAccessLoading = false
+            s.projectAccessError = err instanceof Error ? err.message : String(err)
+          })
+          throw err
+        }
+      },
 
       // ══════════════════════════════════════════════════════════════════════
       // DATA
@@ -207,6 +724,9 @@ export const useAppStore = create<AppState>()(
         )
       }),
       setSyncError: err => set(s => { s.syncError = err }),
+      setAuthError: err => set(s => { s.authError = err }),
+      setComponentTemplatesError: err => set(s => { s.componentTemplatesError = err }),
+      setProjectAccessError: err => set(s => { s.projectAccessError = err }),
 
       // ══════════════════════════════════════════════════════════════════════
       // PROJECTS CRUD (optimistic + Supabase)
@@ -221,6 +741,14 @@ export const useAppStore = create<AppState>()(
         set(s => { s.projects.push(project) })
         try {
           await dbCreateProject(id, data)
+          try {
+            await dbInitializeProjectAccess(id)
+            await syncProjectAccessIntoState(set, id)
+          } catch (accessErr: unknown) {
+            set(s => {
+              s.projectAccessError = accessErr instanceof Error ? accessErr.message : String(accessErr)
+            })
+          }
         } catch (err: unknown) {
           set(s => { s.projects = s.projects.filter(p => p.id !== id) })
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })

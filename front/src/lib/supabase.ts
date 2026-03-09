@@ -19,5 +19,10 @@ if (!supabaseUrl || !supabaseKey) {
 }
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
-  auth: { persistSession: false },  // PRISM n'utilise pas l'auth Supabase pour l'instant
+  auth: {
+    persistSession: true,
+    autoRefreshToken: true,
+    detectSessionInUrl: true,
+    storageKey: 'prism-auth',
+  },
 })

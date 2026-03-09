@@ -45,6 +45,7 @@ const STATUS_CFG: Record<SIFStatus, { color: string; label: string }> = {
   in_review: { color: '#F59E0B', label: 'In Review' },
   verified:  { color: '#0284C7', label: 'Verified'  },
   approved:  { color: '#16A34A', label: 'Approved'  },
+  archived:  { color: '#9333EA', label: 'Archived'  },
 }
 
 const SIL_PFD_RANGE: Record<number, { min: number; max: number }> = {

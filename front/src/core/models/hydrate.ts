@@ -72,17 +72,12 @@ function componentTag(
   return `${normalizeSifNumber(sifNumber)}_${prefix}${channelIndex + 1}.${componentIndex + 1}`
 }
 
-function hydrateComponent(
+export function hydrateComponentSnapshot(
   rawComponent: unknown,
   subsystemType: SubsystemType,
-  sifNumber: string,
-  channelIndex: number,
-  componentIndex: number,
+  tagName: string,
 ): SIFComponent {
-  const fallback = DEFAULT_COMPONENT(
-    subsystemType,
-    componentTag(sifNumber, subsystemType, channelIndex, componentIndex),
-  )
+  const fallback = DEFAULT_COMPONENT(subsystemType, tagName)
   const source = asRecord(rawComponent)
   if (!source) return fallback
 
@@ -122,6 +117,20 @@ function hydrateComponent(
       },
     },
   }
+}
+
+function hydrateComponent(
+  rawComponent: unknown,
+  subsystemType: SubsystemType,
+  sifNumber: string,
+  channelIndex: number,
+  componentIndex: number,
+): SIFComponent {
+  return hydrateComponentSnapshot(
+    rawComponent,
+    subsystemType,
+    componentTag(sifNumber, subsystemType, channelIndex, componentIndex),
+  )
 }
 
 function hydrateChannel(

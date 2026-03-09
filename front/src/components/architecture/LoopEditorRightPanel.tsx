@@ -1,264 +1,574 @@
 /**
- * LoopEditorRightPanel — PRISM v3 (refactored)
+ * LoopEditorRightPanel — PRISM v3
  *
- * Right panel for Loop Editor tab:
- *   📚 Bibliothèque — built-in + custom components (draggable)
- *   ⚙  Composant    — selected component parameter editor
- *
- * Custom library items stored in localStorage (future: Supabase table).
+ * Right panel for Loop Editor:
+ * - Built-in component templates kept in code
+ * - Project / user component libraries persisted in Supabase
+ * - Full template drag-and-drop with import/export JSON
  */
-
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Activity, Cpu, Zap, GripVertical, Plus, Trash2, Save, X,
-  ChevronDown, ChevronRight, MousePointer2,
-  BookOpen, Settings2,
+  Activity,
+  Archive,
+  BookOpen,
+  ChevronDown,
+  ChevronRight,
+  Cpu,
+  Download,
+  FolderOpen,
+  GripVertical,
+  RefreshCw,
+  Settings2,
+  Trash2,
+  Upload,
+  User,
+  Zap,
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { ComponentParamsPanel } from './ComponentParamsPanel'
-import type { SubsystemType, SIF } from '@/core/types'
-import { LIBRARY_CATALOG, type LibraryCatalogItem } from '@/features/library'
-import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, R, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
+import type { ComponentTemplate, SIF, SubsystemType } from '@/core/types'
+import {
+  buildLibraryDragPayload,
+  getPanelScopeLabel,
+  getTemplateCategoryLabel,
+  parseComponentTemplateImport,
+  serializeComponentTemplates,
+  type LibraryPanelScope,
+  useComponentLibrary,
+} from '@/features/library'
+import { BORDER, R, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
 
 const PANEL = dark.panel
-const CARD  = dark.card
-const BG    = dark.page
+const CARD = dark.card
+const BG = dark.page
 
-// ─── Subsystem meta ──────────────────────────────────────────────────────
 const SUB_META: Record<SubsystemType, { color: string; label: string; Icon: React.ElementType }> = {
-  sensor:   { color: '#0284C7', label: 'Capteur(s)',    Icon: Activity },
-  logic:    { color: '#7C3AED', label: 'Logique',       Icon: Cpu      },
-  actuator: { color: '#EA580C', label: 'Actionneur(s)', Icon: Zap      },
+  sensor: { color: '#0284C7', label: 'Capteur(s)', Icon: Activity },
+  logic: { color: '#7C3AED', label: 'Logique', Icon: Cpu },
+  actuator: { color: '#EA580C', label: 'Actionneur(s)', Icon: Zap },
 }
 
-// ─── Custom library persistence (localStorage) ──────────────────────────
-const CUSTOM_LIB_KEY = 'prism-custom-library'
-
-function loadCustomLib(): LibraryCatalogItem[] {
-  try {
-    const raw = localStorage.getItem(CUSTOM_LIB_KEY)
-    return raw ? JSON.parse(raw) : []
-  } catch { return [] }
-}
-
-function saveCustomLib(items: LibraryCatalogItem[]) {
-  localStorage.setItem(CUSTOM_LIB_KEY, JSON.stringify(items))
-}
-
-// ─── Tab definitions ─────────────────────────────────────────────────────
 type PanelTab = 'library' | 'component'
+
 const TABS: { id: PanelTab; label: string; Icon: React.ElementType }[] = [
-  { id: 'library',   label: 'Bibliothèque', Icon: BookOpen  },
-  { id: 'component', label: 'Composant',    Icon: Settings2 },
+  { id: 'library', label: 'Bibliothèque', Icon: BookOpen },
+  { id: 'component', label: 'Composant', Icon: Settings2 },
 ]
 
-// ─── Add custom component form ──────────────────────────────────────────
-function AddCustomForm({ type, color, onAdd, onCancel }: {
-  type: SubsystemType; color: string
-  onAdd: (item: LibraryCatalogItem) => void
-  onCancel: () => void
+const LIBRARY_SCOPES: { id: LibraryPanelScope; label: string; Icon: React.ElementType }[] = [
+  { id: 'builtin', label: 'Built-in', Icon: BookOpen },
+  { id: 'project', label: 'Project', Icon: FolderOpen },
+  { id: 'user', label: 'My Library', Icon: User },
+]
+
+function formatTemplateMeta(template: ComponentTemplate): string {
+  const parts = [
+    template.instrumentType || getTemplateCategoryLabel(template),
+    template.manufacturer || null,
+    template.dataSource || null,
+  ].filter(Boolean)
+  return parts.join(' · ')
+}
+
+function formatBatchLabel(importBatchId: string | null): string | null {
+  if (!importBatchId) return null
+  return `batch ${importBatchId.slice(0, 8)}`
+}
+
+function downloadJsonFile(fileName: string, content: string) {
+  const blob = new Blob([content], { type: 'application/json' })
+  const url = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = fileName
+  document.body.appendChild(anchor)
+  anchor.click()
+  document.body.removeChild(anchor)
+  URL.revokeObjectURL(url)
+}
+
+function buildExportFileName(scope: LibraryPanelScope, projectId: string): string {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+  if (scope === 'project') return `prism-component-templates-project-${projectId}-${stamp}.json`
+  return `prism-component-templates-my-library-${stamp}.json`
+}
+
+function TemplateCard({
+  template,
+  onArchive,
+  onDelete,
+}: {
+  template: ComponentTemplate
+  onArchive?: (templateId: string) => void
+  onDelete?: (templateId: string) => void
 }) {
-  const [name, setName]     = useState('')
-  const [lambda, setLambda] = useState('5.0')
-  const [dc, setDc]         = useState('0.70')
-
-  const catMap: Record<SubsystemType, string> = {
-    sensor: 'Custom Capteur', logic: 'Custom Logique', actuator: 'Custom Actionneur',
-  }
-
-  const submit = () => {
-    if (!name.trim()) return
-    onAdd({
-      type,
-      category: catMap[type],
-      name: name.trim(),
-      lambda: parseFloat(lambda) || 5.0,
-      dc: parseFloat(dc) || 0.70,
-    })
-  }
+  const meta = SUB_META[template.subsystemType]
+  const batchLabel = formatBatchLabel(template.importBatchId)
 
   return (
-    <div className="px-3 py-2 space-y-2 border-b" style={{ borderColor: BORDER, background: `${color}08` }}>
-      <div className="flex items-center gap-1.5">
-        <Plus size={10} style={{ color }} />
-        <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color }}>Nouveau composant</span>
-        <button onClick={onCancel} className="ml-auto p-0.5 rounded hover:bg-white/10"><X size={10} style={{ color: TEXT_DIM }} /></button>
-      </div>
-      <input value={name} onChange={e => setName(e.target.value)} placeholder="Nom du composant"
-        autoFocus onKeyDown={e => { if (e.key === 'Enter') submit(); if (e.key === 'Escape') onCancel() }}
-        className="w-full h-7 px-2 text-xs rounded border outline-none transition-colors"
-        style={{ background: '#141A21', borderColor: `${color}40`, color: TEXT }}
+    <div
+      draggable
+      onDragStart={event => {
+        event.dataTransfer.setData('application/prism-lib', buildLibraryDragPayload(template))
+        event.dataTransfer.effectAllowed = 'copy'
+      }}
+      className="group flex items-start gap-2 px-3 py-2.5 cursor-grab active:cursor-grabbing transition-colors hover:bg-[#1E242B]"
+      style={{ borderBottom: `1px solid ${BORDER}30` }}
+    >
+      <GripVertical
+        size={11}
+        className="shrink-0 mt-0.5 opacity-40 group-hover:opacity-80"
+        style={{ color: meta.color }}
       />
-      <div className="grid grid-cols-2 gap-2">
-        <div>
-          <label className="text-[8px] font-bold uppercase" style={{ color: TEXT_DIM }}>λ (×10⁻⁶ h⁻¹)</label>
-          <input type="number" step="0.1" value={lambda} onChange={e => setLambda(e.target.value)}
-            className="w-full h-6 px-2 text-[10px] font-mono rounded border outline-none"
-            style={{ background: '#141A21', borderColor: BORDER, color: TEXT }} />
+      <div className="min-w-0 flex-1">
+        <div className="flex items-center gap-1.5">
+          <p className="truncate text-xs font-medium" style={{ color: TEXT }}>
+            {template.name}
+          </p>
+          <span
+            className="rounded px-1 py-0.5 text-[7px] font-bold uppercase"
+            style={{ background: `${meta.color}20`, color: meta.color }}
+          >
+            {template.reviewStatus}
+          </span>
         </div>
-        <div>
-          <label className="text-[8px] font-bold uppercase" style={{ color: TEXT_DIM }}>DC (0–1)</label>
-          <input type="number" step="0.05" min="0" max="1" value={dc} onChange={e => setDc(e.target.value)}
-            className="w-full h-6 px-2 text-[10px] font-mono rounded border outline-none"
-            style={{ background: '#141A21', borderColor: BORDER, color: TEXT }} />
-        </div>
+        <p className="truncate text-[9px]" style={{ color: TEXT_DIM }}>
+          {formatTemplateMeta(template) || getTemplateCategoryLabel(template)}
+        </p>
+        {(template.tags.length > 0 || batchLabel) && (
+          <div className="mt-1 flex flex-wrap gap-1">
+            {template.tags.slice(0, 3).map(tag => (
+              <span
+                key={tag}
+                className="rounded px-1 py-0.5 text-[8px]"
+                style={{ background: '#141A21', color: TEXT_DIM, border: `1px solid ${BORDER}` }}
+              >
+                {tag}
+              </span>
+            ))}
+            {batchLabel && (
+              <span
+                className="rounded px-1 py-0.5 text-[8px]"
+                style={{ background: `${TEAL}10`, color: TEAL_DIM, border: `1px solid ${TEAL}25` }}
+              >
+                {batchLabel}
+              </span>
+            )}
+          </div>
+        )}
       </div>
-      <button onClick={submit} disabled={!name.trim()}
-        className="w-full h-7 text-[10px] font-bold rounded flex items-center justify-center gap-1 transition-all disabled:opacity-30"
-        style={{ background: color, color: '#fff' }}>
-        <Save size={10} />Ajouter à la bibliothèque
-      </button>
+      {(onArchive || onDelete) && (
+        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+          {onArchive && (
+            <button
+              type="button"
+              onClick={event => {
+                event.stopPropagation()
+                onArchive(template.id)
+              }}
+              className="rounded p-0.5 transition-colors hover:bg-amber-900/30"
+              style={{ color: '#FBBF24' }}
+              title="Archiver"
+            >
+              <Archive size={10} />
+            </button>
+          )}
+          {onDelete && (
+            <button
+              type="button"
+              onClick={event => {
+                event.stopPropagation()
+                onDelete(template.id)
+              }}
+              className="rounded p-0.5 transition-colors hover:bg-red-900/30"
+              style={{ color: '#F87171' }}
+              title="Supprimer"
+            >
+              <Trash2 size={10} />
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
-// ─── Library content ─────────────────────────────────────────────────────
-function LibraryContent({ sif }: { sif: SIF }) {
-  const [search, setSearch]       = useState('')
-  const [openTypes, setOpenTypes] = useState<Set<SubsystemType>>(new Set(['sensor', 'logic', 'actuator']))
-  const [addingType, setAddingType] = useState<SubsystemType | null>(null)
-  const [customItems, setCustomItems] = useState<LibraryCatalogItem[]>(() => loadCustomLib())
-
-  const toggle = (t: SubsystemType) => setOpenTypes(prev => {
-    const n = new Set(prev); n.has(t) ? n.delete(t) : n.add(t); return n
-  })
-
-  const allItems = [...LIBRARY_CATALOG, ...customItems]
-
-  const filtered = allItems.filter(l =>
-    l.name.toLowerCase().includes(search.toLowerCase()) ||
-    l.category.toLowerCase().includes(search.toLowerCase())
-  )
-
-  const addCustom = (item: LibraryCatalogItem) => {
-    const next = [...customItems, item]
-    setCustomItems(next)
-    saveCustomLib(next)
-    setAddingType(null)
-  }
-
-  const removeCustom = (idx: number) => {
-    // idx relative to customItems array
-    const next = customItems.filter((_, i) => i !== idx)
-    setCustomItems(next)
-    saveCustomLib(next)
-  }
-
+function ScopeHint({ activeScope }: { activeScope: LibraryPanelScope }) {
+  if (activeScope !== 'builtin') return null
   return (
-    <div className="flex flex-col h-full">
-      {/* Search */}
-      <div className="px-3 py-2.5 shrink-0" style={{ borderBottom: `1px solid ${BORDER}` }}>
-        <input value={search} onChange={e => setSearch(e.target.value)}
-          placeholder="Rechercher un composant…"
-          className="w-full rounded-md border px-2.5 py-1.5 text-xs outline-none transition-colors"
-          style={{ background: BG, borderColor: BORDER, color: TEXT }}
-          onFocus={e => (e.target.style.borderColor = TEAL)}
-          onBlur={e => (e.target.style.borderColor = BORDER)} />
-      </div>
+    <div
+      className="mx-3 mt-2 rounded-lg border px-3 py-2 text-[10px]"
+      style={{ background: `${TEAL}08`, borderColor: `${TEAL}25`, color: TEAL_DIM }}
+    >
+      Import/export JSON est disponible dans <strong>Project</strong> et <strong>My Library</strong>.
+    </div>
+  )
+}
 
-      {/* Hint */}
-      <div className="px-3 py-2 shrink-0 flex items-center gap-1.5"
-        style={{ background: `${TEAL}08`, borderBottom: `1px solid ${BORDER}` }}>
-        <GripVertical size={10} style={{ color: TEAL_DIM }} />
-        <p className="text-[9px]" style={{ color: TEAL_DIM }}>
-          Glissez un composant sur le canal de votre choix
+function EmptyComponentState() {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+      <div
+        className="flex h-12 w-12 items-center justify-center rounded-xl"
+        style={{ background: `${TEAL}10`, border: `1px solid ${TEAL}25` }}
+      >
+        <Settings2 size={20} style={{ color: TEAL_DIM }} />
+      </div>
+      <div className="space-y-1">
+        <p className="text-sm font-semibold" style={{ color: TEXT }}>
+          Aucun composant sélectionné
+        </p>
+        <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+          Cliquez sur un composant dans le canvas pour éditer ses paramètres ici.
         </p>
       </div>
+      <div className="w-full rounded-lg border p-3" style={{ background: `${TEAL}08`, borderColor: `${TEAL}25` }}>
+        <p className="text-[10px] leading-relaxed" style={{ color: TEAL_DIM }}>
+          Glissez un template depuis la <strong>Bibliothèque</strong> sur un canal du canvas.
+        </p>
+      </div>
+    </div>
+  )
+}
 
-      {/* Grouped list */}
+function LibraryContent({ projectId }: { projectId: string }) {
+  const profileId = useAppStore(state => state.profile?.id ?? null)
+  const setSyncError = useAppStore(state => state.setSyncError)
+  const {
+    builtinTemplates,
+    projectTemplates,
+    userTemplates,
+    loading,
+    error,
+    fetchTemplates,
+    importTemplates,
+    archiveTemplate,
+    deleteTemplate,
+    clearError,
+  } = useComponentLibrary(projectId)
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const [search, setSearch] = useState('')
+  const [activeScope, setActiveScope] = useState<LibraryPanelScope>('builtin')
+  const [openTypes, setOpenTypes] = useState<Set<SubsystemType>>(new Set(['sensor', 'logic', 'actuator']))
+  const [statusMessage, setStatusMessage] = useState<string | null>(null)
+
+  const scopeCounts = useMemo(
+    () => ({
+      builtin: builtinTemplates.length,
+      project: projectTemplates.length,
+      user: userTemplates.length,
+    }),
+    [builtinTemplates.length, projectTemplates.length, userTemplates.length],
+  )
+
+  const activeTemplates = useMemo(() => {
+    if (activeScope === 'builtin') return builtinTemplates
+    if (activeScope === 'project') return projectTemplates
+    return userTemplates
+  }, [activeScope, builtinTemplates, projectTemplates, userTemplates])
+
+  const filteredTemplates = useMemo(() => {
+    const needle = search.trim().toLowerCase()
+    if (!needle) return activeTemplates
+
+    return activeTemplates.filter(template => {
+      const haystack = [
+        template.name,
+        template.description,
+        template.instrumentType,
+        template.manufacturer,
+        template.dataSource,
+        template.sourceReference ?? '',
+        ...template.tags,
+      ].join(' ').toLowerCase()
+      return haystack.includes(needle)
+    })
+  }, [activeTemplates, search])
+
+  const templatesBySubsystem = useMemo(
+    () => ({
+      sensor: filteredTemplates.filter(template => template.subsystemType === 'sensor'),
+      logic: filteredTemplates.filter(template => template.subsystemType === 'logic'),
+      actuator: filteredTemplates.filter(template => template.subsystemType === 'actuator'),
+    }),
+    [filteredTemplates],
+  )
+
+  const canImportExport = activeScope !== 'builtin'
+
+  const toggleSubsystem = (subsystemType: SubsystemType) => {
+    setOpenTypes(previous => {
+      const next = new Set(previous)
+      if (next.has(subsystemType)) next.delete(subsystemType)
+      else next.add(subsystemType)
+      return next
+    })
+  }
+
+  const resetStatus = () => {
+    setStatusMessage(null)
+    clearError(null)
+    setSyncError(null)
+  }
+
+  const handleRefresh = async () => {
+    resetStatus()
+    try {
+      await fetchTemplates()
+      setStatusMessage('Bibliothèque custom rechargée.')
+    } catch {
+      // handled in store state
+    }
+  }
+
+  const handleExport = () => {
+    if (!canImportExport || activeTemplates.length === 0) return
+    resetStatus()
+    const content = serializeComponentTemplates(
+      activeTemplates,
+      profileId,
+      activeScope === 'project' ? projectId : null,
+    )
+    downloadJsonFile(buildExportFileName(activeScope, projectId), content)
+    setStatusMessage(`${activeTemplates.length} template(s) exporté(s) depuis ${getPanelScopeLabel(activeScope)}.`)
+  }
+
+  const handleImportClick = () => {
+    if (!canImportExport) return
+    fileInputRef.current?.click()
+  }
+
+  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    resetStatus()
+
+    try {
+      const text = await file.text()
+      const batchId = crypto.randomUUID()
+      const payload = parseComponentTemplateImport(text, activeScope, projectId)
+      const imported = await importTemplates(payload.map(template => ({
+        ...template,
+        importBatchId: batchId,
+      })))
+      setStatusMessage(`${imported.length} template(s) importé(s) dans ${getPanelScopeLabel(activeScope)}.`)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err)
+      setSyncError(message)
+      setStatusMessage(null)
+    }
+  }
+
+  const handleArchive = async (templateId: string) => {
+    resetStatus()
+    try {
+      await archiveTemplate(templateId)
+      setStatusMessage('Template archivé.')
+    } catch (err: unknown) {
+      setSyncError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  const handleDelete = async (templateId: string) => {
+    resetStatus()
+    try {
+      await deleteTemplate(templateId)
+      setStatusMessage('Template supprimé.')
+    } catch (err: unknown) {
+      setSyncError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  const scopeIconColor = activeScope === 'project' ? '#F59E0B' : TEAL_DIM
+
+  return (
+    <div className="flex h-full flex-col">
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="application/json,.json"
+        className="hidden"
+        onChange={handleImportFile}
+      />
+
+      <div className="shrink-0 px-3 py-2.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
+        <input
+          value={search}
+          onChange={event => setSearch(event.target.value)}
+          placeholder="Rechercher un template…"
+          className="w-full rounded-md border px-2.5 py-1.5 text-xs outline-none transition-colors"
+          style={{ background: BG, borderColor: BORDER, color: TEXT }}
+          onFocus={event => (event.target.style.borderColor = TEAL)}
+          onBlur={event => (event.target.style.borderColor = BORDER)}
+        />
+      </div>
+
+      <div
+        className="shrink-0 px-3 py-2"
+        style={{ background: `${TEAL}08`, borderBottom: `1px solid ${BORDER}` }}
+      >
+        <div className="flex items-center gap-1.5">
+          <GripVertical size={10} style={{ color: scopeIconColor }} />
+          <p className="text-[9px]" style={{ color: TEAL_DIM }}>
+            Glissez un template complet SIL sur le canal de votre choix
+          </p>
+        </div>
+      </div>
+
+      <div className="shrink-0 px-3 pt-2">
+        <div className="grid grid-cols-3 gap-1 rounded-lg p-1" style={{ background: BG }}>
+          {LIBRARY_SCOPES.map(scope => {
+            const isActive = scope.id === activeScope
+            return (
+              <button
+                key={scope.id}
+                type="button"
+                onClick={() => {
+                  resetStatus()
+                  setActiveScope(scope.id)
+                }}
+                className="flex items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[10px] font-bold transition-all"
+                style={isActive
+                  ? { background: CARD, color: TEXT, border: `1px solid ${BORDER}` }
+                  : { color: TEXT_DIM }}
+              >
+                <scope.Icon size={11} />
+                <span>{scope.label}</span>
+                <span className="font-mono" style={{ color: isActive ? TEAL_DIM : TEXT_DIM }}>
+                  {scopeCounts[scope.id]}
+                </span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
+      <div className="shrink-0 px-3 py-2">
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={handleImportClick}
+            disabled={!canImportExport}
+            className="flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ borderColor: BORDER, color: TEXT, background: BG }}
+          >
+            <Upload size={11} />
+            Import JSON
+          </button>
+          <button
+            type="button"
+            onClick={handleExport}
+            disabled={!canImportExport || activeTemplates.length === 0}
+            className="flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+            style={{ borderColor: BORDER, color: TEXT, background: BG }}
+          >
+            <Download size={11} />
+            Export JSON
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleRefresh()}
+            className="ml-auto flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-semibold transition-colors"
+            style={{ borderColor: BORDER, color: TEXT_DIM, background: BG }}
+            title="Recharger la bibliothèque"
+          >
+            <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
+            Refresh
+          </button>
+        </div>
+      </div>
+
+      <ScopeHint activeScope={activeScope} />
+
+      {(statusMessage || error) && (
+        <div className="shrink-0 px-3 pb-2">
+          {statusMessage && (
+            <div
+              className="rounded-lg border px-3 py-2 text-[10px]"
+              style={{ background: `${TEAL}08`, borderColor: `${TEAL}25`, color: TEAL_DIM }}
+            >
+              {statusMessage}
+            </div>
+          )}
+          {error && (
+            <div
+              className="mt-2 rounded-lg border px-3 py-2 text-[10px]"
+              style={{ background: '#7F1D1D20', borderColor: '#F8717130', color: '#FCA5A5' }}
+            >
+              {error}
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="flex-1 overflow-y-auto">
-        {(['sensor', 'logic', 'actuator'] as SubsystemType[]).map(type => {
-          const meta    = SUB_META[type]
-          const builtin = filtered.filter(l => l.type === type && !customItems.includes(l))
-          const custom  = customItems.filter(l => l.type === type &&
-            (l.name.toLowerCase().includes(search.toLowerCase()) || l.category.toLowerCase().includes(search.toLowerCase())))
-          const items   = [...builtin, ...custom]
-          const open    = openTypes.has(type)
-          const exists  = sif.subsystems.some(s => s.type === type)
+        {(['sensor', 'logic', 'actuator'] as SubsystemType[]).map(subsystemType => {
+          const meta = SUB_META[subsystemType]
+          const items = templatesBySubsystem[subsystemType]
+          const open = openTypes.has(subsystemType)
 
           return (
-            <div key={type}>
-              {/* Category header */}
-              <div className="flex w-full items-center gap-2 px-3 py-2 transition-colors hover:bg-[#1E242B]"
-                style={{ borderBottom: `1px solid ${BORDER}` }}>
-                <button onClick={() => toggle(type)} className="flex items-center gap-2 flex-1 min-w-0">
+            <div key={subsystemType}>
+              <div
+                className="flex items-center gap-2 px-3 py-2 transition-colors hover:bg-[#1E242B]"
+                style={{ borderBottom: `1px solid ${BORDER}` }}
+              >
+                <button
+                  type="button"
+                  onClick={() => toggleSubsystem(subsystemType)}
+                  className="flex min-w-0 flex-1 items-center gap-2"
+                >
                   <meta.Icon size={12} style={{ color: meta.color }} />
-                  <span className="text-[10px] font-bold uppercase tracking-widest flex-1 text-left"
-                    style={{ color: meta.color }}>{meta.label}</span>
-                  {!exists && (
-                    <span className="text-[8px] px-1 py-0.5 rounded"
-                      style={{ background: `${meta.color}20`, color: meta.color }}>non ajouté</span>
+                  <span
+                    className="flex-1 text-left text-[10px] font-bold uppercase tracking-widest"
+                    style={{ color: meta.color }}
+                  >
+                    {meta.label}
+                  </span>
+                  <span className="text-[9px] font-mono" style={{ color: TEXT_DIM }}>
+                    {items.length}
+                  </span>
+                  {open ? (
+                    <ChevronDown size={10} style={{ color: TEXT_DIM }} />
+                  ) : (
+                    <ChevronRight size={10} style={{ color: TEXT_DIM }} />
                   )}
-                  <span className="text-[9px] font-mono" style={{ color: TEXT_DIM }}>{items.length}</span>
-                  {open ? <ChevronDown size={10} style={{ color: TEXT_DIM }}/> : <ChevronRight size={10} style={{ color: TEXT_DIM }}/>}
-                </button>
-                {/* Add custom button */}
-                <button onClick={() => setAddingType(addingType === type ? null : type)}
-                  className="p-0.5 rounded transition-colors hover:bg-white/10"
-                  style={{ color: addingType === type ? meta.color : TEXT_DIM }}
-                  title="Ajouter un composant custom">
-                  <Plus size={11} />
                 </button>
               </div>
 
-              {/* Add form */}
-              {addingType === type && (
-                <AddCustomForm type={type} color={meta.color} onAdd={addCustom} onCancel={() => setAddingType(null)} />
-              )}
-
-              {/* Items */}
-              {open && items.map((lib, globalIdx) => {
-                const isCustom = customItems.includes(lib)
-                const customIdx = isCustom ? customItems.indexOf(lib) : -1
-
-                return (
-                  <div key={`${lib.name}-${globalIdx}`}
-                    draggable
-                    onDragStart={e => {
-                      e.dataTransfer.setData('application/prism-lib', JSON.stringify(lib))
-                      e.dataTransfer.effectAllowed = 'copy'
-                    }}
-                    className="group flex items-center gap-2 px-3 py-2.5 cursor-grab active:cursor-grabbing transition-colors hover:bg-[#1E242B]"
-                    style={{ borderBottom: `1px solid ${BORDER}30` }}>
-                    <GripVertical size={11} className="shrink-0 opacity-40 group-hover:opacity-80"
-                      style={{ color: meta.color }} />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1">
-                        <p className="text-xs font-medium truncate" style={{ color: TEXT }}>{lib.name}</p>
-                        {isCustom && (
-                          <span className="text-[7px] font-bold px-1 rounded" style={{ background: `${meta.color}20`, color: meta.color }}>CUSTOM</span>
-                        )}
-                      </div>
-                      <p className="text-[9px] truncate" style={{ color: TEXT_DIM }}>{lib.category}</p>
-                    </div>
-                    <div className="shrink-0 flex items-center gap-1">
-                      <div className="text-right opacity-0 group-hover:opacity-100 transition-opacity">
-                        <p className="text-[8px] font-mono" style={{ color: meta.color }}>λ {lib.lambda}</p>
-                        <p className="text-[8px] font-mono" style={{ color: TEXT_DIM }}>DC {(lib.dc * 100).toFixed(0)}%</p>
-                      </div>
-                      {isCustom && (
-                        <button onClick={(e) => { e.stopPropagation(); removeCustom(customIdx) }}
-                          className="p-0.5 rounded opacity-0 group-hover:opacity-100 transition-all hover:bg-red-900/30"
-                          style={{ color: '#F87171' }}
-                          title="Supprimer"><Trash2 size={10} /></button>
-                      )}
-                    </div>
-                  </div>
-                )
-              })}
+              {open && items.map(template => (
+                <TemplateCard
+                  key={template.id}
+                  template={template}
+                  onArchive={template.origin === 'database' ? handleArchive : undefined}
+                  onDelete={template.origin === 'database' ? handleDelete : undefined}
+                />
+              ))}
 
               {open && items.length === 0 && (
-                <div className="px-3 py-3 text-center">
-                  <p className="text-[9px]" style={{ color: TEXT_DIM }}>Aucun composant — cliquez + pour en créer</p>
+                <div className="px-3 py-4 text-center">
+                  <p className="text-[10px]" style={{ color: TEXT_DIM }}>
+                    {activeScope === 'builtin'
+                      ? 'Aucun template built-in correspondant à la recherche.'
+                      : 'Sélectionnez un composant dans le canvas puis enregistrez-le dans cette bibliothèque.'}
+                  </p>
                 </div>
               )}
             </div>
           )
         })}
 
-        {filtered.length === 0 && (
+        {filteredTemplates.length === 0 && (
           <div className="px-3 py-8 text-center">
-            <p className="text-xs" style={{ color: TEXT_DIM }}>Aucun résultat pour "{search}"</p>
+            <p className="text-xs font-medium" style={{ color: TEXT }}>
+              Aucun résultat
+            </p>
+            <p className="mt-1 text-[10px]" style={{ color: TEXT_DIM }}>
+              Ajustez la recherche ou changez d’onglet de bibliothèque.
+            </p>
           </div>
         )}
       </div>
@@ -266,41 +576,20 @@ function LibraryContent({ sif }: { sif: SIF }) {
   )
 }
 
-// ─── Empty component state ──────────────────────────────────────────────
-function EmptyComponentState() {
-  return (
-    <div className="flex flex-col items-center justify-center h-full gap-4 px-6 py-10">
-      <div className="w-14 h-14 rounded-2xl border-2 border-dashed flex items-center justify-center"
-        style={{ borderColor: `${TEAL}30` }}>
-        <MousePointer2 size={22} style={{ color: `${TEAL}60` }} />
-      </div>
-      <div className="text-center space-y-1.5">
-        <p className="text-sm font-semibold" style={{ color: TEXT }}>Aucun composant sélectionné</p>
-        <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-          Cliquez sur un composant dans le canvas pour éditer ses paramètres ici.
-        </p>
-      </div>
-      <div className="w-full rounded-lg border p-3" style={{ background: `${TEAL}08`, borderColor: `${TEAL}25` }}>
-        <p className="text-[10px] leading-relaxed" style={{ color: TEAL_DIM }}>
-          💡 Glissez un composant depuis la <strong>Bibliothèque</strong> sur un canal du canvas.
-        </p>
-      </div>
-    </div>
-  )
+interface Props {
+  sif: SIF
+  projectId: string
 }
 
-// ─── Main component ──────────────────────────────────────────────────────
-interface Props { sif: SIF; projectId: string }
-
 export function LoopEditorRightPanel({ sif, projectId }: Props) {
-  const selectedId      = useAppStore(s => s.selectedComponentId)
-  const selectComponent = useAppStore(s => s.selectComponent)
+  const selectedId = useAppStore(state => state.selectedComponentId)
+  const selectComponent = useAppStore(state => state.selectComponent)
   const [activeTab, setActiveTab] = useState<PanelTab>('library')
 
-  // Auto-switch to component tab when a component is selected
-  useEffect(() => { if (selectedId) setActiveTab('component') }, [selectedId])
+  useEffect(() => {
+    if (selectedId) setActiveTab('component')
+  }, [selectedId])
 
-  // Find the selected component in the SIF
   let found: {
     comp: (typeof sif.subsystems)[0]['channels'][0]['components'][0]
     subsystemType: SubsystemType
@@ -309,58 +598,101 @@ export function LoopEditorRightPanel({ sif, projectId }: Props) {
   } | null = null
 
   if (selectedId) {
-    outer: for (const sub of sif.subsystems) {
-      for (const ch of sub.channels) {
-        const comp = ch.components.find(c => c.id === selectedId)
-        if (comp) { found = { comp, subsystemType: sub.type, subsystemId: sub.id, channelId: ch.id }; break outer }
+    outer: for (const subsystem of sif.subsystems) {
+      for (const channel of subsystem.channels) {
+        const component = channel.components.find(entry => entry.id === selectedId)
+        if (component) {
+          found = {
+            comp: component,
+            subsystemType: subsystem.type,
+            subsystemId: subsystem.id,
+            channelId: channel.id,
+          }
+          break outer
+        }
       }
     }
   }
 
-  const activeIdx = TABS.findIndex(t => t.id === activeTab)
+  const activeIdx = TABS.findIndex(tab => tab.id === activeTab)
 
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ background: PANEL }}>
-      {/* Tab bar */}
-      <div className="px-3 pt-3 shrink-0">
+    <div className="flex h-full flex-col overflow-hidden" style={{ background: PANEL }}>
+      <div className="shrink-0 px-3 pt-3">
         <div className="flex items-end" style={{ borderBottom: `1px solid ${BORDER}` }}>
-          {TABS.map((tab) => {
+          {TABS.map(tab => {
             const isActive = tab.id === activeTab
-            const hasBadge = tab.id === 'component' && !!selectedId
+            const hasBadge = tab.id === 'component' && Boolean(selectedId)
+
             return (
-              <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
-                className="relative flex items-center gap-1.5 px-3 py-2 text-left transition-colors shrink-0"
-                style={isActive ? {
-                  background: CARD, borderTop: `1px solid ${BORDER}`, borderLeft: `1px solid ${BORDER}`,
-                  borderRight: `1px solid ${BORDER}`, borderBottom: `1px solid ${CARD}`,
-                  borderRadius: `${R}px ${R}px 0 0`, color: TEAL_DIM, marginBottom: '-1px', zIndex: 10,
-                } : { color: TEXT_DIM }}
-                onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = TEXT }}
-                onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = TEXT_DIM }}>
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => setActiveTab(tab.id)}
+                className="relative flex shrink-0 items-center gap-1.5 px-3 py-2 text-left transition-colors"
+                style={isActive
+                  ? {
+                      background: CARD,
+                      borderTop: `1px solid ${BORDER}`,
+                      borderLeft: `1px solid ${BORDER}`,
+                      borderRight: `1px solid ${BORDER}`,
+                      borderBottom: `1px solid ${CARD}`,
+                      borderRadius: `${R}px ${R}px 0 0`,
+                      color: TEAL_DIM,
+                      marginBottom: '-1px',
+                      zIndex: 10,
+                    }
+                  : { color: TEXT_DIM }}
+                onMouseEnter={event => {
+                  if (!isActive) event.currentTarget.style.color = TEXT
+                }}
+                onMouseLeave={event => {
+                  if (!isActive) event.currentTarget.style.color = TEXT_DIM
+                }}
+              >
                 <tab.Icon size={11} />
-                <span className="text-[12px] font-semibold whitespace-nowrap">{tab.label}</span>
-                {hasBadge && <span className="w-1.5 h-1.5 rounded-full" style={{ background: isActive ? TEAL : `${TEAL}80` }} />}
+                <span className="whitespace-nowrap text-[12px] font-semibold">{tab.label}</span>
+                {hasBadge && (
+                  <span
+                    className="h-1.5 w-1.5 rounded-full"
+                    style={{ background: isActive ? TEAL : `${TEAL}80` }}
+                  />
+                )}
               </button>
             )
           })}
         </div>
       </div>
 
-      {/* Card body */}
-      <div className="flex-1 overflow-hidden"
+      <div
+        className="flex-1 overflow-hidden"
         style={{
-          background: CARD, borderLeft: `1px solid ${BORDER}`, borderRight: `1px solid ${BORDER}`,
+          background: CARD,
+          borderLeft: `1px solid ${BORDER}`,
+          borderRight: `1px solid ${BORDER}`,
           borderBottom: `1px solid ${BORDER}`,
           borderRadius: `${activeIdx === 0 ? 0 : R}px ${activeIdx === TABS.length - 1 ? 0 : R}px ${R}px ${R}px`,
           margin: '0 12px 12px',
-        }}>
-        {activeTab === 'library' && <LibraryContent sif={sif} />}
+        }}
+      >
+        {activeTab === 'library' && <LibraryContent projectId={projectId} />}
         {activeTab === 'component' && (
           found ? (
-            <ComponentParamsPanel component={found.comp} subsystemType={found.subsystemType}
-              projectId={projectId} sifId={sif.id} subsystemId={found.subsystemId} channelId={found.channelId}
-              onClose={() => { selectComponent(null); setActiveTab('library') }} />
-          ) : <EmptyComponentState />
+            <ComponentParamsPanel
+              component={found.comp}
+              subsystemType={found.subsystemType}
+              projectId={projectId}
+              sifId={sif.id}
+              subsystemId={found.subsystemId}
+              channelId={found.channelId}
+              onClose={() => {
+                selectComponent(null)
+                setActiveTab('library')
+              }}
+            />
+          ) : (
+            <EmptyComponentState />
+          )
         )}
       </div>
     </div>

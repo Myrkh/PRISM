@@ -62,3 +62,27 @@ export type { HAZOPTrace } from './hazop.types'
 export type {
   ComponentCalcResult, SubsystemCalcResult, SIFCalcResult, PFDChartPoint,
 } from './calc.types'
+
+// ─── Auth & Profiles ──────────────────────────────────────────────────────
+export type { OAuthProviderName, PasswordSignUpResult, UserProfile } from './auth.types'
+
+// ─── Component Library ────────────────────────────────────────────────────
+export type {
+  ComponentTemplateScope,
+  ComponentTemplateReviewStatus,
+  ComponentTemplateOrigin,
+  ComponentTemplate,
+  ComponentTemplateUpsertInput,
+  ComponentTemplateExportEnvelope,
+} from './library.types'
+
+// ─── Project Access ───────────────────────────────────────────────────────
+export type {
+  ProjectPermissionKey,
+  ProjectMemberStatus,
+  ProjectRole,
+  ProjectMemberProfile,
+  ProjectTeamMember,
+  ProjectAccessSnapshot,
+} from './access.types'
+export { PROJECT_PERMISSION_DEFINITIONS } from './access.types'

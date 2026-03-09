@@ -1,9 +1,17 @@
 import { useRef, useState, useEffect } from 'react'
-import { Moon, Settings, Sun, UserCircle2 } from 'lucide-react'
+import { LogOut, Moon, Settings, Sun } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/store/appStore'
 import { SettingsModal } from './SettingsModal'
 import { CommandPalette } from './CommandPalette'
+
+function getUserInitials(value: string | null | undefined): string {
+  if (!value) return 'U'
+  const parts = value.trim().split(/\s+/).filter(Boolean)
+  if (parts.length === 0) return 'U'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return `${parts[0][0] ?? ''}${parts[1][0] ?? ''}`.toUpperCase()
+}
 
 export function AppHeader() {
   const isDark      = useAppStore(s => s.isDark)
@@ -11,6 +19,9 @@ export function AppHeader() {
   const view        = useAppStore(s => s.view)
   const navigate    = useAppStore(s => s.navigate)
   const projects    = useAppStore(s => s.projects)
+  const authUser    = useAppStore(s => s.authUser)
+  const profile     = useAppStore(s => s.profile)
+  const signOut     = useAppStore(s => s.signOut)
 
   const [isUserMenuOpen,  setIsUserMenuOpen]  = useState(false)
   const [isSettingsOpen,  setIsSettingsOpen]  = useState(false)
@@ -37,6 +48,19 @@ export function AppHeader() {
     : undefined
 
   const isWorkbench = view.type === 'sif-dashboard'
+  const displayName = profile?.fullName || authUser?.user_metadata?.full_name || authUser?.email || 'User'
+  const displayEmail = profile?.email || authUser?.email || ''
+  const avatarUrl = profile?.avatarUrl || authUser?.user_metadata?.avatar_url || authUser?.user_metadata?.picture || null
+  const initials = getUserInitials(displayName)
+
+  const handleSignOut = async () => {
+    try {
+      await signOut()
+      setIsUserMenuOpen(false)
+    } catch {
+      // Store-level authError banner surfaces the failure.
+    }
+  }
 
   return (
     <>
@@ -84,11 +108,29 @@ export function AppHeader() {
               className="rounded-full dark:text-[#D8E0E8]"
               onClick={() => setIsUserMenuOpen(v => !v)}
             >
-              <UserCircle2 className="h-6 w-6" />
+              {avatarUrl ? (
+                <img src={avatarUrl} alt={displayName} className="h-7 w-7 rounded-full object-cover" />
+              ) : (
+                <span
+                  className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold"
+                  style={{ background: '#1D232A', color: '#D8E0E8', border: '1px solid #2B323A' }}
+                >
+                  {initials}
+                </span>
+              )}
             </Button>
 
             {isUserMenuOpen && (
-              <div className="absolute right-0 top-10 w-52 rounded-xl border border-border/70 bg-card/95 p-1.5 shadow-xl supports-[backdrop-filter]:backdrop-blur-sm z-50">
+              <div className="absolute right-0 top-10 w-72 rounded-xl border border-border/70 bg-card/95 p-1.5 shadow-xl supports-[backdrop-filter]:backdrop-blur-sm z-50">
+                <div className="rounded-lg px-3 py-2.5" style={{ background: '#1D232A' }}>
+                  <p className="text-sm font-semibold text-foreground">
+                    {displayName}
+                  </p>
+                  <p className="mt-0.5 text-xs" style={{ color: '#8FA0B1' }}>
+                    {displayEmail || 'Authenticated user'}
+                  </p>
+                </div>
+
                 <button
                   type="button"
                   className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
@@ -106,6 +148,15 @@ export function AppHeader() {
                   <span className="inline-flex items-center gap-2">
                     {isDark ? <Sun className="h-4 w-4" /> : <Moon className="h-4 w-4" />}
                     {isDark ? 'Light mode' : 'Dark mode'}
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  className="w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-accent"
+                  onClick={() => { void handleSignOut() }}
+                >
+                  <span className="inline-flex items-center gap-2">
+                    <LogOut className="h-4 w-4" /> Sign out
                   </span>
                 </button>
               </div>
