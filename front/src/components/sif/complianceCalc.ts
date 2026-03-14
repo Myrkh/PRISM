@@ -91,7 +91,7 @@ export function computeCompliance(sif: SIF, result: SIFCalcResult): ComplianceRe
           : isSFF
             ? 'Safe Failure Fraction is below the threshold required by the current architectural route.'
             : 'Diagnostic coverage is below the minimum currently enforced by the compliance rule set.',
-        tab: isHFT || check.label === 'Architecture' ? 'architecture' : 'analysis',
+        tab: isHFT || check.label === 'Architecture' ? 'architecture' : 'verification',
       })
     }
 
@@ -156,7 +156,7 @@ export function computeCompliance(sif: SIF, result: SIFCalcResult): ComplianceRe
       detail: hasHazopTrace
         ? 'This SIF is linked to a HAZOP / LOPA traceable scenario.'
         : 'Compliance readiness is reduced because the initiating scenario is not linked to the SIF record.',
-      tab: 'overview',
+      tab: 'context',
     },
     {
       id: 'proof-procedure',
@@ -174,7 +174,7 @@ export function computeCompliance(sif: SIF, result: SIFCalcResult): ComplianceRe
         : proofProcedureHasSteps
           ? 'A procedure exists, but it still needs execution or approval review.'
           : 'A procedure record exists, but the step set is incomplete.',
-      tab: 'prooftest',
+      tab: 'exploitation',
     },
     {
       id: 'proof-evidence',
@@ -186,7 +186,7 @@ export function computeCompliance(sif: SIF, result: SIFCalcResult): ComplianceRe
       detail: hasCampaigns
         ? 'Execution evidence exists for this SIF.'
         : 'The proof strategy may exist, but no executed campaign is currently linked as evidence.',
-      tab: 'prooftest',
+      tab: 'exploitation',
     },
     {
       id: 'approval-chain',
@@ -200,7 +200,7 @@ export function computeCompliance(sif: SIF, result: SIFCalcResult): ComplianceRe
       detail: hasApprovalChain
         ? 'Governance ownership is fully documented.'
         : 'Named accountability is incomplete, which weakens governance readiness.',
-      tab: 'overview',
+      tab: 'context',
     },
     {
       id: 'report-package',
@@ -225,7 +225,7 @@ export function computeCompliance(sif: SIF, result: SIFCalcResult): ComplianceRe
       detail: sif.demandRate > 0 && sif.demandRate <= 1
         ? 'The documented demand rate remains in a range usually compatible with low-demand reasoning.'
         : 'The current demand rate should be reviewed against the low-demand assumption used by the present compliance view.',
-      tab: 'overview',
+      tab: 'context',
     },
     {
       id: 'proof-test-effectiveness',
@@ -237,7 +237,7 @@ export function computeCompliance(sif: SIF, result: SIFCalcResult): ComplianceRe
       detail: hasProofProcedure
         ? 'The current model assumes the entered proof test intervals are achievable and effective in operation.'
         : 'Intervals exist in the component model, but no formal procedure currently governs their execution.',
-      tab: 'prooftest',
+      tab: 'exploitation',
     },
     {
       id: 'ccf-modelling',
@@ -279,7 +279,7 @@ export function computeCompliance(sif: SIF, result: SIFCalcResult): ComplianceRe
     actions.push({
       title: 'Improve diagnostic coverage',
       hint: 'Review DC assumptions and improve test strategy in component parameters.',
-      tab: 'analysis',
+      tab: 'verification',
     })
   }
 
@@ -287,7 +287,7 @@ export function computeCompliance(sif: SIF, result: SIFCalcResult): ComplianceRe
     actions.push({
       title: 'Complete traceability fields',
       hint: 'Fill P&ID, hazard description, and approver fields for audit readiness.',
-      tab: 'overview',
+      tab: 'context',
     })
   }
 
@@ -295,7 +295,7 @@ export function computeCompliance(sif: SIF, result: SIFCalcResult): ComplianceRe
     actions.push({
       title: 'Review the assumption register',
       hint: 'Validate or justify the explicit SIF assumptions before formal issue.',
-      tab: 'compliance',
+      tab: 'verification',
     })
   }
 
@@ -303,7 +303,7 @@ export function computeCompliance(sif: SIF, result: SIFCalcResult): ComplianceRe
     actions.push({
       title: 'Compliance baseline looks solid',
       hint: 'Proceed with independent review and export a report package.',
-      tab: 'compliance',
+      tab: 'verification',
     })
   }
 

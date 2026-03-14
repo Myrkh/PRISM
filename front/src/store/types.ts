@@ -29,6 +29,91 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
   'general', 'calculation', 'validation', 'data', 'security', 'reports',
 ]
 
+export type CanonicalSIFTab =
+  | 'cockpit'
+  | 'context'
+  | 'architecture'
+  | 'verification'
+  | 'exploitation'
+  | 'report'
+
+export type LegacySIFTabAlias = 'overview' | 'analysis' | 'compliance' | 'prooftest'
+export type SIFTab = CanonicalSIFTab | LegacySIFTabAlias
+
+export const CANONICAL_SIF_TABS: readonly CanonicalSIFTab[] = [
+  'cockpit',
+  'context',
+  'architecture',
+  'verification',
+  'exploitation',
+  'report',
+]
+
+export const SIF_PHASE_TABS: readonly Exclude<CanonicalSIFTab, 'report'>[] = [
+  'cockpit',
+  'context',
+  'architecture',
+  'verification',
+  'exploitation',
+]
+
+export const SIF_TAB_META: Readonly<Record<CanonicalSIFTab, {
+  label: string
+  hint: string
+  accent: string
+  stepLabel: string
+}>> = {
+  cockpit: {
+    label: 'Cockpit',
+    hint: 'Etat global et prochaines actions',
+    accent: '#4FD1C5',
+    stepLabel: 'Cockpit',
+  },
+  context: {
+    label: 'Contexte',
+    hint: 'Identification et HAZOP / LOPA',
+    accent: '#60A5FA',
+    stepLabel: '1 Contexte',
+  },
+  architecture: {
+    label: 'Architecture',
+    hint: 'Loop editor et composants',
+    accent: '#F59E0B',
+    stepLabel: '2 Architecture',
+  },
+  verification: {
+    label: 'Verification',
+    hint: 'Calculs, ecarts et preuves',
+    accent: '#A78BFA',
+    stepLabel: '3 Verification',
+  },
+  exploitation: {
+    label: 'Exploitation',
+    hint: 'Proof test et operations',
+    accent: '#34D399',
+    stepLabel: '4 Exploitation',
+  },
+  report: {
+    label: 'Publier',
+    hint: 'Dossier de preuve et PDF',
+    accent: '#F97316',
+    stepLabel: 'Publier',
+  },
+}
+
+const LEGACY_SIF_TAB_ALIASES: Readonly<Record<LegacySIFTabAlias, CanonicalSIFTab>> = {
+  overview: 'cockpit',
+  analysis: 'verification',
+  compliance: 'verification',
+  prooftest: 'exploitation',
+}
+
+export function normalizeSIFTab(tab: SIFTab | string | null | undefined): CanonicalSIFTab {
+  if (!tab) return 'cockpit'
+  if (tab in LEGACY_SIF_TAB_ALIASES) return LEGACY_SIF_TAB_ALIASES[tab as LegacySIFTabAlias]
+  return CANONICAL_SIF_TABS.includes(tab as CanonicalSIFTab) ? (tab as CanonicalSIFTab) : 'cockpit'
+}
+
 export type AppView =
   | { type: 'projects' }
   | { type: 'settings'; section: SettingsSection }
@@ -39,8 +124,7 @@ export type AppView =
   | { type: 'hazop' }
   | { type: 'sif-dashboard'; projectId: string; sifId: string; tab: SIFTab }
 
-export type SIFTab = 'overview' | 'architecture' | 'analysis' | 'compliance' | 'prooftest' | 'report'
-export type RightPanelSection = 'analysis' | 'compliance' | 'prooftest'
+export type RightPanelSection = 'analysis' | 'compliance' | 'prooftest' | 'verification' | 'exploitation'
 export type RightPanelTabsState = Record<RightPanelSection, string | null>
 
 // ─── State interface ───────────────────────────────────────────────────────

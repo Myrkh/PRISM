@@ -1,25 +1,41 @@
 import type { LucideIcon } from 'lucide-react'
 import { AlertTriangle, CheckCircle2, FileText } from 'lucide-react'
-import type { SIFTab } from '@/store/types'
+import { normalizeSIFTab, type SIFTab } from '@/store/types'
 import { semantic, TEXT_DIM } from '@/styles/tokens'
 import type { OperationalHealth } from './overviewMetrics'
 
-export const OVERVIEW_ACTION_CTA: Record<SIFTab, string> = {
-  overview: 'Review below',
-  architecture: 'Open Loop Editor',
-  analysis: 'Open Calculations',
-  compliance: 'Open Compliance',
-  prooftest: 'Open Proof Test',
-  report: 'Open Reports',
+export function getOverviewActionCta(tab: SIFTab): string {
+  switch (normalizeSIFTab(tab)) {
+    case 'cockpit':
+      return 'Review cockpit'
+    case 'context':
+      return 'Complete context'
+    case 'architecture':
+      return 'Open loop editor'
+    case 'verification':
+      return 'Open verification'
+    case 'exploitation':
+      return 'Open exploitation'
+    case 'report':
+      return 'Open report studio'
+  }
 }
 
-export const OVERVIEW_PANEL_CTA: Record<SIFTab, string> = {
-  overview: 'Review on dashboard',
-  architecture: 'Open Loop Editor',
-  analysis: 'Open Calculations',
-  compliance: 'Open Compliance',
-  prooftest: 'Open Proof Test',
-  report: 'Open Reports',
+export function getOverviewPanelCta(tab: SIFTab): string {
+  switch (normalizeSIFTab(tab)) {
+    case 'cockpit':
+      return 'Review in cockpit'
+    case 'context':
+      return 'Open context'
+    case 'architecture':
+      return 'Open loop editor'
+    case 'verification':
+      return 'Open verification'
+    case 'exploitation':
+      return 'Open exploitation'
+    case 'report':
+      return 'Open report studio'
+  }
 }
 
 export const OVERVIEW_OPERATIONAL_HEALTH_META: Record<OperationalHealth, {

@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
+import { RightPanelShell } from '@/components/layout/RightPanelShell';
 import type { ReportConfig } from './reportTypes';
 import { ToggleRow } from './ConfigSection';
 import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL_DIM, TEXT, TEXT_DIM } from '@/styles/tokens'
@@ -37,41 +38,19 @@ export function ReportConfigPanel({
   isExporting,
 }: ReportConfigPanelProps) {
   return (
-    <div
-      className="flex flex-col h-full overflow-hidden"
-      style={{ background: PANEL_BG }}
+    <RightPanelShell
+      items={TABS}
+      active="studio"
+      onSelect={() => {}}
+      contentBg={PANEL_BG}
     >
-      {/* 1. Tab Bar Header */}
-      <div className="px-3 pt-3 shrink-0">
-        <div className="flex items-end justify-between border-b" style={{ borderColor: BORDER }}>
-          <div className="flex items-end">
-            {TABS.map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                className="relative flex items-center gap-1.5 px-3 py-2 text-left shrink-0"
-                style={{
-                  background: CARD_BG,
-                  borderTop: `1px solid ${BORDER}`,
-                  borderLeft: `1px solid ${BORDER}`,
-                  borderRight: `1px solid ${BORDER}`,
-                  borderBottom: `1px solid ${CARD_BG}`,
-                  borderRadius: `${R}px ${R}px 0 0`,
-                  color: TEAL_DIM,
-                  marginBottom: '-1px',
-                  zIndex: 10,
-                }}
-              >
-                <tab.Icon size={11} />
-                <span className="text-[12px] font-semibold whitespace-nowrap">{tab.label}</span>
-              </button>
-            ))}
-          </div>
+      <div className="flex h-full flex-col overflow-hidden" style={{ background: PANEL_BG }}>
+        <div className="shrink-0 border-b px-3 py-3" style={{ borderColor: BORDER }}>
           <Button
             size="sm"
             onClick={onPrint}
             disabled={isExporting}
-            className="h-8 px-3 text-xs gap-1.5 min-w-[100px] bg-sky-500/20 text-sky-300 hover:bg-sky-500/30 mb-1"
+            className="h-8 min-w-[100px] gap-1.5 px-3 text-xs bg-sky-500/20 text-sky-300 hover:bg-sky-500/30"
           >
             {isExporting ? (
               <><span className="animate-spin mr-1">⟳</span> Generating...</>
@@ -80,22 +59,9 @@ export function ReportConfigPanel({
             )}
           </Button>
         </div>
-      </div>
 
-      {/* 2. Scrolling Card Body */}
-      <div
-        className="flex-1 overflow-y-auto"
-        style={{
-          background: CARD_BG,
-          borderLeft: `1px solid ${BORDER}`,
-          borderRight: `1px solid ${BORDER}`,
-          borderBottom: `1px solid ${BORDER}`,
-          borderRadius: `0 ${R}px ${R}px ${R}px`,
-          margin: '0 12px 12px',
-        }}
-      >
-        {/* All content now goes inside this single scrollable container */}
-        <div className="p-3 space-y-4">
+        <div className="flex-1 overflow-y-auto px-3 py-3">
+          <div className="space-y-4 rounded-xl border p-3" style={{ background: CARD_BG, borderColor: BORDER }}>
 
           {/* Metadata Section */}
           <div>
@@ -169,7 +135,8 @@ export function ReportConfigPanel({
           </div>
 
         </div>
+        </div>
       </div>
-    </div>
+    </RightPanelShell>
   );
 }

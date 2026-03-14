@@ -14,9 +14,8 @@ import {
 } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import {
-  IntercalaireCard,
-  IntercalaireTabBar,
-} from '@/components/layout/SIFWorkbenchLayout'
+  RightPanelShell,
+} from '@/components/layout/RightPanelShell'
 import { normalizeSIFAssumptions } from '@/core/models/sifAssumptions'
 import type {
   SIF,
@@ -310,11 +309,6 @@ export function ComplianceRightPanel({
   const [assumptionsSaving, setAssumptionsSaving] = useState(false)
   const [assumptionsError, setAssumptionsError] = useState<string | null>(null)
 
-  const activeIdx = useMemo(
-    () => PANEL_TABS.findIndex(tab => tab.id === activeTab),
-    [activeTab],
-  )
-
   const selectedGap = compliance.technicalFindings.find(finding => finding.id === selectedGapId) ?? null
   const selectedEvidence = compliance.evidenceItems.find(item => item.id === selectedEvidenceId) ?? null
   const registerReviews = assumptionDrafts.filter(item => item.status !== 'validated').length
@@ -401,24 +395,17 @@ export function ComplianceRightPanel({
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden" style={{ background: PANEL_BG }}>
-      <div className="flex-1 overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
-        <div className="sticky top-0 z-10 px-3 pt-3" style={{ background: PANEL_BG }}>
-          <IntercalaireTabBar
-            tabs={PANEL_TABS}
-            active={activeTab}
-            onSelect={id => {
-              const nextTab = id as PanelTab
-              setActiveTab(nextTab)
-              setRightPanelTab('compliance', nextTab)
-            }}
-            cardBg={CARD_BG}
-            labelSize="sm"
-          />
-        </div>
-
-        <div className="px-3 pb-3">
-          <IntercalaireCard tabCount={PANEL_TABS.length} activeIdx={activeIdx} className="p-3 space-y-3">
+    <RightPanelShell
+      items={PANEL_TABS}
+      active={activeTab}
+      onSelect={nextTab => {
+        setActiveTab(nextTab)
+        setRightPanelTab('compliance', nextTab)
+      }}
+      contentBg={PANEL_BG}
+    >
+      <div className="flex-1 overflow-y-auto px-3 py-3" style={{ scrollbarGutter: 'stable' }}>
+        <div className="space-y-3">
           {activeTab === 'summary' && (
             <>
               <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: dark.page }}>
@@ -760,9 +747,8 @@ export function ComplianceRightPanel({
               </div>
             </>
           )}
-          </IntercalaireCard>
         </div>
       </div>
-    </div>
+    </RightPanelShell>
   )
 }

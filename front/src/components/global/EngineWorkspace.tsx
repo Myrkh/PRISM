@@ -328,7 +328,7 @@ export function EngineWorkspace() {
                           <td className="px-4 py-3">
                             <button
                               type="button"
-                              onClick={() => navigate({ type: 'sif-dashboard', projectId: row.projectId, sifId: row.id, tab: 'analysis' })}
+                              onClick={() => navigate({ type: 'sif-dashboard', projectId: row.projectId, sifId: row.id, tab: 'verification' })}
                               className="inline-flex items-center gap-1 text-[10px] font-semibold"
                               style={{ color: TEAL }}
                             >

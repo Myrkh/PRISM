@@ -212,7 +212,7 @@ export function ReviewQueueWorkspace() {
             severity: 'high',
             score: severityScore('high') + Math.max(0, (sif.targetSIL - result.SIL) * 8),
             message: `Achieved SIL ${result.SIL}, target SIL ${sif.targetSIL}. Current PFDavg: ${formatPFD(result.PFD_avg)}.`,
-            actionTab: 'analysis',
+            actionTab: 'verification',
           })
         }
 
@@ -226,7 +226,7 @@ export function ReviewQueueWorkspace() {
             severity: 'medium',
             score: severityScore('medium') + 8,
             message: 'No proof test campaign recorded yet.',
-            actionTab: 'prooftest',
+            actionTab: 'exploitation',
           })
         } else {
           const last = campaigns[0]
@@ -243,7 +243,7 @@ export function ReviewQueueWorkspace() {
                 severity: sev,
                 score: severityScore(sev) + Math.min(40, overdueDays / 2),
                 message: `Proof test overdue by ${overdueDays} day(s). Last campaign: ${last.date}.`,
-                actionTab: 'prooftest',
+                actionTab: 'exploitation',
               })
             }
           }
@@ -271,7 +271,7 @@ export function ReviewQueueWorkspace() {
             severity: sev,
             score: severityScore(sev) + missing,
             message: `${missing} mandatory traceability fields are missing.`,
-            actionTab: 'overview',
+            actionTab: 'context',
           })
         }
       })

@@ -101,21 +101,21 @@ export function getOverviewMetrics(
       id: 'proof-procedure',
       title: 'Document the proof test procedure',
       hint: 'No procedure is attached to this SIF yet.',
-      tab: 'prooftest',
+      tab: 'exploitation',
     })
   } else if (!recentCampaigns.length) {
     pushAction(actions, {
       id: 'proof-evidence',
       title: 'Record a proof test campaign',
       hint: 'A procedure exists, but no executed campaign is linked as evidence.',
-      tab: 'prooftest',
+      tab: 'exploitation',
     })
   } else if (isOverdue && nextDue) {
     pushAction(actions, {
       id: 'proof-overdue',
       title: 'Proof test campaign is overdue',
       hint: `Next due date was ${nextDue.toLocaleDateString()}.`,
-      tab: 'prooftest',
+      tab: 'exploitation',
     })
   }
 
@@ -124,7 +124,7 @@ export function getOverviewMetrics(
       id: 'operational-exposure',
       title: 'Review operational exposure',
       hint: `${openFaults} open fault${openFaults > 1 ? 's' : ''} and ${bypassHours.toFixed(1)} h of bypass / inhibit exposure.`,
-      tab: 'prooftest',
+      tab: 'exploitation',
     })
   }
 
@@ -133,7 +133,7 @@ export function getOverviewMetrics(
       id: 'technical-findings',
       title: 'Resolve technical findings',
       hint: `${compliance.technicalFindings.length} compliance finding${compliance.technicalFindings.length > 1 ? 's' : ''} need review.`,
-      tab: 'compliance',
+      tab: 'verification',
     })
   }
 
@@ -142,7 +142,7 @@ export function getOverviewMetrics(
       id: 'assumptions',
       title: 'Review the assumption register',
       hint: `${pendingAssumptions} assumption${pendingAssumptions > 1 ? 's' : ''} still require validation.`,
-      tab: 'compliance',
+      tab: 'verification',
     })
   }
 
@@ -151,7 +151,7 @@ export function getOverviewMetrics(
       id: 'hazop-trace',
       title: 'Complete HAZOP / LOPA traceability',
       hint: `${traceCompletedCount}/${traceFieldCount} traceability fields are currently filled.`,
-      tab: 'overview',
+      tab: 'context',
     })
   }
 
@@ -160,7 +160,7 @@ export function getOverviewMetrics(
       id: 'context-fields',
       title: 'Complete core context fields',
       hint: `${metadataPct}% of the overview metadata required for audit readiness is filled.`,
-      tab: 'overview',
+      tab: 'context',
     })
   }
 

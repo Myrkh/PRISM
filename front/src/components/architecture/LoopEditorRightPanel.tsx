@@ -1,12 +1,13 @@
 /**
- * LoopEditorRightPanel — PRISM v3
+ * LoopEditorRightPanel — PRISM v3 (redesigned)
  *
- * Right panel for Loop Editor:
- * - Built-in component templates kept in code
- * - Project / user component libraries persisted in Supabase
- * - Full template drag-and-drop with import/export JSON
+ * Layout: icon rail (32px) | content
+ * Modes:
+ *   [Network]   Architecture — config voies/arch/CCF, contraint par la topologie réelle
+ *   [Settings2] Composant    — params panel (auto-ouvre à la sélection)
+ *   [BookOpen]  Bibliothèque — liste unifiée glissable
  */
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
   Activity,
   Archive,
@@ -15,158 +16,375 @@ import {
   ChevronRight,
   Cpu,
   Download,
-  FolderOpen,
   GripVertical,
+  Layers,
+  Network,
   RefreshCw,
   Settings2,
   Trash2,
   Upload,
-  User,
   Zap,
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { ComponentParamsPanel } from './ComponentParamsPanel'
-import type { ComponentTemplate, SIF, SubsystemType } from '@/core/types'
+import type { Architecture, ComponentTemplate, SIF, SIFSubsystem, SubsystemType } from '@/core/types'
 import {
   buildLibraryDragPayload,
-  getPanelScopeLabel,
-  getTemplateCategoryLabel,
   parseComponentTemplateImport,
   serializeComponentTemplates,
-  type LibraryPanelScope,
   useComponentLibrary,
 } from '@/features/library'
-import { BORDER, R, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
+import { RightPanelShell } from '@/components/layout/RightPanelShell'
+import { BORDER, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
 
 const PANEL = dark.panel
-const CARD = dark.card
-const BG = dark.page
+const BG    = dark.page
+
+// ─── Constants ────────────────────────────────────────────────────────────────
 
 const SUB_META: Record<SubsystemType, { color: string; label: string; Icon: React.ElementType }> = {
-  sensor: { color: '#0284C7', label: 'Capteur(s)', Icon: Activity },
-  logic: { color: '#7C3AED', label: 'Logique', Icon: Cpu },
-  actuator: { color: '#EA580C', label: 'Actionneur(s)', Icon: Zap },
+  sensor:   { color: '#0284C7', label: 'Capteurs',     Icon: Activity },
+  logic:    { color: '#7C3AED', label: 'Logique',      Icon: Cpu      },
+  actuator: { color: '#EA580C', label: 'Actionneurs',  Icon: Zap      },
 }
 
-type PanelTab = 'library' | 'component'
+type PanelMode = 'architecture' | 'component' | 'library'
 
-const TABS: { id: PanelTab; label: string; Icon: React.ElementType }[] = [
-  { id: 'library', label: 'Bibliothèque', Icon: BookOpen },
-  { id: 'component', label: 'Composant', Icon: Settings2 },
+const MODES: { id: PanelMode; Icon: React.ElementType; label: string }[] = [
+  { id: 'architecture', Icon: Network,   label: 'Architecture' },
+  { id: 'component',    Icon: Settings2, label: 'Composant'    },
+  { id: 'library',      Icon: BookOpen,  label: 'Bibliothèque' },
 ]
 
-const LIBRARY_SCOPES: { id: LibraryPanelScope; label: string; Icon: React.ElementType }[] = [
-  { id: 'builtin', label: 'Built-in', Icon: BookOpen },
-  { id: 'project', label: 'Project', Icon: FolderOpen },
-  { id: 'user', label: 'My Library', Icon: User },
+// Architecture valide selon le nombre de voies
+const ARCH_OPTIONS: { value: Architecture; label: string; channels: number | null }[] = [
+  { value: '1oo1',   label: '1oo1',   channels: 1    },
+  { value: '1oo2',   label: '1oo2',   channels: 2    },
+  { value: '2oo2',   label: '2oo2',   channels: 2    },
+  { value: '1oo2D',  label: '1oo2D',  channels: 2    },
+  { value: '2oo3',   label: '2oo3',   channels: 3    },
+  { value: 'custom', label: 'Custom', channels: null }, // toujours disponible
 ]
 
-function formatTemplateMeta(template: ComponentTemplate): string {
-  const parts = [
-    template.instrumentType || getTemplateCategoryLabel(template),
-    template.manufacturer || null,
-    template.dataSource || null,
-  ].filter(Boolean)
-  return parts.join(' · ')
+function getValidArchOptions(channelCount: number) {
+  return ARCH_OPTIONS.filter(o => o.channels === null || o.channels === channelCount)
 }
 
-function formatBatchLabel(importBatchId: string | null): string | null {
-  if (!importBatchId) return null
-  return `batch ${importBatchId.slice(0, 8)}`
+function firstValidArch(channelCount: number): Architecture {
+  return getValidArchOptions(channelCount)[0]?.value ?? 'custom'
 }
 
-function downloadJsonFile(fileName: string, content: string) {
-  const blob = new Blob([content], { type: 'application/json' })
-  const url = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = url
-  anchor.download = fileName
-  document.body.appendChild(anchor)
-  anchor.click()
-  document.body.removeChild(anchor)
-  URL.revokeObjectURL(url)
+// ─── Subsystem config section ─────────────────────────────────────────────────
+
+function SubsystemArchSection({
+  subsystem,
+  projectId,
+  sifId,
+}: {
+  subsystem: SIFSubsystem
+  projectId: string
+  sifId: string
+}) {
+  const updateSubsystem = useAppStore(s => s.updateSubsystem)
+  const addChannel      = useAppStore(s => s.addChannel)
+  const removeChannel   = useAppStore(s => s.removeChannel)
+  const [open, setOpen] = useState(true)
+
+  const meta         = SUB_META[subsystem.type]
+  const channelCount = subsystem.channels.length
+  const hasCCF       = channelCount > 1
+  const ccfEnabled   = hasCCF && (subsystem.ccf.beta > 0 || subsystem.ccf.betaD > 0)
+  const validArchs   = getValidArchOptions(channelCount)
+
+  const upd = (patch: Partial<SIFSubsystem>) =>
+    updateSubsystem(projectId, sifId, { ...subsystem, ...patch })
+
+  // Pas d'auto-reset d'architecture ici : upd() utiliserait le subsystem stale
+  // (avant que addChannel ait mis à jour le store) et écraserait la voie ajoutée.
+  // Le dropdown filtré garantit qu'une architecture invalide ne peut pas être sélectionnée.
+  const handleChannelAdd = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (channelCount >= 4) return
+    addChannel(projectId, sifId, subsystem.id)
+  }
+
+  const handleChannelRemove = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    if (channelCount <= 1) return
+    const last = subsystem.channels[channelCount - 1]
+    removeChannel(projectId, sifId, subsystem.id, last.id)
+  }
+
+  return (
+    <div style={{ borderBottom: `1px solid ${BORDER}` }}>
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-[#161C24]"
+      >
+        <div
+          className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
+          style={{ background: `${meta.color}20` }}
+        >
+          <meta.Icon size={10} style={{ color: meta.color }} />
+        </div>
+        <span className="flex-1 text-[11px] font-semibold" style={{ color: TEXT }}>{meta.label}</span>
+        <span
+          className="rounded px-1.5 py-0.5 text-[9px] font-mono font-bold shrink-0"
+          style={{ background: `${meta.color}15`, color: meta.color }}
+        >
+          {subsystem.architecture}
+        </span>
+        <span className="text-[9px] font-mono shrink-0" style={{ color: TEXT_DIM }}>{channelCount}V</span>
+        {open
+          ? <ChevronDown size={10} style={{ color: TEXT_DIM }} />
+          : <ChevronRight size={10} style={{ color: TEXT_DIM }} />
+        }
+      </button>
+
+      {open && (
+        <div className="space-y-3 px-3 pb-3 pt-2" style={{ background: '#0B1017' }}>
+
+          {/* Voies + Architecture — liés */}
+          <div className="flex gap-2">
+            {/* Voies stepper */}
+            <div className="shrink-0">
+              <p className="mb-1 text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Voies</p>
+              <div className="flex items-center overflow-hidden rounded-md border" style={{ borderColor: BORDER }}>
+                <button
+                  type="button"
+                  onClick={handleChannelRemove}
+                  disabled={channelCount <= 1}
+                  className="flex h-[28px] w-6 items-center justify-center text-sm transition-colors hover:bg-[#1E242B] disabled:opacity-30"
+                  style={{ color: TEXT_DIM, background: BG }}
+                >−</button>
+                <span
+                  className="flex h-[28px] w-6 items-center justify-center text-xs font-mono font-bold"
+                  style={{ background: BG, color: TEXT, borderLeft: `1px solid ${BORDER}`, borderRight: `1px solid ${BORDER}` }}
+                >
+                  {channelCount}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleChannelAdd}
+                  disabled={channelCount >= 4}
+                  className="flex h-[28px] w-6 items-center justify-center text-sm transition-colors hover:bg-[#1E242B] disabled:opacity-30"
+                  style={{ color: TEAL_DIM, background: BG }}
+                >+</button>
+              </div>
+            </div>
+
+            {/* Architecture — filtré par nombre de voies */}
+            <div className="flex-1 min-w-0">
+              <p className="mb-1 text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Architecture</p>
+              <div className="relative">
+                <select
+                  value={validArchs.find(o => o.value === subsystem.architecture) ? subsystem.architecture : validArchs[0]?.value}
+                  onChange={e => upd({ architecture: e.target.value as Architecture })}
+                  className="w-full appearance-none rounded-md border px-2 py-1.5 pr-6 text-xs outline-none"
+                  style={{ background: BG, borderColor: BORDER, color: TEXT }}
+                >
+                  {validArchs.map(o => (
+                    <option key={o.value} value={o.value}>{o.label}</option>
+                  ))}
+                </select>
+                <ChevronDown
+                  size={10}
+                  className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
+                  style={{ color: TEXT_DIM }}
+                />
+              </div>
+              {channelCount === 1 && (
+                <p className="mt-1 text-[9px]" style={{ color: TEXT_DIM }}>
+                  Ajoutez des voies pour activer la redondance.
+                </p>
+              )}
+            </div>
+          </div>
+
+          {/* CCF — uniquement si redondant */}
+          {hasCCF && (
+            <div
+              className="rounded-lg border p-2.5 space-y-2 transition-colors"
+              style={{
+                borderColor: ccfEnabled ? `${TEAL}35` : BORDER,
+                background:  ccfEnabled ? `${TEAL}06` : 'transparent',
+              }}
+            >
+              <button
+                type="button"
+                onClick={() => upd({
+                  ccf: {
+                    ...subsystem.ccf,
+                    beta:  ccfEnabled ? 0 : 0.10,
+                    betaD: ccfEnabled ? 0 : 0.05,
+                  },
+                })}
+                className="flex w-full items-center gap-2"
+              >
+                <div
+                  className="relative h-3.5 w-7 rounded-full shrink-0 transition-colors"
+                  style={{ background: ccfEnabled ? TEAL : BORDER }}
+                >
+                  <div
+                    className="absolute top-0.5 h-2.5 w-2.5 rounded-full transition-all"
+                    style={{ background: '#FFF', left: ccfEnabled ? '16px' : '2px' }}
+                  />
+                </div>
+                <span className="text-[10px] font-semibold" style={{ color: ccfEnabled ? TEAL_DIM : TEXT_DIM }}>
+                  Cause commune (β)
+                </span>
+                {subsystem.ccf.assessment?.mode === 'iec61508' && (
+                  <span
+                    className="ml-auto rounded px-1 py-0.5 text-[8px] font-bold"
+                    style={{ background: `${TEAL}18`, color: TEAL_DIM }}
+                  >
+                    Via tableau
+                  </span>
+                )}
+              </button>
+
+              {ccfEnabled && (() => {
+                // beta/betaD sont stockés en fraction [0-1], on affiche en %
+                const fromPct = (pct: string, fallback: number) =>
+                  Math.min(1, Math.max(0, (parseFloat(pct) || 0) / 100)) || fallback
+                const toPct = (v: number) => +(v * 100).toFixed(4)
+                const isTableDerived = subsystem.ccf.assessment?.mode === 'iec61508'
+
+                return (
+                  <div className="grid grid-cols-2 gap-2">
+                    {[
+                      { key: 'beta',  label: 'β total', val: subsystem.ccf.beta  },
+                      { key: 'betaD', label: 'βD (DD)', val: subsystem.ccf.betaD },
+                    ].map(({ key, label, val }) => (
+                      <div key={key}>
+                        <p className="mb-1 text-[9px] font-bold uppercase" style={{ color: TEXT_DIM }}>{label}</p>
+                        <div className="relative flex items-center">
+                          <input
+                            type="number"
+                            step="0.1"
+                            min="0"
+                            max="100"
+                            readOnly={isTableDerived}
+                            value={toPct(val)}
+                            onChange={e => {
+                              if (isTableDerived) return
+                              upd({ ccf: { ...subsystem.ccf, [key]: fromPct(e.target.value, val) } })
+                            }}
+                            className="w-full rounded-md border py-1.5 pl-2 pr-6 text-xs font-mono outline-none"
+                            style={{
+                              background:  BG,
+                              borderColor: BORDER,
+                              color:       TEXT,
+                              opacity:     isTableDerived ? 0.6 : 1,
+                              cursor:      isTableDerived ? 'default' : 'text',
+                            }}
+                          />
+                          <span
+                            className="pointer-events-none absolute right-2 text-[10px]"
+                            style={{ color: TEXT_DIM }}
+                          >%</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )
+              })()}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
-function buildExportFileName(scope: LibraryPanelScope, projectId: string): string {
-  const stamp = new Date().toISOString().replace(/[:.]/g, '-')
-  if (scope === 'project') return `prism-component-templates-project-${projectId}-${stamp}.json`
-  return `prism-component-templates-my-library-${stamp}.json`
+// ─── Architecture panel ───────────────────────────────────────────────────────
+
+function ArchitectureConfigPanel({ sif, projectId }: { sif: SIF; projectId: string }) {
+  if (sif.subsystems.length === 0) {
+    return (
+      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+        <Layers size={18} style={{ color: TEXT_DIM }} />
+        <p className="text-xs" style={{ color: TEXT_DIM }}>
+          Ajoutez des sous-systèmes depuis le canvas.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex h-full flex-col overflow-hidden">
+      <div className="flex-1 overflow-y-auto">
+        {sif.subsystems.map(subsystem => (
+          <SubsystemArchSection
+            key={subsystem.id}
+            subsystem={subsystem}
+            projectId={projectId}
+            sifId={sif.id}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Library ──────────────────────────────────────────────────────────────────
+
+type OriginBadge = 'builtin' | 'project' | 'user'
+
+const ORIGIN_STYLE: Record<OriginBadge, { label: string; color: string; bg: string }> = {
+  builtin: { label: 'std',    color: TEXT_DIM,   bg: `${BORDER}60`    },
+  project: { label: 'projet', color: '#F59E0B',  bg: '#F59E0B18'      },
+  user:    { label: 'perso',  color: TEAL_DIM,   bg: `${TEAL}15`      },
 }
 
 function TemplateCard({
   template,
+  origin,
   onArchive,
   onDelete,
 }: {
   template: ComponentTemplate
-  onArchive?: (templateId: string) => void
-  onDelete?: (templateId: string) => void
+  origin: OriginBadge
+  onArchive?: (id: string) => void
+  onDelete?: (id: string) => void
 }) {
   const meta = SUB_META[template.subsystemType]
-  const batchLabel = formatBatchLabel(template.importBatchId)
+  const orig = ORIGIN_STYLE[origin]
 
   return (
     <div
       draggable
-      onDragStart={event => {
-        event.dataTransfer.setData('application/prism-lib', buildLibraryDragPayload(template))
-        event.dataTransfer.effectAllowed = 'copy'
+      onDragStart={e => {
+        e.dataTransfer.setData('application/prism-lib', buildLibraryDragPayload(template))
+        e.dataTransfer.effectAllowed = 'copy'
       }}
-      className="group flex items-start gap-2 px-3 py-2.5 cursor-grab active:cursor-grabbing transition-colors hover:bg-[#1E242B]"
-      style={{ borderBottom: `1px solid ${BORDER}30` }}
+      className="group flex items-center gap-2 px-3 py-2 cursor-grab active:cursor-grabbing transition-colors hover:bg-[#1A2028]"
+      style={{ borderBottom: `1px solid ${BORDER}28` }}
     >
-      <GripVertical
-        size={11}
-        className="shrink-0 mt-0.5 opacity-40 group-hover:opacity-80"
-        style={{ color: meta.color }}
-      />
+      <GripVertical size={10} className="shrink-0 opacity-30 group-hover:opacity-70" style={{ color: meta.color }} />
+      <meta.Icon size={11} className="shrink-0" style={{ color: meta.color }} />
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-1.5">
-          <p className="truncate text-xs font-medium" style={{ color: TEXT }}>
-            {template.name}
+        <p className="truncate text-[11px] font-medium" style={{ color: TEXT }}>{template.name}</p>
+        {(template.manufacturer || template.instrumentType) && (
+          <p className="truncate text-[9px]" style={{ color: TEXT_DIM }}>
+            {[template.instrumentType, template.manufacturer].filter(Boolean).join(' · ')}
           </p>
-          <span
-            className="rounded px-1 py-0.5 text-[7px] font-bold uppercase"
-            style={{ background: `${meta.color}20`, color: meta.color }}
-          >
-            {template.reviewStatus}
-          </span>
-        </div>
-        <p className="truncate text-[9px]" style={{ color: TEXT_DIM }}>
-          {formatTemplateMeta(template) || getTemplateCategoryLabel(template)}
-        </p>
-        {(template.tags.length > 0 || batchLabel) && (
-          <div className="mt-1 flex flex-wrap gap-1">
-            {template.tags.slice(0, 3).map(tag => (
-              <span
-                key={tag}
-                className="rounded px-1 py-0.5 text-[8px]"
-                style={{ background: '#141A21', color: TEXT_DIM, border: `1px solid ${BORDER}` }}
-              >
-                {tag}
-              </span>
-            ))}
-            {batchLabel && (
-              <span
-                className="rounded px-1 py-0.5 text-[8px]"
-                style={{ background: `${TEAL}10`, color: TEAL_DIM, border: `1px solid ${TEAL}25` }}
-              >
-                {batchLabel}
-              </span>
-            )}
-          </div>
         )}
       </div>
+      <span
+        className="shrink-0 rounded px-1 py-0.5 text-[8px] font-bold"
+        style={{ background: orig.bg, color: orig.color }}
+      >
+        {orig.label}
+      </span>
       {(onArchive || onDelete) && (
-        <div className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-hover:opacity-100">
+        <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
           {onArchive && (
             <button
               type="button"
-              onClick={event => {
-                event.stopPropagation()
-                onArchive(template.id)
-              }}
-              className="rounded p-0.5 transition-colors hover:bg-amber-900/30"
+              onClick={e => { e.stopPropagation(); onArchive(template.id) }}
+              className="rounded p-1 transition-colors hover:bg-amber-900/30"
               style={{ color: '#FBBF24' }}
               title="Archiver"
             >
@@ -176,11 +394,8 @@ function TemplateCard({
           {onDelete && (
             <button
               type="button"
-              onClick={event => {
-                event.stopPropagation()
-                onDelete(template.id)
-              }}
-              className="rounded p-0.5 transition-colors hover:bg-red-900/30"
+              onClick={e => { e.stopPropagation(); onDelete(template.id) }}
+              className="rounded p-1 transition-colors hover:bg-red-900/30"
               style={{ color: '#F87171' }}
               title="Supprimer"
             >
@@ -193,388 +408,247 @@ function TemplateCard({
   )
 }
 
-function ScopeHint({ activeScope }: { activeScope: LibraryPanelScope }) {
-  if (activeScope !== 'builtin') return null
-  return (
-    <div
-      className="mx-3 mt-2 rounded-lg border px-3 py-2 text-[10px]"
-      style={{ background: `${TEAL}08`, borderColor: `${TEAL}25`, color: TEAL_DIM }}
-    >
-      Import/export JSON est disponible dans <strong>Project</strong> et <strong>My Library</strong>.
-    </div>
-  )
-}
-
-function EmptyComponentState() {
-  return (
-    <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-      <div
-        className="flex h-12 w-12 items-center justify-center rounded-xl"
-        style={{ background: `${TEAL}10`, border: `1px solid ${TEAL}25` }}
-      >
-        <Settings2 size={20} style={{ color: TEAL_DIM }} />
-      </div>
-      <div className="space-y-1">
-        <p className="text-sm font-semibold" style={{ color: TEXT }}>
-          Aucun composant sélectionné
-        </p>
-        <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-          Cliquez sur un composant dans le canvas pour éditer ses paramètres ici.
-        </p>
-      </div>
-      <div className="w-full rounded-lg border p-3" style={{ background: `${TEAL}08`, borderColor: `${TEAL}25` }}>
-        <p className="text-[10px] leading-relaxed" style={{ color: TEAL_DIM }}>
-          Glissez un template depuis la <strong>Bibliothèque</strong> sur un canal du canvas.
-        </p>
-      </div>
-    </div>
-  )
-}
-
 function LibraryContent({ projectId }: { projectId: string }) {
   const profileId = useAppStore(state => state.profile?.id ?? null)
   const setSyncError = useAppStore(state => state.setSyncError)
   const {
-    builtinTemplates,
-    projectTemplates,
-    userTemplates,
-    loading,
-    error,
-    fetchTemplates,
-    importTemplates,
-    archiveTemplate,
-    deleteTemplate,
-    clearError,
+    builtinTemplates, projectTemplates, userTemplates,
+    loading, error, fetchTemplates, importTemplates,
+    archiveTemplate, deleteTemplate, clearError,
   } = useComponentLibrary(projectId)
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [search, setSearch] = useState('')
-  const [activeScope, setActiveScope] = useState<LibraryPanelScope>('builtin')
   const [openTypes, setOpenTypes] = useState<Set<SubsystemType>>(new Set(['sensor', 'logic', 'actuator']))
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
 
-  const scopeCounts = useMemo(
-    () => ({
-      builtin: builtinTemplates.length,
-      project: projectTemplates.length,
-      user: userTemplates.length,
-    }),
-    [builtinTemplates.length, projectTemplates.length, userTemplates.length],
-  )
+  // Unified list: built-in first, then project, then user
+  const allTemplates = [
+    ...builtinTemplates.map(t => ({ template: t, origin: 'builtin' as OriginBadge })),
+    ...projectTemplates.map(t => ({ template: t, origin: 'project' as OriginBadge })),
+    ...userTemplates.map(t => ({ template: t, origin: 'user' as OriginBadge })),
+  ]
 
-  const activeTemplates = useMemo(() => {
-    if (activeScope === 'builtin') return builtinTemplates
-    if (activeScope === 'project') return projectTemplates
-    return userTemplates
-  }, [activeScope, builtinTemplates, projectTemplates, userTemplates])
-
-  const filteredTemplates = useMemo(() => {
+  const filtered = (() => {
     const needle = search.trim().toLowerCase()
-    if (!needle) return activeTemplates
-
-    return activeTemplates.filter(template => {
-      const haystack = [
-        template.name,
-        template.description,
-        template.instrumentType,
-        template.manufacturer,
-        template.dataSource,
-        template.sourceReference ?? '',
-        ...template.tags,
-      ].join(' ').toLowerCase()
-      return haystack.includes(needle)
+    if (!needle) return allTemplates
+    return allTemplates.filter(({ template: t }) => {
+      const hay = [t.name, t.description, t.instrumentType, t.manufacturer, t.dataSource, ...t.tags]
+        .filter(Boolean).join(' ').toLowerCase()
+      return hay.includes(needle)
     })
-  }, [activeTemplates, search])
+  })()
 
-  const templatesBySubsystem = useMemo(
-    () => ({
-      sensor: filteredTemplates.filter(template => template.subsystemType === 'sensor'),
-      logic: filteredTemplates.filter(template => template.subsystemType === 'logic'),
-      actuator: filteredTemplates.filter(template => template.subsystemType === 'actuator'),
-    }),
-    [filteredTemplates],
-  )
+  const bySubsystem: Record<SubsystemType, typeof filtered> = {
+    sensor:   filtered.filter(x => x.template.subsystemType === 'sensor'),
+    logic:    filtered.filter(x => x.template.subsystemType === 'logic'),
+    actuator: filtered.filter(x => x.template.subsystemType === 'actuator'),
+  }
 
-  const canImportExport = activeScope !== 'builtin'
-
-  const toggleSubsystem = (subsystemType: SubsystemType) => {
-    setOpenTypes(previous => {
-      const next = new Set(previous)
-      if (next.has(subsystemType)) next.delete(subsystemType)
-      else next.add(subsystemType)
+  const toggleType = (type: SubsystemType) =>
+    setOpenTypes(prev => {
+      const next = new Set(prev)
+      next.has(type) ? next.delete(type) : next.add(type)
       return next
     })
-  }
 
-  const resetStatus = () => {
-    setStatusMessage(null)
-    clearError(null)
-    setSyncError(null)
-  }
+  const reset = () => { setStatusMessage(null); clearError(null); setSyncError(null) }
 
-  const handleRefresh = async () => {
-    resetStatus()
+  const handleImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    reset()
     try {
-      await fetchTemplates()
-      setStatusMessage('Bibliothèque custom rechargée.')
-    } catch {
-      // handled in store state
+      const text = await file.text()
+      const batchId = crypto.randomUUID()
+      const payload = parseComponentTemplateImport(text, 'user', projectId)
+      const imported = await importTemplates(payload.map(t => ({ ...t, importBatchId: batchId })))
+      setStatusMessage(`${imported.length} template(s) importé(s).`)
+    } catch (err: unknown) {
+      setSyncError(err instanceof Error ? err.message : String(err))
     }
   }
 
   const handleExport = () => {
-    if (!canImportExport || activeTemplates.length === 0) return
-    resetStatus()
-    const content = serializeComponentTemplates(
-      activeTemplates,
-      profileId,
-      activeScope === 'project' ? projectId : null,
-    )
-    downloadJsonFile(buildExportFileName(activeScope, projectId), content)
-    setStatusMessage(`${activeTemplates.length} template(s) exporté(s) depuis ${getPanelScopeLabel(activeScope)}.`)
+    reset()
+    const exportable = userTemplates.length > 0 ? userTemplates : projectTemplates
+    if (exportable.length === 0) return
+    const scope = userTemplates.length > 0 ? 'user' : 'project'
+    const content = serializeComponentTemplates(exportable, profileId, scope === 'project' ? projectId : null)
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-')
+    const blob = new Blob([content], { type: 'application/json' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a'); a.href = url; a.download = `prism-templates-${stamp}.json`
+    document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url)
+    setStatusMessage(`${exportable.length} template(s) exporté(s).`)
   }
 
-  const handleImportClick = () => {
-    if (!canImportExport) return
-    fileInputRef.current?.click()
+  const handleArchive = async (id: string) => {
+    reset()
+    try { await archiveTemplate(id); setStatusMessage('Archivé.') }
+    catch (err: unknown) { setSyncError(err instanceof Error ? err.message : String(err)) }
   }
 
-  const handleImportFile = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    event.target.value = ''
-    if (!file) return
-
-    resetStatus()
-
-    try {
-      const text = await file.text()
-      const batchId = crypto.randomUUID()
-      const payload = parseComponentTemplateImport(text, activeScope, projectId)
-      const imported = await importTemplates(payload.map(template => ({
-        ...template,
-        importBatchId: batchId,
-      })))
-      setStatusMessage(`${imported.length} template(s) importé(s) dans ${getPanelScopeLabel(activeScope)}.`)
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : String(err)
-      setSyncError(message)
-      setStatusMessage(null)
-    }
+  const handleDelete = async (id: string) => {
+    reset()
+    try { await deleteTemplate(id); setStatusMessage('Supprimé.') }
+    catch (err: unknown) { setSyncError(err instanceof Error ? err.message : String(err)) }
   }
-
-  const handleArchive = async (templateId: string) => {
-    resetStatus()
-    try {
-      await archiveTemplate(templateId)
-      setStatusMessage('Template archivé.')
-    } catch (err: unknown) {
-      setSyncError(err instanceof Error ? err.message : String(err))
-    }
-  }
-
-  const handleDelete = async (templateId: string) => {
-    resetStatus()
-    try {
-      await deleteTemplate(templateId)
-      setStatusMessage('Template supprimé.')
-    } catch (err: unknown) {
-      setSyncError(err instanceof Error ? err.message : String(err))
-    }
-  }
-
-  const scopeIconColor = activeScope === 'project' ? '#F59E0B' : TEAL_DIM
 
   return (
     <div className="flex h-full flex-col">
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="application/json,.json"
-        className="hidden"
-        onChange={handleImportFile}
-      />
+      <input ref={fileInputRef} type="file" accept="application/json,.json" className="hidden" onChange={handleImportFile} />
 
-      <div className="shrink-0 px-3 py-2.5" style={{ borderBottom: `1px solid ${BORDER}` }}>
+      {/* Header : search + actions */}
+      <div className="shrink-0 flex items-center gap-1.5 px-2.5 py-2" style={{ borderBottom: `1px solid ${BORDER}` }}>
         <input
           value={search}
-          onChange={event => setSearch(event.target.value)}
-          placeholder="Rechercher un template…"
-          className="w-full rounded-md border px-2.5 py-1.5 text-xs outline-none transition-colors"
+          onChange={e => setSearch(e.target.value)}
+          placeholder="Rechercher…"
+          className="min-w-0 flex-1 rounded-md border px-2 py-1.5 text-[11px] outline-none transition-colors"
           style={{ background: BG, borderColor: BORDER, color: TEXT }}
-          onFocus={event => (event.target.style.borderColor = TEAL)}
-          onBlur={event => (event.target.style.borderColor = BORDER)}
+          onFocus={e => (e.target.style.borderColor = TEAL)}
+          onBlur={e => (e.target.style.borderColor = BORDER)}
         />
+        <button
+          type="button"
+          onClick={() => fileInputRef.current?.click()}
+          className="flex h-7 w-7 items-center justify-center rounded-md border transition-colors hover:bg-[#1E242B]"
+          style={{ borderColor: BORDER, color: TEXT_DIM }}
+          title="Importer (JSON)"
+        >
+          <Upload size={11} />
+        </button>
+        <button
+          type="button"
+          onClick={handleExport}
+          disabled={userTemplates.length === 0 && projectTemplates.length === 0}
+          className="flex h-7 w-7 items-center justify-center rounded-md border transition-colors hover:bg-[#1E242B] disabled:opacity-30 disabled:cursor-not-allowed"
+          style={{ borderColor: BORDER, color: TEXT_DIM }}
+          title="Exporter mes templates"
+        >
+          <Download size={11} />
+        </button>
+        <button
+          type="button"
+          onClick={() => void fetchTemplates()}
+          className="flex h-7 w-7 items-center justify-center rounded-md border transition-colors hover:bg-[#1E242B]"
+          style={{ borderColor: BORDER, color: TEXT_DIM }}
+          title="Recharger"
+        >
+          <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
+        </button>
       </div>
 
-      <div
-        className="shrink-0 px-3 py-2"
-        style={{ background: `${TEAL}08`, borderBottom: `1px solid ${BORDER}` }}
-      >
-        <div className="flex items-center gap-1.5">
-          <GripVertical size={10} style={{ color: scopeIconColor }} />
-          <p className="text-[9px]" style={{ color: TEAL_DIM }}>
-            Glissez un template complet SIL sur le canal de votre choix
-          </p>
-        </div>
-      </div>
-
-      <div className="shrink-0 px-3 pt-2">
-        <div className="grid grid-cols-3 gap-1 rounded-lg p-1" style={{ background: BG }}>
-          {LIBRARY_SCOPES.map(scope => {
-            const isActive = scope.id === activeScope
-            return (
-              <button
-                key={scope.id}
-                type="button"
-                onClick={() => {
-                  resetStatus()
-                  setActiveScope(scope.id)
-                }}
-                className="flex items-center justify-center gap-1 rounded-md px-2 py-1.5 text-[10px] font-bold transition-all"
-                style={isActive
-                  ? { background: CARD, color: TEXT, border: `1px solid ${BORDER}` }
-                  : { color: TEXT_DIM }}
-              >
-                <scope.Icon size={11} />
-                <span>{scope.label}</span>
-                <span className="font-mono" style={{ color: isActive ? TEAL_DIM : TEXT_DIM }}>
-                  {scopeCounts[scope.id]}
-                </span>
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      <div className="shrink-0 px-3 py-2">
-        <div className="flex items-center gap-2">
-          <button
-            type="button"
-            onClick={handleImportClick}
-            disabled={!canImportExport}
-            className="flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-            style={{ borderColor: BORDER, color: TEXT, background: BG }}
-          >
-            <Upload size={11} />
-            Import JSON
-          </button>
-          <button
-            type="button"
-            onClick={handleExport}
-            disabled={!canImportExport || activeTemplates.length === 0}
-            className="flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-            style={{ borderColor: BORDER, color: TEXT, background: BG }}
-          >
-            <Download size={11} />
-            Export JSON
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleRefresh()}
-            className="ml-auto flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-semibold transition-colors"
-            style={{ borderColor: BORDER, color: TEXT_DIM, background: BG }}
-            title="Recharger la bibliothèque"
-          >
-            <RefreshCw size={11} className={loading ? 'animate-spin' : ''} />
-            Refresh
-          </button>
-        </div>
-      </div>
-
-      <ScopeHint activeScope={activeScope} />
-
+      {/* Feedback */}
       {(statusMessage || error) && (
-        <div className="shrink-0 px-3 pb-2">
+        <div className="shrink-0 px-2.5 pt-2">
           {statusMessage && (
-            <div
-              className="rounded-lg border px-3 py-2 text-[10px]"
-              style={{ background: `${TEAL}08`, borderColor: `${TEAL}25`, color: TEAL_DIM }}
-            >
+            <div className="rounded-md px-2.5 py-1.5 text-[10px]"
+              style={{ background: `${TEAL}10`, color: TEAL_DIM, border: `1px solid ${TEAL}20` }}>
               {statusMessage}
             </div>
           )}
           {error && (
-            <div
-              className="mt-2 rounded-lg border px-3 py-2 text-[10px]"
-              style={{ background: '#7F1D1D20', borderColor: '#F8717130', color: '#FCA5A5' }}
-            >
+            <div className="rounded-md px-2.5 py-1.5 text-[10px]"
+              style={{ background: '#7F1D1D20', color: '#FCA5A5', border: `1px solid #F8717130` }}>
               {error}
             </div>
           )}
         </div>
       )}
 
-      <div className="flex-1 overflow-y-auto">
-        {(['sensor', 'logic', 'actuator'] as SubsystemType[]).map(subsystemType => {
-          const meta = SUB_META[subsystemType]
-          const items = templatesBySubsystem[subsystemType]
-          const open = openTypes.has(subsystemType)
-
+      {/* Grouped list */}
+      <div className="flex-1 overflow-y-auto pt-1">
+        {(['sensor', 'logic', 'actuator'] as SubsystemType[]).map(type => {
+          const meta  = SUB_META[type]
+          const items = bySubsystem[type]
+          const open  = openTypes.has(type)
           return (
-            <div key={subsystemType}>
-              <div
-                className="flex items-center gap-2 px-3 py-2 transition-colors hover:bg-[#1E242B]"
+            <div key={type}>
+              <button
+                type="button"
+                onClick={() => toggleType(type)}
+                className="flex w-full items-center gap-2 px-3 py-1.5 transition-colors hover:bg-[#1A2028]"
                 style={{ borderBottom: `1px solid ${BORDER}` }}
               >
-                <button
-                  type="button"
-                  onClick={() => toggleSubsystem(subsystemType)}
-                  className="flex min-w-0 flex-1 items-center gap-2"
-                >
-                  <meta.Icon size={12} style={{ color: meta.color }} />
-                  <span
-                    className="flex-1 text-left text-[10px] font-bold uppercase tracking-widest"
-                    style={{ color: meta.color }}
-                  >
-                    {meta.label}
-                  </span>
-                  <span className="text-[9px] font-mono" style={{ color: TEXT_DIM }}>
-                    {items.length}
-                  </span>
-                  {open ? (
-                    <ChevronDown size={10} style={{ color: TEXT_DIM }} />
-                  ) : (
-                    <ChevronRight size={10} style={{ color: TEXT_DIM }} />
-                  )}
-                </button>
-              </div>
-
-              {open && items.map(template => (
+                <meta.Icon size={11} style={{ color: meta.color }} />
+                <span className="flex-1 text-left text-[9px] font-bold uppercase tracking-widest" style={{ color: meta.color }}>
+                  {meta.label}
+                </span>
+                <span className="text-[9px] font-mono" style={{ color: TEXT_DIM }}>{items.length}</span>
+                {open
+                  ? <ChevronDown size={9} style={{ color: TEXT_DIM }} />
+                  : <ChevronRight size={9} style={{ color: TEXT_DIM }} />
+                }
+              </button>
+              {open && items.map(({ template, origin }) => (
                 <TemplateCard
                   key={template.id}
                   template={template}
-                  onArchive={template.origin === 'database' ? handleArchive : undefined}
-                  onDelete={template.origin === 'database' ? handleDelete : undefined}
+                  origin={origin}
+                  onArchive={origin !== 'builtin' ? handleArchive : undefined}
+                  onDelete={origin !== 'builtin' ? handleDelete : undefined}
                 />
               ))}
-
               {open && items.length === 0 && (
-                <div className="px-3 py-4 text-center">
-                  <p className="text-[10px]" style={{ color: TEXT_DIM }}>
-                    {activeScope === 'builtin'
-                      ? 'Aucun template built-in correspondant à la recherche.'
-                      : 'Sélectionnez un composant dans le canvas puis enregistrez-le dans cette bibliothèque.'}
-                  </p>
-                </div>
+                <p className="px-3 py-3 text-center text-[10px]" style={{ color: TEXT_DIM }}>
+                  Aucun template{search ? ' correspondant' : ''}.
+                </p>
               )}
             </div>
           )
         })}
+      </div>
 
-        {filteredTemplates.length === 0 && (
-          <div className="px-3 py-8 text-center">
-            <p className="text-xs font-medium" style={{ color: TEXT }}>
-              Aucun résultat
-            </p>
-            <p className="mt-1 text-[10px]" style={{ color: TEXT_DIM }}>
-              Ajustez la recherche ou changez d’onglet de bibliothèque.
-            </p>
-          </div>
-        )}
+      {/* Legend */}
+      <div
+        className="shrink-0 flex items-center gap-3 px-3 py-2"
+        style={{ borderTop: `1px solid ${BORDER}`, background: BG }}
+      >
+        {(Object.entries(ORIGIN_STYLE) as [OriginBadge, typeof ORIGIN_STYLE[OriginBadge]][]).map(([key, s]) => (
+          <span key={key} className="flex items-center gap-1 text-[9px]" style={{ color: TEXT_DIM }}>
+            <span className="rounded px-1 py-0.5 text-[8px] font-bold" style={{ background: s.bg, color: s.color }}>{s.label}</span>
+            {key === 'builtin' ? 'standard' : key === 'project' ? 'projet' : 'personnel'}
+          </span>
+        ))}
       </div>
     </div>
   )
 }
+
+// ─── Empty component state ────────────────────────────────────────────────────
+
+function EmptyComponentState({ onGoToLibrary }: { onGoToLibrary: () => void }) {
+  return (
+    <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+      <div
+        className="flex h-10 w-10 items-center justify-center rounded-xl"
+        style={{ background: `${TEAL}10`, border: `1px solid ${TEAL}20` }}
+      >
+        <Settings2 size={16} style={{ color: TEAL_DIM }} />
+      </div>
+      <div className="space-y-1">
+        <p className="text-sm font-semibold" style={{ color: TEXT }}>Aucun composant sélectionné</p>
+        <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+          Cliquez sur un composant dans le canvas.
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={onGoToLibrary}
+        className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-[#1E242B]"
+        style={{ borderColor: BORDER, color: TEXT_DIM }}
+      >
+        <BookOpen size={11} />
+        Ouvrir la bibliothèque
+      </button>
+    </div>
+  )
+}
+
+// ─── Main panel ───────────────────────────────────────────────────────────────
 
 interface Props {
   sif: SIF
@@ -582,14 +656,15 @@ interface Props {
 }
 
 export function LoopEditorRightPanel({ sif, projectId }: Props) {
-  const selectedId = useAppStore(state => state.selectedComponentId)
+  const selectedId      = useAppStore(state => state.selectedComponentId)
   const selectComponent = useAppStore(state => state.selectComponent)
-  const [activeTab, setActiveTab] = useState<PanelTab>('library')
+  const [mode, setMode] = useState<PanelMode>('architecture')
 
   useEffect(() => {
-    if (selectedId) setActiveTab('component')
+    if (selectedId) setMode('component')
   }, [selectedId])
 
+  // Find selected component
   let found: {
     comp: (typeof sif.subsystems)[0]['channels'][0]['components'][0]
     subsystemType: SubsystemType
@@ -598,85 +673,35 @@ export function LoopEditorRightPanel({ sif, projectId }: Props) {
   } | null = null
 
   if (selectedId) {
-    outer: for (const subsystem of sif.subsystems) {
-      for (const channel of subsystem.channels) {
-        const component = channel.components.find(entry => entry.id === selectedId)
-        if (component) {
-          found = {
-            comp: component,
-            subsystemType: subsystem.type,
-            subsystemId: subsystem.id,
-            channelId: channel.id,
-          }
+    outer: for (const sub of sif.subsystems) {
+      for (const ch of sub.channels) {
+        const comp = ch.components.find(c => c.id === selectedId)
+        if (comp) {
+          found = { comp, subsystemType: sub.type, subsystemId: sub.id, channelId: ch.id }
           break outer
         }
       }
     }
   }
 
-  const activeIdx = TABS.findIndex(tab => tab.id === activeTab)
-
   return (
-    <div className="flex h-full flex-col overflow-hidden" style={{ background: PANEL }}>
-      <div className="shrink-0 px-3 pt-3">
-        <div className="flex items-end" style={{ borderBottom: `1px solid ${BORDER}` }}>
-          {TABS.map(tab => {
-            const isActive = tab.id === activeTab
-            const hasBadge = tab.id === 'component' && Boolean(selectedId)
-
-            return (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className="relative flex shrink-0 items-center gap-1.5 px-3 py-2 text-left transition-colors"
-                style={isActive
-                  ? {
-                      background: CARD,
-                      borderTop: `1px solid ${BORDER}`,
-                      borderLeft: `1px solid ${BORDER}`,
-                      borderRight: `1px solid ${BORDER}`,
-                      borderBottom: `1px solid ${CARD}`,
-                      borderRadius: `${R}px ${R}px 0 0`,
-                      color: TEAL_DIM,
-                      marginBottom: '-1px',
-                      zIndex: 10,
-                    }
-                  : { color: TEXT_DIM }}
-                onMouseEnter={event => {
-                  if (!isActive) event.currentTarget.style.color = TEXT
-                }}
-                onMouseLeave={event => {
-                  if (!isActive) event.currentTarget.style.color = TEXT_DIM
-                }}
-              >
-                <tab.Icon size={11} />
-                <span className="whitespace-nowrap text-[12px] font-semibold">{tab.label}</span>
-                {hasBadge && (
-                  <span
-                    className="h-1.5 w-1.5 rounded-full"
-                    style={{ background: isActive ? TEAL : `${TEAL}80` }}
-                  />
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-
-      <div
-        className="flex-1 overflow-hidden"
-        style={{
-          background: CARD,
-          borderLeft: `1px solid ${BORDER}`,
-          borderRight: `1px solid ${BORDER}`,
-          borderBottom: `1px solid ${BORDER}`,
-          borderRadius: `${activeIdx === 0 ? 0 : R}px ${activeIdx === TABS.length - 1 ? 0 : R}px ${R}px ${R}px`,
-          margin: '0 12px 12px',
-        }}
-      >
-        {activeTab === 'library' && <LibraryContent projectId={projectId} />}
-        {activeTab === 'component' && (
+    <RightPanelShell
+      items={MODES.map(item => ({
+        id: item.id,
+        label: item.label,
+        Icon: item.Icon,
+        badge: item.id === 'component' ? Boolean(selectedId) : undefined,
+      }))}
+      active={mode}
+      onSelect={setMode}
+      contentBg={PANEL}
+    >
+      {/* ── Content ── */}
+      <div className="flex-1 min-w-0 overflow-hidden">
+        {mode === 'architecture' && (
+          <ArchitectureConfigPanel sif={sif} projectId={projectId} />
+        )}
+        {mode === 'component' && (
           found ? (
             <ComponentParamsPanel
               component={found.comp}
@@ -687,14 +712,15 @@ export function LoopEditorRightPanel({ sif, projectId }: Props) {
               channelId={found.channelId}
               onClose={() => {
                 selectComponent(null)
-                setActiveTab('library')
+                setMode('architecture')
               }}
             />
           ) : (
-            <EmptyComponentState />
+            <EmptyComponentState onGoToLibrary={() => setMode('library')} />
           )
         )}
+        {mode === 'library' && <LibraryContent projectId={projectId} />}
       </div>
-    </div>
+    </RightPanelShell>
   )
 }

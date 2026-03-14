@@ -308,7 +308,6 @@ function SubsystemNode({ data }: NodeProps<SubsystemNodeData>) {
   const {
     subsystem, calcResult, selectedId, projectId, sifId,
     onSelectComp, onAddChannel, onRemoveChannel, onRemoveSub,
-    onUpdateArch, onUpdateCustomGate, onUpdateEngineSettings,
   } = data
 
   const meta  = SUB_META[subsystem.type as SubsystemType]
@@ -320,54 +319,25 @@ function SubsystemNode({ data }: NodeProps<SubsystemNodeData>) {
       <Handle type="target" position={Position.Left} style={{ background: color, border: 'none', width: 10, height: 10 }} />
       <Handle type="source" position={Position.Right} style={{ background: color, border: 'none', width: 10, height: 10 }} />
 
-      {/* Header */}
+      {/* Header — label + arch badge + live PFD + actions */}
       <div className="flex items-center gap-2 px-3 py-2.5 border-b rounded-t-xl"
         style={{ borderColor: `${color}30`, background: `${color}10` }}>
         <Icon size={14} style={{ color }} />
-        <span className="text-sm font-bold flex-1" style={{ color }}>{subsystem.label}</span>
+        <span className="text-sm font-bold flex-1 truncate" style={{ color }}>{subsystem.label}</span>
+        <span className="text-[9px] font-mono font-bold rounded px-1.5 py-0.5 shrink-0"
+          style={{ background: `${color}20`, color }}>{subsystem.architecture}</span>
         {calcResult && (
-          <div className="flex flex-col items-end leading-tight">
-            <span className="text-[10px] font-mono font-bold" style={{ color: calcResult.PFD_avg > 0 ? (calcResult.SIL >= 2 ? '#4ADE80' : '#F59E0B') : TEXT_DIM }}>
-              {formatPFD(calcResult.PFD_avg)}
-            </span>
-            <span className="text-[9px] font-mono" style={{ color: TEXT_DIM }}>
-              RRF {formatRRF(calcResult.RRF)}
-            </span>
-          </div>
+          <span className="text-[10px] font-mono font-bold shrink-0"
+            style={{ color: calcResult.SIL >= 2 ? '#4ADE80' : '#F59E0B' }}>
+            {formatPFD(calcResult.PFD_avg)}
+          </span>
         )}
-        <button onClick={() => setCollapsed(v => !v)} className="p-0.5 rounded" style={{ color: TEXT_DIM }}>
+        <button onClick={() => setCollapsed(v => !v)} className="p-0.5 rounded shrink-0" style={{ color: TEXT_DIM }}>
           {collapsed ? <ChevronRight size={12} /> : <ChevronDown size={12} />}
         </button>
         <button onClick={() => onRemoveSub(subsystem.id)}
-          className="p-0.5 rounded hover:text-red-400 transition-colors" style={{ color: TEXT_DIM }}><X size={11} /></button>
+          className="p-0.5 rounded hover:text-red-400 transition-colors shrink-0" style={{ color: TEXT_DIM }}><X size={11} /></button>
       </div>
-
-      {/* Architecture selector */}
-      {!collapsed && (
-        <ArchSelector subsystem={subsystem} color={color}
-          onUpdateArch={onUpdateArch}
-          onUpdateCustomGate={onUpdateCustomGate}
-          onUpdateEngineSettings={onUpdateEngineSettings}
-        />
-      )}
-
-      {/* Metrics bar */}
-      {!collapsed && calcResult && (
-        <div className="grid grid-cols-4 border-y divide-x text-center"
-          style={{ borderColor: `${color}15` }}>
-          {[
-            { label: 'PFDavg', value: formatPFD(calcResult.PFD_avg) },
-            { label: 'RRF',    value: formatRRF(calcResult.RRF) },
-            { label: 'SFF',    value: formatPct(calcResult.SFF) },
-            { label: 'HFT',    value: String(calcResult.HFT) },
-          ].map(({ label, value }) => (
-            <div key={label} className="py-1.5">
-              <p className="text-[7px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{label}</p>
-              <p className="text-[10px] font-mono font-bold" style={{ color }}>{value}</p>
-            </div>
-          ))}
-        </div>
-      )}
 
       {/* Channels */}
       {!collapsed && (

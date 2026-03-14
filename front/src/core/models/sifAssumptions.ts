@@ -17,7 +17,7 @@ const ASSUMPTION_TEMPLATES: readonly AssumptionTemplate[] = [
     rationale: '',
     status: 'review',
     category: 'process',
-    linkedTab: 'overview',
+    linkedTab: 'verification',
   },
   {
     title: 'Proof test effectiveness',
@@ -25,7 +25,7 @@ const ASSUMPTION_TEMPLATES: readonly AssumptionTemplate[] = [
     rationale: '',
     status: 'review',
     category: 'proof',
-    linkedTab: 'prooftest',
+    linkedTab: 'exploitation',
   },
   {
     title: 'CCF and independence treatment',
@@ -59,7 +59,11 @@ function isCategory(value: unknown): value is SIFAssumptionCategory {
 }
 
 function isReferenceTab(value: unknown): value is SIFReferenceTab {
-  return value === 'overview'
+  return value === 'cockpit'
+    || value === 'context'
+    || value === 'verification'
+    || value === 'exploitation'
+    || value === 'overview'
     || value === 'architecture'
     || value === 'analysis'
     || value === 'compliance'
@@ -89,7 +93,7 @@ function normalizeAssumption(value: unknown, fallback?: Partial<SIFAssumption>):
       ? source.reviewDate
       : fallback?.reviewDate ?? '',
     category: isCategory(source.category) ? source.category : fallback?.category ?? 'other',
-    linkedTab: isReferenceTab(source.linkedTab) ? source.linkedTab : fallback?.linkedTab ?? 'compliance',
+    linkedTab: isReferenceTab(source.linkedTab) ? source.linkedTab : fallback?.linkedTab ?? 'verification',
   }
 }
 

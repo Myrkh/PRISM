@@ -10,7 +10,7 @@
  */
 import { useMemo, useState, useEffect } from 'react'
 import {
-  Plus, Save, Pencil, AlertTriangle,
+  ArrowLeft, ArrowRight, Plus, Save, Pencil, AlertTriangle,
   ClipboardList, FlaskConical, BarChart3, Download,
 } from 'lucide-react'
 import { nanoid } from 'nanoid'
@@ -19,6 +19,7 @@ import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { ProofTestRightPanel } from '@/components/prooftest/ProofTestRightPanel'
 import { ProofTestPDFExport } from '@/components/prooftest/ProofTestPDFExport'
 import type { Project, SIF } from '@/core/types'
+import type { SIFTab } from '@/store/types'
 import { downloadRevisionArtifact } from '@/lib/revisionArtifacts'
 import { cn } from '@/lib/utils'
 import { BORDER, NAVY, TEAL, TEXT_DIM } from '@/styles/tokens'
@@ -44,7 +45,11 @@ import { CampaignHistoryView } from './CampaignHistoryView'
 // ─── ProofTestTab ─────────────────────────────────────────────────────────
 type View = 'procedure' | 'execution' | 'history'
 
-interface Props { project: Project; sif: SIF }
+interface Props {
+  project: Project
+  sif: SIF
+  onSelectTab?: (tab: SIFTab) => void
+}
 
 function normalizeProcedureState(sif: SIF, procedureRaw: unknown): PTProcedure {
   const fallback = defaultProcedure(sif)
@@ -104,7 +109,7 @@ function computeCampaignVerdict(
   return previousVerdict
 }
 
-export function ProofTestTab({ project, sif }: Props) {
+export function ProofTestTab({ project, sif, onSelectTab }: Props) {
   const updateProofTestProcedure = useAppStore(s => s.updateProofTestProcedure)
   const addTestCampaign = useAppStore(s => s.addTestCampaign)
   const updateTestCampaign = useAppStore(s => s.updateTestCampaign)
@@ -259,13 +264,13 @@ export function ProofTestTab({ project, sif }: Props) {
     })
   }
 
-  const saveCampaign = async () => {
+  const persistCampaign = async (closeCampaign: boolean) => {
     if (!activeCampaign) return
     const finalizedCampaign: PTCampaign = {
       ...activeCampaign,
       procedureSnapshot: JSON.parse(JSON.stringify(procedure)) as PTProcedure,
       pdfArtifact: activeCampaign.pdfArtifact ?? createDefaultCampaignArtifact(),
-      closedAt: activeCampaign.closedAt ?? new Date().toISOString(),
+      closedAt: closeCampaign ? activeCampaign.closedAt ?? new Date().toISOString() : null,
     }
     const previousCampaigns = campaigns
     const exists = previousCampaigns.some(c => c.id === finalizedCampaign.id)
@@ -278,14 +283,21 @@ export function ProofTestTab({ project, sif }: Props) {
     try {
       if (exists) await updateTestCampaign(project.id, sif.id, finalizedCampaign as any)
       else await addTestCampaign(project.id, sif.id, finalizedCampaign as any)
-      setActiveCampaign(null)
-      setView('history')
+      if (closeCampaign) {
+        setActiveCampaign(null)
+        setView('history')
+      } else {
+        setActiveCampaign(finalizedCampaign)
+      }
     } catch {
       setCampaigns(previousCampaigns)
     } finally {
       setIsSavingCampaign(false)
     }
   }
+
+  const saveCampaign = async () => persistCampaign(true)
+  const saveCampaignDraft = async () => persistCampaign(false)
 
   const updateActiveCampaign = (patch: Partial<PTCampaign>) =>
     setActiveCampaign(prev => prev ? { ...prev, ...patch } : prev)
@@ -322,11 +334,13 @@ export function ProofTestTab({ project, sif }: Props) {
   }, [view, executionProcedure, campaigns, activeCampaign, isOverdue, daysOverdue, nextDue])
 
   // ── Render ─────────────────────────────────────────────────────────────
+  const isActiveExecutionView = view === 'execution' && !!activeCampaign
+
   return (
     <div className="space-y-4">
 
       {/* Overdue alert */}
-      {isOverdue && (
+      {!isActiveExecutionView && isOverdue && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl border"
           style={{ background: '#2A1215', borderColor: '#7F1D1D55' }}>
           <AlertTriangle size={15} className="text-red-500 shrink-0" />
@@ -336,7 +350,7 @@ export function ProofTestTab({ project, sif }: Props) {
         </div>
       )}
 
-      {isProcedureLocked && view === 'procedure' && (
+      {!isActiveExecutionView && isProcedureLocked && view === 'procedure' && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl border"
           style={{ background: '#0F1B3D', borderColor: '#1D4ED830' }}>
           <AlertTriangle size={15} className="shrink-0" style={{ color: '#60A5FA' }} />
@@ -346,66 +360,74 @@ export function ProofTestTab({ project, sif }: Props) {
         </div>
       )}
 
-      {/* Top bar */}
-      <div className="flex items-center justify-between">
-        {/* Nav tabs */}
-        <div className="flex items-center gap-1 rounded-xl border p-1" style={{ background: '#1D232A', borderColor: BORDER }}>
-          {([
-            { id: 'procedure' as View, label: 'Procédure', icon: ClipboardList },
-            { id: 'execution' as View, label: 'Exécution', icon: FlaskConical },
-            { id: 'history'   as View, label: 'Historique', icon: BarChart3 },
-          ]).map(({ id, label, icon: Icon }) => (
-            <button key={id} onClick={() => setView(id)}
-              className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
-                view === id ? 'text-white shadow-sm' : 'text-[#8FA0B1] hover:text-[#DFE8F1]',
-              )}
-              style={view === id ? { background: NAVY } : undefined}
-            ><Icon size={12} />{label}</button>
-          ))}
+      {isActiveExecutionView ? (
+        <div className="flex items-center justify-between gap-3 rounded-2xl border px-4 py-4" style={{ background: '#1D232A', borderColor: BORDER }}>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Campagne active</p>
+            <p className="mt-1 text-sm font-bold text-white">
+              {sif.sifNumber} | Campagne PT-{activeCampaign.date || 'en-cours'} en cours
+            </p>
+            <p className="mt-1 text-[11px]" style={{ color: TEXT_DIM }}>
+              {activeCampaign.team || 'Equipe non renseignee'} · {activeCampaign.verdict ? activeCampaign.verdict.toUpperCase() : 'Verdict en cours'}
+            </p>
+          </div>
+          <button
+            onClick={() => setView('history')}
+            className="h-8 px-3 text-xs font-semibold rounded-xl border text-[#8FA0B1] hover:border-[#009BA4] hover:text-[#009BA4] transition-all"
+            style={{ borderColor: BORDER, background: '#14181C' }}
+          >
+            Suspendre
+          </button>
         </div>
+      ) : (
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1 rounded-xl border p-1" style={{ background: '#1D232A', borderColor: BORDER }}>
+            {([
+              { id: 'procedure' as View, label: 'Procedure', icon: ClipboardList },
+              { id: 'execution' as View, label: 'Execution', icon: FlaskConical },
+              { id: 'history'   as View, label: 'Historique', icon: BarChart3 },
+            ]).map(({ id, label, icon: Icon }) => (
+              <button key={id} onClick={() => setView(id)}
+                className={cn(
+                  'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
+                  view === id ? 'text-white shadow-sm' : 'text-[#8FA0B1] hover:text-[#DFE8F1]',
+                )}
+                style={view === id ? { background: NAVY } : undefined}
+              ><Icon size={12} />{label}</button>
+            ))}
+          </div>
 
-        {/* Actions */}
-        <div className="flex items-center gap-2">
-          {view === 'procedure' && (editMode ? (
-            <>
-              <button onClick={() => setEditMode(false)}
-                className={cn(inputCls, 'px-3 text-[#8FA0B1] hover:text-red-500 cursor-pointer')}>Annuler</button>
-              <button onClick={saveProcedure}
-                disabled={isSavingProcedure}
+          <div className="flex items-center gap-2">
+            {view === 'procedure' && (editMode ? (
+              <>
+                <button onClick={() => setEditMode(false)}
+                  className={cn(inputCls, 'px-3 text-[#8FA0B1] hover:text-red-500 cursor-pointer')}>Annuler</button>
+                <button onClick={saveProcedure}
+                  disabled={isSavingProcedure}
+                  className="h-8 px-4 text-xs font-semibold text-white rounded-xl flex items-center gap-1.5 shadow-sm"
+                  style={{ background: NAVY }}><Save size={12} />{isSavingProcedure ? 'Sauvegarde…' : 'Sauvegarder'}</button>
+              </>
+            ) : (
+              <button onClick={() => setEditMode(true)}
+                disabled={isProcedureLocked}
+                className="h-8 px-3 text-xs font-semibold rounded-xl border text-[#8FA0B1] hover:border-[#009BA4] hover:text-[#009BA4] flex items-center gap-1.5 transition-all"
+                style={{ borderColor: BORDER, background: '#1D232A' }}><Pencil size={12} />{isProcedureLocked ? 'Figee' : 'Modifier'}</button>
+            ))}
+            {view === 'execution' && !activeCampaign && (
+              <button onClick={() => setActiveCampaign(newCampaign())}
                 className="h-8 px-4 text-xs font-semibold text-white rounded-xl flex items-center gap-1.5 shadow-sm"
-                style={{ background: NAVY }}><Save size={12} />{isSavingProcedure ? 'Sauvegarde…' : 'Sauvegarder'}</button>
-            </>
-          ) : (
-            <button onClick={() => setEditMode(true)}
-              disabled={isProcedureLocked}
-              className="h-8 px-3 text-xs font-semibold rounded-xl border text-[#8FA0B1] hover:border-[#009BA4] hover:text-[#009BA4] flex items-center gap-1.5 transition-all"
-              style={{ borderColor: BORDER, background: '#1D232A' }}><Pencil size={12} />{isProcedureLocked ? 'Figée' : 'Modifier'}</button>
-          ))}
-          {view === 'execution' && !activeCampaign && (
-            <button onClick={() => setActiveCampaign(newCampaign())}
-              className="h-8 px-4 text-xs font-semibold text-white rounded-xl flex items-center gap-1.5 shadow-sm"
-              style={{ background: TEAL }}><Plus size={13} />Nouveau test</button>
-          )}
-          {view === 'execution' && activeCampaign && !activeCampaign.closedAt && (
-            <>
+                style={{ background: TEAL }}><Plus size={13} />Lancer campagne</button>
+            )}
+            {view === 'execution' && activeCampaign && activeCampaign.closedAt && (
               <button onClick={() => setActiveCampaign(null)}
-                className={cn(inputCls, 'px-3 text-[#8FA0B1] hover:text-red-500 cursor-pointer')}>Annuler</button>
-              <button onClick={saveCampaign}
-                disabled={isSavingCampaign}
-                className="h-8 px-4 text-xs font-semibold text-white rounded-xl flex items-center gap-1.5 shadow-sm"
-                style={{ background: NAVY }}><Save size={12} />{isSavingCampaign ? 'Sauvegarde…' : 'Clôturer le test'}</button>
-            </>
-          )}
-          {view === 'execution' && activeCampaign && activeCampaign.closedAt && (
-            <button onClick={() => setActiveCampaign(null)}
-              className={cn(inputCls, 'px-3 text-[#8FA0B1] cursor-pointer')}>Fermer</button>
-          )}
-          <button onClick={() => setShowExport(true)}
-            className="h-8 px-3 text-xs font-semibold rounded-xl border text-[#8FA0B1] hover:border-[#009BA4] hover:text-[#009BA4] flex items-center gap-1.5 transition-all"
-            style={{ borderColor: BORDER, background: '#1D232A' }}><Download size={12} />PDF</button>
+                className={cn(inputCls, 'px-3 text-[#8FA0B1] cursor-pointer')}>Fermer</button>
+            )}
+            <button onClick={() => setShowExport(true)}
+              className="h-8 px-3 text-xs font-semibold rounded-xl border text-[#8FA0B1] hover:border-[#009BA4] hover:text-[#009BA4] flex items-center gap-1.5 transition-all"
+              style={{ borderColor: BORDER, background: '#1D232A' }}><Download size={12} />PDF</button>
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── View content ── */}
       {view === 'procedure' && (
@@ -439,6 +461,73 @@ export function ProofTestTab({ project, sif }: Props) {
           onViewCampaign={(c) => { setActiveCampaign(c); setView('execution') }}
         />
       )}
+
+      <div className="rounded-2xl border px-4 py-3" style={{ background: '#1D232A', borderColor: BORDER }}>
+        {isActiveExecutionView ? (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button
+              onClick={() => setActiveCampaign(null)}
+              className={cn(inputCls, 'px-3 text-[#8FA0B1] hover:text-red-500 cursor-pointer')}
+            >
+              Annuler
+            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => { void saveCampaignDraft() }}
+                disabled={isSavingCampaign}
+                className="h-8 px-4 text-xs font-semibold rounded-xl border text-[#8FA0B1] hover:border-[#009BA4] hover:text-[#009BA4] transition-all disabled:opacity-60"
+                style={{ borderColor: BORDER, background: '#14181C' }}
+              >
+                {isSavingCampaign ? 'Sauvegarde…' : 'Sauver'}
+              </button>
+              <button
+                onClick={() => { void saveCampaign() }}
+                disabled={isSavingCampaign}
+                className="h-8 px-4 text-xs font-semibold text-white rounded-xl flex items-center gap-1.5 shadow-sm disabled:opacity-60"
+                style={{ background: NAVY }}
+              >
+                Cloturer test
+              </button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button
+              onClick={() => onSelectTab?.('verification')}
+              className="h-8 px-3 text-xs font-semibold rounded-xl border text-[#8FA0B1] hover:border-[#009BA4] hover:text-[#009BA4] transition-all"
+              style={{ borderColor: BORDER, background: '#14181C' }}
+            >
+              <span className="inline-flex items-center gap-1.5">
+                <ArrowLeft size={12} />
+                Retour Verification
+              </span>
+            </button>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={() => setShowExport(true)}
+                className="h-8 px-3 text-xs font-semibold rounded-xl border text-[#8FA0B1] hover:border-[#009BA4] hover:text-[#009BA4] transition-all"
+                style={{ borderColor: BORDER, background: '#14181C' }}
+              >
+                <span className="inline-flex items-center gap-1.5">
+                  <Download size={12} />
+                  Exporter PDF
+                </span>
+              </button>
+              <button
+                onClick={() => {
+                  setView('execution')
+                  if (!activeCampaign) setActiveCampaign(newCampaign())
+                }}
+                className="h-8 px-4 text-xs font-semibold text-white rounded-xl flex items-center gap-1.5 shadow-sm"
+                style={{ background: TEAL }}
+              >
+                {activeCampaign ? 'Reprendre campagne' : 'Lancer campagne'}
+                <ArrowRight size={12} />
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* PDF Export modal */}
       {showExport && (

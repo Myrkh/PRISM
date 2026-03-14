@@ -79,13 +79,13 @@ import type {
   SIF,
   SIFRevision,
 } from '@/core/types'
-import type { AppState } from './types'
+import { normalizeSIFTab, type AppState } from './types'
 import { selectSIF } from './selectors'
 import type { Subscription } from '@supabase/supabase-js'
 
 // Re-export types for backward compatibility
 export type { AppView, SIFTab, SettingsSection, AppState } from './types'
-export { SETTINGS_SECTIONS } from './types'
+export { SETTINGS_SECTIONS, normalizeSIFTab } from './types'
 export {
   selectProject,
   selectSIF,
@@ -260,6 +260,8 @@ export const useAppStore = create<AppState>()(
         analysis: null,
         compliance: null,
         prooftest: null,
+        verification: null,
+        exploitation: null,
       },
       isProjectModalOpen: false,
       editingProjectId: null,
@@ -270,10 +272,16 @@ export const useAppStore = create<AppState>()(
       // ══════════════════════════════════════════════════════════════════════
       // NAVIGATION
       // ══════════════════════════════════════════════════════════════════════
-      navigate: view => set(s => { s.view = view }),
+      navigate: view => set(s => {
+        if (view.type === 'sif-dashboard') {
+          s.view = { ...view, tab: normalizeSIFTab(view.tab) }
+          return
+        }
+        s.view = view
+      }),
 
       setTab: tab => set(s => {
-        if (s.view.type === 'sif-dashboard') s.view.tab = tab
+        if (s.view.type === 'sif-dashboard') s.view.tab = normalizeSIFTab(tab)
       }),
 
       togglePinnedSIF: sifId => set(s => {

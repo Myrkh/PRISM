@@ -19,16 +19,14 @@ import {
   ClipboardCheck, Activity, Cpu, Zap, Plus,
 } from 'lucide-react'
 import {
-  IntercalaireTabBar,
-  IntercalaireCard,
-} from '@/components/layout/SIFWorkbenchLayout'
+  RightPanelShell,
+} from '@/components/layout/RightPanelShell'
 import { calcSIF, formatPFD } from '@/core/math/pfdCalc'
 import type { SIF } from '@/core/types'
 import { useAppStore } from '@/store/appStore'
-import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, R, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
+import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
 
 const PANEL = dark.panel
-const CARD = dark.card
 const BG = dark.page
 
 // ─── Design tokens — identiques à LoopEditorRightPanel ───────────────────
@@ -402,7 +400,6 @@ export function ProofTestRightPanel(props: ProofTestRightPanelProps) {
   const [activeTab, setActiveTab] = useState<PanelTab>('status')
   const selectedRightPanelTab = useAppStore(s => s.rightPanelTabs.prooftest)
   const setRightPanelTab = useAppStore(s => s.setRightPanelTab)
-  const activeIdx = PANEL_TABS.findIndex(t => t.id === activeTab)
   // Auto-switch to campaign tab when a new test is started from the procedure view
   // We detect this by checking if the activeCampaign prop is new.
   const isNewCampaign = props.activeCampaign && props.activeCampaign.stepResults.length === 0
@@ -419,67 +416,24 @@ export function ProofTestRightPanel(props: ProofTestRightPanelProps) {
       setRightPanelTab('prooftest', 'campaign')
     }
   }, [isNewCampaign, setRightPanelTab])
+
   return (
-    <div className="flex flex-col h-full overflow-hidden" style={{ background: PANEL }}>
-
-       {/* ── Tab bar intercalaire ── */}
-       <div className="px-3 pt-3 shrink-0">
-        <div className="flex items-end" style={{ borderBottom: `1px solid ${BORDER}` }}>
-          {PANEL_TABS.map((tab, i) => {
-            const isActive = tab.id === activeTab
-            // Badge on "campaign" tab when a campaign is active
-            const hasBadge = tab.id === 'campaign' && !!props.activeCampaign
-
-            return (
-              <button key={tab.id} type="button"
-                onClick={() => {
-                  setActiveTab(tab.id)
-                  setRightPanelTab('prooftest', tab.id)
-                }}
-                className="relative flex items-center gap-1.5 px-3 py-2 text-left transition-colors shrink-0"
-                style={isActive ? {
-                  background:   CARD,
-                  borderTop:    `1px solid ${BORDER}`,
-                  borderLeft:   `1px solid ${BORDER}`,
-                  borderRight:  `1px solid ${BORDER}`,
-                  borderBottom: `1px solid ${CARD}`,
-                  borderRadius: `${R}px ${R}px 0 0`,
-                  color:        TEAL_DIM,
-                  marginBottom: '-1px',
-                  zIndex:       10,
-                } : {
-                  color: TEXT_DIM,
-                }}
-                onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = TEXT }}
-                onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = TEXT_DIM }}
-              >
-                <tab.Icon size={11} />
-                <span className="text-[12px] font-semibold whitespace-nowrap">{tab.label}</span>
-                
-                {hasBadge && (
-                  <span className="w-1.5 h-1.5 rounded-full"
-                    style={{ background: isActive ? TEAL : `${TEAL}80` }} />
-                )}
-              </button>
-            )
-          })}
-        </div>
-      </div>
-      {/* ── Card body — dynamic corners matching active tab ── */}
-      <div className="flex-1 overflow-y-auto"
-        style={{
-          background: CARD,
-          borderLeft:   `1px solid ${BORDER}`,
-          borderRight:  `1px solid ${BORDER}`,
-          borderBottom: `1px solid ${BORDER}`,
-          borderRadius: `${activeIdx === 0 ? 0 : R}px ${activeIdx === PANEL_TABS.length - 1 ? 0 : R}px ${R}px ${R}px`,
-          margin: '0 12px 12px',
-        }}
-      >
-        <div style={{ minHeight: '100%' }}>
+    <RightPanelShell
+      items={PANEL_TABS.map(tab => ({
+        ...tab,
+        badge: tab.id === 'campaign' ? Boolean(props.activeCampaign) : undefined,
+      }))}
+      active={activeTab}
+      onSelect={tab => {
+        setActiveTab(tab)
+        setRightPanelTab('prooftest', tab)
+      }}
+      contentBg={PANEL}
+    >
+      <div className="flex-1 overflow-y-auto" style={{ minHeight: '100%' }}>
           {activeTab === 'status'   && <StatusContent   {...props} />}
           {activeTab === 'campaign' && <CampaignContent {...props} />}
-        </div>
       </div>
-    </div>
-  )}
+    </RightPanelShell>
+  )
+}

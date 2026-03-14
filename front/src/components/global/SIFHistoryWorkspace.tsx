@@ -277,7 +277,7 @@ function SIFRow({
         <td className="px-4 py-3 whitespace-nowrap">
           <div className="flex items-center gap-1.5">
             {[
-              { label: 'Open', Icon: ExternalLink, onClick: () => onNavigate('overview') },
+              { label: 'Open', Icon: ExternalLink, onClick: () => onNavigate('cockpit') },
               { label: 'Report', Icon: FileText, onClick: () => onNavigate('report') },
             ].map(btn => (
               <button key={btn.label} type="button" onClick={btn.onClick}

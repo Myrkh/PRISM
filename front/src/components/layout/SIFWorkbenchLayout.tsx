@@ -1,174 +1,190 @@
 /**
  * SIFWorkbenchLayout — PRISM v3 (refactored)
  *
- * Shell universel — orchestrateur pur.
- * Compose IconRail, ProjectTree, HomeScreen, RightPanel, tab bar.
+ * Shell universel. Architecture VS Code :
+ *   ActivityBar (IconRail) | Sidebar (ProjectTree) | Editor (tabs + content) | Panel (RightPanel)
  *
- * Sub-components extracted to:
- *   – layout/IconRail.tsx
- *   – layout/ProjectTree.tsx
- *   – layout/HomeScreen.tsx
- *   – layout/IntercalaireTabBar.tsx
- *   – shared/ConfirmDialog.tsx
- *   – shared/StatusIcon.tsx
+ * Simplifications vs v2 :
+ *   – IntercalaireTabBar + IntercalaireCard remplacés par EditorTabBar + EditorContent (flat)
+ *   – RightPanel sans nested tab bar — Properties + Matrix en sections accordéon
+ *   – Resize handle épuré
+ *   – Moins de props drilling sur IconRail
  */
-import { useMemo, useState, useRef, type PointerEvent as ReactPointerEvent, type ReactNode, createContext, useContext, useEffect } from 'react'
-import { GripVertical } from 'lucide-react'
-import { useAppStore, selectSIFCalc, type SIFTab } from '@/store/appStore'
+import {
+  useState, useRef,
+  type PointerEvent as ReactPointerEvent,
+  type ReactNode,
+  createContext, useContext, useEffect,
+} from 'react'
+import { GripVertical, SlidersHorizontal } from 'lucide-react'
+import { useAppStore, selectSIFCalc } from '@/store/appStore'
+import { normalizeSIFTab, type CanonicalSIFTab } from '@/store/types'
 import { calcSIF, formatPFD, formatPct } from '@/core/math/pfdCalc'
-import { cn } from '@/lib/utils'
-import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL_DIM, TEXT, TEXT_DIM } from '@/styles/tokens'
+import { BORDER, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } from '@/styles/tokens'
 
-// ── Extracted modules ────────────────────────────────────────────────────
 import { IconRail } from '@/components/layout/IconRail'
 import { ProjectTree } from '@/components/layout/ProjectTree'
 import { HomeScreen } from '@/components/layout/HomeScreen'
-import { IntercalaireTabBar, IntercalaireCard } from '@/components/layout/IntercalaireTabBar'
+import { SIFWorkbenchBar, EditorContent } from '@/components/layout/EditorTabBar'
+import { RightPanelShell } from '@/components/layout/RightPanelShell'
 
-// Re-export for backward compatibility (other files import from here)
-export { IntercalaireTabBar, IntercalaireCard }
+// Re-export IntercalaireTabBar for backward compat (right panel, other consumers)
+export { IntercalaireTabBar, IntercalaireCard } from '@/components/layout/IntercalaireTabBar'
 
 // ─── Layout context (right panel override) ───────────────────────────────
 const LayoutContext = createContext<{
   setRightPanelOverride: (panel: ReactNode | null) => void
-}>({ setRightPanelOverride: () => {} })
+  isRightPanelOpen: boolean
+}>({
+  setRightPanelOverride: () => {},
+  isRightPanelOpen: true,
+})
 
 export const useLayout = () => useContext(LayoutContext)
 
-// ─── Tabs ─────────────────────────────────────────────────────────────────
-const TABS: { id: SIFTab; label: string; hint: string }[] = [
-  { id: 'overview',     label: 'Dashboard',    hint: 'KPIs & context'        },
-  { id: 'architecture', label: 'Loop Editor',  hint: 'Chain & components'    },
-  { id: 'analysis',     label: 'Calculations', hint: 'PFD trends'            },
-  { id: 'compliance',   label: 'Compliance',   hint: 'Proof & governance'    },
-  { id: 'prooftest',    label: 'Proof Test',   hint: 'Procedure & campaigns'  },
-  { id: 'report',       label: 'Reports',      hint: 'PDF builder'           },
-]
-
-const RIGHT_TABS = [
-  { id: 'properties' as const, label: 'Properties'    },
-  { id: 'matrix'     as const, label: 'Safety Matrix' },
-]
 
 const DEFAULT_RIGHT_PANEL_WIDTH = 260
-const MIN_RIGHT_PANEL_WIDTH = 260
-const MAX_RIGHT_PANEL_WIDTH = 720
-const RIGHT_PANEL_HANDLE_WIDTH = 10
+const MIN_RIGHT_PANEL_WIDTH     = 220
+const MAX_RIGHT_PANEL_WIDTH     = 720
 
-// ─── Right panel ──────────────────────────────────────────────────────────
+// ─── Right panel — Properties inspector ──────────────────────────────────
 function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) {
   const projects = useAppStore(s => s.projects)
   const project  = projects.find(p => p.id === projectId)
   const sif      = project?.sifs.find(s => s.id === sifId)
-  const [activeTab, setActiveTab] = useState<'properties' | 'matrix'>('properties')
   const calc = useAppStore(s => selectSIFCalc(s, projectId, sifId)) ?? (sif ? calcSIF(sif) : null)
 
   if (!sif || !calc) return null
+
   const sub0  = calc.subsystems[0]
   const sffOk = sub0 ? sub0.SFF >= 0.6 : false
-  const ai    = RIGHT_TABS.findIndex(t => t.id === activeTab)
 
-  const matrix    = [[3, 2, 1], [4, 5, 6], [1, 2, 3]]
-  const cellColor = (v: number) =>
-    v <= 2 ? { bg: '#C62828', fg: '#FFF' } :
-    v <= 3 ? { bg: '#C77800', fg: '#FFF' } :
-             { bg: '#2E7D32', fg: '#FFF' }
+  const kpiRows = [
+    { k: 'SIL cible',   v: `SIL ${sif.targetSIL}`,                  color: '#60A5FA'                               },
+    { k: 'SIL atteint', v: `SIL ${calc.SIL}`,                        color: calc.meetsTarget ? '#4ADE80' : '#F87171'},
+    { k: 'PFDavg',      v: formatPFD(calc.PFD_avg),                   color: TEAL_DIM                               },
+    { k: 'RRF',         v: Math.round(calc.RRF).toLocaleString(),     color: TEXT                                   },
+    { k: 'SFF',         v: formatPct(sub0?.SFF ?? 0),                 color: sffOk ? '#4ADE80' : '#F87171'          },
+    { k: 'DC',          v: formatPct(sub0?.DC ?? 0),                  color: TEXT                                   },
+  ]
 
   return (
-    <div className="flex flex-col overflow-hidden h-full"
-      style={{ background: PANEL_BG }}>
-      <div className="flex-1 overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
-        <div className="sticky top-0 z-10 px-3 pt-3" style={{ background: PANEL_BG }}>
-          <IntercalaireTabBar tabs={RIGHT_TABS} active={activeTab} onSelect={setActiveTab} cardBg={CARD_BG} />
+    <RightPanelShell
+      items={[{ id: 'properties', label: 'Propriétés', Icon: SlidersHorizontal }]}
+      active="properties"
+      onSelect={() => {}}
+      contentBg={PANEL_BG}
+    >
+      <div className="flex h-full flex-col overflow-y-auto" style={{ background: PANEL_BG, scrollbarGutter: 'stable' }}>
+
+        {/* ── Header SIF ── */}
+        <div className="border-b px-4 pb-3 pt-4" style={{ borderColor: BORDER }}>
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Propriétés</p>
+          <p className="text-xs font-semibold" style={{ color: TEXT }}>{sif.sifNumber}</p>
+          {sif.title && <p className="mt-0.5 truncate text-[11px]" style={{ color: TEXT_DIM }}>{sif.title}</p>}
         </div>
-        <div className="px-3 pb-3">
-          <IntercalaireCard tabCount={RIGHT_TABS.length} activeIdx={ai} className="p-3 space-y-3">
-            {activeTab === 'properties' && (
-              <>
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Equipment Details</p>
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: TEXT_DIM }}>Overall SFF</span>
-                    <span className="text-sm font-bold font-mono" style={{ color: sffOk ? '#4ADE80' : '#F87171' }}>
-                      {formatPct(sub0?.SFF ?? 0)}
-                    </span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: TEXT_DIM }}>PFD<sub>avg</sub></span>
-                    <span className="text-sm font-bold font-mono" style={{ color: TEAL_DIM }}>{formatPFD(calc.PFD_avg)}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs" style={{ color: TEXT_DIM }}>SIL Capability</span>
-                    <span className={cn('text-sm font-bold', calc.meetsTarget ? 'text-emerald-400' : 'text-red-400')}>
-                      {calc.meetsTarget ? 'Pass' : 'Fail'}
-                    </span>
-                  </div>
-                </div>
-                <div className="overflow-hidden rounded-lg border" style={{ borderColor: '#2F3740' }}>
-                  {[
-                    ['λD', `${(calc.PFD_avg * 1e7).toFixed(3)}e-7`], ['SFF', formatPct(sub0?.SFF ?? 0)],
-                    ['DC', formatPct(sub0?.DC ?? 0)], ['RRF', Math.round(calc.RRF).toLocaleString()]
-                  ].map(([k, v]) => (
-                    <div key={k} className="flex justify-between border-b px-2.5 py-1.5 text-xs last:border-b-0"
-                      style={{ borderColor: '#2F3740' }}>
-                      <span style={{ color: TEXT_DIM }}>{k}</span>
-                      <span className="font-mono font-semibold" style={{ color: TEXT }}>{v}</span>
-                    </div>
-                  ))}
-                </div>
-              </>
-            )}
-            {activeTab === 'matrix' && (
-              <>
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Safety Matrix</p>
-                <div className="grid grid-cols-3 gap-1.5">
-                  {matrix.flat().map((cell, i) => {
-                    const { bg, fg } = cellColor(cell)
-                    return <div key={i} className="rounded-md py-2.5 text-center text-sm font-bold"
-                      style={{ background: bg, color: fg }}>{cell}</div>
-                  })}
-                </div>
-              </>
-            )}
-          </IntercalaireCard>
-          <div className="mt-3 rounded-lg border p-3 space-y-2" style={{ background: '#1D232A', borderColor: BORDER }}>
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>SIF Summary</p>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: 'Target SIL', value: `SIL ${sif.targetSIL}`, color: '#60A5FA' },
-                { label: 'Achieved',   value: `SIL ${calc.SIL}`,      color: calc.meetsTarget ? '#4ADE80' : '#F87171' },
-                { label: 'RRF',        value: Math.round(calc.RRF).toLocaleString(), color: TEXT },
-                { label: 'Subsystems', value: String(sif.subsystems.length), color: TEXT },
-              ].map(item => (
-                <div key={item.label} className="rounded border px-2 py-1.5" style={{ borderColor: '#2F3740', background: PAGE_BG }}>
-                  <p className="text-[9px] uppercase tracking-wider mb-0.5" style={{ color: TEXT_DIM }}>{item.label}</p>
-                  <p className="text-sm font-bold font-mono" style={{ color: item.color }}>{item.value}</p>
-                </div>
-              ))}
-            </div>
+
+        {/* ── Verdict go/no-go ── */}
+        <div className="px-3 pt-3">
+          <div
+            className="mb-3 flex items-center justify-between rounded-xl border px-3 py-3"
+            style={{
+              background:  calc.meetsTarget ? '#4ADE8012' : '#F8717112',
+              borderColor: calc.meetsTarget ? '#4ADE8035' : '#F8717135',
+            }}
+          >
+            <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>Vérification SIL</span>
+            <span className="text-sm font-bold" style={{ color: calc.meetsTarget ? '#4ADE80' : '#F87171' }}>
+              {calc.meetsTarget ? '✓ PASS' : '✗ FAIL'}
+            </span>
+          </div>
+
+          {/* ── KPIs ── */}
+          <div className="overflow-hidden rounded-lg border" style={{ borderColor: BORDER }}>
+            {kpiRows.map(({ k, v, color }, i) => (
+              <div
+                key={k}
+                className="flex items-center justify-between px-3 py-2 text-xs"
+                style={{
+                  background:   i % 2 === 0 ? '#1A1F24' : '#17181C',
+                  borderBottom: i < kpiRows.length - 1 ? `1px solid ${BORDER}` : 'none',
+                }}
+              >
+                <span style={{ color: TEXT_DIM }}>{k}</span>
+                <span className="font-mono font-semibold" style={{ color }}>{v}</span>
+              </div>
+            ))}
           </div>
         </div>
+      </div>
+    </RightPanelShell>
+  )
+}
+
+function GlobalRightPanelPlaceholder({ mode }: { mode: 'review' | 'audit' | 'history' | 'engine' | 'hazop' }) {
+  const labels: Record<typeof mode, string> = {
+    review:  'Review Queue',
+    audit:   'Audit Log',
+    history: 'SIF History',
+    engine:  'Engine',
+    hazop:   'HAZOP / LOPA',
+  }
+  return (
+    <div className="flex h-full flex-col px-4 py-4" style={{ background: PANEL_BG }}>
+      <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: TEXT_DIM }}>
+        {labels[mode]}
+      </p>
+      <div
+        className="rounded-xl border px-3 py-4 text-xs leading-relaxed"
+        style={{ borderColor: BORDER, color: TEXT_DIM, background: '#1A1F24' }}
+      >
+        {mode === 'engine'
+          ? 'Engine overview, integration status, and backend contract details.'
+          : 'Select a row to inspect details and actions.'}
       </div>
     </div>
   )
 }
 
-function GlobalRightPanelPlaceholder({ mode }: { mode: 'review' | 'audit' | 'history' | 'engine' | 'hazop' }) {
+// ─── Resize divider — drag target + visual, no separate grid column ──────
+function ResizeDivider({
+  isResizing,
+  onPointerDown,
+}: {
+  isResizing: boolean
+  onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => void
+}) {
+  const [hovered, setHovered] = useState(false)
+  const active = isResizing || hovered
+
   return (
-    <div className="flex h-full flex-col overflow-hidden px-4 py-4"
-      style={{ background: PANEL_BG }}>
-      <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-        {mode === 'review' ? 'Review Queue'
-          : mode === 'audit' ? 'Audit Log'
-          : mode === 'history' ? 'SIF History'
-          : mode === 'engine' ? 'Engine'
-          : 'HAZOP / LOPA'}
-      </p>
-      <div className="mt-3 rounded-xl border px-3 py-4 text-xs"
-        style={{ borderColor: BORDER, color: TEXT_DIM, background: '#1D232A' }}>
-        {mode === 'engine'
-          ? 'Engine overview, integration status, and backend contract details appear here.'
-          : 'Select a row in the center table to inspect details and actions.'}
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      aria-label="Resize panel"
+      className="absolute inset-y-0 left-0 z-20 flex -translate-x-1/2 cursor-col-resize items-center justify-center"
+      style={{ width: 6, touchAction: 'none' }}
+      onPointerDown={onPointerDown}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
+    >
+      {/* Border line */}
+      <div
+        className="pointer-events-none absolute inset-y-0 w-px transition-colors"
+        style={{ background: active ? TEAL : BORDER }}
+      />
+      {/* Grip icon */}
+      <div
+        className="pointer-events-none relative z-10 rounded p-0.5 transition-all"
+        style={{
+          background:   PANEL_BG,
+          border:       `1px solid ${active ? TEAL : BORDER}`,
+          color:        active ? TEAL : TEXT_DIM,
+          opacity:      active ? 1 : 0,
+          transition:   'opacity 0.15s, border-color 0.15s, color 0.15s',
+        }}
+      >
+        <GripVertical size={10} />
       </div>
     </div>
   )
@@ -195,11 +211,10 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
   const [rightPanelOverride, setRightPanelOverride] = useState<ReactNode | null>(null)
   const [rightPanelWidth, setRightPanelWidth] = useState(DEFAULT_RIGHT_PANEL_WIDTH)
   const [isResizingRightPanel, setIsResizingRightPanel] = useState(false)
-  const rightPanelResizeStartX = useRef<number | null>(null)
+  const rightPanelResizeStartX     = useRef<number | null>(null)
   const rightPanelResizeStartWidth = useRef(DEFAULT_RIGHT_PANEL_WIDTH)
 
-  const activeTab = view.type === 'sif-dashboard' ? view.tab : 'overview'
-  const activeIdx = TABS.findIndex(t => t.id === activeTab)
+  const activeTab: CanonicalSIFTab = view.type === 'sif-dashboard' ? normalizeSIFTab(view.tab) : 'cockpit'
 
   const showSettings  = view.type === 'settings'
   const showReview    = view.type === 'review-queue'
@@ -211,12 +226,12 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
   const showDashboard = view.type === 'sif-dashboard' && !!project && !!sif
   const showHome      = !showSettings && !showDashboard && !showGlobal
 
+  // Auto-open right panel for global views
   useEffect(() => {
-    if (view.type === 'review-queue' || view.type === 'audit-log' || view.type === 'engine') {
-      setRightOpen(true)
-    }
-  }, [view.type])
+    if (showGlobal) setRightOpen(true)
+  }, [showGlobal])
 
+  // Reset right panel size on view change
   useEffect(() => {
     setRightPanelWidth(DEFAULT_RIGHT_PANEL_WIDTH)
     setIsResizingRightPanel(false)
@@ -225,168 +240,164 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
 
   useEffect(() => {
     if (!rightOpen) {
-      setRightPanelWidth(DEFAULT_RIGHT_PANEL_WIDTH)
       setIsResizingRightPanel(false)
       rightPanelResizeStartX.current = null
     }
   }, [rightOpen])
 
+  // Pointer drag for resize
   useEffect(() => {
     if (!isResizingRightPanel) return
-
-    const handlePointerMove = (event: PointerEvent) => {
+    const onMove = (e: PointerEvent) => {
       if (rightPanelResizeStartX.current === null) return
-      const delta = rightPanelResizeStartX.current - event.clientX
-      const nextWidth = Math.max(
-        MIN_RIGHT_PANEL_WIDTH,
-        Math.min(MAX_RIGHT_PANEL_WIDTH, rightPanelResizeStartWidth.current + delta),
+      const delta = rightPanelResizeStartX.current - e.clientX
+      setRightPanelWidth(
+        Math.max(MIN_RIGHT_PANEL_WIDTH, Math.min(MAX_RIGHT_PANEL_WIDTH, rightPanelResizeStartWidth.current + delta))
       )
-      setRightPanelWidth(nextWidth)
     }
-
-    const stopResizing = () => {
+    const onStop = () => {
       setIsResizingRightPanel(false)
       rightPanelResizeStartX.current = null
     }
-
-    const previousCursor = document.body.style.cursor
-    const previousUserSelect = document.body.style.userSelect
-    document.body.style.cursor = 'col-resize'
+    document.body.style.cursor     = 'col-resize'
     document.body.style.userSelect = 'none'
-
-    window.addEventListener('pointermove', handlePointerMove)
-    window.addEventListener('pointerup', stopResizing)
-    window.addEventListener('pointercancel', stopResizing)
-
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup',   onStop)
+    window.addEventListener('pointercancel', onStop)
     return () => {
-      document.body.style.cursor = previousCursor
-      document.body.style.userSelect = previousUserSelect
-      window.removeEventListener('pointermove', handlePointerMove)
-      window.removeEventListener('pointerup', stopResizing)
-      window.removeEventListener('pointercancel', stopResizing)
+      document.body.style.cursor     = ''
+      document.body.style.userSelect = ''
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup',   onStop)
+      window.removeEventListener('pointercancel', onStop)
     }
   }, [isResizingRightPanel])
 
-  const startRightPanelResize = (event: ReactPointerEvent<HTMLDivElement>) => {
+  const startResize = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!rightOpen) return
-    rightPanelResizeStartX.current = event.clientX
+    rightPanelResizeStartX.current     = e.clientX
     rightPanelResizeStartWidth.current = rightPanelWidth
     setIsResizingRightPanel(true)
-    event.preventDefault()
+    e.preventDefault()
   }
 
-  const rightPanelGridTemplateColumns = rightOpen
-    ? `minmax(0,1fr) ${RIGHT_PANEL_HANDLE_WIDTH}px ${rightPanelWidth}px`
-    : 'minmax(0,1fr) 0px 0px'
 
   return (
-    <LayoutContext.Provider value={{ setRightPanelOverride }}>
-      <div className="flex h-[calc(100vh-56px)] min-h-0 overflow-hidden" style={{ background: PAGE_BG }}>
-
-        {/* ── ICON RAIL ── */}
+    <LayoutContext.Provider value={{ setRightPanelOverride, isRightPanelOpen: rightOpen }}>
+      <div className="flex h-[calc(100vh-48px)] min-h-0 overflow-hidden" style={{ background: PAGE_BG }}>
+        {/* ── Activity Bar ── */}
         <IconRail
-          leftOpen={leftOpen} rightOpen={rightOpen}
+          leftOpen={leftOpen}
+          rightOpen={rightOpen}
           onToggleLeft={() => setLeftOpen(v => !v)}
           onToggleRight={() => setRightOpen(v => !v)}
           showRightToggle={showDashboard || showGlobal}
-          showHome={showHome} showSettings={showSettings}
-          showReview={showReview} showAudit={showAudit}
-          showHistory={showHistory} showEngine={showEngine} showHazop={showHazop}
-          projectId={projectId}
+          showPanelToggles={!showDashboard}
         />
 
-        {/* ── LEFT PANEL (project tree) ── */}
-        <div className="flex shrink-0 flex-col border-r overflow-hidden transition-all duration-200"
-          style={{
-            width: leftOpen && !showSettings ? 240 : 0,
-            opacity: leftOpen && !showSettings ? 1 : 0,
-            borderColor: showSettings ? 'transparent' : BORDER,
-            background: PANEL_BG,
-          }}>
-          {leftOpen && !showSettings && <ProjectTree projectId={projectId ?? ''} sifId={sifId ?? ''} />}
-        </div>
-
-        {/* ── MAIN AREA ── */}
+        {/* ── Main area ── */}
         <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">
-          {showHome ? (
-            <HomeScreen />
-          ) : showSettings ? (
-            <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{children}</div>
-          ) : showGlobal ? (
-            <div className="grid flex-1 min-h-0 overflow-hidden" style={{ gridTemplateColumns: rightPanelGridTemplateColumns }}>
-              <div className="flex min-h-0 min-w-0 overflow-hidden">
-                {children}
+          {!showDashboard && (
+            <>
+              {/* ── Sidebar ── */}
+              <div
+                className="flex shrink-0 flex-col border-r overflow-hidden"
+                style={{
+                  width:       leftOpen && !showSettings ? 240 : 0,
+                  opacity:     leftOpen && !showSettings ? 1 : 0,
+                  borderColor: showSettings ? 'transparent' : BORDER,
+                  background:  PANEL_BG,
+                  transition:  'width 0.2s ease, opacity 0.15s ease',
+                }}
+              >
+                {leftOpen && !showSettings && (
+                  <ProjectTree projectId={projectId ?? ''} sifId={sifId ?? ''} />
+                )}
               </div>
-              {rightOpen && (
-                <div
-                  role="separator"
-                  aria-label="Resize right panel"
-                  aria-orientation="vertical"
-                  onPointerDown={startRightPanelResize}
-                  className="relative z-10 min-h-0 cursor-col-resize"
-                  style={{ touchAction: 'none' }}
-                >
-                  <div className="pointer-events-none absolute inset-y-0 right-0 w-px" style={{ background: isResizingRightPanel ? TEAL_DIM : BORDER }} />
-                  <div
-                    className="pointer-events-none absolute right-0 top-1/2 flex h-6 w-6 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border"
-                    style={{ borderColor: isResizingRightPanel ? TEAL_DIM : BORDER, background: PANEL_BG, color: isResizingRightPanel ? TEAL_DIM : TEXT_DIM }}
-                  >
-                    <GripVertical size={12} />
-                  </div>
+
+              {/* Home */}
+              {showHome && <HomeScreen />}
+
+              {/* Settings — full width, no panels */}
+              {showSettings && (
+                <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{children}</div>
+              )}
+
+              {/* Global tools — editor + right panel */}
+              {showGlobal && (
+                <div className="flex flex-1 min-h-0 overflow-hidden">
+                  <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">{children}</div>
+                  {rightOpen && (
+                    <div className="relative min-h-0 shrink-0 overflow-hidden" style={{ width: rightPanelWidth }}>
+                      <ResizeDivider isResizing={isResizingRightPanel} onPointerDown={startResize} />
+                      {rightPanelOverride || (
+                        <GlobalRightPanelPlaceholder
+                          mode={showReview ? 'review' : showAudit ? 'audit' : showHistory ? 'history' : showEngine ? 'engine' : 'hazop'}
+                        />
+                      )}
+                    </div>
+                  )}
                 </div>
               )}
-              <div className="min-h-0 overflow-hidden transition-all duration-200">
-                {rightPanelOverride || <GlobalRightPanelPlaceholder
-                  mode={showReview ? 'review' : showAudit ? 'audit' : showHistory ? 'history' : showEngine ? 'engine' : 'hazop'} />}
-              </div>
-            </div>
-          ) : (
-            <div className="grid flex-1 min-h-0 overflow-hidden" style={{ gridTemplateColumns: rightPanelGridTemplateColumns }}>
-              {/* Main content column */}
-              <div className="flex flex-col min-w-0 min-h-0 overflow-hidden">
-                <div className="px-5 pt-2 shrink-0">
-                  <IntercalaireTabBar
-                    tabs={TABS} active={activeTab}
-                    onSelect={(id) => setTab(id as SIFTab)}
-                    cardBg={CARD_BG}
-                    autoHideHintsOnOverflow
-                  />
-                </div>
-                <div className="flex flex-1 min-h-0 px-5 pb-5 pt-0">
-                  <IntercalaireCard
-                    tabCount={TABS.length} activeIdx={activeIdx}
-                    className="flex-1 min-w-0 overflow-hidden flex flex-col"
-                    style={{ minHeight: 0 }}>
-                    {children}
-                  </IntercalaireCard>
+            </>
+          )}
+
+          {/* SIF Dashboard — center stack + right dock */}
+          {showDashboard && (
+            <>
+              <div className="flex flex-1 min-w-0 min-h-0 flex-col overflow-hidden">
+                <SIFWorkbenchBar
+                  active={activeTab}
+                  onSelect={(id) => setTab(id)}
+                  leftOpen={leftOpen}
+                  rightOpen={rightOpen}
+                  onToggleLeft={() => setLeftOpen(v => !v)}
+                  onToggleRight={() => setRightOpen(v => !v)}
+                />
+
+                <div className="flex flex-1 min-h-0 overflow-hidden">
+                  {/* ── Sidebar ── */}
+                  <div
+                    className="flex shrink-0 flex-col border-r overflow-hidden"
+                    style={{
+                      width:       leftOpen ? 240 : 0,
+                      opacity:     leftOpen ? 1 : 0,
+                      borderColor: BORDER,
+                      background:  PANEL_BG,
+                      transition:  'width 0.2s ease, opacity 0.15s ease',
+                    }}
+                  >
+                    {leftOpen && (
+                      <ProjectTree projectId={projectId ?? ''} sifId={sifId ?? ''} />
+                    )}
+                  </div>
+
+                  {/* Editor column */}
+                  <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
+                    <EditorContent className="flex flex-col">
+                      {children}
+                    </EditorContent>
+                  </div>
                 </div>
               </div>
 
-              {rightOpen && (
-                <div
-                  role="separator"
-                  aria-label="Resize right panel"
-                  aria-orientation="vertical"
-                  onPointerDown={startRightPanelResize}
-                  className="relative z-10 min-h-0 cursor-col-resize"
-                  style={{ touchAction: 'none' }}
-                >
-                  <div className="pointer-events-none absolute inset-y-0 right-0 w-px" style={{ background: isResizingRightPanel ? TEAL_DIM : BORDER }} />
-                  <div
-                    className="pointer-events-none absolute right-0 top-1/2 flex h-6 w-6 -translate-y-1/2 translate-x-1/2 items-center justify-center rounded-full border"
-                    style={{ borderColor: isResizingRightPanel ? TEAL_DIM : BORDER, background: PANEL_BG, color: isResizingRightPanel ? TEAL_DIM : TEXT_DIM }}
-                  >
-                    <GripVertical size={12} />
-                  </div>
-                </div>
-              )}
-
-              {/* Right panel column */}
-              <div className="min-h-0 overflow-hidden transition-all duration-200">
-                {rightPanelOverride || rightPanelContent ||
-                  <RightPanel projectId={projectId ?? ''} sifId={sifId ?? ''} />}
+              {/* Right dock */}
+              <div
+                className="relative min-h-0 shrink-0 overflow-hidden border-l"
+                style={{
+                  width: rightOpen ? rightPanelWidth : 48,
+                  borderColor: BORDER,
+                  transition: 'width 0.2s ease',
+                }}
+              >
+                {rightOpen && (
+                  <ResizeDivider isResizing={isResizingRightPanel} onPointerDown={startResize} />
+                )}
+                {rightPanelOverride || rightPanelContent || (
+                  <RightPanel projectId={projectId ?? ''} sifId={sifId ?? ''} />
+                )}
               </div>
-            </div>
+            </>
           )}
         </div>
       </div>

@@ -8,11 +8,11 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import {
+  normalizeSIFTab,
   SETTINGS_SECTIONS,
   useAppStore,
   type AppView,
   type SettingsSection,
-  type SIFTab,
 } from '@/store/appStore'
 import { AppHeader } from '@/components/layout/AppHeader'
 import { SIFDashboard } from '@/components/sif/SIFDashboard'
@@ -48,8 +48,7 @@ function hashToView(hash: string): AppView | null {
   const path = hash.replace(/^#/, '') || '/'
   const m    = path.match(/^\/project\/([^/]+)\/sif\/([^/]+)\/([^/]+)$/)
   if (m) {
-    const validTabs: SIFTab[] = ['overview', 'architecture', 'analysis', 'compliance', 'prooftest', 'report']
-    const tab: SIFTab = validTabs.includes(m[3] as SIFTab) ? (m[3] as SIFTab) : 'overview'
+    const tab = normalizeSIFTab(m[3])
     return { type: 'sif-dashboard', projectId: m[1], sifId: m[2], tab }
   }
   const mSettings = path.match(/^\/settings(?:\/([^/]+))?$/)

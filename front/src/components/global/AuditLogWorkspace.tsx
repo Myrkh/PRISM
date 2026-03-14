@@ -193,7 +193,7 @@ export function AuditLogWorkspace() {
             projectId: project.id,
             sifNumber: sif.sifNumber,
             sifId: sif.id,
-            actionTab: 'overview',
+            actionTab: 'cockpit',
           })
         }
 
@@ -209,7 +209,7 @@ export function AuditLogWorkspace() {
             projectId: project.id,
             sifNumber: sif.sifNumber,
             sifId: sif.id,
-            actionTab: 'overview',
+            actionTab: 'cockpit',
           })
         }
 
@@ -225,7 +225,7 @@ export function AuditLogWorkspace() {
             projectId: project.id,
             sifNumber: sif.sifNumber,
             sifId: sif.id,
-            actionTab: 'prooftest',
+            actionTab: 'exploitation',
           })
         })
 
@@ -242,7 +242,7 @@ export function AuditLogWorkspace() {
             projectId: project.id,
             sifNumber: sif.sifNumber,
             sifId: sif.id,
-            actionTab: 'prooftest',
+            actionTab: 'exploitation',
           })
         })
       })
@@ -280,7 +280,7 @@ export function AuditLogWorkspace() {
       type: 'sif-dashboard',
       projectId: selected.projectId,
       sifId: selected.sifId,
-      tab: selected.actionTab ?? 'overview',
+      tab: selected.actionTab ?? 'cockpit',
     })
   }, [navigate, selected])
 

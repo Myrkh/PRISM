@@ -1,24 +1,16 @@
 import { useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore, type SIFTab } from '@/store/appStore'
+import { normalizeSIFTab } from '@/store/types'
 import {
   Search, Settings, Moon, Sun, FolderPlus, FilePlus,
   LayoutDashboard, Network, BarChart3, Shield, FlaskConical,
-  FileText, Home, ChevronRight, Pencil, ListChecks, History,
-  ClipboardCheck, Cpu, FileWarning, Lightbulb,
+  ChevronRight, FileText, Home, Pencil, ListChecks, History,
+  ClipboardCheck, Cpu,
 } from 'lucide-react'
 import { BORDER, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
 
 const PANEL = dark.panel
-
-const TABS: { id: SIFTab; label: string; Icon: React.ElementType }[] = [
-  { id: 'overview',     label: 'Dashboard',    Icon: LayoutDashboard },
-  { id: 'architecture', label: 'Loop Editor',  Icon: Network },
-  { id: 'analysis',     label: 'Calculations', Icon: BarChart3 },
-  { id: 'compliance',   label: 'Compliance',   Icon: Shield },
-  { id: 'prooftest',    label: 'Proof Test',   Icon: FlaskConical },
-  { id: 'report',       label: 'Reports',      Icon: FileText },
-]
 
 type CommandItem = {
   id: string
@@ -47,7 +39,6 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
   const view = useAppStore(s => s.view)
   const navigate = useAppStore(s => s.navigate)
   const setTab = useAppStore(s => s.setTab)
-  const setRightPanelTab = useAppStore(s => s.setRightPanelTab)
   const isDark = useAppStore(s => s.isDark)
   const toggleTheme = useAppStore(s => s.toggleTheme)
   const openNewProject = useAppStore(s => s.openNewProject)
@@ -61,6 +52,7 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
   const currentSif = currentProject && currentSifId
     ? currentProject.sifs.find(sif => sif.id === currentSifId) ?? null
     : null
+  const currentTab = view.type === 'sif-dashboard' ? normalizeSIFTab(view.tab) : null
 
   useEffect(() => {
     const down = (event: KeyboardEvent) => {
@@ -98,148 +90,62 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
   }
 
   const goToTab = (tab: SIFTab) => run(() => setTab(tab))
-  const goToRightPanelTab = (tab: SIFTab, section: 'analysis' | 'compliance' | 'prooftest', panelTab: string) =>
-    run(() => {
-      setRightPanelTab(section, panelTab)
-      setTab(tab)
-    })
 
   const currentViewGroup: CommandGroup | null = currentSif && currentProject ? {
     heading: `${currentSif.sifNumber} — ${currentSif.title || 'Untitled'}`,
     items: [
       {
         id: 'goto-overview',
-        label: 'Go to Dashboard',
-        keywords: 'go dashboard overview accueil tableau de bord',
+        label: 'Go to Cockpit',
+        keywords: 'go cockpit dashboard overview accueil tableau de bord',
         Icon: LayoutDashboard,
-        onSelect: () => goToTab('overview'),
-        isActive: view.type === 'sif-dashboard' && view.tab === 'overview',
+        onSelect: () => goToTab('cockpit'),
+        isActive: currentTab === 'cockpit',
+        level: 0,
+      },
+      {
+        id: 'goto-context',
+        label: 'Go to Context',
+        keywords: 'go context contexte hazop lopa',
+        Icon: ClipboardCheck,
+        onSelect: () => goToTab('context'),
+        isActive: currentTab === 'context',
         level: 0,
       },
       {
         id: 'goto-architecture',
-        label: 'Go to Loop Editor',
+        label: 'Go to Architecture',
         keywords: 'go architecture loop editor éditeur boucle',
         Icon: Network,
         onSelect: () => goToTab('architecture'),
-        isActive: view.type === 'sif-dashboard' && view.tab === 'architecture',
+        isActive: currentTab === 'architecture',
         level: 0,
       },
       {
         id: 'goto-analysis',
-        label: 'Go to Calculations',
-        keywords: 'go calculations analysis calculs analyse',
+        label: 'Go to Verification',
+        keywords: 'go verification calculations analysis calculs analyse conformité',
         Icon: BarChart3,
-        onSelect: () => goToTab('analysis'),
-        isActive: view.type === 'sif-dashboard' && view.tab === 'analysis',
+        onSelect: () => goToTab('verification'),
+        isActive: currentTab === 'verification',
         level: 0,
-      },
-      {
-        id: 'goto-analysis-general',
-        label: 'General panel',
-        keywords: 'analysis panel general calculations right panel panneau général',
-        Icon: ClipboardCheck,
-        onSelect: () => goToRightPanelTab('analysis', 'analysis', 'general'),
-        isActive: false,
-        level: 1,
-      },
-      {
-        id: 'goto-analysis-curve',
-        label: 'Curve panel',
-        keywords: 'analysis panel curve calculations right panel panneau courbe',
-        Icon: BarChart3,
-        onSelect: () => goToRightPanelTab('analysis', 'analysis', 'chart'),
-        isActive: false,
-        level: 1,
-      },
-      {
-        id: 'goto-analysis-pie',
-        label: 'Pie panel',
-        keywords: 'analysis panel pie calculations right panel panneau camembert',
-        Icon: BarChart3,
-        onSelect: () => goToRightPanelTab('analysis', 'analysis', 'pie'),
-        isActive: false,
-        level: 1,
-      },
-      {
-        id: 'goto-compliance',
-        label: 'Go to Compliance',
-        keywords: 'go compliance conformité',
-        Icon: Shield,
-        onSelect: () => goToTab('compliance'),
-        isActive: view.type === 'sif-dashboard' && view.tab === 'compliance',
-        level: 0,
-      },
-      {
-        id: 'goto-compliance-summary',
-        label: 'Summary panel',
-        keywords: 'compliance panel summary right panel panneau résumé',
-        Icon: ClipboardCheck,
-        onSelect: () => goToRightPanelTab('compliance', 'compliance', 'summary'),
-        isActive: false,
-        level: 1,
-      },
-      {
-        id: 'goto-compliance-gap',
-        label: 'Gaps panel',
-        keywords: 'compliance panel gaps right panel panneau écarts gap',
-        Icon: FileWarning,
-        onSelect: () => goToRightPanelTab('compliance', 'compliance', 'gap'),
-        isActive: false,
-        level: 1,
-      },
-      {
-        id: 'goto-compliance-assumptions',
-        label: 'Assumptions panel',
-        keywords: 'compliance panel assumptions right panel panneau registre assumptions',
-        Icon: Lightbulb,
-        onSelect: () => goToRightPanelTab('compliance', 'compliance', 'assumptions'),
-        isActive: false,
-        level: 1,
-      },
-      {
-        id: 'goto-compliance-evidence',
-        label: 'Evidence panel',
-        keywords: 'compliance panel evidence right panel panneau preuves',
-        Icon: Shield,
-        onSelect: () => goToRightPanelTab('compliance', 'compliance', 'evidence'),
-        isActive: false,
-        level: 1,
       },
       {
         id: 'goto-prooftest',
-        label: 'Go to Proof Test',
-        keywords: 'go proof test test de preuve',
+        label: 'Go to Exploitation',
+        keywords: 'go exploitation proof test test de preuve',
         Icon: FlaskConical,
-        onSelect: () => goToTab('prooftest'),
-        isActive: view.type === 'sif-dashboard' && view.tab === 'prooftest',
+        onSelect: () => goToTab('exploitation'),
+        isActive: currentTab === 'exploitation',
         level: 0,
       },
       {
-        id: 'goto-prooftest-status',
-        label: 'Status panel',
-        keywords: 'proof test panel status right panel panneau statut',
-        Icon: ClipboardCheck,
-        onSelect: () => goToRightPanelTab('prooftest', 'prooftest', 'status'),
-        isActive: false,
-        level: 1,
-      },
-      {
-        id: 'goto-prooftest-campaign',
-        label: 'Campaign panel',
-        keywords: 'proof test panel campaign right panel panneau campagne en cours',
-        Icon: FlaskConical,
-        onSelect: () => goToRightPanelTab('prooftest', 'prooftest', 'campaign'),
-        isActive: false,
-        level: 1,
-      },
-      {
         id: 'goto-report',
-        label: 'Go to Reports',
-        keywords: 'go report reports rapport rapports',
+        label: 'Go to Report Package',
+        keywords: 'go report package reports rapport rapports publication',
         Icon: FileText,
         onSelect: () => goToTab('report'),
-        isActive: view.type === 'sif-dashboard' && view.tab === 'report',
+        isActive: currentTab === 'report',
         level: 0,
       },
       {
@@ -300,7 +206,7 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
       onSelect: () => run(() => {
         const firstSif = project.sifs[0]
         if (firstSif) {
-          navigate({ type: 'sif-dashboard', projectId: project.id, sifId: firstSif.id, tab: 'overview' })
+          navigate({ type: 'sif-dashboard', projectId: project.id, sifId: firstSif.id, tab: 'cockpit' })
         } else {
           navigate({ type: 'projects' })
         }
@@ -320,7 +226,7 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
         keywords: `sif ${sif.sifNumber} ${sif.title} ${sif.processTag} ${project.name}`,
         Icon: Shield,
         meta: project.name,
-        onSelect: () => run(() => navigate({ type: 'sif-dashboard', projectId: project.id, sifId: sif.id, tab: 'overview' })),
+        onSelect: () => run(() => navigate({ type: 'sif-dashboard', projectId: project.id, sifId: sif.id, tab: 'cockpit' })),
         isActive: currentSifId === sif.id,
         level: 0,
       })),

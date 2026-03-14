@@ -14,7 +14,17 @@ import type { HAZOPTrace } from './hazop.types'
 export type SIFStatus = 'draft' | 'in_review' | 'verified' | 'approved' | 'archived'
 export type SIFAssumptionStatus = 'draft' | 'review' | 'validated'
 export type SIFAssumptionCategory = 'process' | 'proof' | 'architecture' | 'data' | 'governance' | 'other'
-export type SIFReferenceTab = 'overview' | 'architecture' | 'analysis' | 'compliance' | 'prooftest' | 'report'
+export type SIFReferenceTab =
+  | 'cockpit'
+  | 'context'
+  | 'architecture'
+  | 'verification'
+  | 'exploitation'
+  | 'report'
+  | 'overview'
+  | 'analysis'
+  | 'compliance'
+  | 'prooftest'
 export type RevisionArtifactStatus = 'missing' | 'pending' | 'ready' | 'error'
 
 export interface SIFRevisionArtifact {
