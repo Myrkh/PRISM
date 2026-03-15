@@ -1,6 +1,6 @@
 import type { ElementType, ReactNode } from 'react'
-import { BORDER, PANEL_BG, RAIL_BG } from '@/styles/tokens'
-import { RailIconButton } from '@/components/layout/RailPrimitives'
+import { BORDER, CARD_BG, PANEL_BG } from '@/styles/tokens'
+import { IntercalaireCard, IntercalaireTabBar } from '@/components/layout/IntercalaireTabBar'
 import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 
 export interface RightPanelRailItem<T extends string = string> {
@@ -24,41 +24,50 @@ export function RightPanelShell<T extends string>({
   contentBg?: string
 }) {
   const { isRightPanelOpen } = useLayout()
+  const activeIdx = Math.max(0, items.findIndex(item => item.id === active))
+  const tabs = items.map(item => ({
+    id: item.id,
+    label: item.label,
+    Icon: item.Icon,
+    badge: item.badge,
+  }))
 
   return (
     <div
-      className="flex h-full overflow-hidden"
+      className="flex h-full flex-col overflow-hidden"
       style={{ background: contentBg }}
       onClick={event => event.stopPropagation()}
       onPointerDown={event => event.stopPropagation()}
     >
-      <div className="min-w-0 flex-1 overflow-hidden">
-        <div
-          className="h-full overflow-hidden transition-opacity duration-150"
-          style={{
-            opacity: isRightPanelOpen ? 1 : 0,
-            pointerEvents: isRightPanelOpen ? 'auto' : 'none',
-          }}
-        >
-          {children}
-        </div>
-      </div>
-
       <div
-        className="flex shrink-0 flex-col items-center gap-0.5 border-l py-2"
-        style={{ width: 48, background: RAIL_BG, borderColor: BORDER }}
+        className="flex h-full flex-col overflow-hidden transition-opacity duration-150"
+        style={{
+          opacity: isRightPanelOpen ? 1 : 0,
+          pointerEvents: isRightPanelOpen ? 'auto' : 'none',
+        }}
       >
-        {items.map(item => (
-          <RailIconButton
-            key={item.id}
-            Icon={item.Icon}
-            label={item.label}
-            active={active === item.id}
-            badge={item.badge}
-            indicatorSide="right"
-            onClick={() => onSelect(item.id)}
+        <div className="shrink-0 px-3 pt-3" style={{ background: contentBg }}>
+          <IntercalaireTabBar
+            tabs={tabs}
+            active={active}
+            onSelect={onSelect}
+            cardBg={CARD_BG}
+            labelSize="sm"
+            showHints={false}
           />
-        ))}
+        </div>
+
+        <div className="min-h-0 flex-1 px-3 pb-3">
+          <IntercalaireCard
+            tabCount={tabs.length}
+            activeIdx={activeIdx}
+            cardBg={CARD_BG}
+            className="flex h-full min-h-0 flex-col overflow-hidden border"
+            style={{ borderColor: BORDER, background: CARD_BG }}
+          >
+            {children}
+          </IntercalaireCard>
+        </div>
       </div>
     </div>
   )

@@ -97,6 +97,19 @@ export interface SIFComponent {
   developed: DevelopedParams
   test: TestParams
   advanced: AdvancedParams
+  /** Sub-elements within this component (e.g. solenoid + actuator inside a valve) */
+  subComponents?: SubElement[]
+}
+
+/** Sub-element within a component (e.g. solenoid valve, pilot, actuator body) */
+export interface SubElement {
+  id: string
+  tagName: string
+  label: string
+  instrumentType: string
+  manufacturer: string
+  /** Own failure rates — contributes to parent component's total λ */
+  factorized: FactorizedParams
 }
 
 // ─── Subsystem & Architecture ─────────────────────────────────────────────
@@ -125,6 +138,12 @@ export interface SIFChannel {
   id: string
   label: string
   components: SIFComponent[]
+  /** Channel-level voting (kooN) when a channel has multiple components. Defaults to '1oo1'. */
+  architecture?: Architecture
+  /** CCF β within this channel (between components). Default 0. */
+  beta?: number
+  /** CCF βD within this channel. Default 0. */
+  betaD?: number
 }
 
 export interface SIFSubsystem {

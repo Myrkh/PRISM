@@ -152,6 +152,8 @@ const HFT_MAP: Record<Architecture, number> = {
   '1oo2': 1,
   '1oo2D': 1,
   '2oo3': 1,
+  '1oo3': 2,
+  '2oo4': 2,
   'custom': 0,
 }
 

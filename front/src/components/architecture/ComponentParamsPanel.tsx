@@ -349,7 +349,6 @@ export function ComponentParamsPanel({
   const saveComponentTemplate = useAppStore(s => s.saveComponentTemplate)
   const setSyncError = useAppStore(s => s.setSyncError)
   const [local, setLocal] = useState<SIFComponent>(() => synchronizeComponentParams(component))
-  const [activeTab, setActiveTab] = useState<PanelTab>('identification')
   const [factorizedLambdaUnit, setFactorizedLambdaUnit] = useState<FactorizedLambdaUnit>('FIT')
   const [developedLambdaUnit, setDevelopedLambdaUnit] = useState<DevelopedLambdaUnit>('FIT')
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false)
@@ -405,7 +404,6 @@ export function ComponentParamsPanel({
   const dcOk  = dc  >= 0.6
 
   const meta = TYPE_META[subsystemType]
-  const activeIdx = PANEL_TABS.findIndex(t => t.id === activeTab)
 
   const openSaveDialog = () => {
     setTemplateName(local.instrumentType || local.tagName)
@@ -505,49 +503,26 @@ export function ComponentParamsPanel({
           </div>
         )}
 
-        {/* Tab bar intercalaire */}
-        <div className="flex items-end" style={{ borderBottom: `1px solid ${BORDER}` }}>
-          {PANEL_TABS.map((tab, i) => {
-            const isActive = tab.id === activeTab
-            return (
-              <button key={tab.id} type="button"
-                onClick={() => setActiveTab(tab.id)}
-                className="flex items-center gap-1 px-2.5 py-2 text-[11px] font-semibold transition-colors"
-                style={isActive ? {
-                  background: CARD, color: TEAL_DIM,
-                  borderTop: `1px solid ${BORDER}`,
-                  borderLeft: `1px solid ${BORDER}`,
-                  borderRight: `1px solid ${BORDER}`,
-                  borderBottom: `1px solid ${CARD}`,
-                  borderRadius: `${R}px ${R}px 0 0`,
-                  marginBottom: '-1px', zIndex: 10,
-                } : { color: TEXT_DIM }}
-                onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = TEXT }}
-                onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = TEXT_DIM }}
-              >
-                <tab.Icon size={10} />
-                {tab.label}
-              </button>
-            )
-          })}
-        </div>
+        {/* No tab bar — all sections scroll */}
       </div>
 
-      {/* ── Tab content ── */}
+      {/* ── Scrollable sections (no tabs) ── */}
       <div
-        className="flex-1 overflow-y-auto p-3 space-y-3"
+        className="flex-1 overflow-y-auto p-3 space-y-4"
         style={{
           background: CARD,
           borderLeft: `1px solid ${BORDER}`,
           borderRight: `1px solid ${BORDER}`,
           borderBottom: `1px solid ${BORDER}`,
-          borderRadius: `${activeIdx === 0 ? 0 : R}px ${activeIdx === PANEL_TABS.length - 1 ? 0 : R}px ${R}px ${R}px`,
+          borderRadius: `0 0 ${R}px ${R}px`,
         }}
       >
 
         {/* ══ IDENTIFICATION ══ */}
-        {activeTab === 'identification' && (
-          <>
+        <div className="flex items-center gap-1.5 pb-1.5 mb-2" style={{ borderBottom: `1px solid ${BORDER}` }}>
+          <Tag size={10} style={{ color: TEAL_DIM }} />
+          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEAL_DIM }}>Identification</span>
+        </div>
             <FieldRow label="Tag">
               <StyledInput value={local.tagName} onChange={v => upd({ tagName: v })} placeholder="PT-001" />
             </FieldRow>
@@ -598,12 +573,12 @@ export function ComponentParamsPanel({
                 placeholder="Description optionnelle…"
               />
             </FieldRow>
-          </>
-        )}
 
         {/* ══ PARAMÈTRES ══ */}
-        {activeTab === 'parameters' && (
-          <>
+        <div className="flex items-center gap-1.5 pb-1.5 mb-2 mt-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
+          <FlaskConical size={10} style={{ color: TEAL_DIM }} />
+          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEAL_DIM }}>Paramètres</span>
+        </div>
             {/* Mode toggle */}
             <div className="flex gap-1 rounded-lg p-0.5" style={{ background: BG }}>
               {(['factorized', 'developed'] as ParamMode[]).map(m => (
@@ -736,12 +711,12 @@ export function ComponentParamsPanel({
             <SectionTitle>Métriques calculées</SectionTitle>
             <ComputedRow label="SFF"    value={formatPct(sff)}    ok={sffOk} />
             <ComputedRow label="DC eff" value={formatPct(dc)}     ok={dcOk}  />
-          </>
-        )}
 
         {/* ══ TEST ══ */}
-        {activeTab === 'test' && (
-          <>
+        <div className="flex items-center gap-1.5 pb-1.5 mb-2 mt-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
+          <ClipboardList size={10} style={{ color: TEAL_DIM }} />
+          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEAL_DIM }}>Test de preuve</span>
+        </div>
             <SectionTitle>Intervalle de test de preuve</SectionTitle>
             <div className="flex gap-2">
               <div className="flex-1">
@@ -810,12 +785,12 @@ export function ComponentParamsPanel({
                 </div>
               </>
             )}
-          </>
-        )}
 
         {/* ══ AVANCÉ ══ */}
-        {activeTab === 'advanced' && (
-          <>
+        <div className="flex items-center gap-1.5 pb-1.5 mb-2 mt-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
+          <Settings2 size={10} style={{ color: TEAL_DIM }} />
+          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEAL_DIM }}>Avancé</span>
+        </div>
             <SectionTitle>Réparation</SectionTitle>
             <FieldRow label="MTTR [heures]">
               <StyledInput
@@ -866,8 +841,6 @@ export function ComponentParamsPanel({
                 onChange={v => updA({ sigma: parseFloat(v) || 1 })}
               />
             </FieldRow>
-          </>
-        )}
 
       </div>
 

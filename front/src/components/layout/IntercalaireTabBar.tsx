@@ -8,11 +8,13 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { BORDER, TEAL_DIM, TEXT, TEXT_DIM, R } from '@/styles/tokens'
 import { cn } from '@/lib/utils'
 
+type TabBadge = boolean | number | string | null | undefined
+
 // ─── IntercalaireTabBar ──────────────────────────────────────────────────
 export function IntercalaireTabBar<T extends string>({
   tabs, active, onSelect, cardBg, stretch = true, align = 'center', labelSize = 'md', showHints = true, autoHideHintsOnOverflow = false,
 }: {
-  tabs: readonly { id: T; label: string; hint?: string; Icon?: React.ElementType }[]
+  tabs: readonly { id: T; label: string; hint?: string; Icon?: React.ElementType; badge?: TabBadge }[]
   active: T
   onSelect: (id: T) => void
   cardBg: string
@@ -51,6 +53,9 @@ export function IntercalaireTabBar<T extends string>({
       {tabs.map(tab => {
         const isActive = tab.id === active
         const Icon = tab.Icon
+        const showDotBadge = typeof tab.badge === 'boolean'
+          ? tab.badge
+          : tab.badge !== null && tab.badge !== undefined && tab.badge !== ''
         return (
           <button key={tab.id} type="button" onClick={() => onSelect(tab.id)}
             className={cn(
@@ -79,6 +84,27 @@ export function IntercalaireTabBar<T extends string>({
             >
               {Icon && <Icon size={labelSize === 'sm' ? 10 : 12} />}
               <span className="truncate">{tab.label}</span>
+              {showDotBadge && (
+                typeof tab.badge === 'number' || typeof tab.badge === 'string'
+                  ? (
+                    <span
+                      className="inline-flex min-w-[14px] items-center justify-center rounded-full px-1 text-[9px] font-bold"
+                      style={{
+                        background: isActive ? `${TEAL_DIM}25` : '#2A3138',
+                        color: isActive ? TEAL_DIM : TEXT_DIM,
+                        border: `1px solid ${BORDER}`,
+                      }}
+                    >
+                      {tab.badge}
+                    </span>
+                  )
+                  : (
+                    <span
+                      className="h-1.5 w-1.5 rounded-full"
+                      style={{ background: isActive ? TEAL_DIM : `${TEAL_DIM}80` }}
+                    />
+                  )
+              )}
             </span>
             {renderHints && tab.hint && (
               <span

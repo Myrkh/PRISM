@@ -18,7 +18,6 @@ import { SILReportStudio } from '@/components/report/SILReportStudio'
 import {
   DEFAULT_SIF_ANALYSIS_SETTINGS,
   analysisSettingsToMissionTimeHours,
-  getAnalysisSubsystemColors,
   loadSIFAnalysisSettings,
   saveSIFAnalysisSettings,
 } from '@/core/models/analysisSettings'
@@ -31,7 +30,6 @@ interface Props { projectId: string; sifId: string }
 
 export function SIFDashboard({ projectId, sifId }: Props) {
   const view = useAppStore(s => s.view)
-  const navigate = useAppStore(s => s.navigate)
   const setTab = useAppStore(s => s.setTab)
   const openEditSIF = useAppStore(s => s.openEditSIF)
   const publishRevision = useAppStore(s => s.publishRevision)
@@ -59,11 +57,6 @@ export function SIFDashboard({ projectId, sifId }: Props) {
     saveSIFAnalysisSettings(sif.id, analysisSettings)
   }, [analysisSettings, sif])
 
-  const subsystemColors = useMemo(() => getAnalysisSubsystemColors(analysisSettings), [analysisSettings])
-  const getSubsystemColor = (type: string) =>
-    type === 'sensor' || type === 'logic' || type === 'actuator'
-      ? subsystemColors[type]
-      : '#6B7280'
   const result = useMemo(() => {
     if (!sif) return null
     return calcSIF(sif, {
@@ -91,7 +84,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
           sif={sif}
           result={result}
           compliance={compliance}
-          onSelectTab={setTab}
+          overviewMetrics={overviewMetrics}
         />,
       )
       return () => setRightPanelOverride(null)
@@ -233,10 +226,8 @@ export function SIFDashboard({ projectId, sifId }: Props) {
               result={result}
               compliance={compliance}
               overviewMetrics={overviewMetrics}
-              getSubsystemColor={getSubsystemColor}
               isPublishingRevision={isPublishingRevision}
               onSelectTab={setTab}
-              onOpenHazop={() => navigate({ type: 'hazop' })}
               onCloseRevision={() => setIsCloseDialogOpen(true)}
             />
           )}

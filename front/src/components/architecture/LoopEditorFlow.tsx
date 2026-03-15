@@ -188,6 +188,12 @@ function ChannelBlock({
       <div className="flex items-center gap-1.5 mb-2">
         <div className="w-1.5 h-1.5 rounded-full" style={{ background: color }} />
         <span className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: `${color}80` }}>{channel.label}</span>
+        {channel.components.length > 1 && (
+          <span className="rounded px-1 py-0.5 text-[8px] font-mono font-bold"
+            style={{ background: `${color}20`, color, border: `1px solid ${color}30` }}>
+            {channel.architecture ?? '1oo1'}
+          </span>
+        )}
         {canDelete && (
           <button
             onClick={e => { e.stopPropagation(); onDelete() }}
@@ -796,83 +802,6 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
   return (
     <div className="flex h-full min-w-0 w-full flex-1 flex-col overflow-hidden">
 
-      {workspaceMode === 'canvas' && (
-        <div
-          className="flex shrink-0 flex-col gap-2 border-b px-4 py-2"
-          style={{ background: PANEL_BG, borderColor: BORDER }}
-        >
-          <div className="flex items-center gap-2">
-            {(['sensor', 'logic', 'actuator'] as SubsystemType[]).map(type => {
-              const meta = SUB_META[type]; const has = hasType(type)
-              return (
-                <button key={type} disabled={has}
-                  onClick={() => !has && addSubsystem(projectId, sif.id, DEFAULT_SUBSYSTEM(type, sif.sifNumber))}
-                  className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-[11px] font-semibold transition-all"
-                  style={has
-                    ? { borderColor: `${meta.color}20`, color: `${meta.color}40`, cursor: 'not-allowed' }
-                    : { borderColor: `${meta.color}50`, color: meta.color, background: `${meta.color}10` }
-                  }><meta.Icon size={11} />{meta.label}{has && <CheckCircle2 size={10} />}</button>
-              )
-            })}
-            <div className="ml-auto flex items-center gap-3">
-              {calc.subsystems.map(sub => {
-                const meta = SUB_META[sub.type as SubsystemType]
-                return (
-                  <div key={sub.subsystemId} className="flex items-start gap-1.5">
-                    <div className="mt-1.5 h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />
-                    <div className="leading-tight">
-                      <div className="text-[10px] font-mono" style={{ color: TEXT_DIM }}>{formatPFD(sub.PFD_avg)}</div>
-                      <div className="text-[9px] font-mono" style={{ color: TEXT_DIM }}>RRF {formatRRF(sub.RRF)}</div>
-                    </div>
-                  </div>
-                )
-              })}
-              <div className="border-l pl-3" style={{ borderColor: BORDER }}>
-                <div className="flex flex-col leading-tight">
-                  <span className="text-[11px] font-bold font-mono" style={{ color: calc.meetsTarget ? '#4ADE80' : '#F87171' }}>
-                    Total : {formatPFD(calc.PFD_avg)}
-                  </span>
-                  <span className="text-[9px] font-mono" style={{ color: TEXT_DIM }}>
-                    RRF : {formatRRF(calc.RRF)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setIsGlobalTestsDialogOpen(true)}
-              className="rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors"
-              style={{ borderColor: `${TEAL}55`, color: TEAL, background: `${TEAL}10` }}
-              title="Ouvrir les parametres generaux"
-            >
-              Parametres generaux
-            </button>
-            <button
-              onClick={() => setWorkspaceMode('ccf-beta')}
-              disabled={!redundantSubsystems.length}
-              className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-45"
-              style={{ borderColor: `${TEAL}55`, color: TEAL, background: `${TEAL}10` }}
-              title={redundantSubsystems.length
-                ? 'Ouvrir le workspace CCF / Beta'
-                : 'Ajoutez un sous-systeme redondant pour activer le beta'}
-            >
-              <ShieldCheck size={12} />
-              CCF / Beta
-            </button>
-            {selectedCcfSubsystem && (
-              <div
-                className="rounded-lg border px-2.5 py-1.5 text-[10px] font-mono"
-                style={{ borderColor: BORDER, background: NODE_BG2, color: TEXT_DIM }}
-              >
-                {selectedCcfSubsystem.label} · β {formatBetaPct(selectedCcfSubsystem.ccf?.beta ?? 0.05)} · βD {formatBetaPct(selectedCcfSubsystem.ccf?.betaD ?? 0.025)}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-
       <Dialog open={isGlobalTestsDialogOpen} onOpenChange={setIsGlobalTestsDialogOpen}>
         <DialogContent className="max-w-md border" style={{ borderColor: BORDER, background: NODE_BG }}>
           <DialogHeader>
@@ -1015,7 +944,63 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
           />
         </div>
       ) : (
-        <div className="flex-1 min-h-0 min-w-0 w-full" style={{ background: CANVAS_BG }}>
+        <div className="flex-1 min-h-0 min-w-0 w-full relative" style={{ background: CANVAS_BG }}>
+
+          {/* Floating toolbar card */}
+          <div className="absolute top-3 left-3 z-10 rounded-xl border p-2.5 space-y-2 max-w-[420px]"
+            style={{ background: `${PANEL_BG}ee`, borderColor: BORDER, backdropFilter: 'blur(12px)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+            <div className="flex items-center gap-1.5">
+              {(['sensor', 'logic', 'actuator'] as SubsystemType[]).map(type => {
+                const meta = SUB_META[type]; const has = hasType(type)
+                return (
+                  <button key={type} disabled={has}
+                    onClick={() => !has && addSubsystem(projectId, sif.id, DEFAULT_SUBSYSTEM(type, sif.sifNumber))}
+                    className="flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold transition-all"
+                    style={has
+                      ? { borderColor: `${meta.color}20`, color: `${meta.color}40`, cursor: 'not-allowed' }
+                      : { borderColor: `${meta.color}50`, color: meta.color, background: `${meta.color}10` }
+                    }><meta.Icon size={10} />{meta.label}{has && <CheckCircle2 size={9} />}</button>
+                )
+              })}
+            </div>
+            <div className="flex items-center gap-1.5">
+              <button
+                onClick={() => setIsGlobalTestsDialogOpen(true)}
+                className="rounded-lg border px-2 py-1 text-[9px] font-semibold transition-colors"
+                style={{ borderColor: `${TEAL}40`, color: TEAL, background: `${TEAL}08` }}
+              >Params</button>
+              <button
+                onClick={() => setWorkspaceMode('ccf-beta')}
+                disabled={!redundantSubsystems.length}
+                className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[9px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
+                style={{ borderColor: `${TEAL}40`, color: TEAL, background: `${TEAL}08` }}
+              ><ShieldCheck size={10} />CCF</button>
+            </div>
+          </div>
+
+          {/* Floating results card — top right */}
+          {calc.subsystems.length > 0 && (
+            <div className="absolute top-3 right-3 z-10 rounded-xl border p-2.5"
+              style={{ background: `${PANEL_BG}ee`, borderColor: BORDER, backdropFilter: 'blur(12px)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
+              <div className="flex items-center gap-3">
+                {calc.subsystems.map(sub => {
+                  const meta = SUB_META[sub.type as SubsystemType]
+                  return (
+                    <div key={sub.subsystemId} className="flex items-center gap-1.5">
+                      <div className="h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />
+                      <span className="text-[9px] font-mono" style={{ color: TEXT_DIM }}>{formatPFD(sub.PFD_avg)}</span>
+                    </div>
+                  )
+                })}
+                <div className="border-l pl-2" style={{ borderColor: BORDER }}>
+                  <span className="text-[10px] font-bold font-mono" style={{ color: calc.meetsTarget ? '#4ADE80' : '#F87171' }}>
+                    {formatPFD(calc.PFD_avg)}
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           <ReactFlow
             nodes={nodes} edges={edges}
             onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}

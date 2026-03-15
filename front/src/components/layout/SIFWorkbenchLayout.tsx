@@ -163,28 +163,26 @@ function ResizeDivider({
       aria-orientation="vertical"
       aria-label="Resize panel"
       className="absolute inset-y-0 left-0 z-20 flex -translate-x-1/2 cursor-col-resize items-center justify-center"
-      style={{ width: 6, touchAction: 'none' }}
+      style={{ width: 18, touchAction: 'none' }}
       onPointerDown={onPointerDown}
       onPointerEnter={() => setHovered(true)}
       onPointerLeave={() => setHovered(false)}
     >
-      {/* Border line */}
       <div
-        className="pointer-events-none absolute inset-y-0 w-px transition-colors"
-        style={{ background: active ? TEAL : BORDER }}
+        className="pointer-events-none absolute inset-y-0 w-[2px] transition-colors"
+        style={{ background: active ? TEAL : '#44515E' }}
       />
-      {/* Grip icon */}
       <div
-        className="pointer-events-none relative z-10 rounded p-0.5 transition-all"
+        className="pointer-events-none relative z-10 flex h-10 w-5 items-center justify-center rounded-full border transition-all"
         style={{
-          background:   PANEL_BG,
-          border:       `1px solid ${active ? TEAL : BORDER}`,
+          background:   active ? '#15232D' : PANEL_BG,
+          borderColor:  active ? TEAL : '#44515E',
           color:        active ? TEAL : TEXT_DIM,
-          opacity:      active ? 1 : 0,
-          transition:   'opacity 0.15s, border-color 0.15s, color 0.15s',
+          boxShadow:    active ? '0 0 0 1px rgba(0,155,164,0.18), 0 8px 18px rgba(0,0,0,0.28)' : '0 4px 12px rgba(0,0,0,0.2)',
+          transition:   'border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.15s',
         }}
       >
-        <GripVertical size={10} />
+        <GripVertical size={12} />
       </div>
     </div>
   )
@@ -292,7 +290,6 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
           onToggleLeft={() => setLeftOpen(v => !v)}
           onToggleRight={() => setRightOpen(v => !v)}
           showRightToggle={showDashboard || showGlobal}
-          showPanelToggles={!showDashboard}
         />
 
         {/* ── Main area ── */}
@@ -345,39 +342,33 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
           {/* SIF Dashboard — center stack + right dock */}
           {showDashboard && (
             <>
-              <div className="flex flex-1 min-w-0 min-h-0 flex-col overflow-hidden">
-                <SIFWorkbenchBar
-                  active={activeTab}
-                  onSelect={(id) => setTab(id)}
-                  leftOpen={leftOpen}
-                  rightOpen={rightOpen}
-                  onToggleLeft={() => setLeftOpen(v => !v)}
-                  onToggleRight={() => setRightOpen(v => !v)}
-                />
+              <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">
+                {/* ── Sidebar ── */}
+                <div
+                  className="flex shrink-0 flex-col border-r overflow-hidden"
+                  style={{
+                    width:       leftOpen ? 240 : 0,
+                    opacity:     leftOpen ? 1 : 0,
+                    borderColor: BORDER,
+                    background:  PANEL_BG,
+                    transition:  'width 0.2s ease, opacity 0.15s ease',
+                  }}
+                >
+                  {leftOpen && (
+                    <ProjectTree projectId={projectId ?? ''} sifId={sifId ?? ''} />
+                  )}
+                </div>
 
-                <div className="flex flex-1 min-h-0 overflow-hidden">
-                  {/* ── Sidebar ── */}
-                  <div
-                    className="flex shrink-0 flex-col border-r overflow-hidden"
-                    style={{
-                      width:       leftOpen ? 240 : 0,
-                      opacity:     leftOpen ? 1 : 0,
-                      borderColor: BORDER,
-                      background:  PANEL_BG,
-                      transition:  'width 0.2s ease, opacity 0.15s ease',
-                    }}
-                  >
-                    {leftOpen && (
-                      <ProjectTree projectId={projectId ?? ''} sifId={sifId ?? ''} />
-                    )}
-                  </div>
+                {/* Editor column */}
+                <div className="flex flex-1 min-w-0 min-h-0 flex-col overflow-hidden">
+                  <SIFWorkbenchBar
+                    active={activeTab}
+                    onSelect={(id) => setTab(id)}
+                  />
 
-                  {/* Editor column */}
-                  <div className="flex flex-1 flex-col min-w-0 min-h-0 overflow-hidden">
-                    <EditorContent className="flex flex-col">
-                      {children}
-                    </EditorContent>
-                  </div>
+                  <EditorContent className="flex flex-col">
+                    {children}
+                  </EditorContent>
                 </div>
               </div>
 

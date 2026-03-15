@@ -63,6 +63,8 @@ const ARCH_OPTIONS: { value: Architecture; label: string; channels: number | nul
   { value: '2oo2',   label: '2oo2',   channels: 2    },
   { value: '1oo2D',  label: '1oo2D',  channels: 2    },
   { value: '2oo3',   label: '2oo3',   channels: 3    },
+  { value: '1oo3',   label: '1oo3',   channels: 3    },
+  { value: '2oo4',   label: '2oo4',   channels: 4    },
   { value: 'custom', label: 'Custom', channels: null }, // toujours disponible
 ]
 
@@ -174,28 +176,27 @@ function SubsystemArchSection({
               </div>
             </div>
 
-            {/* Architecture — filtré par nombre de voies */}
+            {/* Architecture — voting grid filtré par nombre de voies */}
             <div className="flex-1 min-w-0">
               <p className="mb-1 text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Architecture</p>
-              <div className="relative">
-                <select
-                  value={validArchs.find(o => o.value === subsystem.architecture) ? subsystem.architecture : validArchs[0]?.value}
-                  onChange={e => upd({ architecture: e.target.value as Architecture })}
-                  className="w-full appearance-none rounded-md border px-2 py-1.5 pr-6 text-xs outline-none"
-                  style={{ background: BG, borderColor: BORDER, color: TEXT }}
-                >
-                  {validArchs.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
-                  ))}
-                </select>
-                <ChevronDown
-                  size={10}
-                  className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2"
-                  style={{ color: TEXT_DIM }}
-                />
+              <div className="flex gap-1 flex-wrap">
+                {validArchs.map(o => (
+                  <button
+                    key={o.value}
+                    type="button"
+                    onClick={() => upd({ architecture: o.value })}
+                    className="rounded-md px-2 py-1.5 text-[10px] font-mono font-bold transition-all"
+                    style={subsystem.architecture === o.value
+                      ? { background: meta.color, color: '#fff', boxShadow: `0 0 8px ${meta.color}40` }
+                      : { background: '#141A21', color: TEXT_DIM, border: `1px solid ${BORDER}` }
+                    }
+                  >
+                    {o.label}
+                  </button>
+                ))}
               </div>
               {channelCount === 1 && (
-                <p className="mt-1 text-[9px]" style={{ color: TEXT_DIM }}>
+                <p className="mt-1.5 text-[9px]" style={{ color: TEXT_DIM }}>
                   Ajoutez des voies pour activer la redondance.
                 </p>
               )}
@@ -290,6 +291,62 @@ function SubsystemArchSection({
                   </div>
                 )
               })()}
+            </div>
+          )}
+
+          {/* Channel-level kooN — when a channel has 2+ components */}
+          {subsystem.channels.some(ch => ch.components.length > 1) && (
+            <div className="space-y-2">
+              <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+                Voting intra-canal
+              </p>
+              {subsystem.channels.filter(ch => ch.components.length > 1).map(ch => {
+                const nComps = ch.components.length
+                const chArch = ch.architecture ?? '1oo1'
+                const validChArchs = ARCH_OPTIONS.filter(o =>
+                  o.channels !== null ? o.channels === nComps : true
+                )
+                const displayArch = validChArchs.find(o => o.value === chArch) ? chArch : '1oo1'
+
+                const handleChArchChange = (arch: Architecture) => {
+                  upd({
+                    channels: subsystem.channels.map(c =>
+                      c.id === ch.id ? { ...c, architecture: arch } : c
+                    ),
+                  })
+                }
+
+                return (
+                  <div key={ch.id} className="rounded-lg border p-2 space-y-1.5"
+                    style={{ borderColor: BORDER, background: '#0B1017' }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} />
+                      <span className="text-[10px] font-semibold flex-1" style={{ color: TEXT }}>
+                        {ch.label}
+                      </span>
+                      <span className="text-[9px] font-mono" style={{ color: TEXT_DIM }}>
+                        {nComps} comp.
+                      </span>
+                    </div>
+                    <div className="flex gap-1 flex-wrap">
+                      {validChArchs.map(o => (
+                        <button
+                          key={o.value}
+                          type="button"
+                          onClick={() => handleChArchChange(o.value)}
+                          className="rounded px-2 py-1 text-[9px] font-mono font-bold transition-all"
+                          style={displayArch === o.value
+                            ? { background: meta.color, color: '#fff' }
+                            : { background: '#141A21', color: TEXT_DIM, border: `1px solid ${BORDER}` }
+                          }
+                        >
+                          {o.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )
+              })}
             </div>
           )}
         </div>

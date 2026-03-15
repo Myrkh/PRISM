@@ -1,11 +1,10 @@
 /**
  * layout/EditorTabBar.tsx — PRISM v3
  *
- * EditorTabBar     : tabs génériques style VS Code (pour tout ce qui n'est pas SIF).
- * SIFLifecycleBar  : stepper cycle de vie SIF (IEC 61511) — Cockpit | 1→4 | Rapport.
- * EditorContent    : wrapper zone principale.
+ * EditorTabBar    : tabs génériques style VS Code (pour tout ce qui n'est pas SIF).
+ * SIFLifecycleBar : stepper cycle de vie SIF (IEC 61511) — Cockpit | 1→4 | Rapport.
+ * EditorContent   : wrapper zone principale.
  */
-import { PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen } from 'lucide-react'
 import { type ReactNode } from 'react'
 import type { CanonicalSIFTab } from '@/store/types'
 import { BORDER, TEAL, TEXT, TEXT_DIM } from '@/styles/tokens'
@@ -180,78 +179,22 @@ export function SIFLifecycleBar({
   )
 }
 
-function WorkbenchToggle({
-  open,
-  onClick,
-  side,
-}: {
-  open: boolean
-  onClick: () => void
-  side: 'left' | 'right'
-}) {
-  const Icon = side === 'left'
-    ? (open ? PanelLeftClose : PanelLeftOpen)
-    : (open ? PanelRightClose : PanelRightOpen)
-  const label = side === 'left'
-    ? (open ? 'Réduire le panneau gauche' : 'Afficher le panneau gauche')
-    : (open ? 'Réduire le panneau droit' : 'Afficher le panneau droit')
-
-  return (
-    <button
-      type="button"
-      title={label}
-      aria-label={label}
-      onClick={onClick}
-      className="flex h-8 w-8 items-center justify-center rounded-lg border transition-colors shrink-0"
-      style={{
-        borderColor: open ? `${TEAL}35` : BORDER,
-        background: open ? '#142030' : 'transparent',
-        color: open ? TEAL : TEXT_DIM,
-      }}
-      onMouseEnter={e => {
-        if (!open) {
-          e.currentTarget.style.background = '#1A1F24'
-          e.currentTarget.style.color = TEXT
-        }
-      }}
-      onMouseLeave={e => {
-        if (!open) {
-          e.currentTarget.style.background = 'transparent'
-          e.currentTarget.style.color = TEXT_DIM
-        }
-      }}
-    >
-      <Icon size={15} />
-    </button>
-  )
-}
-
 export function SIFWorkbenchBar({
   active,
   onSelect,
-  leftOpen,
-  rightOpen,
-  onToggleLeft,
-  onToggleRight,
 }: {
   active: CanonicalSIFTab
   onSelect: (id: CanonicalSIFTab) => void
-  leftOpen: boolean
-  rightOpen: boolean
-  onToggleLeft: () => void
-  onToggleRight: () => void
 }) {
   const cockpit = LIFECYCLE_PHASES[0]
   const report  = LIFECYCLE_PHASES[LIFECYCLE_PHASES.length - 1]
 
   return (
     <div
-      className="flex items-center gap-2 border-b px-3 shrink-0"
+      className="flex shrink-0 justify-center border-b px-4"
       style={{ borderColor: BORDER, background: '#0F1318', height: 40 }}
     >
-      <WorkbenchToggle open={leftOpen} onClick={onToggleLeft} side="left" />
-      <div className="shrink-0 h-5 w-px" style={{ background: BORDER }} />
-      <div className="min-w-0 flex flex-1 items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+      <div className="flex min-w-0 max-w-full items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
         <PhaseBtn phase={cockpit} isActive={active === 'cockpit'} onClick={() => onSelect('cockpit')} />
         <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
         {PHASES_STEPS.map((phase, index) => (
@@ -262,12 +205,9 @@ export function SIFWorkbenchBar({
             <PhaseBtn phase={phase} isActive={active === phase.id} onClick={() => onSelect(phase.id)} />
           </div>
         ))}
-        <div className="flex-1" />
         <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
         <PhaseBtn phase={report} isActive={active === 'report'} onClick={() => onSelect('report')} />
       </div>
-      <div className="shrink-0 h-5 w-px" style={{ background: BORDER }} />
-      <WorkbenchToggle open={rightOpen} onClick={onToggleRight} side="right" />
     </div>
   )
 }

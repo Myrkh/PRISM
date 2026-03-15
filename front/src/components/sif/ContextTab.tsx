@@ -1,14 +1,17 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Save } from 'lucide-react'
-import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Textarea } from '@/components/ui/textarea'
+import {
+  Save, AlertTriangle, Shield, Users,
+  Hash,
+} from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
-import type { HAZOPTrace, SIF } from '@/core/types'
+import type { HAZOPTrace, SIF, SILLevel } from '@/core/types'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
 import type { OverviewMetrics } from '@/components/sif/overviewMetrics'
 import type { SIFTab } from '@/store/types'
-import { BORDER, CARD_BG, PAGE_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic } from '@/styles/tokens'
+import { BORDER, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic, dark } from '@/styles/tokens'
+
+const BG = dark.page
+const CARD = dark.card2
 
 type ContextDraft = Pick<
   SIF,
@@ -64,33 +67,90 @@ function buildDraft(sif: SIF): ContextDraft {
   }
 }
 
+// ── Design primitives ─────────────────────────────────────────────────────
+
+function SectionHeader({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  return (
+    <div className="flex items-center gap-2 pb-2 mb-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
+      <span style={{ color: TEAL_DIM }}>{icon}</span>
+      <span className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: TEAL_DIM }}>{children}</span>
+    </div>
+  )
+}
+
 function FieldLabel({ children }: { children: React.ReactNode }) {
   return (
-    <label className="block text-[10px] font-bold uppercase tracking-[0.14em] mb-1.5" style={{ color: TEXT_DIM }}>
+    <label className="block text-[9px] font-bold uppercase tracking-[0.12em] mb-1" style={{ color: TEXT_DIM }}>
       {children}
     </label>
   )
 }
 
-function SurfaceCard({
-  title,
-  hint,
-  children,
-}: {
-  title: string
-  hint: string
-  children: React.ReactNode
+function FInput({ value, onChange, placeholder, type = 'text', step, readOnly }: {
+  value: string | number; onChange?: (v: string) => void
+  placeholder?: string; type?: string; step?: string; readOnly?: boolean
 }) {
   return (
-    <div className="rounded-2xl border p-5" style={{ borderColor: BORDER, background: CARD_BG }}>
-      <div className="mb-4">
-        <p className="text-sm font-semibold" style={{ color: TEXT }}>{title}</p>
-        <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{hint}</p>
-      </div>
+    <input
+      type={type} step={step} value={value} readOnly={readOnly}
+      onChange={onChange ? e => onChange(e.target.value) : undefined}
+      placeholder={placeholder}
+      className="w-full rounded-lg border px-2.5 py-2 text-xs outline-none transition-all"
+      style={{
+        background: BG, borderColor: BORDER, color: TEXT,
+        opacity: readOnly ? 0.6 : 1,
+      }}
+      onFocus={e => { if (!readOnly) e.target.style.borderColor = TEAL }}
+      onBlur={e => { e.target.style.borderColor = BORDER }}
+    />
+  )
+}
+
+function FTextarea({ value, onChange, placeholder, rows = 3 }: {
+  value: string; onChange: (v: string) => void; placeholder?: string; rows?: number
+}) {
+  return (
+    <textarea
+      value={value} onChange={e => onChange(e.target.value)}
+      rows={rows} placeholder={placeholder}
+      className="w-full rounded-lg border px-2.5 py-2 text-xs outline-none resize-none transition-all"
+      style={{ background: BG, borderColor: BORDER, color: TEXT }}
+      onFocus={e => { e.target.style.borderColor = TEAL }}
+      onBlur={e => { e.target.style.borderColor = BORDER }}
+    />
+  )
+}
+
+function Card({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: CARD }}>
       {children}
     </div>
   )
 }
+
+const SIL_COLORS: Record<number, string> = { 1: '#16A34A', 2: '#2563EB', 3: '#D97706', 4: '#7C3AED' }
+
+function SILSelector({ value, onChange }: { value: SILLevel; onChange: (v: SILLevel) => void }) {
+  return (
+    <div className="flex gap-1.5">
+      {([1, 2, 3, 4] as SILLevel[]).map(sil => {
+        const active = value === sil
+        const color = SIL_COLORS[sil]
+        return (
+          <button key={sil} type="button" onClick={() => onChange(sil)}
+            className="flex-1 py-2 rounded-lg text-[13px] font-mono font-bold transition-all"
+            style={active
+              ? { background: color, color: '#fff', boxShadow: `0 0 12px ${color}40` }
+              : { background: BG, color: TEXT_DIM, border: `1px solid ${BORDER}` }
+            }>SIL {sil}</button>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Main component ────────────────────────────────────────────────────────
 
 export function ContextTab({ projectId, sif, compliance, overviewMetrics, onSelectTab }: Props) {
   const updateSIF = useAppStore(s => s.updateSIF)
@@ -100,208 +160,208 @@ export function ContextTab({ projectId, sif, compliance, overviewMetrics, onSele
   const [isSaving, setIsSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
 
-  useEffect(() => {
-    setDraft(buildDraft(sif))
-    setSaveError(null)
-  }, [sif])
+  useEffect(() => { setDraft(buildDraft(sif)); setSaveError(null) }, [sif])
 
   const baseline = useMemo(() => JSON.stringify(buildDraft(sif)), [sif])
   const isDirty = JSON.stringify(draft) !== baseline
 
-  const updateDraft = <K extends keyof ContextDraft>(key: K, value: ContextDraft[K]) =>
+  const upd = <K extends keyof ContextDraft>(key: K, value: ContextDraft[K]) =>
     setDraft(prev => ({ ...prev, [key]: value }))
 
   const handleSave = async () => {
-    setIsSaving(true)
-    setSaveError(null)
+    setIsSaving(true); setSaveError(null)
     try {
       await updateSIF(projectId, sif.id, {
-        title: draft.title,
-        description: draft.description,
-        pid: draft.pid,
-        location: draft.location,
-        processTag: draft.processTag,
+        title: draft.title, description: draft.description,
+        pid: draft.pid, location: draft.location, processTag: draft.processTag,
         hazardousEvent: draft.hazardousEvent,
         demandRate: Number(draft.demandRate),
         targetSIL: Number(draft.targetSIL) as SIF['targetSIL'],
         rrfRequired: Number(draft.rrfRequired),
-        madeBy: draft.madeBy,
-        verifiedBy: draft.verifiedBy,
-        approvedBy: draft.approvedBy,
-        date: draft.date,
+        madeBy: draft.madeBy, verifiedBy: draft.verifiedBy,
+        approvedBy: draft.approvedBy, date: draft.date,
       })
-
       updateHAZOPTrace(projectId, sif.id, {
-        hazopNode: draft.hazopNode,
-        scenarioId: draft.scenarioId,
-        deviationCause: draft.deviationCause,
-        initiatingEvent: draft.initiatingEvent,
-        lopaRef: draft.lopaRef,
-        tmel: Number(draft.tmel) || 0,
-        iplList: draft.iplList,
-        riskMatrix: draft.riskMatrix,
-        hazopDate: draft.hazopDate,
-        lopaDate: draft.lopaDate,
+        hazopNode: draft.hazopNode, scenarioId: draft.scenarioId,
+        deviationCause: draft.deviationCause, initiatingEvent: draft.initiatingEvent,
+        lopaRef: draft.lopaRef, tmel: Number(draft.tmel) || 0,
+        iplList: draft.iplList, riskMatrix: draft.riskMatrix,
+        hazopDate: draft.hazopDate, lopaDate: draft.lopaDate,
         hazopFacilitator: draft.hazopFacilitator,
       })
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Impossible d’enregistrer le contexte.')
-    } finally {
-      setIsSaving(false)
-    }
+      setSaveError(error instanceof Error ? error.message : 'Impossible d\'enregistrer.')
+    } finally { setIsSaving(false) }
   }
 
   return (
-    <div className="flex min-h-full flex-col gap-4">
-      <div className="grid gap-4 xl:grid-cols-[minmax(0,1.1fr)_minmax(0,0.9fr)]">
-        <SurfaceCard
-          title="Identification"
-          hint="Numero, titre, P&ID, zone et tag process de la SIF."
-        >
-          <div className="grid gap-4 md:grid-cols-2">
+    <div className="flex min-h-full flex-col gap-5">
+
+      {/* Row 1: Identification + SRS */}
+      <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
+        <Card>
+          <SectionHeader icon={<Hash size={12} />}>Identification</SectionHeader>
+          <div className="grid gap-3 md:grid-cols-2">
             <div>
               <FieldLabel>SIF No</FieldLabel>
-              <Input value={sif.sifNumber} readOnly />
+              <FInput value={sif.sifNumber} readOnly />
             </div>
             <div>
               <FieldLabel>Titre</FieldLabel>
-              <Input value={draft.title} onChange={event => updateDraft('title', event.target.value)} />
+              <FInput value={draft.title} onChange={v => upd('title', v)} placeholder="ESD haute pression V-101" />
             </div>
             <div>
               <FieldLabel>P&amp;ID / Zone</FieldLabel>
-              <Input value={draft.pid} onChange={event => updateDraft('pid', event.target.value)} />
+              <FInput value={draft.pid} onChange={v => upd('pid', v)} placeholder="P&ID-001-A" />
             </div>
             <div>
               <FieldLabel>Localisation</FieldLabel>
-              <Input value={draft.location} onChange={event => updateDraft('location', event.target.value)} />
+              <FInput value={draft.location} onChange={v => upd('location', v)} placeholder="Unité 100 – Zone ATEX" />
             </div>
             <div>
               <FieldLabel>Process tag</FieldLabel>
-              <Input value={draft.processTag} onChange={event => updateDraft('processTag', event.target.value)} />
+              <FInput value={draft.processTag} onChange={v => upd('processTag', v)} placeholder="PT-101" />
             </div>
             <div className="md:col-span-2">
-              <FieldLabel>Description</FieldLabel>
-              <Textarea rows={3} value={draft.description} onChange={event => updateDraft('description', event.target.value)} />
+              <FieldLabel>Description fonctionnelle</FieldLabel>
+              <FTextarea value={draft.description} onChange={v => upd('description', v)} placeholder="Isoler l'alimentation gaz en cas de haute pression…" rows={3} />
             </div>
           </div>
-        </SurfaceCard>
+        </Card>
 
-        <SurfaceCard
-          title="HAZOP / LOPA"
-          hint="Scenario initiateur, references HAZOP / LOPA et IPLs independantes."
-        >
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <FieldLabel>Hazardous event</FieldLabel>
-              <Textarea rows={4} value={draft.hazardousEvent} onChange={event => updateDraft('hazardousEvent', event.target.value)} />
-            </div>
-            <div>
-              <FieldLabel>Scenario ID</FieldLabel>
-              <Input value={draft.scenarioId} onChange={event => updateDraft('scenarioId', event.target.value)} />
-            </div>
-            <div>
-              <FieldLabel>HAZOP node</FieldLabel>
-              <Input value={draft.hazopNode} onChange={event => updateDraft('hazopNode', event.target.value)} />
-            </div>
-            <div>
-              <FieldLabel>LOPA Ref.</FieldLabel>
-              <Input value={draft.lopaRef} onChange={event => updateDraft('lopaRef', event.target.value)} />
-            </div>
-            <div className="md:col-span-2">
-              <FieldLabel>IPLs independantes</FieldLabel>
-              <Textarea rows={3} value={draft.iplList} onChange={event => updateDraft('iplList', event.target.value)} />
-            </div>
-            <div>
-              <FieldLabel>Risk matrix</FieldLabel>
-              <Input value={draft.riskMatrix} onChange={event => updateDraft('riskMatrix', event.target.value)} />
-            </div>
-            <div>
-              <FieldLabel>TMEL [yr-1]</FieldLabel>
-              <Input type="number" step="0.000001" value={draft.tmel} onChange={event => updateDraft('tmel', Number(event.target.value) || 0)} />
-            </div>
-            <div>
-              <FieldLabel>Facilitateur HAZOP</FieldLabel>
-              <Input value={draft.hazopFacilitator} onChange={event => updateDraft('hazopFacilitator', event.target.value)} />
-            </div>
-            <div>
-              <FieldLabel>Date HAZOP</FieldLabel>
-              <Input type="date" value={draft.hazopDate} onChange={event => updateDraft('hazopDate', event.target.value)} />
-            </div>
-            <div className="md:col-span-2">
-              <FieldLabel>Evenement initiateur</FieldLabel>
-              <Textarea rows={3} value={draft.initiatingEvent} onChange={event => updateDraft('initiatingEvent', event.target.value)} />
-            </div>
-            <div className="md:col-span-2">
-              <FieldLabel>Deviation / cause</FieldLabel>
-              <Textarea rows={3} value={draft.deviationCause} onChange={event => updateDraft('deviationCause', event.target.value)} />
-            </div>
-          </div>
-        </SurfaceCard>
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-2">
-        <SurfaceCard
-          title="Paramètres SRS"
-          hint="Taux de demande, RRF requis et niveau SIL cible issus de l'étude LOPA."
-        >
-          <div className="grid gap-4 md:grid-cols-3">
-            <div>
-              <FieldLabel>Demand rate [yr-1]</FieldLabel>
-              <Input type="number" step="0.01" value={draft.demandRate} onChange={event => updateDraft('demandRate', Number(event.target.value) || 0)} />
-            </div>
-            <div>
-              <FieldLabel>RRF requis</FieldLabel>
-              <Input type="number" step="1" value={draft.rrfRequired} onChange={event => updateDraft('rrfRequired', Number(event.target.value) || 0)} />
-            </div>
+        <Card>
+          <SectionHeader icon={<Shield size={12} />}>Exigences SRS</SectionHeader>
+          <div className="space-y-4">
             <div>
               <FieldLabel>SIL cible</FieldLabel>
-              <select
-                value={draft.targetSIL}
-                onChange={event => updateDraft('targetSIL', Number(event.target.value) as SIF['targetSIL'])}
-                className="flex h-9 w-full rounded-md border px-3 py-1 text-sm shadow-sm"
-                style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
-              >
-                {[1, 2, 3, 4].map(level => <option key={level} value={level}>{`SIL ${level}`}</option>)}
-              </select>
+              <SILSelector value={draft.targetSIL} onChange={v => upd('targetSIL', v)} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel>Demand rate [yr⁻¹]</FieldLabel>
+                <FInput type="number" step="0.01" value={draft.demandRate} onChange={v => upd('demandRate', Number(v) || 0)} />
+              </div>
+              <div>
+                <FieldLabel>RRF requis</FieldLabel>
+                <FInput type="number" step="1" value={draft.rrfRequired} onChange={v => upd('rrfRequired', Number(v) || 0)} />
+              </div>
+            </div>
+            <div className="rounded-lg border p-3 flex items-center justify-between" style={{ borderColor: `${TEAL}25`, background: `${TEAL}06` }}>
+              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>PFD max admissible</span>
+              <span className="text-sm font-mono font-bold" style={{ color: TEAL_DIM }}>
+                {draft.rrfRequired > 0 ? (1 / draft.rrfRequired).toExponential(1) : '—'}
+              </span>
             </div>
           </div>
-        </SurfaceCard>
-
-        <SurfaceCard
-          title="Signataires"
-          hint="Établi, vérifié, approuvé — traçabilité documentaire de la révision."
-        >
-          <div className="grid gap-4 md:grid-cols-2">
-            <div>
-              <FieldLabel>Établi par</FieldLabel>
-              <Input value={draft.madeBy} onChange={event => updateDraft('madeBy', event.target.value)} />
-            </div>
-            <div>
-              <FieldLabel>Vérifié par</FieldLabel>
-              <Input value={draft.verifiedBy} onChange={event => updateDraft('verifiedBy', event.target.value)} />
-            </div>
-            <div>
-              <FieldLabel>Approuvé par</FieldLabel>
-              <Input value={draft.approvedBy} onChange={event => updateDraft('approvedBy', event.target.value)} />
-            </div>
-            <div>
-              <FieldLabel>Date document</FieldLabel>
-              <Input type="date" value={draft.date} onChange={event => updateDraft('date', event.target.value)} />
-            </div>
-          </div>
-        </SurfaceCard>
+        </Card>
       </div>
 
-      {/* Save bar — save uniquement, pas de navigation (lifecycle bar) */}
-      <div className="flex shrink-0 items-center justify-between gap-3 px-1 pb-1" style={{ marginTop: 'auto' }}>
+      {/* Row 2: HAZOP/LOPA */}
+      <Card>
+        <SectionHeader icon={<AlertTriangle size={12} />}>HAZOP / LOPA — Traçabilité du scénario</SectionHeader>
+        <div className="grid gap-4 xl:grid-cols-2">
+          <div className="space-y-3">
+            <div>
+              <FieldLabel>Événement dangereux</FieldLabel>
+              <FTextarea value={draft.hazardousEvent} onChange={v => upd('hazardousEvent', v)} placeholder="Surpression V-101 → rupture…" rows={3} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel>HAZOP node</FieldLabel>
+                <FInput value={draft.hazopNode} onChange={v => upd('hazopNode', v)} placeholder="Node 3" />
+              </div>
+              <div>
+                <FieldLabel>Scenario ID</FieldLabel>
+                <FInput value={draft.scenarioId} onChange={v => upd('scenarioId', v)} placeholder="SC-003" />
+              </div>
+            </div>
+            <div>
+              <FieldLabel>Événement initiateur</FieldLabel>
+              <FTextarea value={draft.initiatingEvent} onChange={v => upd('initiatingEvent', v)} placeholder="Défaillance régulateur PCV-101…" rows={2} />
+            </div>
+            <div>
+              <FieldLabel>Déviation / Cause</FieldLabel>
+              <FTextarea value={draft.deviationCause} onChange={v => upd('deviationCause', v)} placeholder="Haute pression – blocage vanne…" rows={2} />
+            </div>
+          </div>
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel>LOPA Ref.</FieldLabel>
+                <FInput value={draft.lopaRef} onChange={v => upd('lopaRef', v)} placeholder="LOPA-001" />
+              </div>
+              <div>
+                <FieldLabel>Risk matrix</FieldLabel>
+                <FInput value={draft.riskMatrix} onChange={v => upd('riskMatrix', v)} placeholder="C4-L3" />
+              </div>
+            </div>
+            <div>
+              <FieldLabel>TMEL [yr⁻¹]</FieldLabel>
+              <FInput type="number" step="0.000001" value={draft.tmel} onChange={v => upd('tmel', Number(v) || 0)} />
+            </div>
+            <div>
+              <FieldLabel>IPLs indépendantes</FieldLabel>
+              <FTextarea value={draft.iplList} onChange={v => upd('iplList', v)} placeholder="PSV-101 (RRF 10), BPCS alarm…" rows={3} />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <FieldLabel>Facilitateur HAZOP</FieldLabel>
+                <FInput value={draft.hazopFacilitator} onChange={v => upd('hazopFacilitator', v)} />
+              </div>
+              <div>
+                <FieldLabel>Date HAZOP</FieldLabel>
+                <FInput type="date" value={draft.hazopDate} onChange={v => upd('hazopDate', v)} />
+              </div>
+            </div>
+          </div>
+        </div>
+      </Card>
+
+      {/* Row 3: Signataires */}
+      <Card>
+        <SectionHeader icon={<Users size={12} />}>Signataires — Traçabilité documentaire</SectionHeader>
+        <div className="grid gap-3 md:grid-cols-4">
+          <div>
+            <FieldLabel>Établi par</FieldLabel>
+            <FInput value={draft.madeBy} onChange={v => upd('madeBy', v)} />
+          </div>
+          <div>
+            <FieldLabel>Vérifié par</FieldLabel>
+            <FInput value={draft.verifiedBy} onChange={v => upd('verifiedBy', v)} />
+          </div>
+          <div>
+            <FieldLabel>Approuvé par</FieldLabel>
+            <FInput value={draft.approvedBy} onChange={v => upd('approvedBy', v)} />
+          </div>
+          <div>
+            <FieldLabel>Date document</FieldLabel>
+            <FInput type="date" value={draft.date} onChange={v => upd('date', v)} />
+          </div>
+        </div>
+      </Card>
+
+      {/* Floating save bar */}
+      <div
+        className="sticky bottom-0 flex items-center justify-between gap-3 rounded-xl border px-4 py-2.5"
+        style={{ background: `${CARD}ee`, borderColor: isDirty ? `${TEAL}40` : BORDER, backdropFilter: 'blur(8px)' }}
+      >
         {saveError
-          ? <p className="text-xs" style={{ color: semantic.error }}>{saveError}</p>
-          : <p className="text-xs" style={{ color: TEXT_DIM }}>{isDirty ? 'Modifications non enregistrées.' : 'Contexte à jour.'}</p>
+          ? <p className="text-xs flex items-center gap-1.5" style={{ color: semantic.error }}>
+              <AlertTriangle size={11} />{saveError}
+            </p>
+          : <p className="text-[11px]" style={{ color: isDirty ? TEAL_DIM : TEXT_DIM }}>
+              {isDirty ? 'Modifications non enregistrées' : 'Contexte à jour'}
+            </p>
         }
-        <Button size="sm" variant="outline" onClick={handleSave} disabled={!isDirty || isSaving} className="h-8 text-xs shrink-0">
+        <button type="button" onClick={handleSave} disabled={!isDirty || isSaving}
+          className="flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-[11px] font-bold transition-all disabled:opacity-40"
+          style={isDirty
+            ? { background: TEAL, color: '#041014', boxShadow: `0 0 12px ${TEAL}30` }
+            : { background: BORDER, color: TEXT_DIM }
+          }>
           <Save size={12} />
           {isSaving ? 'Enregistrement…' : 'Enregistrer'}
-        </Button>
+        </button>
       </div>
     </div>
   )

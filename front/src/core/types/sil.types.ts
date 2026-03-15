@@ -29,7 +29,7 @@ export const SIL_META: Record<SILLevel, SILMeta> = {
 }
 
 // ─── Architecture ─────────────────────────────────────────────────────────
-export type Architecture = '1oo1' | '1oo2' | '2oo2' | '2oo3' | '1oo2D' | 'custom'
+export type Architecture = '1oo1' | '1oo2' | '2oo2' | '2oo3' | '1oo3' | '2oo4' | '1oo2D' | 'custom'
 
 export interface ArchitectureMeta {
   label: string
@@ -43,6 +43,8 @@ export const ARCHITECTURE_META: Record<Architecture, ArchitectureMeta> = {
   '1oo2':  { label:'1oo2',  desc:'1-out-of-2 (fail-safe)',        HFT:1, channels:2 },
   '2oo2':  { label:'2oo2',  desc:'2-out-of-2 (high avail.)',      HFT:0, channels:2 },
   '2oo3':  { label:'2oo3',  desc:'2-out-of-3 (voted)',            HFT:1, channels:3 },
+  '1oo3':  { label:'1oo3',  desc:'1-out-of-3 (high redundancy)',  HFT:2, channels:3 },
+  '2oo4':  { label:'2oo4',  desc:'2-out-of-4 (voted quad.)',      HFT:2, channels:4 },
   '1oo2D': { label:'1oo2D', desc:'1oo2 with diagnostics',         HFT:1, channels:2 },
   'custom': { label:'Custom', desc:'Custom boolean AND/OR architecture', HFT:0, channels:2 },
 }
