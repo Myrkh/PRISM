@@ -1,4 +1,4 @@
-import { SURFACE, BORDER, TEXT, TEXT_DIM } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 import {
   type PTCampaign,
   type PTResponseCheck,
@@ -8,16 +8,7 @@ import {
   syncResponseMeasurements,
 } from './proofTestTypes'
 
-const TABLE_BG = '#14181C'
-const TABLE_HEAD_BG = SURFACE
 const TABLE_HOVER = 'rgba(0, 155, 164, 0.04)'
-const BORDER_VIS = '#363F49'
-
-const STATUS_META = {
-  pending: { label: 'Pending', bg: '#1F2937', color: '#9CA3AF', border: '#374151' },
-  pass: { label: 'PASS', bg: '#052E16', color: '#4ADE80', border: '#166534' },
-  fail: { label: 'FAIL', bg: '#450A0A', color: '#F87171', border: '#991B1B' },
-} as const
 
 interface Props {
   activeCampaign: PTCampaign
@@ -32,13 +23,20 @@ export function ResponseMeasurementsCard({
   readOnly = false,
   updateResponseMeasurement,
 }: Props) {
+  const { BORDER, CARD_BG, PAGE_BG, TEXT, TEXT_DIM, semantic } = usePrismTheme()
+  const STATUS_META = {
+    pending: { label: 'Pending', bg: PAGE_BG, color: TEXT_DIM, border: BORDER },
+    pass: { label: 'PASS', bg: `${semantic.success}12`, color: semantic.success, border: `${semantic.success}30` },
+    fail: { label: 'FAIL', bg: `${semantic.error}10`, color: semantic.error, border: `${semantic.error}28` },
+  } as const
+
   if (responseChecks.length === 0) return null
 
   const measurements = syncResponseMeasurements(responseChecks, activeCampaign.responseMeasurements)
 
   return (
-    <div className="rounded-2xl border shadow-sm overflow-hidden" style={{ background: TABLE_BG, borderColor: BORDER_VIS }}>
-      <div className="px-5 py-4 border-b" style={{ background: TABLE_HEAD_BG, borderColor: BORDER }}>
+    <div className="rounded-2xl border shadow-sm overflow-hidden" style={{ background: CARD_BG, borderColor: BORDER }}>
+      <div className="px-5 py-4 border-b" style={{ background: PAGE_BG, borderColor: BORDER }}>
         <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Mesures dynamiques</p>
         <p className="text-sm font-semibold mt-1" style={{ color: TEXT }}>Releve des temps reels pendant la campagne</p>
       </div>
@@ -46,7 +44,7 @@ export function ResponseMeasurementsCard({
       <div className="overflow-x-auto">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b" style={{ borderColor: BORDER, background: TABLE_HEAD_BG }}>
+            <tr className="border-b" style={{ borderColor: BORDER, background: PAGE_BG }}>
               <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-48" style={{ color: TEXT_DIM }}>Repere / equipement</th>
               <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-32" style={{ color: TEXT_DIM }}>Mesure</th>
               <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-24" style={{ color: TEXT_DIM }}>Cible</th>
@@ -106,7 +104,8 @@ export function ResponseMeasurementsCard({
                         value={measurement?.measuredMs ?? ''}
                         onChange={e => updateResponseMeasurement(check.id, { measuredMs: e.target.value })}
                         placeholder="0"
-                        className="h-8 w-full rounded-xl border border-[#2A3138] bg-[#1D232A] px-3 pr-10 text-xs font-mono text-[#DFE8F1] focus:outline-none focus:ring-2 focus:ring-[#009BA4]/30 focus:border-[#009BA4] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                        className="h-8 w-full rounded-xl border px-3 pr-10 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-[#009BA4]/30 focus:border-[#009BA4] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
                       />
                       <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold" style={{ color: TEXT_DIM }}>ms</span>
                     </div>
@@ -125,7 +124,7 @@ export function ResponseMeasurementsCard({
                       value={measurement?.comment ?? ''}
                       onChange={e => updateResponseMeasurement(check.id, { comment: e.target.value })}
                       placeholder="Observation, drift, reset..."
-                      className="w-full bg-transparent text-[10px] outline-none border-b border-transparent focus:border-[#009BA4] py-0.5 placeholder:text-[#8FA0B1] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="w-full bg-transparent text-[10px] outline-none border-b border-transparent focus:border-[#009BA4] py-0.5 placeholder:text-[#667085] dark:placeholder:text-[#8FA0B1] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                       style={{ color: TEXT }}
                     />
                   </td>

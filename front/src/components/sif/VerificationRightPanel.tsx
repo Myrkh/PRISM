@@ -29,7 +29,8 @@ import type {
 import { formatPFD } from '@/core/math/pfdCalc'
 import { useAppStore } from '@/store/appStore'
 import type { SIFTab } from '@/store/types'
-import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic } from '@/styles/tokens'
+import { semantic } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 type PanelTab = 'summary' | 'graph' | 'assumptions'
 
@@ -75,6 +76,7 @@ interface Props {
 }
 
 function SectionTitle({ children }: { children: ReactNode }) {
+  const { TEXT_DIM } = usePrismTheme()
   return (
     <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
       {children}
@@ -91,6 +93,7 @@ function SectionCard({
   hint: string
   children: ReactNode
 }) {
+  const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
   return (
     <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
       <p className="text-sm font-semibold" style={{ color: TEXT }}>{title}</p>
@@ -101,6 +104,7 @@ function SectionCard({
 }
 
 function FieldLabel({ children }: { children: ReactNode }) {
+  const { TEXT_DIM } = usePrismTheme()
   return (
     <label className="block text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
       {children}
@@ -109,6 +113,7 @@ function FieldLabel({ children }: { children: ReactNode }) {
 }
 
 function FieldInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+  const { BORDER, CARD_BG, TEXT } = usePrismTheme()
   return (
     <input
       {...props}
@@ -119,6 +124,7 @@ function FieldInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
 }
 
 function FieldTextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const { BORDER, CARD_BG, TEXT } = usePrismTheme()
   return (
     <textarea
       {...props}
@@ -137,6 +143,7 @@ function FieldSelect({
   onChange: (value: string) => void
   options: { value: string; label: string }[]
 }) {
+  const { BORDER, CARD_BG, TEXT } = usePrismTheme()
   return (
     <select
       value={value}
@@ -208,6 +215,7 @@ function ToggleRow({
   checked: boolean
   onCheckedChange: (checked: boolean) => void
 }) {
+  const { BORDER, CARD_BG, TEXT, TEXT_DIM } = usePrismTheme()
   return (
     <div className="flex items-start justify-between gap-3 rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: CARD_BG }}>
       <div className="min-w-0">
@@ -228,6 +236,7 @@ function ColorField({
   value: string
   onChange: (next: string) => void
 }) {
+  const { BORDER, CARD_BG, TEXT, TEXT_DIM } = usePrismTheme()
   return (
     <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: CARD_BG }}>
       <p className="text-[11px] font-semibold uppercase tracking-wide" style={{ color: TEXT_DIM }}>{label}</p>
@@ -265,6 +274,7 @@ function PFDContributionDonut({
   result: SIFCalcResult
   settings: SIFAnalysisSettings
 }) {
+  const { BORDER, CARD_BG, PAGE_BG, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const items = result.subsystems
     .map(subsystem => ({
       key: subsystem.subsystemId,
@@ -398,6 +408,7 @@ export function VerificationRightPanel({
   onUpdateAssumptions,
   onSelectTab,
 }: Props) {
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const selectedRightPanelTab = useAppStore(s => s.rightPanelTabs.verification)
   const setRightPanelTab = useAppStore(s => s.setRightPanelTab)
   const [activeTab, setActiveTab] = useState<PanelTab>('summary')

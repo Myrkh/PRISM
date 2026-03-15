@@ -10,7 +10,8 @@
 import { type ReactNode } from 'react'
 import { Network } from 'lucide-react'
 import type { SIF, SIFCalcResult } from '@/core/types'
-import { BORDER, TEAL_DIM, TEXT_DIM } from '@/styles/tokens'
+import { semantic } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 interface Props {
   sif: SIF
@@ -19,6 +20,7 @@ interface Props {
 }
 
 export function ArchitectureWorkspace({ sif, result, children }: Props) {
+  const { BORDER, PANEL_BG, TEAL_DIM, TEXT_DIM } = usePrismTheme()
   const totalChannels = sif.subsystems.reduce((n, s) => n + s.channels.length, 0)
   const redundant     = sif.subsystems.filter(s => s.channels.length > 1).length
 
@@ -28,7 +30,7 @@ export function ArchitectureWorkspace({ sif, result, children }: Props) {
       {/* Micro status bar — 1 ligne, très discret */}
       <div
         className="flex shrink-0 items-center gap-3 border-b px-4 py-2"
-        style={{ borderColor: BORDER, background: '#0F1318' }}
+        style={{ borderColor: BORDER, background: PANEL_BG }}
       >
         <Network size={12} style={{ color: TEAL_DIM, flexShrink: 0 }} />
         <span className="text-[11px]" style={{ color: TEXT_DIM }}>
@@ -36,8 +38,8 @@ export function ArchitectureWorkspace({ sif, result, children }: Props) {
           {' · '}{totalChannels} canal{totalChannels > 1 ? 'aux' : ''}
           {redundant > 0 ? ` · ${redundant} voie${redundant > 1 ? 's' : ''} redondante${redundant > 1 ? 's' : ''}` : ''}
           {result.meetsTarget
-            ? <span style={{ color: '#4ADE80' }}> · SIL {result.SIL} ✓</span>
-            : <span style={{ color: '#F87171' }}> · SIL {result.SIL} — cible SIL {sif.targetSIL} non atteinte</span>
+            ? <span style={{ color: semantic.success }}> · SIL {result.SIL} ✓</span>
+            : <span style={{ color: semantic.error }}> · SIL {result.SIL} — cible SIL {sif.targetSIL} non atteinte</span>
           }
         </span>
         <span className="ml-auto text-[10px]" style={{ color: `${TEXT_DIM}60` }}>Autosave actif</span>

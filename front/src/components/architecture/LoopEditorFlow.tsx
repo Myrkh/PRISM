@@ -55,12 +55,7 @@ import { CCFBetaRightPanel } from '@/components/architecture/CCFBetaRightPanel'
 import { CCFBetaWorkspace } from '@/components/architecture/CCFBetaWorkspace'
 import { LoopEditorRightPanel } from '@/components/architecture/LoopEditorRightPanel'
 import { instantiateComponentTemplate, parseLibraryDragPayload } from '@/features/library'
-import { BORDER, TEAL, TEAL_DIM, TEXT, TEXT_DIM, PANEL_BG, dark } from '@/styles/tokens'
-
-// ─── Design ──────────────────────────────────────────────────────────────
-const CANVAS_BG = dark.rail
-const NODE_BG   = dark.card2
-const NODE_BG2  = dark.card
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 const SUB_META: Record<SubsystemType, { color: string; label: string; Icon: React.ElementType }> = {
   sensor:   { color: '#0284C7', label: 'Capteur(s)',    Icon: Activity },
@@ -90,9 +85,10 @@ interface AnimatedEdgeData { label?: string }
 
 // ─── Metric pill ──────────────────────────────────────────────────────────
 function MetricPill({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
-  const color = ok === undefined ? TEXT_DIM : ok ? '#4ADE80' : '#F87171'
+  const { PAGE_BG, TEXT_DIM, semantic } = usePrismTheme()
+  const color = ok === undefined ? TEXT_DIM : ok ? semantic.success : semantic.error
   return (
-    <div className="flex flex-col items-center rounded px-1 py-0.5" style={{ background: '#141A21', minWidth: 36 }}>
+    <div className="flex flex-col items-center rounded px-1 py-0.5" style={{ background: PAGE_BG, minWidth: 36 }}>
       <span className="text-[8px] uppercase tracking-widest" style={{ color: TEXT_DIM }}>{label}</span>
       <span className="text-[9px] font-bold font-mono" style={{ color }}>{value}</span>
     </div>
@@ -115,6 +111,7 @@ function CompCard({
   comp: SIFComponent; color: string; selected: boolean
   onSelect: () => void; onDelete: () => void
 }) {
+  const { BORDER, PAGE_BG, TEXT_DIM } = usePrismTheme()
   const d   = factorizedToDeveloped(comp.factorized)
   const sff = calcComponentSFF(d)
   const dc  = calcComponentDC(d)
@@ -123,7 +120,7 @@ function CompCard({
     <div onClick={e => { e.stopPropagation(); onSelect() }}
       className="group relative rounded-lg border cursor-pointer transition-all"
       style={{
-        background:  selected ? `${color}20` : NODE_BG2,
+        background:  selected ? `${color}20` : PAGE_BG,
         borderColor: selected ? color : BORDER,
         borderWidth: selected ? 1.5 : 1,
         boxShadow:   selected ? `0 0 12px ${color}40` : 'none',
@@ -156,6 +153,7 @@ function ChannelBlock({
   canDelete: boolean
   onDelete: () => void
 }) {
+  const { BORDER, SURFACE, TEAL, TEXT_DIM } = usePrismTheme()
   const addComponent    = useAppStore(s => s.addComponent)
   const removeComponent = useAppStore(s => s.removeComponent)
   const selectComponent = useAppStore(s => s.selectComponent)
@@ -182,7 +180,7 @@ function ChannelBlock({
 
   return (
     <div className="rounded-lg border transition-all"
-      style={{ borderColor: over ? `${color}60` : BORDER, background: over ? `${color}08` : '#1A1F24', padding: 8, minWidth: 180 }}
+      style={{ borderColor: over ? `${color}60` : BORDER, background: over ? `${color}08` : SURFACE, padding: 8, minWidth: 180 }}
       onDragOver={e => { e.preventDefault(); setOver(true) }}
       onDragLeave={() => setOver(false)} onDrop={handleDrop}>
       <div className="flex items-center gap-1.5 mb-2">
@@ -232,6 +230,7 @@ function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUp
   onUpdateCustomGate: (subId: string, gate: BooleanGate, expression: string) => void
   onUpdateEngineSettings: (subId: string, patch: Pick<SIFSubsystem, 'voteType' | 'ccf'>) => void
 }) {
+  const { BORDER, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const isCustom = subsystem.architecture === 'custom'
   const gate = subsystem.customBooleanArch?.gate ?? 'OR'
   const expr = subsystem.customBooleanArch?.expression ?? ''
@@ -246,7 +245,7 @@ function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUp
         <select value={subsystem.architecture}
           onChange={e => onUpdateArch(subsystem.id, e.target.value as Architecture)}
           className="flex-1 h-6 text-[10px] font-mono font-bold rounded border px-1 outline-none transition-all"
-          style={{ background: '#141A21', borderColor: `${color}40`, color }}>
+          style={{ background: PAGE_BG, borderColor: `${color}40`, color }}>
           {ARCH_OPTIONS.map(a => (
             <option key={a} value={a}>{a === 'custom' ? 'Custom (booléen)' : `${a} — ${ARCHITECTURE_META[a].desc}`}</option>
           ))}
@@ -260,7 +259,7 @@ function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUp
             value={voteType}
             onChange={e => onUpdateEngineSettings(subsystem.id, { voteType: e.target.value as VoteType, ccf })}
             className="w-full h-6 rounded border px-1 text-[10px] font-mono font-bold outline-none"
-            style={{ background: '#141A21', borderColor: `${color}30`, color }}
+            style={{ background: PAGE_BG, borderColor: `${color}30`, color }}
           >
             <option value="S">Standard (S)</option>
             <option value="A">Availability (A)</option>
@@ -271,7 +270,7 @@ function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUp
           <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>CCF</span>
           <div
             className="rounded border px-2 py-1.5"
-            style={{ background: '#141A21', borderColor: `${color}30` }}
+            style={{ background: PAGE_BG, borderColor: `${color}30` }}
           >
             <p className="text-[10px] font-mono font-bold" style={{ color }}>{ccf.method}</p>
             <p className="mt-0.5 text-[9px] font-mono" style={{ color: TEXT_DIM }}>
@@ -283,7 +282,7 @@ function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUp
 
       {/* Custom boolean editor */}
       {isCustom && (
-        <div className="rounded-lg border p-2 space-y-1.5" style={{ background: '#141A21', borderColor: `${color}30` }}>
+        <div className="rounded-lg border p-2 space-y-1.5" style={{ background: PAGE_BG, borderColor: `${color}30` }}>
           <div className="flex items-center gap-1">
             <span className="text-[9px] font-bold" style={{ color: TEXT_DIM }}>Gate :</span>
             {(['OR', 'AND'] as BooleanGate[]).map(g => (
@@ -298,7 +297,7 @@ function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUp
           <input value={expr} placeholder="ex: (A1·A2) + (A3·A4)"
             onChange={e => onUpdateCustomGate(subsystem.id, gate, e.target.value)}
             className="w-full h-6 px-2 text-[10px] font-mono rounded border outline-none transition-all"
-            style={{ background: '#0F1318', borderColor: BORDER, color: TEAL_DIM }}
+            style={{ background: PANEL_BG, borderColor: BORDER, color: TEAL }}
           />
           <p className="text-[8px] leading-tight" style={{ color: TEXT_DIM }}>
             · = ET (série) · + = OU (parallèle) · ex: [(V1·V2) + (V3·V4)]
@@ -318,10 +317,11 @@ function SubsystemNode({ data }: NodeProps<SubsystemNodeData>) {
 
   const meta  = SUB_META[subsystem.type as SubsystemType]
   const { color, Icon } = meta
+  const { CARD_BG, TEXT_DIM, semantic } = usePrismTheme()
   const [collapsed, setCollapsed] = useState(false)
 
   return (
-    <div className="rounded-xl border" style={{ background: NODE_BG, borderColor: `${color}40`, minWidth: 240, boxShadow: `0 0 20px ${color}15` }}>
+    <div className="rounded-xl border" style={{ background: CARD_BG, borderColor: `${color}40`, minWidth: 240, boxShadow: `0 0 20px ${color}15` }}>
       <Handle type="target" position={Position.Left} style={{ background: color, border: 'none', width: 10, height: 10 }} />
       <Handle type="source" position={Position.Right} style={{ background: color, border: 'none', width: 10, height: 10 }} />
 
@@ -334,7 +334,7 @@ function SubsystemNode({ data }: NodeProps<SubsystemNodeData>) {
           style={{ background: `${color}20`, color }}>{subsystem.architecture}</span>
         {calcResult && (
           <span className="text-[10px] font-mono font-bold shrink-0"
-            style={{ color: calcResult.SIL >= 2 ? '#4ADE80' : '#F59E0B' }}>
+            style={{ color: calcResult.SIL >= 2 ? semantic.success : semantic.warning }}>
             {formatPFD(calcResult.PFD_avg)}
           </span>
         )}
@@ -379,13 +379,14 @@ function SubsystemNode({ data }: NodeProps<SubsystemNodeData>) {
 
 // ─── Animated Edge ───────────────────────────────────────────────────────
 function AnimatedEdge({ id, sourceX, sourceY, targetX, targetY, sourcePosition, targetPosition, data }: EdgeProps<AnimatedEdgeData>) {
+  const { BORDER, CARD_BG, TEAL_DIM, TEAL } = usePrismTheme()
   const [edgePath, labelX, labelY] = getBezierPath({ sourceX, sourceY, sourcePosition, targetX, targetY, targetPosition })
   return (
     <>
       <BaseEdge id={id} path={edgePath} style={{ stroke: TEAL, strokeWidth: 2, strokeDasharray: '6 3', opacity: 0.7 }} />
       <EdgeLabelRenderer>
         <div className="absolute text-[9px] font-bold uppercase tracking-widest rounded px-1.5 py-0.5 pointer-events-none"
-          style={{ transform: `translate(-50%,-50%) translate(${labelX}px,${labelY}px)`, background: NODE_BG2, color: TEAL_DIM, border: `1px solid ${BORDER}` }}>
+          style={{ transform: `translate(-50%,-50%) translate(${labelX}px,${labelY}px)`, background: CARD_BG, color: TEAL_DIM, border: `1px solid ${BORDER}` }}>
           {data?.label ?? 'signal'}
         </div>
       </EdgeLabelRenderer>
@@ -403,6 +404,10 @@ interface Props { sif: SIF; projectId: string }
 type LoopEditorWorkspaceMode = 'canvas' | 'ccf-beta'
 
 export function LoopEditorFlow({ sif, projectId }: Props) {
+  const { BORDER, CARD_BG, SURFACE, RAIL_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic, isDark } = usePrismTheme()
+  const CANVAS_BG = RAIL_BG
+  const NODE_BG = CARD_BG
+  const NODE_BG2 = SURFACE
   const { setRightPanelOverride } = useLayout()
   const addSubsystem    = useAppStore(s => s.addSubsystem)
   const updateSubsystem = useAppStore(s => s.updateSubsystem)
@@ -993,7 +998,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
                   )
                 })}
                 <div className="border-l pl-2" style={{ borderColor: BORDER }}>
-                  <span className="text-[10px] font-bold font-mono" style={{ color: calc.meetsTarget ? '#4ADE80' : '#F87171' }}>
+                  <span className="text-[10px] font-bold font-mono" style={{ color: calc.meetsTarget ? semantic.success : semantic.error }}>
                     {formatPFD(calc.PFD_avg)}
                   </span>
                 </div>
@@ -1014,7 +1019,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
             <MiniMap
               style={{ background: CANVAS_BG, border: `1px solid ${BORDER}`, borderRadius: 8, width: 120, height: 80 }}
               nodeColor={n => { const t = sif.subsystems.find(s => s.id === n.id)?.type; return t ? SUB_META[t as SubsystemType].color : '#333' }}
-              maskColor="rgba(0,0,0,0.5)" />
+              maskColor={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(238,243,247,0.72)'} />
           </ReactFlow>
         </div>
       )}

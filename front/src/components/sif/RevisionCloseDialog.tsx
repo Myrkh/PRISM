@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { Loader2, Lock, X } from 'lucide-react'
 import type { SIF } from '@/core/types'
-import { BORDER, CARD_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } from '@/styles/tokens'
+import { semantic } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 interface Props {
   sif: SIF
@@ -10,6 +11,7 @@ interface Props {
 }
 
 export function RevisionCloseDialog({ sif, onClose, onConfirm }: Props) {
+  const { BORDER, CARD_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const [changeDescription, setChangeDescription] = useState('')
   const [createdBy, setCreatedBy] = useState(sif.approvedBy || sif.verifiedBy || sif.madeBy || '')
   const [saving, setSaving] = useState(false)
@@ -94,7 +96,7 @@ export function RevisionCloseDialog({ sif, onClose, onConfirm }: Props) {
           </div>
 
           {error && (
-            <p className="rounded-xl px-3 py-2 text-[11px]" style={{ background: '#EF444415', color: '#F87171' }}>
+            <p className="rounded-xl px-3 py-2 text-[11px]" style={{ background: `${semantic.error}15`, color: semantic.error }}>
               {error}
             </p>
           )}

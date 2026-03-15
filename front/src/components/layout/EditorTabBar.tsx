@@ -7,7 +7,7 @@
  */
 import { type ReactNode } from 'react'
 import type { CanonicalSIFTab } from '@/store/types'
-import { BORDER, TEAL, TEXT, TEXT_DIM } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 import { cn } from '@/lib/utils'
 
 // ─── EditorTabBar (générique) ─────────────────────────────────────────────
@@ -18,10 +18,11 @@ export function EditorTabBar<T extends string>({
   active: T
   onSelect: (id: T) => void
 }) {
+  const { BORDER, CARD_BG, TEAL, TEXT, TEXT_DIM, PANEL_BG, PAGE_BG } = usePrismTheme()
   return (
     <div
       className="flex items-end border-b shrink-0"
-      style={{ borderColor: BORDER, background: '#0F1318' }}
+      style={{ borderColor: BORDER, background: PANEL_BG }}
     >
       {tabs.map(tab => {
         const isActive = tab.id === active
@@ -37,7 +38,7 @@ export function EditorTabBar<T extends string>({
               borderBottom: isActive ? `2px solid ${TEAL}` : '2px solid transparent',
               fontWeight:   isActive ? 600 : 400,
               fontSize:     13,
-              background:   isActive ? '#14181C' : 'transparent',
+              background:   isActive ? PAGE_BG : 'transparent',
             }}
             onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = TEXT }}
             onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = TEXT_DIM }}
@@ -47,7 +48,7 @@ export function EditorTabBar<T extends string>({
               <span
                 className="inline-flex items-center justify-center rounded-full min-w-[16px] h-4 px-1 text-[10px] font-bold"
                 style={{
-                  background: isActive ? '#009BA430' : '#2A3138',
+                  background: isActive ? `${TEAL}30` : CARD_BG,
                   color:      isActive ? TEAL        : TEXT_DIM,
                 }}
               >
@@ -63,12 +64,13 @@ export function EditorTabBar<T extends string>({
 
 // ─── SIFLifecycleBar ──────────────────────────────────────────────────────
 /**
- * Stepper horizontal représentant le cycle de vie d'une SIF (IEC 61511).
- * Structure :  [Cockpit] | [1 Contexte] → [2 Architecture] → [3 Vérification] → [4 Exploitation] | [Rapport ↗]
+ * Stepper horizontal représentant l'espace de travail d'une SIF.
+ * Structure : [Cockpit] | [Historique] | [1 Contexte] → [2 Architecture] → [3 Vérification] → [4 Exploitation] | [Rapport ↗]
  *
- * Cockpit  = hub toujours accessible, pas de numéro de phase
- * Étapes 1-4 = phases successives IEC 61511 (SRS → conception → calcul → exploitation)
- * Rapport  = action finale, stylistiquement différenciée (orange)
+ * Cockpit    = hub toujours accessible
+ * Historique = vue native de la SIF, hors séquence de phase
+ * Étapes 1-4 = phases successives IEC 61511
+ * Rapport    = action finale, stylistiquement différenciée (orange)
  */
 type PhaseEntry = {
   id: CanonicalSIFTab
@@ -79,6 +81,7 @@ type PhaseEntry = {
 
 const LIFECYCLE_PHASES: PhaseEntry[] = [
   { id: 'cockpit',      label: 'Cockpit',      step: null, accent: '#4FD1C5' },
+  { id: 'history',      label: 'Historique',   step: null, accent: '#94A3B8' },
   { id: 'context',      label: 'Contexte',     step: '1',  accent: '#60A5FA' },
   { id: 'architecture', label: 'Architecture', step: '2',  accent: '#F59E0B' },
   { id: 'verification', label: 'Vérification', step: '3',  accent: '#A78BFA' },
@@ -86,6 +89,7 @@ const LIFECYCLE_PHASES: PhaseEntry[] = [
   { id: 'report',       label: 'Rapport',      step: null, accent: '#F97316' },
 ]
 
+const HISTORY_PHASE = LIFECYCLE_PHASES[1]
 const PHASES_STEPS = LIFECYCLE_PHASES.filter(p => p.step !== null)  // steps 1-4
 
 function PhaseBtn({
@@ -93,6 +97,7 @@ function PhaseBtn({
 }: {
   phase: PhaseEntry; isActive: boolean; onClick: () => void
 }) {
+  const { BORDER, CARD_BG, TEAL, TEXT, TEXT_DIM, PAGE_BG } = usePrismTheme()
   const isReport = phase.id === 'report'
 
   return (
@@ -110,7 +115,7 @@ function PhaseBtn({
       onMouseEnter={e => {
         if (!isActive) {
           e.currentTarget.style.color = TEXT
-          e.currentTarget.style.background = '#1A1F24'
+          e.currentTarget.style.background = PAGE_BG
         }
       }}
       onMouseLeave={e => {
@@ -125,8 +130,8 @@ function PhaseBtn({
         <span
           className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold shrink-0"
           style={{
-            background: isActive ? phase.accent : '#2A3138',
-            color:      isActive ? '#0F1318' : TEXT_DIM,
+            background: isActive ? phase.accent : CARD_BG,
+            color:      isActive ? '#041014' : TEXT_DIM,
           }}
         >
           {phase.step}
@@ -147,16 +152,19 @@ export function SIFLifecycleBar({
   active: CanonicalSIFTab
   onSelect: (id: CanonicalSIFTab) => void
 }) {
+  const { BORDER, TEXT_DIM, PANEL_BG } = usePrismTheme()
   const cockpit = LIFECYCLE_PHASES[0]
   const report  = LIFECYCLE_PHASES[LIFECYCLE_PHASES.length - 1]
 
   return (
     <div
       className="flex items-center shrink-0 px-3 border-b gap-0.5 overflow-x-auto"
-      style={{ borderColor: BORDER, background: '#0F1318', height: 40, scrollbarWidth: 'none' }}
+      style={{ borderColor: BORDER, background: PANEL_BG, height: 40, scrollbarWidth: 'none' }}
     >
       {/* Cockpit — hub */}
       <PhaseBtn phase={cockpit} isActive={active === 'cockpit'} onClick={() => onSelect('cockpit')} />
+      <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
+      <PhaseBtn phase={HISTORY_PHASE} isActive={active === 'history'} onClick={() => onSelect('history')} />
 
       {/* Séparateur */}
       <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
@@ -186,16 +194,19 @@ export function SIFWorkbenchBar({
   active: CanonicalSIFTab
   onSelect: (id: CanonicalSIFTab) => void
 }) {
+  const { BORDER, TEXT_DIM, PANEL_BG } = usePrismTheme()
   const cockpit = LIFECYCLE_PHASES[0]
   const report  = LIFECYCLE_PHASES[LIFECYCLE_PHASES.length - 1]
 
   return (
     <div
       className="flex shrink-0 justify-center border-b px-4"
-      style={{ borderColor: BORDER, background: '#0F1318', height: 40 }}
+      style={{ borderColor: BORDER, background: PANEL_BG, height: 40 }}
     >
       <div className="flex min-w-0 max-w-full items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
         <PhaseBtn phase={cockpit} isActive={active === 'cockpit'} onClick={() => onSelect('cockpit')} />
+        <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
+        <PhaseBtn phase={HISTORY_PHASE} isActive={active === 'history'} onClick={() => onSelect('history')} />
         <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
         {PHASES_STEPS.map((phase, index) => (
           <div key={phase.id} className="flex items-center">
@@ -219,10 +230,11 @@ export function EditorContent({
   children: ReactNode
   className?: string
 }) {
+  const { PANEL_BG } = usePrismTheme()
   return (
     <div
       className={cn('flex-1 min-h-0 overflow-hidden', className)}
-      style={{ background: '#14181C' }}
+      style={{ background: PANEL_BG }}
     >
       {children}
     </div>

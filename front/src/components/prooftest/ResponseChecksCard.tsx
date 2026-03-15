@@ -1,16 +1,13 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BORDER, SURFACE, TEAL, TEXT, TEXT_DIM } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 import {
   type PTResponseCheck,
   RESPONSE_CHECK_TYPE_META,
   inputCls,
 } from './proofTestTypes'
 
-const TABLE_BG = '#14181C'
-const TABLE_HEAD_BG = SURFACE
 const TABLE_HOVER = 'rgba(0, 155, 164, 0.04)'
-const BORDER_VIS = '#363F49'
 
 interface Props {
   editMode: boolean
@@ -33,9 +30,11 @@ export function ResponseChecksCard({
   updateResponseCheck,
   removeResponseCheck,
 }: Props) {
+  const { BORDER, CARD_BG, PAGE_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+
   return (
-    <div className="rounded-2xl border shadow-sm overflow-hidden" style={{ background: TABLE_BG, borderColor: BORDER_VIS }}>
-      <div className="px-5 py-4 border-b" style={{ background: TABLE_HEAD_BG, borderColor: BORDER }}>
+    <div className="rounded-2xl border shadow-sm overflow-hidden" style={{ background: CARD_BG, borderColor: BORDER }}>
+      <div className="px-5 py-4 border-b" style={{ background: PAGE_BG, borderColor: BORDER }}>
         <div className="flex items-start justify-between gap-4">
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Mesures dynamiques</p>
@@ -62,7 +61,7 @@ export function ResponseChecksCard({
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="border-b" style={{ borderColor: BORDER, background: TABLE_HEAD_BG }}>
+              <tr className="border-b" style={{ borderColor: BORDER, background: PAGE_BG }}>
                 <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-48" style={{ color: TEXT_DIM }}>Repere / equipement</th>
                 <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Description</th>
                 <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-36" style={{ color: TEXT_DIM }}>Mesure</th>
@@ -179,7 +178,8 @@ export function ResponseChecksCard({
                         <button
                           type="button"
                           onClick={() => removeResponseCheck(check.id)}
-                          className="p-1 rounded text-[#8FA0B1] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                          className="p-1 rounded opacity-0 group-hover:opacity-100 transition-all"
+                          style={{ color: TEXT_DIM }}
                         >
                           <Trash2 size={12} />
                         </button>

@@ -8,10 +8,8 @@ import type { HAZOPTrace, SIF, SILLevel } from '@/core/types'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
 import type { OverviewMetrics } from '@/components/sif/overviewMetrics'
 import type { SIFTab } from '@/store/types'
-import { BORDER, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic, dark } from '@/styles/tokens'
-
-const BG = dark.page
-const CARD = dark.card2
+import { semantic } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 type ContextDraft = Pick<
   SIF,
@@ -70,6 +68,7 @@ function buildDraft(sif: SIF): ContextDraft {
 // ── Design primitives ─────────────────────────────────────────────────────
 
 function SectionHeader({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  const { BORDER, TEAL_DIM } = usePrismTheme()
   return (
     <div className="flex items-center gap-2 pb-2 mb-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
       <span style={{ color: TEAL_DIM }}>{icon}</span>
@@ -79,6 +78,7 @@ function SectionHeader({ icon, children }: { icon: React.ReactNode; children: Re
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
+  const { TEXT_DIM } = usePrismTheme()
   return (
     <label className="block text-[9px] font-bold uppercase tracking-[0.12em] mb-1" style={{ color: TEXT_DIM }}>
       {children}
@@ -90,6 +90,7 @@ function FInput({ value, onChange, placeholder, type = 'text', step, readOnly }:
   value: string | number; onChange?: (v: string) => void
   placeholder?: string; type?: string; step?: string; readOnly?: boolean
 }) {
+  const { BORDER, PAGE_BG, TEAL, TEXT } = usePrismTheme()
   return (
     <input
       type={type} step={step} value={value} readOnly={readOnly}
@@ -97,7 +98,7 @@ function FInput({ value, onChange, placeholder, type = 'text', step, readOnly }:
       placeholder={placeholder}
       className="w-full rounded-lg border px-2.5 py-2 text-xs outline-none transition-all"
       style={{
-        background: BG, borderColor: BORDER, color: TEXT,
+        background: PAGE_BG, borderColor: BORDER, color: TEXT,
         opacity: readOnly ? 0.6 : 1,
       }}
       onFocus={e => { if (!readOnly) e.target.style.borderColor = TEAL }}
@@ -109,12 +110,13 @@ function FInput({ value, onChange, placeholder, type = 'text', step, readOnly }:
 function FTextarea({ value, onChange, placeholder, rows = 3 }: {
   value: string; onChange: (v: string) => void; placeholder?: string; rows?: number
 }) {
+  const { BORDER, PAGE_BG, TEAL, TEXT } = usePrismTheme()
   return (
     <textarea
       value={value} onChange={e => onChange(e.target.value)}
       rows={rows} placeholder={placeholder}
       className="w-full rounded-lg border px-2.5 py-2 text-xs outline-none resize-none transition-all"
-      style={{ background: BG, borderColor: BORDER, color: TEXT }}
+      style={{ background: PAGE_BG, borderColor: BORDER, color: TEXT }}
       onFocus={e => { e.target.style.borderColor = TEAL }}
       onBlur={e => { e.target.style.borderColor = BORDER }}
     />
@@ -122,8 +124,9 @@ function FTextarea({ value, onChange, placeholder, rows = 3 }: {
 }
 
 function Card({ children }: { children: React.ReactNode }) {
+  const { BORDER, SURFACE } = usePrismTheme()
   return (
-    <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: CARD }}>
+    <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: SURFACE }}>
       {children}
     </div>
   )
@@ -132,6 +135,7 @@ function Card({ children }: { children: React.ReactNode }) {
 const SIL_COLORS: Record<number, string> = { 1: '#16A34A', 2: '#2563EB', 3: '#D97706', 4: '#7C3AED' }
 
 function SILSelector({ value, onChange }: { value: SILLevel; onChange: (v: SILLevel) => void }) {
+  const { BORDER, PAGE_BG, TEXT_DIM } = usePrismTheme()
   return (
     <div className="flex gap-1.5">
       {([1, 2, 3, 4] as SILLevel[]).map(sil => {
@@ -142,7 +146,7 @@ function SILSelector({ value, onChange }: { value: SILLevel; onChange: (v: SILLe
             className="flex-1 py-2 rounded-lg text-[13px] font-mono font-bold transition-all"
             style={active
               ? { background: color, color: '#fff', boxShadow: `0 0 12px ${color}40` }
-              : { background: BG, color: TEXT_DIM, border: `1px solid ${BORDER}` }
+              : { background: PAGE_BG, color: TEXT_DIM, border: `1px solid ${BORDER}` }
             }>SIL {sil}</button>
         )
       })}
@@ -153,6 +157,7 @@ function SILSelector({ value, onChange }: { value: SILLevel; onChange: (v: SILLe
 // ── Main component ────────────────────────────────────────────────────────
 
 export function ContextTab({ projectId, sif, compliance, overviewMetrics, onSelectTab }: Props) {
+  const { BORDER, SURFACE, TEAL, TEAL_DIM, TEXT_DIM } = usePrismTheme()
   const updateSIF = useAppStore(s => s.updateSIF)
   const updateHAZOPTrace = useAppStore(s => s.updateHAZOPTrace)
 
@@ -343,7 +348,7 @@ export function ContextTab({ projectId, sif, compliance, overviewMetrics, onSele
       {/* Floating save bar */}
       <div
         className="sticky bottom-0 flex items-center justify-between gap-3 rounded-xl border px-4 py-2.5"
-        style={{ background: `${CARD}ee`, borderColor: isDirty ? `${TEAL}40` : BORDER, backdropFilter: 'blur(8px)' }}
+        style={{ background: `${SURFACE}EE`, borderColor: isDirty ? `${TEAL}40` : BORDER, backdropFilter: 'blur(8px)' }}
       >
         {saveError
           ? <p className="text-xs flex items-center gap-1.5" style={{ color: semantic.error }}>

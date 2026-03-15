@@ -6,10 +6,8 @@ import {
 import { useAppStore } from '@/store/appStore'
 import type { Project, SIF } from '@/core/types'
 import { calcSIF, formatPFD } from '@/core/math/pfdCalc'
-import { BORDER, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic, dark } from '@/styles/tokens'
-
-const BG = dark.page
-const CARD = dark.card2
+import { semantic } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 type LifecycleStepId = 'hazard' | 'allocation' | 'srs' | 'design' | 'validation' | 'operation'
 
@@ -18,7 +16,7 @@ interface FocusSIF { key: string; project: Project; sif: SIF; recommendedStep: L
 const STEP_ORDER: LifecycleStepId[] = ['hazard', 'allocation', 'srs', 'design', 'validation', 'operation']
 
 const STEP_META: Record<LifecycleStepId, { label: string; shortLabel: string; description: string; accent: string; destination: string; tab?: 'context' | 'architecture' | 'verification' | 'exploitation' }> = {
-  hazard:     { label: 'Analyse de danger et de risque',           shortLabel: 'Risque',       description: 'Traçabilité HAZOP / LOPA et scénario dangereux.',               accent: '#F97316', destination: 'HAZOP / LOPA' },
+  hazard:     { label: 'Analyse de danger et de risque',           shortLabel: 'Risque',       description: 'Traçabilité HAZOP / LOPA et scénario dangereux.',               accent: '#F97316', destination: 'Contexte SIF', tab: 'context' },
   allocation: { label: 'Affectation aux couches de protection',    shortLabel: 'Allocation',   description: 'Lien entre la fonction de sécurité, les IPL et la cible SIL.',   accent: '#60A5FA', destination: 'Contexte SIF', tab: 'context' },
   srs:        { label: 'Exigences de sécurité / SRS',             shortLabel: 'SRS',          description: 'Exigences, tags process et données fonctionnelles de base.',     accent: '#38BDF8', destination: 'Contexte SIF', tab: 'context' },
   design:     { label: 'Conception / ingénierie',                  shortLabel: 'Conception',   description: "Architecture de la SIF, sous-systèmes et composants.",            accent: '#F59E0B', destination: 'Architecture', tab: 'architecture' },
@@ -44,6 +42,7 @@ function completedSteps(p: Project, sif: SIF): number { return STEP_ORDER.indexO
 // ── Main ──────────────────────────────────────────────────────────────────
 
 export function LifecycleCockpit() {
+  const { BORDER, CARD_BG, PAGE_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, isDark } = usePrismTheme()
   const projects = useAppStore(s => s.projects)
   const navigate = useAppStore(s => s.navigate)
   const openNewProject = useAppStore(s => s.openNewProject)
@@ -62,17 +61,17 @@ export function LifecycleCockpit() {
   const previewStepId = hoveredStep ?? selectedStep
   const previewStep = STEP_META[previewStepId]
 
-  const openStep = (stepId: LifecycleStepId) => { if (!selected) return; if (stepId === 'hazard') { navigate({ type: 'hazop' }); return } navigate({ type: 'sif-dashboard', projectId: selected.project.id, sifId: selected.sif.id, tab: STEP_META[stepId].tab ?? 'context' }) }
+  const openStep = (stepId: LifecycleStepId) => { if (!selected) return; navigate({ type: 'sif-dashboard', projectId: selected.project.id, sifId: selected.sif.id, tab: STEP_META[stepId].tab ?? 'context' }) }
 
   if (!focusSifs.length) {
     return (
-      <div className="rounded-2xl border p-8" style={{ borderColor: BORDER, background: CARD }}>
+      <div className="rounded-2xl border p-8" style={{ borderColor: BORDER, background: CARD_BG }}>
         <span className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: TEAL_DIM }}>Cockpit</span>
         <h1 className="mt-2 text-2xl font-black tracking-tight" style={{ color: TEXT }}>Commencez par créer un projet et une SIF.</h1>
         <p className="mt-3 text-sm leading-relaxed max-w-xl" style={{ color: TEXT_DIM }}>Le cockpit guide chaque fonction de sécurité à travers le cycle de vie IEC 61511.</p>
         <div className="mt-5 flex gap-3">
           <button type="button" onClick={openNewProject} className="inline-flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-bold" style={{ background: `linear-gradient(135deg, ${TEAL}, #007A82)`, color: '#fff' }}><FolderPlus size={15} />Nouveau projet</button>
-          <button type="button" onClick={() => openNewSIF()} disabled={!canCreateSIF} className="inline-flex items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-semibold disabled:opacity-40" style={{ borderColor: BORDER, background: BG, color: TEXT }}><FileText size={15} />Première SIF</button>
+          <button type="button" onClick={() => openNewSIF()} disabled={!canCreateSIF} className="inline-flex items-center gap-2 rounded-xl border px-5 py-2.5 text-sm font-semibold disabled:opacity-40" style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}><FileText size={15} />Première SIF</button>
         </div>
       </div>
     )
@@ -81,6 +80,10 @@ export function LifecycleCockpit() {
   const sifCalc = selected ? calcSIF(selected.sif, { projectStandard: selected.project.standard }) : null
   const done = selected ? completedSteps(selected.project, selected.sif) : 0
   const pct = Math.round((done / STEP_ORDER.length) * 100)
+  const centerGradientStops = isDark
+    ? ['#13202B', '#111821', '#0C1117']
+    : ['#FFFFFF', '#F4F7FB', '#ECF2F8']
+  const centerOuterFill = isDark ? '#0B1015' : '#F7FAFC'
 
   const VS = 340, C = 170, IR = 100, OR = 145, SW = 60
 
@@ -90,12 +93,12 @@ export function LifecycleCockpit() {
       <div className="flex items-center justify-between gap-4">
         <div className="flex items-center gap-3 min-w-0">
           <span className="text-[10px] font-bold uppercase tracking-[0.12em] shrink-0" style={{ color: TEAL_DIM }}>Cockpit</span>
-          <select value={selectedKey} onChange={e => setSelectedKey(e.target.value)} className="h-9 min-w-[240px] rounded-lg border px-3 text-sm outline-none" style={{ borderColor: BORDER, background: BG, color: TEXT }}>
+          <select value={selectedKey} onChange={e => setSelectedKey(e.target.value)} className="h-9 min-w-[240px] rounded-lg border px-3 text-sm outline-none" style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}>
             {projects.map(p => <optgroup key={p.id} label={p.name}>{p.sifs.filter(s => s.status !== 'archived').map(s => <option key={s.id} value={`${p.id}:${s.id}`}>{s.sifNumber} — {s.title || 'Sans titre'}</option>)}</optgroup>)}
           </select>
         </div>
         <div className="flex gap-2 shrink-0">
-          <button type="button" onClick={openNewProject} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-semibold" style={{ borderColor: BORDER, background: BG, color: TEXT_DIM }}><FolderPlus size={12} />Projet</button>
+          <button type="button" onClick={openNewProject} className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-semibold" style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}><FolderPlus size={12} />Projet</button>
           <button type="button" onClick={() => openNewSIF()} disabled={!canCreateSIF} className="inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-bold disabled:opacity-40" style={{ background: TEAL, color: '#041014' }}><FileText size={12} />Nouvelle SIF</button>
         </div>
       </div>
@@ -103,13 +106,13 @@ export function LifecycleCockpit() {
       {selected && (
         <div className="grid gap-5 xl:grid-cols-[1fr_340px]">
           {/* LEFT — Circle + detail */}
-          <div className="rounded-2xl border p-5" style={{ borderColor: BORDER, background: CARD }}>
+          <div className="rounded-2xl border p-5" style={{ borderColor: BORDER, background: CARD_BG }}>
             <div className="flex flex-col items-center" onMouseLeave={() => setHoveredStep(null)}>
               <div className="relative" style={{ width: 320, maxWidth: '100%' }}>
                 <svg viewBox={`0 0 ${VS} ${VS}`} className="w-full h-auto">
-                  <defs><radialGradient id="lc-c" cx="50%" cy="50%" r="62%"><stop offset="0%" stopColor="#13202B" /><stop offset="68%" stopColor="#111821" /><stop offset="100%" stopColor="#0C1117" /></radialGradient></defs>
-                  <circle cx={C} cy={C} r={OR + 10} fill="#0B1015" stroke="#1F2933" strokeWidth="0.5" />
-                  <circle cx={C} cy={C} r={IR - 10} fill="url(#lc-c)" stroke="#1F2933" strokeWidth="0.5" />
+                  <defs><radialGradient id="lc-c" cx="50%" cy="50%" r="62%"><stop offset="0%" stopColor={centerGradientStops[0]} /><stop offset="68%" stopColor={centerGradientStops[1]} /><stop offset="100%" stopColor={centerGradientStops[2]} /></radialGradient></defs>
+                  <circle cx={C} cy={C} r={OR + 10} fill={centerOuterFill} stroke={BORDER} strokeWidth="0.5" />
+                  <circle cx={C} cy={C} r={IR - 10} fill="url(#lc-c)" stroke={BORDER} strokeWidth="0.5" />
                   {STEP_ORDER.map((stepId, i) => {
                     const step = STEP_META[stepId], sa = -90 + i * SW + 2, ea = sa + SW - 4
                     const path = describeArc(C, C, IR, OR, sa, ea)
@@ -119,10 +122,10 @@ export function LifecycleCockpit() {
                     const fa = state === 'done' ? '28' : state === 'current' ? '2D' : '14'
                     return (
                       <g key={stepId}>
-                        <path d={path} fill={`${step.accent}${fa}`} stroke={isPrev ? step.accent : '#26303A'} strokeWidth={isPrev ? 2 : 0.5}
+                        <path d={path} fill={`${step.accent}${fa}`} stroke={isPrev ? step.accent : `${BORDER}99`} strokeWidth={isPrev ? 2 : 0.5}
                           style={{ cursor: 'pointer', filter: isPrev ? `drop-shadow(0 0 10px ${step.accent}50)` : 'none', transition: 'all 150ms ease' }}
                           onMouseEnter={() => setHoveredStep(stepId)} onClick={() => { setSelectedStep(stepId); openStep(stepId) }} />
-                        <text x={lp.x} y={lp.y} textAnchor="middle" dominantBaseline="middle" fill={isPrev ? '#F8FBFF' : '#AAB8C8'}
+                        <text x={lp.x} y={lp.y} textAnchor="middle" dominantBaseline="middle" fill={isPrev ? TEXT : TEXT_DIM}
                           fontSize="9.5" fontWeight="700" style={{ cursor: 'pointer', userSelect: 'none', letterSpacing: '0.04em' }}
                           onMouseEnter={() => setHoveredStep(stepId)} onClick={() => { setSelectedStep(stepId); openStep(stepId) }}>{step.shortLabel}</text>
                       </g>
@@ -158,7 +161,7 @@ export function LifecycleCockpit() {
           {/* RIGHT — KPIs */}
           <div className="space-y-4">
             {sifCalc && (
-              <div className="rounded-2xl border p-4" style={{ borderColor: sifCalc.meetsTarget ? `${semantic.success}30` : `${semantic.error}30`, background: CARD }}>
+              <div className="rounded-2xl border p-4" style={{ borderColor: sifCalc.meetsTarget ? `${semantic.success}30` : `${semantic.error}30`, background: CARD_BG }}>
                 <div className="flex items-center justify-between mb-3">
                   <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Verdict SIL</span>
                   <Shield size={14} style={{ color: sifCalc.meetsTarget ? semantic.success : semantic.error }} />
@@ -168,13 +171,13 @@ export function LifecycleCockpit() {
                   <span className="text-sm" style={{ color: TEXT_DIM }}>/ cible {selected.sif.targetSIL}</span>
                 </div>
                 <div className="mt-3 grid grid-cols-2 gap-2">
-                  <div className="rounded-lg p-2.5" style={{ background: BG }}><p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>PFDavg</p><p className="text-sm font-mono font-bold mt-0.5" style={{ color: TEAL_DIM }}>{formatPFD(sifCalc.PFD_avg)}</p></div>
-                  <div className="rounded-lg p-2.5" style={{ background: BG }}><p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>RRF</p><p className="text-sm font-mono font-bold mt-0.5" style={{ color: TEXT }}>{Math.round(sifCalc.RRF).toLocaleString()}</p></div>
+                  <div className="rounded-lg p-2.5" style={{ background: PAGE_BG }}><p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>PFDavg</p><p className="text-sm font-mono font-bold mt-0.5" style={{ color: TEAL_DIM }}>{formatPFD(sifCalc.PFD_avg)}</p></div>
+                  <div className="rounded-lg p-2.5" style={{ background: PAGE_BG }}><p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>RRF</p><p className="text-sm font-mono font-bold mt-0.5" style={{ color: TEXT }}>{Math.round(sifCalc.RRF).toLocaleString()}</p></div>
                 </div>
               </div>
             )}
 
-            <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: CARD }}>
+            <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: CARD_BG }}>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Lifecycle</span>
                 <span className="text-[13px] font-bold font-mono" style={{ color: pct >= 80 ? semantic.success : TEAL_DIM }}>{pct}%</span>
@@ -190,7 +193,7 @@ export function LifecycleCockpit() {
                       className="w-full flex items-center gap-2 px-2 py-1.5 rounded-lg transition-all text-left group"
                       style={{ background: previewStepId === stepId ? `${step.accent}10` : 'transparent' }}
                       onMouseEnter={() => setHoveredStep(stepId)} onMouseLeave={() => setHoveredStep(null)}>
-                      {state === 'done' ? <CheckCircle2 size={12} style={{ color: step.accent }} /> : state === 'current' ? <Circle size={12} style={{ color: step.accent }} fill={step.accent} /> : <Circle size={12} style={{ color: '#3A4550' }} />}
+                      {state === 'done' ? <CheckCircle2 size={12} style={{ color: step.accent }} /> : state === 'current' ? <Circle size={12} style={{ color: step.accent }} fill={step.accent} /> : <Circle size={12} style={{ color: TEXT_DIM }} />}
                       <span className="flex-1 text-[11px] font-medium" style={{ color: state === 'upcoming' ? TEXT_DIM : TEXT }}>{step.shortLabel}</span>
                       <ChevronRight size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" style={{ color: TEXT_DIM }} />
                     </button>
@@ -199,7 +202,7 @@ export function LifecycleCockpit() {
               </div>
             </div>
 
-            <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: CARD }}>
+            <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: CARD_BG }}>
               <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Informations</span>
               <div className="mt-2 space-y-1.5">
                 {[

@@ -6,15 +6,17 @@
  */
 import { CheckCircle2, XCircle, Minus } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BORDER, TEXT_DIM } from '@/styles/tokens'
+import { semantic } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 import type { PTStep, PTStepResult, StepResultValue } from './proofTestTypes'
 import { checkConformance } from './proofTestTypes'
 
 // ─── Result badge (read-only display) ────────────────────────────────────
 export function ResultBadge({ r }: { r: StepResultValue }) {
-  if (r === 'oui') return <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border" style={{ color: '#4ADE80', background: '#052E16', borderColor: '#15803D30' }}><CheckCircle2 size={9} />OUI</span>
-  if (r === 'non') return <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border" style={{ color: '#F87171', background: '#2A1215', borderColor: '#7F1D1D55' }}><XCircle size={9} />NON</span>
-  if (r === 'na')  return <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border" style={{ color: TEXT_DIM, background: '#1D232A', borderColor: BORDER }}><Minus size={9} />N/A</span>
+  const { BORDER, PAGE_BG, TEXT_DIM } = usePrismTheme()
+  if (r === 'oui') return <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border" style={{ color: semantic.success, background: `${semantic.success}12`, borderColor: `${semantic.success}30` }}><CheckCircle2 size={9} />OUI</span>
+  if (r === 'non') return <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border" style={{ color: semantic.error, background: `${semantic.error}10`, borderColor: `${semantic.error}28` }}><XCircle size={9} />NON</span>
+  if (r === 'na')  return <span className="flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded border" style={{ color: TEXT_DIM, background: PAGE_BG, borderColor: BORDER }}><Minus size={9} />N/A</span>
   return <span className="text-[10px]" style={{ color: TEXT_DIM }}>—</span>
 }
 
@@ -25,6 +27,7 @@ export function ResultInput({ step, result, disabled = false, onChange }: {
   disabled?: boolean
   onChange: (r: Partial<PTStepResult>) => void
 }) {
+  const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
   const r = result?.result ?? null
   const val = result?.measuredValue ?? ''
 
@@ -40,9 +43,9 @@ export function ResultInput({ step, result, disabled = false, onChange }: {
               r === v && v === 'oui' ? 'bg-emerald-500 text-white border-emerald-500' :
               r === v && v === 'non' ? 'bg-red-500 text-white border-red-500' :
               r === v && v === 'na'  ? 'bg-gray-400 text-white border-gray-400' :
-              'border-[#363F49] text-[#8FA0B1] hover:border-[#8FA0B1]',
+              '',
             )}
-            style={!(r === v) ? { background: '#1D232A' } : undefined}
+            style={!(r === v) ? { background: PAGE_BG, color: TEXT_DIM, borderColor: BORDER } : undefined}
           >{(v as string).toUpperCase()}</button>
         ))}
       </div>
@@ -64,9 +67,9 @@ export function ResultInput({ step, result, disabled = false, onChange }: {
             'w-28 text-xs h-7 px-2 rounded-lg border focus:outline-none focus:ring-1 transition-all disabled:opacity-60 disabled:cursor-not-allowed',
             conformant === true  ? 'border-emerald-400 focus:ring-emerald-400/30' :
             conformant === false ? 'border-red-400 focus:ring-red-400/30' :
-            'border-[#363F49] focus:ring-[#009BA4]/30 focus:border-[#009BA4]',
+            'focus:ring-[#009BA4]/30 focus:border-[#009BA4]',
           )}
-          style={{ background: '#1D232A', color: '#DFE8F1' }}
+          style={{ background: PAGE_BG, color: TEXT, borderColor: conformant === null ? BORDER : undefined }}
         />
         {conformant === true  && <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />}
         {conformant === false && <XCircle size={13} className="text-red-500 shrink-0" />}
@@ -81,25 +84,26 @@ export function ResultInput({ step, result, disabled = false, onChange }: {
       value={val}
       onChange={e => onChange({ measuredValue: e.target.value })}
       placeholder="Résultat…"
-      className="w-36 text-xs h-7 px-2 rounded-lg border border-[#363F49] focus:outline-none focus:ring-1 focus:ring-[#009BA4]/30 focus:border-[#009BA4] disabled:opacity-60 disabled:cursor-not-allowed"
-      style={{ background: '#1D232A', color: '#DFE8F1' }}
+      className="w-36 text-xs h-7 px-2 rounded-lg border focus:outline-none focus:ring-1 focus:ring-[#009BA4]/30 focus:border-[#009BA4] disabled:opacity-60 disabled:cursor-not-allowed"
+      style={{ background: PAGE_BG, color: TEXT, borderColor: BORDER }}
     />
   )
 }
 
 // ─── Expected value display (shared by both procedure and execution) ─────
 export function ExpectedValueDisplay({ step }: { step: PTStep }) {
+  const { TEXT, TEXT_DIM } = usePrismTheme()
   if (step.resultType === 'oui_non') {
     return (
       <span className="flex items-center gap-1">
-        <span className="text-[9px] font-bold px-1 rounded border" style={{ color: '#4ADE80', background: '#052E16', borderColor: '#15803D30' }}>OUI</span>
+        <span className="text-[9px] font-bold px-1 rounded border" style={{ color: semantic.success, background: `${semantic.success}12`, borderColor: `${semantic.success}30` }}>OUI</span>
         <span className="text-[9px]" style={{ color: TEXT_DIM }}>ou</span>
-        <span className="text-[9px] font-bold px-1 rounded border" style={{ color: '#F87171', background: '#2A1215', borderColor: '#7F1D1D55' }}>NON</span>
+        <span className="text-[9px] font-bold px-1 rounded border" style={{ color: semantic.error, background: `${semantic.error}10`, borderColor: `${semantic.error}28` }}>NON</span>
       </span>
     )
   }
   return (
-    <span className="font-mono text-[11px] font-semibold" style={{ color: '#DFE8F1' }}>
+    <span className="font-mono text-[11px] font-semibold" style={{ color: TEXT }}>
       {step.expectedValue || <span style={{ color: TEXT_DIM }}>—</span>}
     </span>
   )

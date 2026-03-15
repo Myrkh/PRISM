@@ -5,7 +5,7 @@
  * Used for main SIF tabs, right panel tabs, and anywhere tabs are needed.
  */
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { BORDER, TEAL_DIM, TEXT, TEXT_DIM, R } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 import { cn } from '@/lib/utils'
 
 type TabBadge = boolean | number | string | null | undefined
@@ -24,6 +24,7 @@ export function IntercalaireTabBar<T extends string>({
   showHints?: boolean
   autoHideHintsOnOverflow?: boolean
 }) {
+  const { BORDER, CARD_BG, TEAL_DIM, TEXT, TEXT_DIM, R } = usePrismTheme()
   const measurementRef = useRef<HTMLDivElement | null>(null)
   const [hideHintsForOverflow, setHideHintsForOverflow] = useState(false)
 
@@ -90,7 +91,7 @@ export function IntercalaireTabBar<T extends string>({
                     <span
                       className="inline-flex min-w-[14px] items-center justify-center rounded-full px-1 text-[9px] font-bold"
                       style={{
-                        background: isActive ? `${TEAL_DIM}25` : '#2A3138',
+                        background: isActive ? `${TEAL_DIM}25` : CARD_BG,
                         color: isActive ? TEAL_DIM : TEXT_DIM,
                         border: `1px solid ${BORDER}`,
                       }}
@@ -142,7 +143,8 @@ export function IntercalaireCard({
   className?: string
   style?: React.CSSProperties
 }) {
-  const defaultCardBg = '#23292F'
+  const { BORDER, CARD_BG, R } = usePrismTheme()
+  const defaultCardBg = CARD_BG
   const bg = cardBg ?? defaultCardBg
   const tlr = activeIdx === 0 ? 0 : R
   const trr = tabCount === 1 ? R : (activeIdx === tabCount - 1 ? 0 : R)

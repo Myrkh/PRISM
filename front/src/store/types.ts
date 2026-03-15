@@ -31,6 +31,7 @@ export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
 
 export type CanonicalSIFTab =
   | 'cockpit'
+  | 'history'
   | 'context'
   | 'architecture'
   | 'verification'
@@ -42,6 +43,7 @@ export type SIFTab = CanonicalSIFTab | LegacySIFTabAlias
 
 export const CANONICAL_SIF_TABS: readonly CanonicalSIFTab[] = [
   'cockpit',
+  'history',
   'context',
   'architecture',
   'verification',
@@ -51,6 +53,7 @@ export const CANONICAL_SIF_TABS: readonly CanonicalSIFTab[] = [
 
 export const SIF_PHASE_TABS: readonly Exclude<CanonicalSIFTab, 'report'>[] = [
   'cockpit',
+  'history',
   'context',
   'architecture',
   'verification',
@@ -68,6 +71,12 @@ export const SIF_TAB_META: Readonly<Record<CanonicalSIFTab, {
     hint: 'Etat global et prochaines actions',
     accent: '#4FD1C5',
     stepLabel: 'Cockpit',
+  },
+  history: {
+    label: 'Historique',
+    hint: 'Révisions publiées, comparaison et artefacts figés',
+    accent: '#94A3B8',
+    stepLabel: 'Historique',
   },
   context: {
     label: 'Contexte',

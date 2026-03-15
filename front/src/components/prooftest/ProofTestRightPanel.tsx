@@ -24,10 +24,7 @@ import {
 import { calcSIF, formatPFD } from '@/core/math/pfdCalc'
 import type { SIF } from '@/core/types'
 import { useAppStore } from '@/store/appStore'
-import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
-
-const PANEL = dark.panel
-const BG = dark.page
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 // ─── Design tokens — identiques à LoopEditorRightPanel ───────────────────
 // ─── Types miroirs (évite d'importer depuis ProofTestTab) ─────────────────
@@ -91,6 +88,7 @@ type PanelTab = typeof PANEL_TABS[number]['id']
 
 // ─── Micro-composants ─────────────────────────────────────────────────────
 function SectionLabel({ children }: { children: React.ReactNode }) {
+  const { TEXT_DIM } = usePrismTheme()
   return (
     <p className="text-[9px] font-bold uppercase tracking-widest mb-2" style={{ color: TEXT_DIM }}>
       {children}
@@ -99,6 +97,7 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
 }
 
 function Row({ label, value, color }: { label: string; value: string; color?: string }) {
+  const { BORDER, TEXT, TEXT_DIM } = usePrismTheme()
   return (
     <div className="flex items-center justify-between py-1.5 border-b last:border-0"
       style={{ borderColor: BORDER }}>
@@ -109,6 +108,7 @@ function Row({ label, value, color }: { label: string; value: string; color?: st
 }
 
 function Ring({ pct, color, size = 60 }: { pct: number; color: string; size?: number }) {
+  const { BORDER } = usePrismTheme()
   const r    = (size - 10) / 2
   const circ = 2 * Math.PI * r
   const dash = circ * Math.min(pct, 1)
@@ -124,6 +124,7 @@ function Ring({ pct, color, size = 60 }: { pct: number; color: string; size?: nu
 
 // ─── Onglet Statut ────────────────────────────────────────────────────────
 function StatusContent(props: ProofTestRightPanelProps) {
+  const { BORDER, PAGE_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic } = usePrismTheme()
   const { sif, procedure, campaigns, isOverdue, daysOverdue, nextDue } = props
   const result = useMemo(() => calcSIF(sif), [sif.id])
 
@@ -150,16 +151,16 @@ function StatusContent(props: ProofTestRightPanelProps) {
       {/* Conformité IEC 61511 */}
       <div>
         <SectionLabel>Conformité IEC 61511</SectionLabel>
-        <div className="rounded-xl border p-3" style={{ background: BG, borderColor: isOverdue ? '#EF444440' : BORDER }}>
+        <div className="rounded-xl border p-3" style={{ background: PAGE_BG, borderColor: isOverdue ? `${semantic.error}30` : BORDER }}>
           <div className="flex items-center gap-2 pb-2 mb-1">
             {isOverdue
-              ? <AlertTriangle size={12} style={{ color: '#EF4444' }} />
+              ? <AlertTriangle size={12} style={{ color: semantic.error }} />
               : nextDue
-                ? <CheckCircle2 size={12} style={{ color: '#16A34A' }} />
+                ? <CheckCircle2 size={12} style={{ color: semantic.success }} />
                 : <FlaskConical size={12} style={{ color: TEXT_DIM }} />
             }
             <span className="text-[11px] font-semibold" style={{
-              color: isOverdue ? '#EF4444' : nextDue ? '#16A34A' : TEXT_DIM
+              color: isOverdue ? semantic.error : nextDue ? semantic.success : TEXT_DIM
             }}>
               {isOverdue
                 ? `Retard · J+${daysOverdue}`
@@ -172,9 +173,9 @@ function StatusContent(props: ProofTestRightPanelProps) {
           <Row label="Tests réalisés" value={String(campaigns.length)} color={TEAL_DIM} />
           {passRate !== null && (
             <Row label="Taux réussite" value={`${passRate}%`}
-              color={passRate >= 80 ? '#4ADE80' : passRate >= 50 ? '#F59E0B' : '#F87171'} />
+              color={passRate >= 80 ? semantic.success : passRate >= 50 ? semantic.warning : semantic.error} />
           )}
-          {lastPass && <Row label="Dernier PASS" value={lastPass.date} color="#4ADE80" />}
+          {lastPass && <Row label="Dernier PASS" value={lastPass.date} color={semantic.success} />}
         </div>
       </div>
 
@@ -182,13 +183,13 @@ function StatusContent(props: ProofTestRightPanelProps) {
       {procedure && (
         <div>
           <SectionLabel>Procédure</SectionLabel>
-          <div className="rounded-xl border p-3" style={{ background: BG, borderColor: BORDER }}>
+          <div className="rounded-xl border p-3" style={{ background: PAGE_BG, borderColor: BORDER }}>
             <Row label="Référence" value={procedure.ref}      color={TEAL_DIM} />
             <Row label="Révision"  value={procedure.revision} />
             <Row label="Statut"    value={
               procedure.status === 'draft' ? 'Brouillon' :
               procedure.status === 'ifr'   ? 'IFR' : 'Approuvé'
-            } color={procedure.status === 'approved' ? '#4ADE80' : TEXT_DIM} />
+            } color={procedure.status === 'approved' ? semantic.success : TEXT_DIM} />
             <Row label="Étapes"    value={String(procedure.steps.length)} />
           </div>
         </div>
@@ -199,7 +200,7 @@ function StatusContent(props: ProofTestRightPanelProps) {
         <SectionLabel>Équipements à tester</SectionLabel>
         <div className="space-y-2">
           {subsystems.map(sub => (
-            <div key={sub.type} className="rounded-lg border p-2.5" style={{ background: BG, borderColor: BORDER }}>
+            <div key={sub.type} className="rounded-lg border p-2.5" style={{ background: PAGE_BG, borderColor: BORDER }}>
               <div className="flex items-center gap-1.5 mb-1.5">
                 <div className="w-4 h-4 rounded flex items-center justify-center"
                   style={{ background: `${sub.color}20` }}>
@@ -226,12 +227,12 @@ function StatusContent(props: ProofTestRightPanelProps) {
       {/* SIL context */}
       <div>
         <SectionLabel>Contexte SIL</SectionLabel>
-        <div className="rounded-xl border p-3" style={{ background: BG, borderColor: BORDER }}>
+        <div className="rounded-xl border p-3" style={{ background: PAGE_BG, borderColor: BORDER }}>
           <Row label="PFD calculé" value={formatPFD(result.PFD_avg)}
-            color={result.meetsTarget ? '#4ADE80' : '#F87171'} />
+            color={result.meetsTarget ? semantic.success : semantic.error} />
           <Row label="SIL cible"   value={`SIL ${sif.targetSIL}`}  color="#60A5FA" />
           <Row label="SIL atteint" value={`SIL ${result.SIL}`}
-            color={result.meetsTarget ? '#4ADE80' : '#F87171'} />
+            color={result.meetsTarget ? semantic.success : semantic.error} />
         </div>
       </div>
 
@@ -248,6 +249,7 @@ function StatusContent(props: ProofTestRightPanelProps) {
 
 // ─── Onglet En cours ──────────────────────────────────────────────────────
 function CampaignContent(props: ProofTestRightPanelProps) {
+  const { BORDER, NAVY, PAGE_BG, TEAL, TEXT, TEXT_DIM, semantic } = usePrismTheme()
   const { procedure, activeCampaign, onUpdateActiveCampaign, onSaveCampaign, onNewCampaign, onSetView, onSetActiveCampaign } = props
 
   if (!activeCampaign || !procedure) {
@@ -287,7 +289,7 @@ function CampaignContent(props: ProofTestRightPanelProps) {
       <div>
         <SectionLabel>Progression</SectionLabel>
         <div className="rounded-xl border p-3 flex items-center gap-3"
-          style={{ background: BG, borderColor: BORDER }}>
+          style={{ background: PAGE_BG, borderColor: BORDER }}>
           <div className="relative shrink-0">
             <Ring pct={pct} color={ringColor} size={60} />
             <div className="absolute inset-0 flex items-center justify-center">
@@ -299,11 +301,11 @@ function CampaignContent(props: ProofTestRightPanelProps) {
           <div className="flex-1 min-w-0">
             <p className="text-xs font-bold" style={{ color: TEXT }}>{filled}/{total} étapes</p>
             {fails.length > 0
-              ? <p className="text-[10px] mt-0.5" style={{ color: '#F87171' }}>
+              ? <p className="text-[10px] mt-0.5" style={{ color: semantic.error }}>
                   {fails.length} non-conformité{fails.length > 1 ? 's' : ''}
                 </p>
               : pct >= 1
-                ? <p className="text-[10px] mt-0.5" style={{ color: '#4ADE80' }}>Toutes OK ✓</p>
+                ? <p className="text-[10px] mt-0.5" style={{ color: semantic.success }}>Toutes OK ✓</p>
                 : <p className="text-[10px] mt-0.5" style={{ color: TEXT_DIM }}>En cours…</p>
             }
           </div>
@@ -317,15 +319,15 @@ function CampaignContent(props: ProofTestRightPanelProps) {
           <div className="space-y-1.5">
             {nonConform.map((nc, i) => (
               <div key={i} className="rounded-lg border px-2.5 py-2"
-                style={{ background: '#EF444408', borderColor: '#EF444428' }}>
+                style={{ background: `${semantic.error}08`, borderColor: `${semantic.error}22` }}>
                 <div className="flex items-start gap-1.5">
-                  <XCircle size={10} className="shrink-0 mt-0.5" style={{ color: '#EF4444' }} />
-                  <p className="text-[10px] leading-relaxed" style={{ color: '#FCA5A5' }}>
+                  <XCircle size={10} className="shrink-0 mt-0.5" style={{ color: semantic.error }} />
+                  <p className="text-[10px] leading-relaxed" style={{ color: TEXT }}>
                     {nc.action || 'Étape sans libellé'}
                   </p>
                 </div>
                 {nc.measured && (
-                  <p className="text-[9px] font-mono mt-1 pl-4" style={{ color: '#F87171' }}>
+                  <p className="text-[9px] font-mono mt-1 pl-4" style={{ color: semantic.error }}>
                     Mesuré : {nc.measured} · Attendu : {nc.expected || '—'}
                   </p>
                 )}
@@ -350,7 +352,7 @@ function CampaignContent(props: ProofTestRightPanelProps) {
               className="rounded-lg border py-1.5 text-[10px] font-bold transition-all disabled:opacity-50 disabled:cursor-not-allowed"
               style={activeCampaign.verdict === v
                 ? { background: color, color: '#fff', borderColor: color }
-                : { background: BG, color: TEXT_DIM, borderColor: BORDER }}>
+                : { background: PAGE_BG, color: TEXT_DIM, borderColor: BORDER }}>
               {label}
             </button>
           ))}
@@ -373,7 +375,7 @@ function CampaignContent(props: ProofTestRightPanelProps) {
                 onChange={e => onUpdateActiveCampaign({ [k]: e.target.value })}
                 placeholder="Nom Prénom"
                 className="w-full rounded-lg border px-2.5 py-1.5 text-xs outline-none transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                style={{ background: BG, borderColor: BORDER, color: TEXT }}
+                style={{ background: PAGE_BG, borderColor: BORDER, color: TEXT }}
                 onFocus={e => { e.currentTarget.style.borderColor = TEAL }}
                 onBlur={e =>  { e.currentTarget.style.borderColor = BORDER }}
               />
@@ -387,8 +389,8 @@ function CampaignContent(props: ProofTestRightPanelProps) {
         onClick={onSaveCampaign}
         disabled={!activeCampaign.verdict || readOnly}
         className="w-full flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed"
-        style={{ background: 'linear-gradient(135deg, #003D5C, #002A42)', color: '#fff',
-          boxShadow: '0 4px 12px rgba(0,61,92,0.35)' }}>
+        style={{ background: `linear-gradient(135deg, ${NAVY}, #002A42)`, color: '#fff',
+          boxShadow: `0 4px 12px ${NAVY}35` }}>
         <ClipboardCheck size={13} /> {readOnly ? 'Campagne figée' : 'Clôturer le test'}
       </button>
     </div>
@@ -397,6 +399,7 @@ function CampaignContent(props: ProofTestRightPanelProps) {
 
 // ─── Main export ──────────────────────────────────────────────────────────
 export function ProofTestRightPanel(props: ProofTestRightPanelProps) {
+  const { PANEL_BG } = usePrismTheme()
   const [activeTab, setActiveTab] = useState<PanelTab>('status')
   const selectedRightPanelTab = useAppStore(s => s.rightPanelTabs.prooftest)
   const setRightPanelTab = useAppStore(s => s.setRightPanelTab)
@@ -428,7 +431,7 @@ export function ProofTestRightPanel(props: ProofTestRightPanelProps) {
         setActiveTab(tab)
         setRightPanelTab('prooftest', tab)
       }}
-      contentBg={PANEL}
+      contentBg={PANEL_BG}
     >
       <div className="flex-1 overflow-y-auto" style={{ minHeight: '100%' }}>
           {activeTab === 'status'   && <StatusContent   {...props} />}

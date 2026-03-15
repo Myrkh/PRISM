@@ -18,21 +18,31 @@ import { calcSIF, formatPFD } from '@/core/math/pfdCalc'
 import type { Project, SIF, SIFStatus, SIFRevision } from '@/core/types'
 import { downloadRevisionArtifact } from '@/lib/revisionArtifacts'
 import { SIFRevisionCompare } from './SIFRevisionCompare'
-import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 import { IntercalaireCard, IntercalaireTabBar, useLayout } from '@/components/layout/SIFWorkbenchLayout'
 
-// ─── Design tokens ────────────────────────────────────────────────────────
-// ─── Status config ────────────────────────────────────────────────────────
-const STATUS_CFG: Record<SIFStatus, { label: string; bg: string; color: string; border: string }> = {
-  draft:     { label: 'PRE',  bg: '#1A1F24', color: '#8FA0B1', border: '#2A3138' },
-  in_review: { label: 'IFR',  bg: '#1C1500', color: '#F59E0B', border: '#B4530830' },
-  verified:  { label: 'VER',  bg: '#0F1B3D', color: '#60A5FA', border: '#1D4ED830' },
-  approved:  { label: 'APP',  bg: '#052E16', color: '#4ADE80', border: '#15803D30' },
-  archived:  { label: 'ARC',  bg: '#1A1F24', color: '#4B5563', border: '#2A3138' },
+function getStatusCfg(status: SIFStatus, options: {
+  BORDER: string
+  PAGE_BG: string
+  TEXT_DIM: string
+  semantic: ReturnType<typeof usePrismTheme>['semantic']
+}) {
+  const { BORDER, PAGE_BG, TEXT_DIM, semantic } = options
+
+  const map: Record<SIFStatus, { label: string; bg: string; color: string; border: string }> = {
+    draft:     { label: 'PRE', bg: PAGE_BG, color: TEXT_DIM, border: BORDER },
+    in_review: { label: 'IFR', bg: `${semantic.warning}10`, color: semantic.warning, border: `${semantic.warning}28` },
+    verified:  { label: 'VER', bg: '#DBEAFE', color: '#2563EB', border: '#93C5FD' },
+    approved:  { label: 'APP', bg: `${semantic.success}12`, color: semantic.success, border: `${semantic.success}30` },
+    archived:  { label: 'ARC', bg: PAGE_BG, color: TEXT_DIM, border: BORDER },
+  }
+
+  return map[status]
 }
 
 function StatusBadge({ status }: { status: SIFStatus }) {
-  const cfg = STATUS_CFG[status]
+  const { BORDER, PAGE_BG, TEXT_DIM, semantic } = usePrismTheme()
+  const cfg = getStatusCfg(status, { BORDER, PAGE_BG, TEXT_DIM, semantic })
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-black tracking-wider"
       style={{ background: cfg.bg, color: cfg.color, border: `1px solid ${cfg.border}` }}>
@@ -42,8 +52,9 @@ function StatusBadge({ status }: { status: SIFStatus }) {
 }
 
 function PFDPill({ sif }: { sif: SIF }) {
+  const { TEXT_DIM, semantic } = usePrismTheme()
   const result = useMemo(() => calcSIF(sif), [sif])
-  const color  = result.meetsTarget ? '#4ADE80' : '#F87171'
+  const color  = result.meetsTarget ? semantic.success : semantic.error
   return (
     <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono font-bold"
       style={{ background: `${color}12`, color, border: `1px solid ${color}25` }}>
@@ -55,11 +66,16 @@ function PFDPill({ sif }: { sif: SIF }) {
 
 // ─── Inline delta between two snapshots (blue text like the GED) ──────────
 function InlineDelta({ older, newer }: { older: SIFRevision; newer: SIFRevision }) {
+  const { BORDER, TEXT_DIM, semantic } = usePrismTheme()
   const calcOld = useMemo(() => calcSIF(older.snapshot), [older])
   const calcNew = useMemo(() => calcSIF(newer.snapshot), [newer])
 
   const parts: string[] = []
-  if (older.status !== newer.status) parts.push(`${STATUS_CFG[older.status].label} → ${STATUS_CFG[newer.status].label}`)
+  if (older.status !== newer.status) {
+    parts.push(
+      `${getStatusCfg(older.status, { BORDER, PAGE_BG: 'transparent', TEXT_DIM, semantic }).label} → ${getStatusCfg(newer.status, { BORDER, PAGE_BG: 'transparent', TEXT_DIM, semantic }).label}`,
+    )
+  }
   if (calcOld.SIL !== calcNew.SIL)   parts.push(`SIL ${calcOld.SIL} → SIL ${calcNew.SIL}`)
   if (Math.abs(calcOld.PFD_avg - calcNew.PFD_avg) > 1e-12) parts.push(`PFD ${formatPFD(calcOld.PFD_avg)} → ${formatPFD(calcNew.PFD_avg)}`)
 
@@ -91,8 +107,10 @@ function RevisionList({
   onCompare: (older: SIFRevision, newer: SIFRevision) => void
   onDownloadArtifact: (revision: SIFRevision, kind: 'report' | 'prooftest') => Promise<void>
 }) {
+  const { BORDER, CARD_BG, PAGE_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+
   return (
-    <div className="overflow-hidden rounded-xl border" style={{ borderColor: `${TEAL}35`, background: '#121820' }}>
+    <div className="overflow-hidden rounded-xl border" style={{ borderColor: `${TEAL}35`, background: CARD_BG }}>
       <div className="overflow-x-auto">
       <table className="w-full min-w-[980px] table-fixed border-collapse">
         <colgroup>
@@ -104,7 +122,7 @@ function RevisionList({
           <col style={{ width: '320px' }} />
         </colgroup>
         <thead>
-          <tr className="border-b" style={{ borderColor: BORDER, background: '#1D232A' }}>
+          <tr className="border-b" style={{ borderColor: BORDER, background: PAGE_BG }}>
             {(['Rév.', 'Statut', 'Date', 'Établi par', 'Objet', 'Actions'] as const).map((label, i) => (
                   <th key={label} className="px-4 py-2 text-left text-[9px] font-bold uppercase tracking-widest whitespace-nowrap"
                     style={{
@@ -195,7 +213,7 @@ function RevisionList({
                     </td>
                   </tr>,
                   prev ? (
-                    <tr key={`${rev.id}-delta`} className="border-b" style={{ borderColor: `${BORDER}40`, background: '#0F151A' }}>
+                    <tr key={`${rev.id}-delta`} className="border-b" style={{ borderColor: `${BORDER}40`, background: PAGE_BG }}>
                       <td colSpan={6} className="px-4 py-1.5">
                         <div className="flex items-center gap-1.5">
                           <span className="text-[9px]" style={{ color: TEXT_DIM }}>{prev.revisionLabel} → {rev.revisionLabel}</span>
@@ -229,6 +247,7 @@ function SIFRow({
   onDownloadArtifact: (revision: SIFRevision, kind: 'report' | 'prooftest') => Promise<void>
 }) {
   void project
+  const { BORDER, PAGE_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const revisions      = useAppStore(s => s.revisions[sif.id] ?? null)
   const fetchRevisions = useAppStore(s => s.fetchRevisions)
   const [loadingRevs, setLoadingRevs] = useState(false)
@@ -244,7 +263,7 @@ function SIFRow({
   return (
     <>
       <tr className="border-b group transition-colors" style={{ borderColor: BORDER }}
-        onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(255,255,255,0.02)' }}
+        onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = PAGE_BG }}
         onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'transparent' }}>
 
         <td className="px-4 py-3 whitespace-nowrap">
@@ -332,8 +351,9 @@ function SIFHistoryColGroup() {
 }
 
 function SIFHistoryHeaderRow() {
+  const { BORDER, PAGE_BG, TEXT_DIM } = usePrismTheme()
   return (
-    <tr className="border-b" style={{ borderColor: BORDER, background: '#1D232A' }}>
+    <tr className="border-b" style={{ borderColor: BORDER, background: PAGE_BG }}>
       {SIF_HISTORY_HEADERS.map((label, i) => (
         <th key={label} className="px-4 py-2.5 whitespace-nowrap"
           style={{
@@ -362,6 +382,7 @@ function ProjectSection({
   onCompare: (older: SIFRevision, newer: SIFRevision) => void
   onDownloadArtifact: (revision: SIFRevision, kind: 'report' | 'prooftest') => Promise<void>
 }) {
+  const { BORDER, CARD_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const [collapsed, setCollapsed] = useState(false)
   if (project.sifs.length === 0) return null
 
@@ -386,7 +407,7 @@ function ProjectSection({
 
       {!collapsed && (
         <div className="pt-1 pb-3">
-          <div className="overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: '#14181C' }}>
+          <div className="overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: CARD_BG }}>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[1460px] table-fixed border-collapse">
                 <SIFHistoryColGroup />
@@ -420,6 +441,7 @@ const HISTORY_RIGHT_TABS = [
 ]
 
 function HistoryRightPanel({
+  scopedTitle,
   totalProjects,
   totalSifs,
   approvedCount,
@@ -436,6 +458,7 @@ function HistoryRightPanel({
   setAuthorFilter,
   onResetScope,
 }: {
+  scopedTitle: string
   totalProjects: number
   totalSifs: number
   approvedCount: number
@@ -452,6 +475,7 @@ function HistoryRightPanel({
   setAuthorFilter: (next: string) => void
   onResetScope: () => void
 }) {
+  const { BORDER, PAGE_BG, PANEL_BG, TEAL_DIM, TEXT, TEXT_DIM, semantic } = usePrismTheme()
   const [activeTab, setActiveTab] = useState<'insights' | 'gates' | 'scope'>('insights')
   const activeIdx = HISTORY_RIGHT_TABS.findIndex(t => t.id === activeTab)
   const approvalRate = totalSifs > 0 ? (approvedCount / totalSifs) * 100 : 0
@@ -463,7 +487,7 @@ function HistoryRightPanel({
           tabs={HISTORY_RIGHT_TABS}
           active={activeTab}
           onSelect={setActiveTab}
-          cardBg="#23292F"
+          cardBg={PAGE_BG}
           labelSize="sm"
         />
       </div>
@@ -472,28 +496,28 @@ function HistoryRightPanel({
         <IntercalaireCard tabCount={HISTORY_RIGHT_TABS.length} activeIdx={activeIdx} className="p-3 space-y-3">
           {activeTab === 'insights' && (
             <>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Historique Global</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{scopedTitle}</p>
               <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div className="rounded border px-2 py-1.5" style={{ borderColor: BORDER, background: '#1D232A' }}>
+                <div className="rounded border px-2 py-1.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <p style={{ color: TEXT_DIM }}>Projets (scope)</p>
                   <p className="font-bold" style={{ color: TEXT }}>{totalProjects}</p>
                 </div>
-                <div className="rounded border px-2 py-1.5" style={{ borderColor: BORDER, background: '#1D232A' }}>
+                <div className="rounded border px-2 py-1.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <p style={{ color: TEXT_DIM }}>SIFs (scope)</p>
                   <p className="font-bold" style={{ color: TEXT }}>{totalSifs}</p>
                 </div>
-                <div className="rounded border px-2 py-1.5" style={{ borderColor: BORDER, background: '#1D232A' }}>
+                <div className="rounded border px-2 py-1.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <p style={{ color: TEXT_DIM }}>Snapshots chargés</p>
                   <p className="font-bold" style={{ color: TEAL_DIM }}>{snapshotCount}</p>
                 </div>
-                <div className="rounded border px-2 py-1.5" style={{ borderColor: BORDER, background: '#1D232A' }}>
+                <div className="rounded border px-2 py-1.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <p style={{ color: TEXT_DIM }}>SIF avec snapshots</p>
                   <p className="font-bold" style={{ color: TEXT }}>{sifsWithSnapshots}</p>
                 </div>
               </div>
-              <div className="rounded-lg border px-2.5 py-2 text-[11px]" style={{ borderColor: BORDER, background: '#1D232A' }}>
+              <div className="rounded-lg border px-2.5 py-2 text-[11px]" style={{ borderColor: BORDER, background: PAGE_BG }}>
                 <p style={{ color: TEXT_DIM }}>Taux de SIF approuvées</p>
-                <p className="font-bold" style={{ color: approvalRate >= 70 ? '#4ADE80' : '#F59E0B' }}>
+                <p className="font-bold" style={{ color: approvalRate >= 70 ? semantic.success : semantic.warning }}>
                   {approvalRate.toFixed(1)}%
                 </p>
               </div>
@@ -504,21 +528,21 @@ function HistoryRightPanel({
             <>
               <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Quality Gates</p>
               <div className="space-y-2 text-[11px]">
-                <div className="rounded border px-2.5 py-2" style={{ borderColor: BORDER, background: '#1D232A' }}>
+                <div className="rounded border px-2.5 py-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <p style={{ color: TEXT_DIM }}>SIF sans vérificateur</p>
-                  <p className="font-bold" style={{ color: missingVerifier > 0 ? '#F59E0B' : '#4ADE80' }}>{missingVerifier}</p>
+                  <p className="font-bold" style={{ color: missingVerifier > 0 ? semantic.warning : semantic.success }}>{missingVerifier}</p>
                 </div>
-                <div className="rounded border px-2.5 py-2" style={{ borderColor: BORDER, background: '#1D232A' }}>
+                <div className="rounded border px-2.5 py-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <p style={{ color: TEXT_DIM }}>SIF sans approbateur</p>
-                  <p className="font-bold" style={{ color: missingApprover > 0 ? '#F59E0B' : '#4ADE80' }}>{missingApprover}</p>
+                  <p className="font-bold" style={{ color: missingApprover > 0 ? semantic.warning : semantic.success }}>{missingApprover}</p>
                 </div>
-                <div className="rounded border px-2.5 py-2" style={{ borderColor: BORDER, background: '#1D232A' }}>
+                <div className="rounded border px-2.5 py-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <p style={{ color: TEXT_DIM }}>Révisions sans métadonnées</p>
-                  <p className="font-bold" style={{ color: revisionMissingMeta > 0 ? '#F87171' : '#4ADE80' }}>{revisionMissingMeta}</p>
+                  <p className="font-bold" style={{ color: revisionMissingMeta > 0 ? semantic.error : semantic.success }}>{revisionMissingMeta}</p>
                 </div>
-                <div className="rounded border px-2.5 py-2" style={{ borderColor: BORDER, background: '#1D232A' }}>
+                <div className="rounded border px-2.5 py-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <p style={{ color: TEXT_DIM }}>SIF en brouillon</p>
-                  <p className="font-bold" style={{ color: draftCount > 0 ? '#60A5FA' : '#4ADE80' }}>{draftCount}</p>
+                  <p className="font-bold" style={{ color: draftCount > 0 ? '#2563EB' : semantic.success }}>{draftCount}</p>
                 </div>
               </div>
             </>
@@ -533,8 +557,8 @@ function HistoryRightPanel({
                   <select
                     value={statusFilter}
                     onChange={e => setStatusFilter(e.target.value as 'all' | SIFStatus)}
-                    className="h-8 w-full rounded-lg border bg-[#1D232A] px-2 text-xs outline-none"
-                    style={{ borderColor: BORDER, color: TEXT }}
+                    className="h-8 w-full rounded-lg border px-2 text-xs outline-none"
+                    style={{ borderColor: BORDER, color: TEXT, background: PAGE_BG }}
                   >
                     <option value="all">Tous les statuts</option>
                     <option value="draft">Draft</option>
@@ -550,8 +574,8 @@ function HistoryRightPanel({
                   <select
                     value={authorFilter}
                     onChange={e => setAuthorFilter(e.target.value)}
-                    className="h-8 w-full rounded-lg border bg-[#1D232A] px-2 text-xs outline-none"
-                    style={{ borderColor: BORDER, color: TEXT }}
+                    className="h-8 w-full rounded-lg border px-2 text-xs outline-none"
+                    style={{ borderColor: BORDER, color: TEXT, background: PAGE_BG }}
                   >
                     <option value="all">Tous les auteurs</option>
                     {authorOptions.map(a => (
@@ -564,7 +588,7 @@ function HistoryRightPanel({
                   type="button"
                   onClick={onResetScope}
                   className="w-full rounded-lg px-3 py-2 text-xs font-bold border"
-                  style={{ borderColor: BORDER, color: TEXT, background: '#1D232A' }}
+                  style={{ borderColor: BORDER, color: TEXT, background: PAGE_BG }}
                 >
                   Réinitialiser les filtres
                 </button>
@@ -577,8 +601,14 @@ function HistoryRightPanel({
   )
 }
 
+interface SIFHistoryWorkspaceProps {
+  projectId?: string
+  sifId?: string
+}
+
 // ─── Main workspace ───────────────────────────────────────────────────────
-export function SIFHistoryWorkspace() {
+export function SIFHistoryWorkspace({ projectId, sifId }: SIFHistoryWorkspaceProps = {}) {
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const projects       = useAppStore(s => s.projects)
   const navigate       = useAppStore(s => s.navigate)
   const setSyncError   = useAppStore(s => s.setSyncError)
@@ -605,15 +635,26 @@ export function SIFHistoryWorkspace() {
     }
   }
 
+  const scopedProject = projectId ? projects.find(project => project.id === projectId) ?? null : null
+  const scopedSif = scopedProject && sifId
+    ? scopedProject.sifs.find(current => current.id === sifId) ?? null
+    : null
+  const isScopedToSIF = Boolean(scopedProject && scopedSif)
+
+  const scopeProjects = useMemo<Project[]>(() => {
+    if (!isScopedToSIF || !scopedProject || !scopedSif) return projects
+    return [{ ...scopedProject, sifs: [scopedSif] }]
+  }, [isScopedToSIF, projects, scopedProject, scopedSif])
+
   const authorOptions = useMemo(() => {
     const set = new Set<string>()
-    projects.forEach(p => p.sifs.forEach(s => { if (s.madeBy?.trim()) set.add(s.madeBy.trim()) }))
+    scopeProjects.forEach(p => p.sifs.forEach(s => { if (s.madeBy?.trim()) set.add(s.madeBy.trim()) }))
     return Array.from(set).sort((a, b) => a.localeCompare(b, 'fr'))
-  }, [projects])
+  }, [scopeProjects])
 
   const filtered = useMemo<Project[]>(() => {
     const q = search.trim().toLowerCase()
-    return projects
+    return scopeProjects
       .map(p => ({ ...p, sifs: p.sifs.filter(s =>
         (statusFilter === 'all' || s.status === statusFilter) &&
         (authorFilter === 'all' || (s.madeBy ?? '').trim() === authorFilter) &&
@@ -625,7 +666,7 @@ export function SIFHistoryWorkspace() {
         )
       )}))
       .filter(p => p.sifs.length > 0)
-  }, [projects, search, statusFilter, authorFilter])
+  }, [authorFilter, scopeProjects, search, statusFilter])
 
   const totalSIFs = filtered.reduce((acc, p) => acc + p.sifs.length, 0)
   const approvedCount = filtered.reduce((acc, p) => acc + p.sifs.filter(s => s.status === 'approved').length, 0)
@@ -656,6 +697,7 @@ export function SIFHistoryWorkspace() {
   useEffect(() => {
     setRightPanelOverride(
       <HistoryRightPanel
+        scopedTitle={isScopedToSIF ? 'Historique SIF' : 'Historique Global'}
         totalProjects={filtered.length}
         totalSifs={totalSIFs}
         approvedCount={approvedCount}
@@ -680,6 +722,7 @@ export function SIFHistoryWorkspace() {
     authorOptions,
     draftCount,
     filtered.length,
+    isScopedToSIF,
     missingApprover,
     missingVerifier,
     revisionMissingMeta,
@@ -689,6 +732,16 @@ export function SIFHistoryWorkspace() {
     statusFilter,
     totalSIFs,
   ])
+
+  const title = isScopedToSIF && scopedSif
+    ? `${scopedSif.sifNumber} · Historique des révisions`
+    : 'Historique des révisions SIF'
+  const subtitle = isScopedToSIF && scopedProject && scopedSif
+    ? `${scopedProject.name} · ${scopedSif.title || 'SIF'}`
+    : `${totalSIFs} SIF${totalSIFs !== 1 ? 's' : ''} · ${filtered.length} projet${filtered.length !== 1 ? 's' : ''}`
+  const emptyLabel = isScopedToSIF
+    ? 'Aucune révision publiée pour cette SIF'
+    : 'Aucune SIF dans ce projet'
 
   return (
     <div className="flex flex-1 flex-col min-h-0 overflow-hidden" style={{ background: PAGE_BG }}>
@@ -700,10 +753,8 @@ export function SIFHistoryWorkspace() {
             <GitBranch size={15} style={{ color: TEAL }} />
           </div>
           <div>
-            <h1 className="text-sm font-black" style={{ color: TEXT }}>Historique des révisions SIF</h1>
-            <p className="text-[10px]" style={{ color: TEXT_DIM }}>
-              {totalSIFs} SIF{totalSIFs !== 1 ? 's' : ''} · {filtered.length} projet{filtered.length !== 1 ? 's' : ''}
-            </p>
+            <h1 className="text-sm font-black" style={{ color: TEXT }}>{title}</h1>
+            <p className="text-[10px]" style={{ color: TEXT_DIM }}>{subtitle}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 rounded-xl border px-3 h-8" style={{ borderColor: BORDER, background: CARD_BG, width: 280 }}>
@@ -722,7 +773,7 @@ export function SIFHistoryWorkspace() {
             <p className="text-sm font-semibold" style={{ color: TEXT_DIM }}>
               {(search || statusFilter !== 'all' || authorFilter !== 'all')
                 ? 'Aucun résultat pour ces filtres'
-                : 'Aucune SIF dans ce projet'}
+                : emptyLabel}
             </p>
           </div>
         ) : (

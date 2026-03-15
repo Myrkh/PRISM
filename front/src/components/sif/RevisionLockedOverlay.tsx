@@ -1,7 +1,7 @@
 import { Loader2, LockKeyhole, RefreshCw } from 'lucide-react'
 import type { SIF } from '@/core/types'
 import { incrementRevisionLabel } from '@/core/models/revisionWorkflow'
-import { BORDER, CARD_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 interface Props {
   sif: SIF
@@ -14,6 +14,7 @@ export function RevisionLockedOverlay({
   isStartingNextRevision,
   onStartNextRevision,
 }: Props) {
+  const { BORDER, CARD_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const nextRevision = incrementRevisionLabel(sif.revision)
 
   return (

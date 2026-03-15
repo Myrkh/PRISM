@@ -17,11 +17,8 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import type { SIF, SIFStatus, SILLevel } from '@/core/types'
-import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, R, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
-
-const PANEL = dark.panel
-const BG = dark.page
-const CARD = dark.card
+import { semantic } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 // ─── Design tokens ────────────────────────────────────────────────────────
 const BORDER2  = '#363F49'
@@ -68,6 +65,7 @@ type FormValues = Omit<SIF,
 
 // ─── Sub-components ───────────────────────────────────────────────────────
 function FieldLabel({ children, required }: { children: React.ReactNode; required?: boolean }) {
+  const { TEAL, TEXT_DIM } = usePrismTheme()
   return (
     <label className="block text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: TEXT_DIM }}>
       {children}{required && <span style={{ color: TEAL }} className="ml-1">*</span>}
@@ -77,14 +75,16 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 
 const StyledInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { error?: boolean }>(
   ({ error, ...props }, ref) => {
+    const { BORDER, PAGE_BG, TEAL, TEXT } = usePrismTheme()
+    const softBorder = `${BORDER}99`
     return (
       <input
         {...props}
         ref={ref}
         className="w-full rounded-lg border px-3 py-2 text-sm outline-none transition-all"
-        style={{ background: BG, borderColor: error ? '#EF4444' : BORDER2, color: TEXT }}
+        style={{ background: PAGE_BG, borderColor: error ? semantic.error : softBorder, color: TEXT }}
         onFocus={e => (e.target.style.borderColor = TEAL)}
-        onBlur={e => (e.target.style.borderColor = error ? '#EF4444' : BORDER2)}
+        onBlur={e => (e.target.style.borderColor = error ? semantic.error : softBorder)}
       />
     )
   }
@@ -93,14 +93,16 @@ StyledInput.displayName = 'StyledInput'
 
 const StyledTextarea = forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
   (props, ref) => {
+    const { BORDER, PAGE_BG, TEAL, TEXT } = usePrismTheme()
+    const softBorder = `${BORDER}99`
     return (
       <textarea
         {...props}
         ref={ref}
         className="w-full rounded-lg border px-3 py-2 text-sm outline-none transition-all resize-none"
-        style={{ background: BG, borderColor: BORDER2, color: TEXT }}
+        style={{ background: PAGE_BG, borderColor: softBorder, color: TEXT }}
         onFocus={e => (e.target.style.borderColor = TEAL)}
-        onBlur={e => (e.target.style.borderColor = BORDER2)}
+        onBlur={e => (e.target.style.borderColor = softBorder)}
       />
     )
   }
@@ -111,12 +113,14 @@ function StyledSelect({ value, onChange, options }: {
   value: string; onChange: (v: string) => void
   options: { value: string; label: string }[]
 }) {
+  const { BORDER, PAGE_BG, TEAL, TEXT } = usePrismTheme()
+  const softBorder = `${BORDER}99`
   return (
     <select value={value} onChange={e => onChange(e.target.value)}
       className="w-full rounded-lg border px-3 py-2 text-sm outline-none appearance-none"
-      style={{ background: BG, borderColor: BORDER2, color: TEXT }}
+      style={{ background: PAGE_BG, borderColor: softBorder, color: TEXT }}
       onFocus={e => (e.target.style.borderColor = TEAL)}
-      onBlur={e => (e.target.style.borderColor = BORDER2)}>
+      onBlur={e => (e.target.style.borderColor = softBorder)}>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   )
@@ -124,6 +128,8 @@ function StyledSelect({ value, onChange, options }: {
 
 // ─── Main ─────────────────────────────────────────────────────────────────
 export function SIFModal() {
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, R, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const softBorder = `${BORDER}99`
   const isOpen          = useAppStore(s => s.isSIFModalOpen)
   const editingId       = useAppStore(s => s.editingSIFId)
   const newSIFProjectId = useAppStore(s => s.newSIFProjectId)
@@ -244,7 +250,7 @@ export function SIFModal() {
       <div
         className="relative flex flex-col rounded-2xl border shadow-2xl"
         style={{
-          background: PANEL, borderColor: BORDER,
+          background: PANEL_BG, borderColor: BORDER,
           width: '100%', maxWidth: 720, maxHeight: '90vh',
           boxShadow: `0 0 0 1px ${BORDER}, 0 24px 60px rgba(0,0,0,0.6)`,
         }}
@@ -290,7 +296,7 @@ export function SIFModal() {
         {!editing && projects.length > 1 && (
           <div className="px-6 pt-3 shrink-0">
             <div className="flex items-center gap-3 rounded-xl border p-3"
-              style={{ background: BG, borderColor: effectiveProjectId ? `${TEAL}40` : BORDER2 }}>
+              style={{ background: PAGE_BG, borderColor: effectiveProjectId ? `${TEAL}40` : softBorder }}>
               <Folder size={14} style={{ color: effectiveProjectId ? TEAL : TEXT_DIM }} />
               <div className="flex-1 min-w-0">
                 <p className="text-[9px] font-bold uppercase tracking-widest mb-1" style={{ color: TEXT_DIM }}>
@@ -320,9 +326,9 @@ export function SIFModal() {
                 <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
                   className="flex items-center gap-2 px-4 py-2.5 text-left transition-all shrink-0"
                   style={isActive ? {
-                    background: CARD, color: TEAL_DIM,
+                    background: CARD_BG, color: TEAL_DIM,
                     borderTop: `1px solid ${BORDER}`, borderLeft: `1px solid ${BORDER}`,
-                    borderRight: `1px solid ${BORDER}`, borderBottom: `1px solid ${CARD}`,
+                    borderRight: `1px solid ${BORDER}`, borderBottom: `1px solid ${CARD_BG}`,
                     borderRadius: `${R}px ${R}px 0 0`, marginBottom: '-1px', zIndex: 10,
                   } : { color: TEXT_DIM }}
                   onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = TEXT }}
@@ -344,7 +350,7 @@ export function SIFModal() {
               pour que register() ne démonte jamais ses champs. */}
           <div className="flex-1 overflow-y-auto"
             style={{
-              background: CARD, margin: '0 24px',
+              background: CARD_BG, margin: '0 24px',
               borderLeft: `1px solid ${BORDER}`, borderRight: `1px solid ${BORDER}`,
               borderRadius: `${activeIdx === 0 ? 0 : R}px ${activeIdx === TABS.length - 1 ? 0 : R}px ${R}px ${R}px`,
             }}>
@@ -397,7 +403,7 @@ export function SIFModal() {
                           onClick={() => field.onChange(sil as SILLevel)}
                           className="relative rounded-xl border p-3 text-center transition-all"
                           style={sel ? { background: cfg.bg, borderColor: cfg.border, boxShadow: `0 0 16px ${cfg.color}30` }
-                            : { background: BG, borderColor: BORDER2 }}>
+                            : { background: PAGE_BG, borderColor: softBorder }}>
                           {sel && (
                             <div className="absolute top-1.5 right-1.5 w-4 h-4 rounded-full flex items-center justify-center"
                               style={{ background: cfg.color }}>
@@ -405,7 +411,7 @@ export function SIFModal() {
                             </div>
                           )}
                           <p className="text-sm font-black mb-0.5" style={{ color: sel ? cfg.color : TEXT_DIM }}>{cfg.label}</p>
-                          <p className="text-[9px] font-mono" style={{ color: sel ? `${cfg.color}90` : '#4B5563' }}>
+                          <p className="text-[9px] font-mono" style={{ color: sel ? `${cfg.color}90` : TEXT_DIM }}>
                             PFD {cfg.pfd}
                           </p>
                         </button>
@@ -440,7 +446,7 @@ export function SIFModal() {
                           className="rounded-lg border px-2.5 py-1.5 text-[11px] font-bold transition-all"
                           style={initArch === a.id
                             ? { background: `${TEAL}18`, borderColor: TEAL, color: TEAL_DIM }
-                            : { background: BG, borderColor: BORDER2, color: TEXT_DIM }}>
+                            : { background: PAGE_BG, borderColor: softBorder, color: TEXT_DIM }}>
                           {a.label}
                         </button>
                       ))}
@@ -493,7 +499,7 @@ export function SIFModal() {
                   </div>
                   <div className="text-sm" style={{ color: TEXT_DIM }}>= PFD<sub>avg</sub> &lt;</div>
                   <div className="w-24 rounded-lg border px-3 py-2 text-sm font-mono text-center"
-                    style={{ background: BG, borderColor: BORDER2, color: TEAL_DIM }}>
+                    style={{ background: PAGE_BG, borderColor: softBorder, color: TEAL_DIM }}>
                     {(watch('rrfRequired') ?? 0) > 0
                       ? (1 / (watch('rrfRequired') as number)).toExponential(1)
                       : '—'}
@@ -517,7 +523,7 @@ export function SIFModal() {
 
             {/* ══ TRAÇABILITÉ ══ */}
             <div className="p-6 space-y-5" style={{ display: activeTab === 'traceability' ? 'block' : 'none' }}>
-              <div className="rounded-xl border p-4 space-y-3" style={{ background: BG, borderColor: BORDER }}>
+              <div className="rounded-xl border p-4 space-y-3" style={{ background: PAGE_BG, borderColor: BORDER }}>
                 <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
                   Signataires & Responsables
                 </p>
@@ -557,7 +563,7 @@ export function SIFModal() {
               </div>
 
               {/* Récapitulatif live — se remplit car shouldUnregister:false */}
-              <div className="rounded-xl border p-4" style={{ background: BG, borderColor: BORDER }}>
+              <div className="rounded-xl border p-4" style={{ background: PAGE_BG, borderColor: BORDER }}>
                 <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: TEXT_DIM }}>
                   Récapitulatif
                 </p>
@@ -585,7 +591,7 @@ export function SIFModal() {
           {/* Erreur submit */}
           {submitError && (
             <div className="mx-6 mt-3 rounded-lg px-3 py-2 text-xs"
-              style={{ background: '#EF444415', border: '1px solid #EF444440', color: '#F87171' }}>
+              style={{ background: `${semantic.error}15`, border: `1px solid ${semantic.error}40`, color: semantic.error }}>
               ⚠ {submitError}
             </div>
           )}
@@ -598,7 +604,7 @@ export function SIFModal() {
               {TABS.map(tab => (
                 <button key={tab.id} type="button" onClick={() => setActiveTab(tab.id)}
                   className="w-2 h-2 rounded-full transition-all"
-                  style={{ background: activeTab === tab.id ? TEAL : BORDER2 }} />
+                  style={{ background: activeTab === tab.id ? TEAL : softBorder }} />
               ))}
             </div>
 
@@ -606,7 +612,7 @@ export function SIFModal() {
               {activeIdx > 0 && (
                 <button type="button" onClick={() => setActiveTab(TABS[activeIdx - 1].id)}
                   className="flex items-center gap-1 rounded-lg border px-3 py-2 text-sm transition-colors"
-                  style={{ borderColor: BORDER2, color: TEXT_DIM, background: BG }}
+                  style={{ borderColor: softBorder, color: TEXT_DIM, background: PAGE_BG }}
                   onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
                   onMouseLeave={e => (e.currentTarget.style.color = TEXT_DIM)}>
                   <ChevronLeft size={14} /> Précédent
@@ -621,7 +627,7 @@ export function SIFModal() {
               )}
               <button type="button" onClick={closeModal}
                 className="rounded-lg border px-4 py-2 text-sm transition-colors"
-                style={{ borderColor: BORDER2, color: TEXT_DIM, background: BG }}
+                style={{ borderColor: softBorder, color: TEXT_DIM, background: PAGE_BG }}
                 onMouseEnter={e => (e.currentTarget.style.color = TEXT)}
                 onMouseLeave={e => (e.currentTarget.style.color = TEXT_DIM)}>
                 Annuler

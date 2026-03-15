@@ -1,7 +1,8 @@
 import { SILBadge } from '@/components/shared/SILBadge'
 import { formatPFD, formatRRF } from '@/core/math/pfdCalc'
 import type { SIF, SIFCalcResult } from '@/core/types'
-import { BORDER, TEXT, TEXT_DIM, dark, semantic } from '@/styles/tokens'
+import { semantic } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 interface Props {
   sif: SIF
@@ -17,13 +18,14 @@ function MiniMetric({
   value: string
   tone?: 'default' | 'success' | 'warning'
 }) {
+  const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
   const color =
     tone === 'success' ? semantic.success :
     tone === 'warning' ? semantic.warning :
     TEXT
 
   return (
-    <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: dark.card2 }}>
+    <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
       <p className="text-[10px] uppercase tracking-wide" style={{ color: TEXT_DIM }}>{label}</p>
       <p className="mt-1 text-sm font-bold font-mono" style={{ color }}>{value}</p>
     </div>
@@ -31,12 +33,13 @@ function MiniMetric({
 }
 
 export function SIFVerdictBanner({ sif, result }: Props) {
+  const { BORDER, CARD_BG, TEXT, TEXT_DIM } = usePrismTheme()
   return (
     <div
       className="rounded-xl border p-5"
       style={{
         borderColor: result.meetsTarget ? `${semantic.success}44` : `${semantic.warning}44`,
-        background: dark.card,
+        background: CARD_BG,
       }}
     >
       <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">

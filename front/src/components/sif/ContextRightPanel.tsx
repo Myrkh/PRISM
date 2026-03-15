@@ -4,9 +4,8 @@ import type { ComplianceResult } from '@/components/sif/complianceCalc'
 import type { OverviewMetrics } from '@/components/sif/overviewMetrics'
 import type { SIFTab } from '@/store/types'
 import { RightPanelShell } from '@/components/layout/RightPanelShell'
-import { BORDER, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic, dark } from '@/styles/tokens'
-
-const CARD = dark.card2
+import { semantic } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 interface Props {
   sif: SIF
@@ -28,6 +27,7 @@ function ProgressBar({ value, color }: { value: number; color: string }) {
 }
 
 function MetricRow({ label, value, color, suffix }: { label: string; value: string | number; color: string; suffix?: string }) {
+  const { TEXT_DIM } = usePrismTheme()
   return (
     <div className="flex items-center justify-between py-1.5">
       <span className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{label}</span>
@@ -45,6 +45,7 @@ export function ContextRightPanel({
   onOpenEditSheet,
   onSelectTab,
 }: Props) {
+  const { BORDER, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const readiness = Math.round(((compliance.metadataCompletion * 100) + overviewMetrics.tracePct) / 2)
   const readinessColor = readiness >= 85 ? semantic.success : readiness >= 50 ? semantic.warning : semantic.error
 

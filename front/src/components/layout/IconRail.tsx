@@ -6,20 +6,18 @@
  */
 import {
   Home,
-  ListChecks, History, GitBranch, FlaskConical, Cpu,
+  ListChecks, History, Cpu,
   Settings, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
-import { BORDER, RAIL_BG } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 import { RailDivider, RailIconButton } from '@/components/layout/RailPrimitives'
 
 // ─── Outils globaux ───────────────────────────────────────────────────────
 const GLOBAL_TOOLS = [
   { id: 'review-queue' as const, Icon: ListChecks,  label: 'Review Queue'    },
   { id: 'audit-log'   as const, Icon: History,      label: "Journal d'audit" },
-  { id: 'sif-history' as const, Icon: GitBranch,    label: 'Historique SIF'  },
   { id: 'engine'      as const, Icon: Cpu,          label: 'Moteur de calcul'},
-  { id: 'hazop'       as const, Icon: FlaskConical, label: 'HAZOP / LOPA'    },
 ] as const
 
 type GlobalToolId = typeof GLOBAL_TOOLS[number]['id']
@@ -39,6 +37,7 @@ interface IconRailProps {
 export function IconRail({
   leftOpen, rightOpen, onToggleLeft, onToggleRight, showRightToggle, showPanelToggles = true,
 }: IconRailProps) {
+  const { BORDER, RAIL_BG } = usePrismTheme()
   const navigate = useAppStore(s => s.navigate)
   const view     = useAppStore(s => s.view)
 

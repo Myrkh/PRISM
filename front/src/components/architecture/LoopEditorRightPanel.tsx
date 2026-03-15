@@ -35,10 +35,8 @@ import {
   useComponentLibrary,
 } from '@/features/library'
 import { RightPanelShell } from '@/components/layout/RightPanelShell'
-import { BORDER, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
-
-const PANEL = dark.panel
-const BG    = dark.page
+import { semantic } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -87,6 +85,7 @@ function SubsystemArchSection({
   projectId: string
   sifId: string
 }) {
+  const { BORDER, CARD_BG, PAGE_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const updateSubsystem = useAppStore(s => s.updateSubsystem)
   const addChannel      = useAppStore(s => s.addChannel)
   const removeChannel   = useAppStore(s => s.removeChannel)
@@ -122,7 +121,7 @@ function SubsystemArchSection({
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-[#161C24]"
+        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-[#161C24]"
       >
         <div
           className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
@@ -145,7 +144,7 @@ function SubsystemArchSection({
       </button>
 
       {open && (
-        <div className="space-y-3 px-3 pb-3 pt-2" style={{ background: '#0B1017' }}>
+        <div className="space-y-3 px-3 pb-3 pt-2" style={{ background: PAGE_BG }}>
 
           {/* Voies + Architecture — liés */}
           <div className="flex gap-2">
@@ -157,12 +156,12 @@ function SubsystemArchSection({
                   type="button"
                   onClick={handleChannelRemove}
                   disabled={channelCount <= 1}
-                  className="flex h-[28px] w-6 items-center justify-center text-sm transition-colors hover:bg-[#1E242B] disabled:opacity-30"
-                  style={{ color: TEXT_DIM, background: BG }}
+                  className="flex h-[28px] w-6 items-center justify-center text-sm transition-colors hover:bg-black/5 dark:hover:bg-[#1E242B] disabled:opacity-30"
+                  style={{ color: TEXT_DIM, background: CARD_BG }}
                 >−</button>
                 <span
                   className="flex h-[28px] w-6 items-center justify-center text-xs font-mono font-bold"
-                  style={{ background: BG, color: TEXT, borderLeft: `1px solid ${BORDER}`, borderRight: `1px solid ${BORDER}` }}
+                  style={{ background: CARD_BG, color: TEXT, borderLeft: `1px solid ${BORDER}`, borderRight: `1px solid ${BORDER}` }}
                 >
                   {channelCount}
                 </span>
@@ -170,8 +169,8 @@ function SubsystemArchSection({
                   type="button"
                   onClick={handleChannelAdd}
                   disabled={channelCount >= 4}
-                  className="flex h-[28px] w-6 items-center justify-center text-sm transition-colors hover:bg-[#1E242B] disabled:opacity-30"
-                  style={{ color: TEAL_DIM, background: BG }}
+                  className="flex h-[28px] w-6 items-center justify-center text-sm transition-colors hover:bg-black/5 dark:hover:bg-[#1E242B] disabled:opacity-30"
+                  style={{ color: TEAL_DIM, background: CARD_BG }}
                 >+</button>
               </div>
             </div>
@@ -188,7 +187,7 @@ function SubsystemArchSection({
                     className="rounded-md px-2 py-1.5 text-[10px] font-mono font-bold transition-all"
                     style={subsystem.architecture === o.value
                       ? { background: meta.color, color: '#fff', boxShadow: `0 0 8px ${meta.color}40` }
-                      : { background: '#141A21', color: TEXT_DIM, border: `1px solid ${BORDER}` }
+                      : { background: CARD_BG, color: TEXT_DIM, border: `1px solid ${BORDER}` }
                     }
                   >
                     {o.label}
@@ -273,8 +272,8 @@ function SubsystemArchSection({
                               upd({ ccf: { ...subsystem.ccf, [key]: fromPct(e.target.value, val) } })
                             }}
                             className="w-full rounded-md border py-1.5 pl-2 pr-6 text-xs font-mono outline-none"
-                            style={{
-                              background:  BG,
+                      style={{
+                              background:  CARD_BG,
                               borderColor: BORDER,
                               color:       TEXT,
                               opacity:     isTableDerived ? 0.6 : 1,
@@ -318,7 +317,7 @@ function SubsystemArchSection({
 
                 return (
                   <div key={ch.id} className="rounded-lg border p-2 space-y-1.5"
-                    style={{ borderColor: BORDER, background: '#0B1017' }}>
+                    style={{ borderColor: BORDER, background: CARD_BG }}>
                     <div className="flex items-center gap-2">
                       <div className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} />
                       <span className="text-[10px] font-semibold flex-1" style={{ color: TEXT }}>
@@ -337,7 +336,7 @@ function SubsystemArchSection({
                           className="rounded px-2 py-1 text-[9px] font-mono font-bold transition-all"
                           style={displayArch === o.value
                             ? { background: meta.color, color: '#fff' }
-                            : { background: '#141A21', color: TEXT_DIM, border: `1px solid ${BORDER}` }
+                            : { background: PAGE_BG, color: TEXT_DIM, border: `1px solid ${BORDER}` }
                           }
                         >
                           {o.label}
@@ -358,6 +357,7 @@ function SubsystemArchSection({
 // ─── Architecture panel ───────────────────────────────────────────────────────
 
 function ArchitectureConfigPanel({ sif, projectId }: { sif: SIF; projectId: string }) {
+  const { TEXT_DIM } = usePrismTheme()
   if (sif.subsystems.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
@@ -389,10 +389,10 @@ function ArchitectureConfigPanel({ sif, projectId }: { sif: SIF; projectId: stri
 
 type OriginBadge = 'builtin' | 'project' | 'user'
 
-const ORIGIN_STYLE: Record<OriginBadge, { label: string; color: string; bg: string }> = {
-  builtin: { label: 'std',    color: TEXT_DIM,   bg: `${BORDER}60`    },
-  project: { label: 'projet', color: '#F59E0B',  bg: '#F59E0B18'      },
-  user:    { label: 'perso',  color: TEAL_DIM,   bg: `${TEAL}15`      },
+const ORIGIN_STYLE: Record<OriginBadge, { label: string }> = {
+  builtin: { label: 'std' },
+  project: { label: 'projet' },
+  user: { label: 'perso' },
 }
 
 function TemplateCard({
@@ -406,8 +406,14 @@ function TemplateCard({
   onArchive?: (id: string) => void
   onDelete?: (id: string) => void
 }) {
+  const { BORDER, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const meta = SUB_META[template.subsystemType]
   const orig = ORIGIN_STYLE[origin]
+  const originTone = origin === 'builtin'
+    ? { color: TEXT_DIM, bg: `${BORDER}60` }
+    : origin === 'project'
+      ? { color: '#F59E0B', bg: '#F59E0B18' }
+      : { color: TEAL_DIM, bg: `${TEAL}15` }
 
   return (
     <div
@@ -416,7 +422,7 @@ function TemplateCard({
         e.dataTransfer.setData('application/prism-lib', buildLibraryDragPayload(template))
         e.dataTransfer.effectAllowed = 'copy'
       }}
-      className="group flex items-center gap-2 px-3 py-2 cursor-grab active:cursor-grabbing transition-colors hover:bg-[#1A2028]"
+      className="group flex items-center gap-2 px-3 py-2 cursor-grab active:cursor-grabbing transition-colors hover:bg-black/5 dark:hover:bg-[#1A2028]"
       style={{ borderBottom: `1px solid ${BORDER}28` }}
     >
       <GripVertical size={10} className="shrink-0 opacity-30 group-hover:opacity-70" style={{ color: meta.color }} />
@@ -431,7 +437,7 @@ function TemplateCard({
       </div>
       <span
         className="shrink-0 rounded px-1 py-0.5 text-[8px] font-bold"
-        style={{ background: orig.bg, color: orig.color }}
+        style={{ background: originTone.bg, color: originTone.color }}
       >
         {orig.label}
       </span>
@@ -466,6 +472,7 @@ function TemplateCard({
 }
 
 function LibraryContent({ projectId }: { projectId: string }) {
+  const { BORDER, CARD_BG, PAGE_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const profileId = useAppStore(state => state.profile?.id ?? null)
   const setSyncError = useAppStore(state => state.setSyncError)
   const {
@@ -564,14 +571,14 @@ function LibraryContent({ projectId }: { projectId: string }) {
           onChange={e => setSearch(e.target.value)}
           placeholder="Rechercher…"
           className="min-w-0 flex-1 rounded-md border px-2 py-1.5 text-[11px] outline-none transition-colors"
-          style={{ background: BG, borderColor: BORDER, color: TEXT }}
+          style={{ background: PAGE_BG, borderColor: BORDER, color: TEXT }}
           onFocus={e => (e.target.style.borderColor = TEAL)}
           onBlur={e => (e.target.style.borderColor = BORDER)}
         />
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="flex h-7 w-7 items-center justify-center rounded-md border transition-colors hover:bg-[#1E242B]"
+          className="flex h-7 w-7 items-center justify-center rounded-md border transition-colors hover:bg-black/5 dark:hover:bg-[#1E242B]"
           style={{ borderColor: BORDER, color: TEXT_DIM }}
           title="Importer (JSON)"
         >
@@ -581,7 +588,7 @@ function LibraryContent({ projectId }: { projectId: string }) {
           type="button"
           onClick={handleExport}
           disabled={userTemplates.length === 0 && projectTemplates.length === 0}
-          className="flex h-7 w-7 items-center justify-center rounded-md border transition-colors hover:bg-[#1E242B] disabled:opacity-30 disabled:cursor-not-allowed"
+          className="flex h-7 w-7 items-center justify-center rounded-md border transition-colors hover:bg-black/5 dark:hover:bg-[#1E242B] disabled:opacity-30 disabled:cursor-not-allowed"
           style={{ borderColor: BORDER, color: TEXT_DIM }}
           title="Exporter mes templates"
         >
@@ -590,7 +597,7 @@ function LibraryContent({ projectId }: { projectId: string }) {
         <button
           type="button"
           onClick={() => void fetchTemplates()}
-          className="flex h-7 w-7 items-center justify-center rounded-md border transition-colors hover:bg-[#1E242B]"
+          className="flex h-7 w-7 items-center justify-center rounded-md border transition-colors hover:bg-black/5 dark:hover:bg-[#1E242B]"
           style={{ borderColor: BORDER, color: TEXT_DIM }}
           title="Recharger"
         >
@@ -609,7 +616,7 @@ function LibraryContent({ projectId }: { projectId: string }) {
           )}
           {error && (
             <div className="rounded-md px-2.5 py-1.5 text-[10px]"
-              style={{ background: '#7F1D1D20', color: '#FCA5A5', border: `1px solid #F8717130` }}>
+              style={{ background: `${semantic.error}15`, color: semantic.error, border: `1px solid ${semantic.error}30` }}>
               {error}
             </div>
           )}
@@ -627,7 +634,7 @@ function LibraryContent({ projectId }: { projectId: string }) {
               <button
                 type="button"
                 onClick={() => toggleType(type)}
-                className="flex w-full items-center gap-2 px-3 py-1.5 transition-colors hover:bg-[#1A2028]"
+                className="flex w-full items-center gap-2 px-3 py-1.5 transition-colors hover:bg-black/5 dark:hover:bg-[#1A2028]"
                 style={{ borderBottom: `1px solid ${BORDER}` }}
               >
                 <meta.Icon size={11} style={{ color: meta.color }} />
@@ -662,14 +669,20 @@ function LibraryContent({ projectId }: { projectId: string }) {
       {/* Legend */}
       <div
         className="shrink-0 flex items-center gap-3 px-3 py-2"
-        style={{ borderTop: `1px solid ${BORDER}`, background: BG }}
+        style={{ borderTop: `1px solid ${BORDER}`, background: PAGE_BG }}
       >
-        {(Object.entries(ORIGIN_STYLE) as [OriginBadge, typeof ORIGIN_STYLE[OriginBadge]][]).map(([key, s]) => (
+        {(Object.entries(ORIGIN_STYLE) as [OriginBadge, typeof ORIGIN_STYLE[OriginBadge]][]).map(([key, s]) => {
+          const tone = key === 'builtin'
+            ? { color: TEXT_DIM, bg: `${BORDER}60` }
+            : key === 'project'
+              ? { color: '#F59E0B', bg: '#F59E0B18' }
+              : { color: TEAL_DIM, bg: `${TEAL}15` }
+          return (
           <span key={key} className="flex items-center gap-1 text-[9px]" style={{ color: TEXT_DIM }}>
-            <span className="rounded px-1 py-0.5 text-[8px] font-bold" style={{ background: s.bg, color: s.color }}>{s.label}</span>
+            <span className="rounded px-1 py-0.5 text-[8px] font-bold" style={{ background: tone.bg, color: tone.color }}>{s.label}</span>
             {key === 'builtin' ? 'standard' : key === 'project' ? 'projet' : 'personnel'}
           </span>
-        ))}
+        )})}
       </div>
     </div>
   )
@@ -678,6 +691,7 @@ function LibraryContent({ projectId }: { projectId: string }) {
 // ─── Empty component state ────────────────────────────────────────────────────
 
 function EmptyComponentState({ onGoToLibrary }: { onGoToLibrary: () => void }) {
+  const { BORDER, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
       <div
@@ -695,7 +709,7 @@ function EmptyComponentState({ onGoToLibrary }: { onGoToLibrary: () => void }) {
       <button
         type="button"
         onClick={onGoToLibrary}
-        className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-[#1E242B]"
+        className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-black/5 dark:hover:bg-[#1E242B]"
         style={{ borderColor: BORDER, color: TEXT_DIM }}
       >
         <BookOpen size={11} />
@@ -713,6 +727,7 @@ interface Props {
 }
 
 export function LoopEditorRightPanel({ sif, projectId }: Props) {
+  const { PANEL_BG } = usePrismTheme()
   const selectedId      = useAppStore(state => state.selectedComponentId)
   const selectComponent = useAppStore(state => state.selectComponent)
   const [mode, setMode] = useState<PanelMode>('architecture')
@@ -751,7 +766,7 @@ export function LoopEditorRightPanel({ sif, projectId }: Props) {
       }))}
       active={mode}
       onSelect={setMode}
-      contentBg={PANEL}
+      contentBg={PANEL_BG}
     >
       {/* ── Content ── */}
       <div className="flex-1 min-w-0 overflow-hidden">

@@ -6,7 +6,7 @@
  */
 import { Plus, FlaskConical } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BORDER, SURFACE, TEAL, TEXT, TEXT_DIM } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 import { ResultInput, ExpectedValueDisplay } from './ResultWidgets'
 import { ResponseMeasurementsCard } from './ResponseMeasurementsCard'
 import type {
@@ -14,10 +14,7 @@ import type {
 } from './proofTestTypes'
 import { CAT_META, inputCls } from './proofTestTypes'
 
-const TABLE_BG      = '#14181C'
-const TABLE_HEAD_BG = SURFACE
 const TABLE_HOVER   = 'rgba(0, 155, 164, 0.04)'
-const BORDER_VIS    = '#363F49'
 
 interface Props {
   activeCampaign: PTCampaign | null
@@ -35,10 +32,12 @@ export function CampaignExecutionView({
   catsSorted, stepsFor, responseChecks, updateStepResult, updateResponseMeasurement,
   onNewCampaign,
 }: Props) {
+  const { BORDER, CARD_BG, PAGE_BG, TEAL, TEXT, TEXT_DIM, semantic } = usePrismTheme()
+
   if (!activeCampaign) {
     return (
       <div className="rounded-2xl border shadow-sm p-16 flex flex-col items-center justify-center gap-3 text-center"
-        style={{ background: SURFACE, borderColor: BORDER_VIS }}>
+        style={{ background: CARD_BG, borderColor: BORDER }}>
         <FlaskConical size={32} style={{ color: TEAL, opacity: 0.4 }} />
         <p className="font-semibold text-sm" style={{ color: TEXT }}>Aucun test en cours</p>
         <p className="text-xs" style={{ color: TEXT_DIM }}>Cliquez sur <strong>Nouveau test</strong> pour démarrer une campagne d'essai</p>
@@ -56,13 +55,13 @@ export function CampaignExecutionView({
     <div className="space-y-3">
       {readOnly && (
         <div className="rounded-2xl border px-4 py-3 text-xs"
-          style={{ background: '#0F1B3D', borderColor: '#1D4ED830', color: '#BFDBFE' }}>
+          style={{ background: `${TEAL}10`, borderColor: `${TEAL}26`, color: TEAL }}>
           Cette campagne est cloturee et figee. Elle reste consultable, mais n est plus editable.
         </div>
       )}
 
       {/* Campaign meta */}
-      <div className="rounded-2xl border shadow-sm p-5" style={{ background: SURFACE, borderColor: BORDER_VIS }}>
+      <div className="rounded-2xl border shadow-sm p-5" style={{ background: CARD_BG, borderColor: BORDER }}>
         <div className="grid grid-cols-3 gap-4">
           <div>
             <p className="text-[9px] font-bold uppercase tracking-wider mb-1" style={{ color: TEXT_DIM }}>Date du test</p>
@@ -92,7 +91,7 @@ export function CampaignExecutionView({
                   className="text-[9px] font-bold px-2 py-1 rounded border transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                   style={activeCampaign.verdict === v
                     ? { background: bg, color: 'white', borderColor: bg }
-                    : { background: TABLE_BG, color: TEXT_DIM, borderColor: BORDER_VIS }
+                    : { background: PAGE_BG, color: TEXT_DIM, borderColor: BORDER }
                   }
                 >{label}</button>
               ))}
@@ -108,9 +107,9 @@ export function CampaignExecutionView({
         if (steps.length === 0) return null
 
         return (
-          <div key={cat.id} className="rounded-2xl border shadow-sm overflow-hidden" style={{ background: TABLE_BG, borderColor: BORDER_VIS }}>
+          <div key={cat.id} className="rounded-2xl border shadow-sm overflow-hidden" style={{ background: CARD_BG, borderColor: BORDER }}>
             <div className="flex items-center gap-3 px-5 py-3 border-b"
-              style={{ background: TABLE_HEAD_BG, borderColor: BORDER }}
+              style={{ background: PAGE_BG, borderColor: BORDER }}
             >
               <div className="w-2 h-2 rounded-full" style={{ background: meta.color }} />
               <span className="text-sm font-bold" style={{ color: meta.color }}>{cat.title}</span>
@@ -119,7 +118,7 @@ export function CampaignExecutionView({
 
             <table className="w-full text-xs">
               <thead>
-                <tr className="border-b" style={{ borderColor: BORDER, background: TABLE_HEAD_BG }}>
+                <tr className="border-b" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-8" style={{ color: TEXT_DIM }}>#</th>
                   <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Action</th>
                   <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-32" style={{ color: TEXT_DIM }}>Lieu</th>
@@ -156,7 +155,7 @@ export function CampaignExecutionView({
                           disabled={readOnly}
                           onChange={e => updateStepResult(step.id, { comment: e.target.value })}
                           placeholder="Remarque…"
-                          className="w-full bg-transparent text-[10px] outline-none border-b border-transparent focus:border-[#009BA4] py-0.5 placeholder:text-[#8FA0B1] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                          className="w-full bg-transparent text-[10px] outline-none border-b border-transparent focus:border-[#009BA4] py-0.5 placeholder:text-[#667085] dark:placeholder:text-[#8FA0B1] transition-all disabled:opacity-60 disabled:cursor-not-allowed"
                           style={{ color: TEXT }}
                         />
                       </td>
@@ -177,7 +176,7 @@ export function CampaignExecutionView({
       />
 
       {/* Campaign signatures */}
-      <div className="rounded-2xl border shadow-sm p-5" style={{ background: SURFACE, borderColor: BORDER_VIS }}>
+      <div className="rounded-2xl border shadow-sm p-5" style={{ background: CARD_BG, borderColor: BORDER }}>
         <div className="grid grid-cols-2 gap-4">
           {[
             { k: 'conductedBy' as const, label: 'Réalisé par' },

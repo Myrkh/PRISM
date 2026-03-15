@@ -22,7 +22,7 @@ import type { Project, SIF } from '@/core/types'
 import type { SIFTab } from '@/store/types'
 import { downloadRevisionArtifact } from '@/lib/revisionArtifacts'
 import { cn } from '@/lib/utils'
-import { BORDER, NAVY, TEAL, TEXT_DIM } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 import type {
   PTStep, PTStepResult, PTCampaign, PTProcedure, Verdict, PTResponseCheck, PTResponseMeasurement,
 } from './proofTestTypes'
@@ -110,6 +110,7 @@ function computeCampaignVerdict(
 }
 
 export function ProofTestTab({ project, sif, onSelectTab }: Props) {
+  const { BORDER, CARD_BG, PAGE_BG, NAVY, TEAL, TEXT, TEXT_DIM, semantic } = usePrismTheme()
   const updateProofTestProcedure = useAppStore(s => s.updateProofTestProcedure)
   const addTestCampaign = useAppStore(s => s.addTestCampaign)
   const updateTestCampaign = useAppStore(s => s.updateTestCampaign)
@@ -342,9 +343,9 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
       {/* Overdue alert */}
       {!isActiveExecutionView && isOverdue && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl border"
-          style={{ background: '#2A1215', borderColor: '#7F1D1D55' }}>
+          style={{ background: `${semantic.error}08`, borderColor: `${semantic.error}22` }}>
           <AlertTriangle size={15} className="text-red-500 shrink-0" />
-          <p className="text-xs font-medium" style={{ color: '#FCA5A5' }}>
+          <p className="text-xs font-medium" style={{ color: TEXT }}>
             Test en retard de <strong>{daysOverdue} jours</strong> — dernier test : {lastCampaign?.date} · Périodicité : {procedure.periodicityMonths} mois
           </p>
         </div>
@@ -352,19 +353,19 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
 
       {!isActiveExecutionView && isProcedureLocked && view === 'procedure' && (
         <div className="flex items-center gap-3 px-4 py-3 rounded-xl border"
-          style={{ background: '#0F1B3D', borderColor: '#1D4ED830' }}>
-          <AlertTriangle size={15} className="shrink-0" style={{ color: '#60A5FA' }} />
-          <p className="text-xs font-medium" style={{ color: '#BFDBFE' }}>
+          style={{ background: `${NAVY}10`, borderColor: `${NAVY}24` }}>
+          <AlertTriangle size={15} className="shrink-0" style={{ color: NAVY }} />
+          <p className="text-xs font-medium" style={{ color: TEXT }}>
             Procédure figée sur la révision publiée. L exécution et l historique des campagnes restent disponibles.
           </p>
         </div>
       )}
 
       {isActiveExecutionView ? (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border px-4 py-4" style={{ background: '#1D232A', borderColor: BORDER }}>
+        <div className="flex items-center justify-between gap-3 rounded-2xl border px-4 py-4" style={{ background: CARD_BG, borderColor: BORDER }}>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Campagne active</p>
-            <p className="mt-1 text-sm font-bold text-white">
+            <p className="mt-1 text-sm font-bold" style={{ color: TEXT }}>
               {sif.sifNumber} | Campagne PT-{activeCampaign.date || 'en-cours'} en cours
             </p>
             <p className="mt-1 text-[11px]" style={{ color: TEXT_DIM }}>
@@ -373,15 +374,15 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
           </div>
           <button
             onClick={() => setView('history')}
-            className="h-8 px-3 text-xs font-semibold rounded-xl border text-[#8FA0B1] hover:border-[#009BA4] hover:text-[#009BA4] transition-all"
-            style={{ borderColor: BORDER, background: '#14181C' }}
+            className="h-8 px-3 text-xs font-semibold rounded-xl border hover:border-[#009BA4] hover:text-[#009BA4] transition-all"
+            style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}
           >
             Suspendre
           </button>
         </div>
       ) : (
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1 rounded-xl border p-1" style={{ background: '#1D232A', borderColor: BORDER }}>
+          <div className="flex items-center gap-1 rounded-xl border p-1" style={{ background: PAGE_BG, borderColor: BORDER }}>
             {([
               { id: 'procedure' as View, label: 'Procedure', icon: ClipboardList },
               { id: 'execution' as View, label: 'Execution', icon: FlaskConical },
@@ -390,9 +391,9 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
               <button key={id} onClick={() => setView(id)}
                 className={cn(
                   'flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all',
-                  view === id ? 'text-white shadow-sm' : 'text-[#8FA0B1] hover:text-[#DFE8F1]',
+                  view === id ? 'text-white shadow-sm' : '',
                 )}
-                style={view === id ? { background: NAVY } : undefined}
+                style={view === id ? { background: NAVY } : { color: TEXT_DIM }}
               ><Icon size={12} />{label}</button>
             ))}
           </div>
@@ -401,7 +402,8 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
             {view === 'procedure' && (editMode ? (
               <>
                 <button onClick={() => setEditMode(false)}
-                  className={cn(inputCls, 'px-3 text-[#8FA0B1] hover:text-red-500 cursor-pointer')}>Annuler</button>
+                  className={cn(inputCls, 'px-3 hover:text-red-500 cursor-pointer')}
+                  style={{ color: TEXT_DIM }}>Annuler</button>
                 <button onClick={saveProcedure}
                   disabled={isSavingProcedure}
                   className="h-8 px-4 text-xs font-semibold text-white rounded-xl flex items-center gap-1.5 shadow-sm"
@@ -410,8 +412,8 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
             ) : (
               <button onClick={() => setEditMode(true)}
                 disabled={isProcedureLocked}
-                className="h-8 px-3 text-xs font-semibold rounded-xl border text-[#8FA0B1] hover:border-[#009BA4] hover:text-[#009BA4] flex items-center gap-1.5 transition-all"
-                style={{ borderColor: BORDER, background: '#1D232A' }}><Pencil size={12} />{isProcedureLocked ? 'Figee' : 'Modifier'}</button>
+                className="h-8 px-3 text-xs font-semibold rounded-xl border hover:border-[#009BA4] hover:text-[#009BA4] flex items-center gap-1.5 transition-all"
+                style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}><Pencil size={12} />{isProcedureLocked ? 'Figee' : 'Modifier'}</button>
             ))}
             {view === 'execution' && !activeCampaign && (
               <button onClick={() => setActiveCampaign(newCampaign())}
@@ -420,11 +422,12 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
             )}
             {view === 'execution' && activeCampaign && activeCampaign.closedAt && (
               <button onClick={() => setActiveCampaign(null)}
-                className={cn(inputCls, 'px-3 text-[#8FA0B1] cursor-pointer')}>Fermer</button>
+                className={cn(inputCls, 'px-3 cursor-pointer')}
+                style={{ color: TEXT_DIM }}>Fermer</button>
             )}
             <button onClick={() => setShowExport(true)}
-              className="h-8 px-3 text-xs font-semibold rounded-xl border text-[#8FA0B1] hover:border-[#009BA4] hover:text-[#009BA4] flex items-center gap-1.5 transition-all"
-              style={{ borderColor: BORDER, background: '#1D232A' }}><Download size={12} />PDF</button>
+              className="h-8 px-3 text-xs font-semibold rounded-xl border hover:border-[#009BA4] hover:text-[#009BA4] flex items-center gap-1.5 transition-all"
+              style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}><Download size={12} />PDF</button>
           </div>
         </div>
       )}
@@ -462,12 +465,13 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
         />
       )}
 
-      <div className="rounded-2xl border px-4 py-3" style={{ background: '#1D232A', borderColor: BORDER }}>
+      <div className="rounded-2xl border px-4 py-3" style={{ background: CARD_BG, borderColor: BORDER }}>
         {isActiveExecutionView ? (
           <div className="flex flex-wrap items-center justify-between gap-2">
             <button
               onClick={() => setActiveCampaign(null)}
-              className={cn(inputCls, 'px-3 text-[#8FA0B1] hover:text-red-500 cursor-pointer')}
+              className={cn(inputCls, 'px-3 hover:text-red-500 cursor-pointer')}
+              style={{ color: TEXT_DIM }}
             >
               Annuler
             </button>
@@ -475,8 +479,8 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
               <button
                 onClick={() => { void saveCampaignDraft() }}
                 disabled={isSavingCampaign}
-                className="h-8 px-4 text-xs font-semibold rounded-xl border text-[#8FA0B1] hover:border-[#009BA4] hover:text-[#009BA4] transition-all disabled:opacity-60"
-                style={{ borderColor: BORDER, background: '#14181C' }}
+                className="h-8 px-4 text-xs font-semibold rounded-xl border hover:border-[#009BA4] hover:text-[#009BA4] transition-all disabled:opacity-60"
+                style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}
               >
                 {isSavingCampaign ? 'Sauvegarde…' : 'Sauver'}
               </button>
@@ -494,8 +498,8 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
           <div className="flex flex-wrap items-center justify-between gap-2">
             <button
               onClick={() => onSelectTab?.('verification')}
-              className="h-8 px-3 text-xs font-semibold rounded-xl border text-[#8FA0B1] hover:border-[#009BA4] hover:text-[#009BA4] transition-all"
-              style={{ borderColor: BORDER, background: '#14181C' }}
+              className="h-8 px-3 text-xs font-semibold rounded-xl border hover:border-[#009BA4] hover:text-[#009BA4] transition-all"
+              style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}
             >
               <span className="inline-flex items-center gap-1.5">
                 <ArrowLeft size={12} />
@@ -505,8 +509,8 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
             <div className="flex flex-wrap items-center gap-2">
               <button
                 onClick={() => setShowExport(true)}
-                className="h-8 px-3 text-xs font-semibold rounded-xl border text-[#8FA0B1] hover:border-[#009BA4] hover:text-[#009BA4] transition-all"
-                style={{ borderColor: BORDER, background: '#14181C' }}
+                className="h-8 px-3 text-xs font-semibold rounded-xl border hover:border-[#009BA4] hover:text-[#009BA4] transition-all"
+                style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}
               >
                 <span className="inline-flex items-center gap-1.5">
                   <Download size={12} />

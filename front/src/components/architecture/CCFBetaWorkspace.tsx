@@ -2,7 +2,7 @@ import { Fragment } from 'react'
 import { ArrowLeft, ShieldCheck } from 'lucide-react'
 import type { BetaAssessmentResult, BetaChecklistItem } from '@/core/math/betaFactor'
 import type { BetaAssessmentConfig, CCFMethod, SIFSubsystem, VoteType } from '@/core/types'
-import { BORDER, TEAL, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 const METHOD_OPTIONS: CCFMethod[] = ['MAX', 'AVERAGE', 'GEOMETRIC', 'MIN', 'QUADRATIC']
 
@@ -56,12 +56,13 @@ export function CCFBetaWorkspace({
   onApply,
   canApply,
 }: Props) {
+  const { BORDER, CARD_BG, PAGE_BG, TEAL, TEXT, TEXT_DIM, semantic } = usePrismTheme()
   return (
     <div
       className="flex h-full min-h-0 flex-col overflow-hidden rounded-[22px] border"
-      style={{ borderColor: '#2A3138', background: '#23292F' }}
+      style={{ borderColor: BORDER, background: CARD_BG }}
     >
-      <header className="border-b px-5 py-4" style={{ borderColor: '#2A3138' }}>
+      <header className="border-b px-5 py-4" style={{ borderColor: BORDER }}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex items-start gap-3">
             <div
@@ -72,16 +73,16 @@ export function CCFBetaWorkspace({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <p className="text-base font-semibold" style={{ color: '#DFE8F1' }}>
+                <p className="text-base font-semibold" style={{ color: TEXT }}>
                   CCF / Beta Assessment Workspace
                 </p>
                 {selectedSubsystem ? (
-                  <span className="rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em]" style={{ borderColor: '#2A3138', background: '#14181C', color: '#8FA0B1' }}>
+                  <span className="rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[0.12em]" style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}>
                     {selectedSubsystem.label}
                   </span>
                 ) : null}
               </div>
-              <p className="mt-1 text-xs leading-relaxed" style={{ color: '#8FA0B1' }}>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
                 Evalue le facteur beta selon l&apos;annexe D de l&apos;IEC 61508 et applique directement le resultat au moteur.
               </p>
             </div>
@@ -91,7 +92,7 @@ export function CCFBetaWorkspace({
             type="button"
             onClick={onBack}
             className="inline-flex items-center gap-1.5 rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors"
-            style={{ borderColor: BORDER, color: TEXT_DIM, background: dark.card2 }}
+            style={{ borderColor: BORDER, color: TEXT_DIM, background: PAGE_BG }}
           >
             <ArrowLeft size={12} />
             Retour au canvas
@@ -104,26 +105,26 @@ export function CCFBetaWorkspace({
           assessmentDraft.mode === 'iec61508' ? (
             <div className="space-y-4">
               <div className="grid grid-cols-[1.1fr_0.9fr] gap-4">
-                <div className="rounded-xl border p-4" style={{ borderColor: '#2A3138', background: '#1D232A' }}>
+                <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: CARD_BG }}>
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <p className="text-sm font-semibold" style={{ color: '#DFE8F1' }}>Diagnostic Inputs</p>
-                      <p className="mt-1 text-xs" style={{ color: '#8FA0B1' }}>Renseigne Z et la justification de credit diagnostic.</p>
+                      <p className="text-sm font-semibold" style={{ color: TEXT }}>Diagnostic Inputs</p>
+                      <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>Renseigne Z et la justification de credit diagnostic.</p>
                     </div>
-                    <label className="inline-flex items-center gap-2 text-xs" style={{ color: '#8FA0B1' }}>
+                    <label className="inline-flex items-center gap-2 text-xs" style={{ color: TEXT_DIM }}>
                       <input
                         type="checkbox"
                         checked={assessmentDraft.allowZCredit}
                         onChange={e => onUpdateAssessment('allowZCredit', e.target.checked)}
                         className="h-4 w-4 rounded border accent-[#009BA4]"
-                        style={{ borderColor: '#2A3138', background: '#14181C' }}
+                        style={{ borderColor: BORDER, background: PAGE_BG }}
                       />
                       Allow Z credit
                     </label>
                   </div>
                   <div className="mt-4 grid grid-cols-[1fr_0.9fr_0.8fr] gap-3">
                     <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8FA0B1' }}>Diagnostic coverage [%]</label>
+                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Diagnostic coverage [%]</label>
                       <input
                         type="number"
                         min="0"
@@ -132,11 +133,11 @@ export function CCFBetaWorkspace({
                         value={assessmentDraft.diagnosticCoveragePct}
                         onChange={e => onUpdateAssessment('diagnosticCoveragePct', Number(e.target.value))}
                         className="mt-1 h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
-                        style={{ borderColor: '#2A3138', background: '#14181C', color: '#DFE8F1' }}
+                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8FA0B1' }}>Diagnostic interval</label>
+                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Diagnostic interval</label>
                       <input
                         type="number"
                         min="0"
@@ -144,16 +145,16 @@ export function CCFBetaWorkspace({
                         value={assessmentDraft.diagnosticInterval}
                         onChange={e => onUpdateAssessment('diagnosticInterval', Number(e.target.value))}
                         className="mt-1 h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
-                        style={{ borderColor: '#2A3138', background: '#14181C', color: '#DFE8F1' }}
+                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8FA0B1' }}>Unit</label>
+                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Unit</label>
                       <select
                         value={assessmentDraft.diagnosticIntervalUnit}
                         onChange={e => onUpdateAssessment('diagnosticIntervalUnit', e.target.value as BetaAssessmentConfig['diagnosticIntervalUnit'])}
                         className="mt-1 h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
-                        style={{ borderColor: '#2A3138', background: '#14181C', color: '#DFE8F1' }}
+                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
                       >
                         <option value="min">min</option>
                         <option value="hr">hr</option>
@@ -163,12 +164,12 @@ export function CCFBetaWorkspace({
                   </div>
                 </div>
 
-                <div className="rounded-xl border p-4" style={{ borderColor: '#2A3138', background: '#1D232A' }}>
-                  <p className="text-sm font-semibold" style={{ color: '#DFE8F1' }}>Scaling & Engine Settings</p>
-                  <p className="mt-1 text-xs" style={{ color: '#8FA0B1' }}>Table D.5 + parametrage moteur applique au sous-systeme.</p>
+                <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: CARD_BG }}>
+                  <p className="text-sm font-semibold" style={{ color: TEXT }}>Scaling & Engine Settings</p>
+                  <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>Table D.5 + parametrage moteur applique au sous-systeme.</p>
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8FA0B1' }}>M</label>
+                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>M</label>
                       <input
                         type="number"
                         min="1"
@@ -177,11 +178,11 @@ export function CCFBetaWorkspace({
                         value={assessmentDraft.mooN_M}
                         onChange={e => onUpdateAssessment('mooN_M', Number(e.target.value))}
                         className="mt-1 h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
-                        style={{ borderColor: '#2A3138', background: '#14181C', color: '#DFE8F1' }}
+                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8FA0B1' }}>N</label>
+                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>N</label>
                       <input
                         type="number"
                         min="1"
@@ -190,16 +191,16 @@ export function CCFBetaWorkspace({
                         value={assessmentDraft.mooN_N}
                         onChange={e => onUpdateAssessment('mooN_N', Number(e.target.value))}
                         className="mt-1 h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
-                        style={{ borderColor: '#2A3138', background: '#14181C', color: '#DFE8F1' }}
+                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8FA0B1' }}>Vote Type</label>
+                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Vote Type</label>
                       <select
                         value={voteType}
                         onChange={e => onVoteTypeChange(e.target.value as VoteType)}
                         className="mt-1 h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
-                        style={{ borderColor: '#2A3138', background: '#14181C', color: '#DFE8F1' }}
+                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
                       >
                         <option value="S">Standard (S)</option>
                         <option value="A">Availability (A)</option>
@@ -207,12 +208,12 @@ export function CCFBetaWorkspace({
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8FA0B1' }}>CCF Method</label>
+                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>CCF Method</label>
                       <select
                         value={method}
                         onChange={e => onMethodChange(e.target.value as CCFMethod)}
                         className="mt-1 h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
-                        style={{ borderColor: '#2A3138', background: '#14181C', color: '#DFE8F1' }}
+                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
                       >
                         {METHOD_OPTIONS.map(option => (
                           <option key={option} value={option}>{option}</option>
@@ -223,18 +224,18 @@ export function CCFBetaWorkspace({
                 </div>
               </div>
 
-              <div className="overflow-hidden rounded-xl border" style={{ borderColor: '#2A3138', background: '#1D232A' }}>
-                <div className="border-b px-4 py-3" style={{ borderColor: '#2A3138' }}>
+              <div className="overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: CARD_BG }}>
+                <div className="border-b px-4 py-3" style={{ borderColor: BORDER }}>
                   <div className="flex items-center justify-between gap-4">
                     <div>
-                      <h3 className="text-sm font-semibold" style={{ color: '#DFE8F1' }}>IEC 61508 Annex D Checklist</h3>
-                      <p className="mt-1 text-xs" style={{ color: '#8FA0B1' }}>
+                      <h3 className="text-sm font-semibold" style={{ color: TEXT }}>IEC 61508 Annex D Checklist</h3>
+                      <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>
                         Tableau D.1 applique en profil {profileLabel}. Coche les mesures effectivement defendables pour ce sous-systeme.
                       </p>
                     </div>
-                    <div className="rounded-lg border px-3 py-2 text-right" style={{ borderColor: '#2A3138', background: '#14181C' }}>
-                      <p className="text-[10px] uppercase tracking-wider" style={{ color: '#8FA0B1' }}>Checked measures</p>
-                      <p className="mt-1 text-sm font-bold font-mono" style={{ color: '#DFE8F1' }}>
+                    <div className="rounded-lg border px-3 py-2 text-right" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                      <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>Checked measures</p>
+                      <p className="mt-1 text-sm font-bold font-mono" style={{ color: TEXT }}>
                         {assessmentDraft.selectedMeasureIds.length}/{checklistCount}
                       </p>
                     </div>
@@ -242,19 +243,19 @@ export function CCFBetaWorkspace({
                 </div>
                 <div>
                   <table className="w-full text-sm">
-                    <thead className="sticky top-0" style={{ background: '#14181C' }}>
-                      <tr className="border-b" style={{ borderColor: '#2A3138' }}>
-                        <th className="w-16 px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: '#8FA0B1' }}>Apply</th>
-                        <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: '#8FA0B1' }}>Measure</th>
-                        <th className="w-20 px-4 py-3 text-right text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: '#8FA0B1' }}>X</th>
-                        <th className="w-20 px-4 py-3 text-right text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: '#8FA0B1' }}>Y</th>
+                    <thead className="sticky top-0" style={{ background: PAGE_BG }}>
+                      <tr className="border-b" style={{ borderColor: BORDER }}>
+                        <th className="w-16 px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: TEXT_DIM }}>Apply</th>
+                        <th className="px-4 py-3 text-left text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: TEXT_DIM }}>Measure</th>
+                        <th className="w-20 px-4 py-3 text-right text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: TEXT_DIM }}>X</th>
+                        <th className="w-20 px-4 py-3 text-right text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: TEXT_DIM }}>Y</th>
                       </tr>
                     </thead>
                     <tbody>
                       {checklistSections.map(({ section, items }) => (
                         <Fragment key={section}>
-                          <tr className="border-b" style={{ borderColor: '#2A3138', background: '#14181C' }}>
-                            <td colSpan={4} className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: '#5FD8D2' }}>
+                          <tr className="border-b" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                            <td colSpan={4} className="px-4 py-2 text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: TEAL }}>
                               {section}
                             </td>
                           </tr>
@@ -262,23 +263,23 @@ export function CCFBetaWorkspace({
                             const score = assessmentDraft.profile === 'logic' ? item.scores.logic : item.scores.field
                             const checked = assessmentDraft.selectedMeasureIds.includes(item.id)
                             return (
-                              <tr key={item.id} className="border-b transition-colors hover:bg-[#20262D]" style={{ borderColor: '#2A3138' }}>
+                              <tr key={item.id} className="border-b transition-colors hover:bg-black/5 dark:hover:bg-[#20262D]" style={{ borderColor: BORDER }}>
                                 <td className="px-4 py-3 align-top">
                                   <input
                                     type="checkbox"
                                     checked={checked}
                                     onChange={() => onToggleMeasure(item.id)}
                                     className="mt-0.5 h-4 w-4 rounded border accent-[#009BA4]"
-                                    style={{ borderColor: '#2A3138', background: '#14181C' }}
+                                    style={{ borderColor: BORDER, background: PAGE_BG }}
                                   />
                                 </td>
-                                <td className="px-4 py-3 text-xs leading-relaxed" style={{ color: '#DFE8F1' }}>
+                                <td className="px-4 py-3 text-xs leading-relaxed" style={{ color: TEXT }}>
                                   {item.label}
                                 </td>
-                                <td className="px-4 py-3 text-right text-xs font-mono" style={{ color: '#8FA0B1' }}>
+                                <td className="px-4 py-3 text-right text-xs font-mono" style={{ color: TEXT_DIM }}>
                                   {score ? score.x.toFixed(1) : '—'}
                                 </td>
-                                <td className="px-4 py-3 text-right text-xs font-mono" style={{ color: '#8FA0B1' }}>
+                                <td className="px-4 py-3 text-right text-xs font-mono" style={{ color: TEXT_DIM }}>
                                   {score ? score.y.toFixed(1) : '—'}
                                 </td>
                               </tr>
@@ -298,15 +299,15 @@ export function CCFBetaWorkspace({
                       { label: 'X total', value: assessmentResult.x.toFixed(1) },
                       { label: 'Y total', value: assessmentResult.y.toFixed(1) },
                       { label: 'Z', value: assessmentResult.z.toFixed(1) },
-                      { label: 'Score X+Y+Z', value: assessmentResult.score.toFixed(1), tone: assessmentResult.acceptable ? '#4ADE80' : '#F59E0B' },
+                      { label: 'Score X+Y+Z', value: assessmentResult.score.toFixed(1), tone: assessmentResult.acceptable ? semantic.success : semantic.warning },
                       { label: 'IEC S = X+Y', value: assessmentResult.s.toFixed(1) },
                       { label: 'IEC SD', value: assessmentResult.sd.toFixed(1) },
                       { label: 'Beta int', value: formatBetaPct(assessmentResult.betaInt) },
                       { label: 'BetaD int', value: formatBetaPct(assessmentResult.betaDInt) },
                     ].map(item => (
-                      <div key={item.label} className="rounded-xl border px-4 py-3" style={{ borderColor: '#2A3138', background: '#1D232A' }}>
-                        <p className="text-[10px] uppercase tracking-wider" style={{ color: '#8FA0B1' }}>{item.label}</p>
-                        <p className="mt-1 text-lg font-bold font-mono" style={{ color: item.tone ?? '#DFE8F1' }}>
+                      <div key={item.label} className="rounded-xl border px-4 py-3" style={{ borderColor: BORDER, background: CARD_BG }}>
+                        <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{item.label}</p>
+                        <p className="mt-1 text-lg font-bold font-mono" style={{ color: item.tone ?? TEXT }}>
                           {item.value}
                         </p>
                       </div>
@@ -314,33 +315,33 @@ export function CCFBetaWorkspace({
                   </div>
 
                   <div className="grid grid-cols-[1.2fr_0.8fr_0.8fr] gap-3">
-                    <div className="rounded-xl border px-4 py-3" style={{ borderColor: '#2A3138', background: '#1D232A' }}>
-                      <p className="text-[10px] uppercase tracking-wider" style={{ color: '#8FA0B1' }}>Scaling</p>
-                      <p className="mt-1 text-sm font-semibold" style={{ color: '#DFE8F1' }}>
+                    <div className="rounded-xl border px-4 py-3" style={{ borderColor: BORDER, background: CARD_BG }}>
+                      <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>Scaling</p>
+                      <p className="mt-1 text-sm font-semibold" style={{ color: TEXT }}>
                         MooN {assessmentDraft.mooN_M}oo{assessmentDraft.mooN_N}
                       </p>
-                      <p className="mt-1 text-xs" style={{ color: '#8FA0B1' }}>
+                      <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>
                         {assessmentResult.scaleFactor !== null
                           ? `Table D.5 factor = ${assessmentResult.scaleFactor.toFixed(2)}`
                           : 'No explicit Table D.5 factor available for this MooN combination.'}
                       </p>
                     </div>
-                    <div className="rounded-xl border px-4 py-3" style={{ borderColor: '#2A3138', background: '#1D232A' }}>
-                      <p className="text-[10px] uppercase tracking-wider" style={{ color: '#8FA0B1' }}>Scaled Beta</p>
-                      <p className="mt-1 text-lg font-bold font-mono" style={{ color: '#DFE8F1' }}>
+                    <div className="rounded-xl border px-4 py-3" style={{ borderColor: BORDER, background: CARD_BG }}>
+                      <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>Scaled Beta</p>
+                      <p className="mt-1 text-lg font-bold font-mono" style={{ color: TEXT }}>
                         {formatBetaPct(assessmentResult.beta)}
                       </p>
                     </div>
-                    <div className="rounded-xl border px-4 py-3" style={{ borderColor: '#2A3138', background: '#1D232A' }}>
-                      <p className="text-[10px] uppercase tracking-wider" style={{ color: '#8FA0B1' }}>Scaled BetaD</p>
-                      <p className="mt-1 text-lg font-bold font-mono" style={{ color: '#DFE8F1' }}>
+                    <div className="rounded-xl border px-4 py-3" style={{ borderColor: BORDER, background: CARD_BG }}>
+                      <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>Scaled BetaD</p>
+                      <p className="mt-1 text-lg font-bold font-mono" style={{ color: TEXT }}>
                         {formatBetaPct(assessmentResult.betaD)}
                       </p>
                     </div>
                   </div>
 
                   {assessmentResult.warnings.length ? (
-                    <div className="rounded-xl border px-4 py-3 text-sm leading-relaxed" style={{ borderColor: '#F59E0B44', background: '#F59E0B12', color: '#F59E0B' }}>
+                    <div className="rounded-xl border px-4 py-3 text-sm leading-relaxed" style={{ borderColor: `${semantic.warning}44`, background: `${semantic.warning}12`, color: semantic.warning }}>
                       {assessmentResult.warnings.join(' ')}
                     </div>
                   ) : null}
@@ -350,19 +351,19 @@ export function CCFBetaWorkspace({
           ) : (
             <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="rounded-xl border p-4" style={{ borderColor: '#2A3138', background: '#1D232A' }}>
-                  <p className="text-sm font-semibold" style={{ color: '#DFE8F1' }}>Manual Override</p>
-                  <p className="mt-1 text-xs" style={{ color: '#8FA0B1' }}>
+                <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: CARD_BG }}>
+                  <p className="text-sm font-semibold" style={{ color: TEXT }}>Manual Override</p>
+                  <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>
                     Garde la main sur les valeurs moteur tout en conservant le workspace IEC en reference.
                   </p>
                   <div className="mt-4 grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8FA0B1' }}>Vote Type</label>
+                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Vote Type</label>
                       <select
                         value={voteType}
                         onChange={e => onVoteTypeChange(e.target.value as VoteType)}
                         className="mt-1 h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
-                        style={{ borderColor: '#2A3138', background: '#14181C', color: '#DFE8F1' }}
+                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
                       >
                         <option value="S">Standard (S)</option>
                         <option value="A">Availability (A)</option>
@@ -370,12 +371,12 @@ export function CCFBetaWorkspace({
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8FA0B1' }}>CCF Method</label>
+                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>CCF Method</label>
                       <select
                         value={method}
                         onChange={e => onMethodChange(e.target.value as CCFMethod)}
                         className="mt-1 h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
-                        style={{ borderColor: '#2A3138', background: '#14181C', color: '#DFE8F1' }}
+                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
                       >
                         {METHOD_OPTIONS.map(option => (
                           <option key={option} value={option}>{option}</option>
@@ -383,7 +384,7 @@ export function CCFBetaWorkspace({
                       </select>
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8FA0B1' }}>Beta [%]</label>
+                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Beta [%]</label>
                       <input
                         type="number"
                         min="0"
@@ -392,11 +393,11 @@ export function CCFBetaWorkspace({
                         value={betaPct}
                         onChange={e => onBetaPctChange(e.target.value)}
                         className="mt-1 h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
-                        style={{ borderColor: '#2A3138', background: '#14181C', color: '#DFE8F1' }}
+                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
                       />
                     </div>
                     <div>
-                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8FA0B1' }}>BetaD [%]</label>
+                      <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>BetaD [%]</label>
                       <input
                         type="number"
                         min="0"
@@ -405,21 +406,21 @@ export function CCFBetaWorkspace({
                         value={betaDPct}
                         onChange={e => onBetaDPctChange(e.target.value)}
                         className="mt-1 h-9 w-full rounded-lg border px-2.5 text-sm outline-none"
-                        style={{ borderColor: '#2A3138', background: '#14181C', color: '#DFE8F1' }}
+                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
                       />
                     </div>
                   </div>
                 </div>
 
-                <div className="rounded-xl border p-4" style={{ borderColor: '#2A3138', background: '#1D232A' }}>
-                  <p className="text-sm font-semibold" style={{ color: '#DFE8F1' }}>Quick Actions</p>
-                  <p className="mt-1 text-xs" style={{ color: '#8FA0B1' }}>
+                <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: CARD_BG }}>
+                  <p className="text-sm font-semibold" style={{ color: TEXT }}>Quick Actions</p>
+                  <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>
                     Ajustements rapides pour les hypotheses manuelles avant application au moteur.
                   </p>
                   <div className="mt-4 space-y-3">
-                    <div className="rounded-lg border px-3 py-3" style={{ borderColor: '#2A3138', background: '#14181C' }}>
-                      <p className="text-[10px] uppercase tracking-wider" style={{ color: '#8FA0B1' }}>Preview</p>
-                      <p className="mt-1 text-lg font-bold font-mono" style={{ color: '#DFE8F1' }}>
+                    <div className="rounded-lg border px-3 py-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                      <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>Preview</p>
+                      <p className="mt-1 text-lg font-bold font-mono" style={{ color: TEXT }}>
                         β {betaPct || '0'}% · βD {betaDPct || '0'}%
                       </p>
                     </div>
@@ -444,7 +445,7 @@ export function CCFBetaWorkspace({
                         type="button"
                         onClick={onResetManual}
                         className="rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors"
-                        style={{ borderColor: BORDER, color: TEXT_DIM, background: dark.card2 }}
+                        style={{ borderColor: BORDER, color: TEXT_DIM, background: PAGE_BG }}
                       >
                         Reset defaults
                       </button>
@@ -455,14 +456,14 @@ export function CCFBetaWorkspace({
             </div>
           )
         ) : (
-          <div className="rounded-xl border px-4 py-5 text-sm" style={{ borderColor: '#2A3138', background: '#1D232A', color: '#8FA0B1' }}>
+          <div className="rounded-xl border px-4 py-5 text-sm" style={{ borderColor: BORDER, background: CARD_BG, color: TEXT_DIM }}>
             Aucun sous-systeme redondant n&apos;est disponible. Ajoute au moins deux channels sur un sous-systeme pour definir un facteur beta.
           </div>
         )}
       </div>
 
-      <div className="flex items-center justify-between gap-4 border-t px-5 py-3" style={{ borderColor: '#2A3138' }}>
-        <p className="text-xs" style={{ color: '#8FA0B1' }}>
+      <div className="flex items-center justify-between gap-4 border-t px-5 py-3" style={{ borderColor: BORDER }}>
+        <p className="text-xs" style={{ color: TEXT_DIM }}>
           {assessmentDraft.mode === 'iec61508'
             ? 'Le resultat applique beta et betaD calcules par la methode IEC active.'
             : 'Le mode manuel applique directement les valeurs beta et betaD saisies.'}
@@ -472,7 +473,7 @@ export function CCFBetaWorkspace({
             type="button"
             onClick={onBack}
             className="rounded-lg border px-3 py-1.5 text-[11px] font-semibold transition-colors"
-            style={{ borderColor: BORDER, color: TEXT_DIM, background: dark.card2 }}
+            style={{ borderColor: BORDER, color: TEXT_DIM, background: PAGE_BG }}
           >
             Retour
           </button>

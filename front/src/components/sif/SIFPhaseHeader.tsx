@@ -7,13 +7,14 @@
  */
 import type { CanonicalSIFTab } from '@/store/types'
 import { SIF_TAB_META } from '@/store/types'
-import { TEXT_DIM } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 interface Props {
   tab: CanonicalSIFTab
 }
 
 export function SIFPhaseHeader({ tab }: Props) {
+  const { TEXT_DIM } = usePrismTheme()
   if (tab === 'cockpit' || tab === 'report') return null
 
   const meta = SIF_TAB_META[tab]

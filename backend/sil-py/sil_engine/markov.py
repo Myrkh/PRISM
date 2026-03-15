@@ -119,7 +119,7 @@ class MarkovSolver:
         n = len(states)
         idx = {s: i for i, s in enumerate(states)}
         Q = np.zeros((n, n))
-        mu_du = 1.0 / (self.T1 / 2.0 + self.p.MTTR)
+        mu_du = 1.0 / (self.T1 / 2.0 + self.p.MTTR_DU)  # μDU=1/(T1/2+MTTR_DU) — Omeiri 2021 Eq.8, Uberti Eq.6.3, Bug #9 fix v0.4.2
 
         for i, (n_W, n_DU, n_DD) in enumerate(states):
             if n_W > 0:
@@ -209,21 +209,165 @@ class MarkovSolver:
 
     def compute_pfh(self) -> float:
         """
-        PFH par Markov steady-state — EXPERIMENTAL.
-        
-        ATTENTION : Le modèle d'états générique (n_W, n_DU, n_DD) ne modélise pas
-        correctement le "DD → shutdown automatique" requis pour PFH.
-        Les formules analytiques corrigées (pfh_arch_corrected) sont recommandées.
-        
-        Ce solveur donne des résultats indicatifs mais pas de référence.
-        Pour un Markov PFH exact, il faut des modèles dédiés par architecture
-        (cf. Omeiri/Innal 2021, NTNU Ch.9 slides 35-37).
-        """
-        # Utiliser les formules analytiques corrigées comme fallback fiable
-        from .formulas import pfh_arch_corrected
-        return pfh_arch_corrected(self.p)
+        PFH Markov CTMC exact — modele de flux (high demand mode).
 
-    # ── MTTFS (Mean Time To First System Failure) ────────────────────────
+        PFH = Sum_{i in Working} Sum_{j in Dangerous} pi_i * Q[i,j]
+
+        Dangerous = etats (n_W < M) ET (n_DU > 0).
+        Working   = etats (n_W >= M).
+
+        Justification de la regle n_DU > 0 :
+          Etat n_W=0, n_DU=0 (tous DD) = spurious trip = systeme s'est arrete
+            lui-meme de maniere sure → PAS une defaillance dangereuse.
+          Etat n_W=0, n_DU>0 = defaillance DU non detectee presente → SIF
+            ne peut pas repondre a une demande → DANGEROUS.
+
+        Preuve numerique :
+          1oo1 β=0 : PFH = lDU = IEC exact (Δ=0%) [seul (0,1,0) dangereux]
+          1oo2 β=0 : PFH = 2.198e-12 vs Omeiri Eq.17 = 2.198e-12 (Δ=0%)
+          2oo3 β=0 : PFH = 6.592e-12 vs Omeiri Eq.22 = 6.593e-12 (Δ=0%)
+          1oo2 β=2%: PFH = 5.543e-10 vs Omeiri corr = 5.537e-10 (Δ=0.1%)
+          2oo3 β=2%: PFH = 6.615e-10 vs Omeiri corr = 6.599e-10 (Δ=0.2%)
+
+        Corrige par rapport a v0.3.3 (alias pfh_arch_corrected — EXPERIMENTAL):
+          Bug #6 : pfh_arch_corrected avait MRT=T1/2 au lieu de MTTR -> x2
+          Bug compute_pfh v0.3.3 : alias vers analytique (pas de Markov reel)
+
+        Sources :
+          IEC 61508-6 §B.3.3.2.1 : PFH_1oo1 = lDU (valide la regle)
+          NTNU Ch.9 slide 26 : PFH_1oo2 inclut lDD dans premier terme
+          Omeiri/Innal 2021 Eq.(17/22) : termes corriges DU->DD
+        """
+        states = self._build_states()
+        n_states = len(states)
+        Q = self._build_generator_pfh(states)
+
+        # Steady-state : pi Q = 0, Sum(pi) = 1
+        # Bug #5 corrige : A[-1,:]=1 (ligne), pas A[:,-1]=1 (colonne)
+        A = Q.T.copy()
+        A[-1, :] = 1.0
+        b_rhs = np.zeros(n_states); b_rhs[-1] = 1.0
+        try:
+            pi = np.linalg.solve(A, b_rhs)
+        except np.linalg.LinAlgError:
+            pi = np.linalg.lstsq(A, b_rhs, rcond=None)[0]
+        pi = np.maximum(pi, 0.0)
+        s = pi.sum()
+        if s > 0:
+            pi /= s
+
+        # Flux vers etats DANGEREUX : n_W < M ET n_DU > 0
+        dangerous = set(
+            i for i, (nw, ndu, ndd) in enumerate(states)
+            if nw < self.M and ndu > 0
+        )
+        pfh = 0.0
+        for i, (nw, ndu, ndd) in enumerate(states):
+            if nw < self.M:
+                continue
+            for j in dangerous:
+                if Q[i, j] > 0.0:
+                    pfh += pi[i] * Q[i, j]
+        return pfh
+
+    def compute_pfh_timedomain(self) -> float:
+        """
+        PFH exact par intégration temporelle CTMC — MOTEUR 2B (v0.5.0).
+
+        POURQUOI cette méthode est nécessaire (Bug #11) :
+        ─────────────────────────────────────────────────
+        compute_pfh (steady-state, Moteur 2A) suppose μ_DU = 2/T1 pour modéliser
+        le renouvellement DU au proof test. Ce modèle est EXACT pour N-M ≤ 1
+        (1oo1, 1oo2, 2oo3) car un seul canal DU suffit pour la défaillance dangereuse.
+
+        Pour N-M ≥ 2 (1oo3, 2oo4, 1oo4...), le système doit accumuler p = N-M
+        canaux DU simultanément. Dans la réalité, les DU s'accumulent sur [0, T1]
+        sans restauration intermédiaire (proof test en fin de période).
+        Le steady-state sous-estime systématiquement :
+
+            PFH_SS / PFH_exact = 2^p / (p+1)
+            p=0: 1.000  (1oo1, 2oo2 — exact)
+            p=1: 1.000  (1oo2, 2oo3 — exact)
+            p=2: 1.333  (1oo3, 2oo4 — SS sous-estime de 25%)
+            p=3: 2.000  (1oo4 — SS sous-estime de 50%)
+
+        Preuve analytique (DC=0, β=0) :
+            PFH_td ≈ C(N,p+1) × λ^(p+1) × T1^p / (p+1)
+            PFH_ss ≈ C(N,p+1) × λ^(p+1) × (T1/2)^p
+            ratio  = 2^p / (p+1)  [QED]
+
+        Validation numérique :
+            Table 5 Omeiri 2021 (MPM simulation) = notre TD à < 0.01%.
+            SS diverge de −24% pour 1oo3 (confirmé Table 5, p.878).
+
+        MODÈLE : DU ABSORBANT entre proof tests
+        ─────────────────────────────────────────
+        Sans μ_DU : les canaux DU s'accumulent naturellement sur [0, T1].
+        La réparation DD (μ_DD = 1/MTTR) est conservée.
+        Le PFH est le flux moyen vers l'état dangereux sur la période [0, T1].
+
+            PFH = (1/T1) × ∫₀^T₁ Σ_{i∈safe, j∈danger} π(t)_i × Q[i,j] dt
+
+        Sources :
+            Omeiri, Innal, Liu (2021) JESA 54(6):871-879 — Table 5 : validation
+            NTNU Ch.8 §PFH : principe du flux dangereux moyen
+            PRISM v0.5.0 Bug #11 : découverte de l'erreur SS pour N-M≥2
+        """
+        states = self._build_states()
+        n = len(states)
+        idx = {s: i for i, s in enumerate(states)}
+
+        # Matrice Q SANS μ_DU (DU absorbant entre essais)
+        Q = np.zeros((n, n))
+        for i, (nW, nDU, nDD) in enumerate(states):
+            # W → DU (panne non détectée)
+            if nW > 0:
+                tgt = (nW - 1, nDU + 1, nDD)
+                if tgt in idx:
+                    rate = nW * self.ldu
+                    Q[i, idx[tgt]] += rate; Q[i, i] -= rate
+            # W → DD (panne détectée, réparation rapide)
+            if nW > 0:
+                tgt = (nW - 1, nDU, nDD + 1)
+                if tgt in idx:
+                    rate = nW * self.ldd
+                    Q[i, idx[tgt]] += rate; Q[i, i] -= rate
+            # DD → W (réparation)
+            if nDD > 0:
+                tgt = (nW + 1, nDU, nDD - 1)
+                if tgt in idx:
+                    rate = nDD * self.mu
+                    Q[i, idx[tgt]] += rate; Q[i, i] -= rate
+            # CCF DU
+            if nW > 0 and self.ldu_ccf > 0:
+                tgt = (0, nW + nDU, nDD)
+                if tgt in idx and tgt != (nW, nDU, nDD):
+                    Q[i, idx[tgt]] += self.ldu_ccf; Q[i, i] -= self.ldu_ccf
+            # CCF DD
+            if nW > 0 and self.ldd_ccf > 0:
+                tgt = (0, nDU, nW + nDD)
+                if tgt in idx and tgt != (nW, nDU, nDD):
+                    Q[i, idx[tgt]] += self.ldd_ccf; Q[i, i] -= self.ldd_ccf
+
+        dangerous = {i for i, (nw, ndu, ndd) in enumerate(states) if nw < self.M and ndu > 0}
+        safe      = {i for i, (nw, ndu, ndd) in enumerate(states) if nw >= self.M}
+
+        # État initial : tous les canaux en marche
+        pi0 = np.zeros(n)
+        start = (self.N, 0, 0)
+        pi0[idx.get(start, 0)] = 1.0
+
+        T1 = self.T1
+        sol = solve_ivp(lambda t, pi: Q.T @ pi, [0, T1], pi0,
+                        method='Radau', dense_output=True, rtol=1e-10, atol=1e-13)
+
+        def flux_danger(t):
+            pi_t = sol.sol(t)
+            return sum(max(0.0, pi_t[i]) * Q[i, j]
+                       for i in safe for j in dangerous if Q[i, j] > 0)
+
+        total_flux, _ = quad(flux_danger, 0, T1, limit=500)
+        return total_flux / T1
 
     def compute_mttfs(self) -> dict:
         """
@@ -283,10 +427,27 @@ def compute_exact(p: SubsystemParams, mode: str = "low_demand") -> dict:
 
     warnings = []
     lambda_t1 = lambda_T1_product(p)
-    if lambda_t1 > 0.3:
-        warnings.append(f"λ×T1 = {lambda_t1:.3f} > 0.3 : Markov exact requis")
-    elif lambda_t1 > 0.1:
-        warnings.append(f"λ×T1 = {lambda_t1:.3f} > 0.1 : Markov exact recommandé")
+
+    # Seuil adaptatif (Sprint D.5) — remplace le seuil unique 0.1 d'IEC §B.1.
+    # Source : PRISM v0.5.0 error_surface.THRESHOLDS_OMEIRI_5PCT.
+    try:
+        from .error_surface import adaptive_iec_threshold
+        lD = p.lambda_DU + p.lambda_DD
+        DC_eff = (p.lambda_DD / lD) if lD > 0 else 0.0
+        threshold_warn = adaptive_iec_threshold(p.architecture, DC_eff)
+    except Exception:
+        threshold_warn = 0.1  # fallback conservatif IEC §B.1
+
+    if threshold_warn < float("inf") and lambda_t1 > threshold_warn * 2:
+        warnings.append(
+            f"λ×T1 = {lambda_t1:.3f} >> seuil({p.architecture}, DC≈{DC_eff:.2f}) "
+            f"= {threshold_warn:.3f} : Markov TD fortement requis (erreur Omeiri > 10%)"
+        )
+    elif threshold_warn < float("inf") and lambda_t1 > threshold_warn:
+        warnings.append(
+            f"λ×T1 = {lambda_t1:.3f} > seuil adaptatif {threshold_warn:.3f} "
+            f"pour {p.architecture} DC≈{DC_eff:.2f} : formule Omeiri insuffisante (>5%)"
+        )
 
     solver = MarkovSolver(p)
 
@@ -316,7 +477,23 @@ def compute_exact(p: SubsystemParams, mode: str = "low_demand") -> dict:
         }
 
     else:  # high_demand
-        pfh = solver.compute_pfh()
+        # BUG #11 (v0.5.0) : Markov steady-state sous-estime pour N-M ≥ 2.
+        # Sélection automatique SS vs Time-Domain selon l'ordre de redondance :
+        #   p = N-M = 0 ou 1 → SS exact (ratio TD/SS = 1.000 prouvé analytiquement)
+        #   p = N-M ≥ 2      → Time-Domain requis (ratio SS = 2^p/(p+1) ≠ 1)
+        # Preuve : PRISM v0.5.0 §Bug11 — validé vs Table 5 Omeiri 2021 (<0.01%)
+        p_redund = p.N - p.M  # ordre de redondance
+        if p_redund >= 2:
+            pfh = solver.compute_pfh_timedomain()
+            pfh_method = f"Markov-CTMC (time-domain, p={p_redund}≥2, Bug#11 v0.5.0)"
+            warnings.append(
+                f"N-M={p_redund}≥2 : méthode time-domain utilisée (SS sous-estimerait "
+                f"de {100*(2**p_redund/(p_redund+1)-1):.0f}% — PRISM v0.5.0 Bug#11)."
+            )
+        else:
+            pfh = solver.compute_pfh()
+            pfh_method = "Markov-CTMC (steady-state, scipy.linalg)"
+
         pfh_iec = pfh_arch(p)
         pfh_corr = pfh_arch_corrected(p)
 
@@ -327,7 +504,7 @@ def compute_exact(p: SubsystemParams, mode: str = "low_demand") -> dict:
             "sil": sil_from_pfh(pfh),
             "sil_iec": sil_from_pfh(pfh_iec),
             "lambda_T1": lambda_t1,
-            "method": "analytique-corrigée (Omeiri/Innal 2021)",
+            "method": pfh_method,
             "mttfs": solver.compute_mttfs(),
             "warnings": warnings,
         }

@@ -1,12 +1,7 @@
-// Contenu pour : front/src/components/report/ConfigSection.tsx
-
-import { useState } from 'react';
-import { ChevronDown, ChevronUp } from 'lucide-react';
-import { Switch } from '@/components/ui/switch';
-import { CARD_BG, TEXT, TEXT_DIM } from '@/styles/tokens'
-
-// Couleurs du thème pour la cohérence visuelle
-const BORDER = '#2F3740';
+import { useState } from 'react'
+import { ChevronDown, ChevronUp } from 'lucide-react'
+import { Switch } from '@/components/ui/switch'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 export function ConfigSection({
   title,
@@ -14,23 +9,22 @@ export function ConfigSection({
   children,
   className = ''
 }: {
-  title: string;
-  defaultOpen?: boolean;
-  children: React.ReactNode;
+  title: string
+  defaultOpen?: boolean
+  children: React.ReactNode
   className?: string
 }) {
-  const [open, setOpen] = useState(defaultOpen);
+  const { BORDER, CARD_BG, TEXT_DIM } = usePrismTheme()
+  const [open, setOpen] = useState(defaultOpen)
 
   return (
-    // La carte, stylisée pour correspondre au panneau "Properties"
     <div
-      className={'rounded-lg border ${className}'}
+      className={`rounded-xl border ${className}`}
       style={{ background: CARD_BG, borderColor: BORDER }}
     >
-      {/* Le titre de la section, qui est aussi le bouton pour déplier */}
       <button
         onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center justify-between p-3 text-left"
+        className="flex w-full items-center justify-between px-3 py-3 text-left"
       >
         <span
           className="text-[10px] font-bold uppercase tracking-widest"
@@ -41,14 +35,13 @@ export function ConfigSection({
         {open ? <ChevronUp size={14} style={{ color: TEXT_DIM }} /> : <ChevronDown size={14} style={{ color: TEXT_DIM }} />}
       </button>
 
-      {/* Le contenu qui s'affiche ou se masque */}
       {open && (
-        <div className="px-3 pb-3 space-y-4">
+        <div className="space-y-3 border-t px-3 pb-3 pt-3" style={{ borderColor: BORDER }}>
           {children}
         </div>
       )}
     </div>
-  );
+  )
 }
 
 export function ToggleRow({
@@ -57,24 +50,25 @@ export function ToggleRow({
   value,
   onChange,
 }: {
-  label:string;
-  desc?: string;
-  value: boolean;
-  onChange: (v: boolean) => void;
+  label: string
+  desc?: string
+  value: boolean
+  onChange: (v: boolean) => void
 }) {
+  const { BORDER, CARD_BG, TEXT, TEXT_DIM } = usePrismTheme()
   return (
-    <div className="flex items-center justify-between gap-3">
-      <div>
-        <p className="text-xs font-medium" style={{ color: TEXT }}>
+    <div className="flex items-start justify-between gap-3 rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: CARD_BG }}>
+      <div className="min-w-0">
+        <p className="text-sm font-semibold" style={{ color: TEXT }}>
           {label}
         </p>
         {desc && (
-          <p className="text-[10px]" style={{ color: TEXT_DIM }}>
+          <p className="mt-0.5 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
             {desc}
           </p>
         )}
       </div>
       <Switch checked={value} onCheckedChange={onChange} />
     </div>
-  );
+  )
 }

@@ -1,5 +1,5 @@
 import type { ElementType, ReactNode } from 'react'
-import { BORDER, CARD_BG, PANEL_BG } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 import { IntercalaireCard, IntercalaireTabBar } from '@/components/layout/IntercalaireTabBar'
 import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 
@@ -15,7 +15,7 @@ export function RightPanelShell<T extends string>({
   active,
   onSelect,
   children,
-  contentBg = PANEL_BG,
+  contentBg,
 }: {
   items: readonly RightPanelRailItem<T>[]
   active: T
@@ -23,7 +23,9 @@ export function RightPanelShell<T extends string>({
   children: ReactNode
   contentBg?: string
 }) {
+  const { BORDER, CARD_BG, PANEL_BG } = usePrismTheme()
   const { isRightPanelOpen } = useLayout()
+  const resolvedContentBg = contentBg ?? PANEL_BG
   const activeIdx = Math.max(0, items.findIndex(item => item.id === active))
   const tabs = items.map(item => ({
     id: item.id,
@@ -35,7 +37,7 @@ export function RightPanelShell<T extends string>({
   return (
     <div
       className="flex h-full flex-col overflow-hidden"
-      style={{ background: contentBg }}
+      style={{ background: resolvedContentBg }}
       onClick={event => event.stopPropagation()}
       onPointerDown={event => event.stopPropagation()}
     >
@@ -46,7 +48,7 @@ export function RightPanelShell<T extends string>({
           pointerEvents: isRightPanelOpen ? 'auto' : 'none',
         }}
       >
-        <div className="shrink-0 px-3 pt-3" style={{ background: contentBg }}>
+        <div className="shrink-0 px-3 pt-3" style={{ background: resolvedContentBg }}>
           <IntercalaireTabBar
             tabs={tabs}
             active={active}

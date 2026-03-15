@@ -25,13 +25,10 @@ import type {
   NatureType, InstrumentCategory, DeterminedCharacter,
 } from '@/core/types'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { BORDER, CARD_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } from '@/styles/tokens'
-const PANEL = CARD_BG
+import { semantic } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 // ─── Design tokens ────────────────────────────────────────────────────────
-const CARD     = '#1D232A'
-const BG       = '#141A21'
-const BORDER2  = '#363F49'
 const R        = 6
 
 const TYPE_META: Record<SubsystemType, { color: string; label: string; Icon: React.ElementType }> = {
@@ -177,6 +174,7 @@ function inputToTags(raw: string): string[] {
 
 // ─── Small reusable form widgets ──────────────────────────────────────────
 function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+  const { TEXT_DIM } = usePrismTheme()
   return (
     <div className="space-y-1">
       <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>{label}</label>
@@ -189,14 +187,15 @@ function StyledInput({ value, onChange, placeholder, type = 'text', step }: {
   value: string | number; onChange: (v: string) => void
   placeholder?: string; type?: string; step?: string
 }) {
+  const { BORDER, PAGE_BG, TEAL, TEXT } = usePrismTheme()
   return (
     <input
       type={type} step={step} value={value} onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       className="w-full rounded-md border px-2 py-1.5 text-xs outline-none transition-colors"
-      style={{ background: BG, borderColor: BORDER2, color: TEXT }}
+      style={{ background: PAGE_BG, borderColor: BORDER, color: TEXT }}
       onFocus={e => (e.target.style.borderColor = TEAL)}
-      onBlur={e => (e.target.style.borderColor = BORDER2)}
+      onBlur={e => (e.target.style.borderColor = BORDER)}
     />
   )
 }
@@ -210,6 +209,7 @@ function ScientificInput({
   onCommit: (value: number) => void
   placeholder?: string
 }) {
+  const { BORDER, PAGE_BG, TEXT } = usePrismTheme()
   const [draft, setDraft] = useState(() => formatEditableNumber(value))
   const [invalid, setInvalid] = useState(false)
 
@@ -262,8 +262,8 @@ function ScientificInput({
       placeholder={placeholder}
       className="w-full rounded-md border px-2 py-1.5 text-xs outline-none transition-colors font-mono"
       style={{
-        background: BG,
-        borderColor: invalid ? '#EF4444' : BORDER2,
+        background: PAGE_BG,
+        borderColor: invalid ? semantic.error : BORDER,
         color: TEXT,
       }}
     />
@@ -274,30 +274,33 @@ function StyledSelect({ value, onChange, options }: {
   value: string; onChange: (v: string) => void
   options: { value: string; label: string }[]
 }) {
+  const { BORDER, PAGE_BG, TEXT } = usePrismTheme()
   return (
     <select
       value={value} onChange={e => onChange(e.target.value)}
       className="w-full rounded-md border px-2 py-1.5 text-xs outline-none appearance-none"
-      style={{ background: BG, borderColor: BORDER2, color: TEXT }}
+      style={{ background: PAGE_BG, borderColor: BORDER, color: TEXT }}
     >
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   )
 }
 
-function SliderField({ label, value, min, max, step = 0.01, format, onChange, color = TEAL }: {
+function SliderField({ label, value, min, max, step = 0.01, format, onChange, color }: {
   label: string; value: number; min: number; max: number; step?: number
   format: (v: number) => string; onChange: (v: number) => void; color?: string
 }) {
+  const { BORDER, TEAL, TEXT_DIM } = usePrismTheme()
+  const tone = color ?? TEAL
   const pct = ((value - min) / (max - min)) * 100
-  const trackColor = pct < 40 ? '#EF4444' : pct < 65 ? '#F59E0B' : color
+  const trackColor = pct < 40 ? semantic.error : pct < 65 ? semantic.warning : tone
   return (
     <div className="space-y-1">
       <div className="flex justify-between items-center">
         <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>{label}</label>
         <span className="text-[11px] font-bold font-mono" style={{ color: trackColor }}>{format(value)}</span>
       </div>
-      <div className="relative h-1.5 rounded-full" style={{ background: BORDER2 }}>
+      <div className="relative h-1.5 rounded-full" style={{ background: BORDER }}>
         <div className="absolute inset-y-0 left-0 rounded-full"
           style={{ width: `${pct}%`, background: trackColor, transition: 'background 0.2s' }} />
         <input
@@ -311,10 +314,11 @@ function SliderField({ label, value, min, max, step = 0.01, format, onChange, co
 }
 
 function ComputedRow({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
-  const c = ok === undefined ? TEXT : ok ? '#4ADE80' : '#F87171'
+  const { BORDER, PAGE_BG, TEXT, TEXT_DIM, semantic } = usePrismTheme()
+  const c = ok === undefined ? TEXT : ok ? semantic.success : semantic.error
   return (
     <div className="flex justify-between items-center rounded px-2 py-1.5"
-      style={{ background: BG, border: `1px solid ${BORDER2}` }}>
+      style={{ background: PAGE_BG, border: `1px solid ${BORDER}` }}>
       <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>{label}</span>
       <span className="text-xs font-bold font-mono" style={{ color: c }}>{value}</span>
     </div>
@@ -322,6 +326,7 @@ function ComputedRow({ label, value, ok }: { label: string; value: string; ok?: 
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
+  const { BORDER, TEXT_DIM } = usePrismTheme()
   return (
     <div className="flex items-center gap-2 my-2">
       <div className="flex-1 border-t" style={{ borderColor: BORDER }} />
@@ -345,6 +350,11 @@ interface Props {
 export function ComponentParamsPanel({
   component, subsystemType, projectId, sifId, subsystemId, channelId, onClose,
 }: Props) {
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const PANEL = PANEL_BG
+  const CARD = CARD_BG
+  const BG = PAGE_BG
+  const BORDER2 = BORDER
   const updateComponent = useAppStore(s => s.updateComponent)
   const saveComponentTemplate = useAppStore(s => s.saveComponentTemplate)
   const setSyncError = useAppStore(s => s.setSyncError)
@@ -848,7 +858,7 @@ export function ComponentParamsPanel({
         setIsSaveDialogOpen(open)
         if (!open) setSaveError(null)
       }}>
-        <DialogContent className="max-w-xl border-[#2A3340] bg-[#111821] text-[#DFE8F1]">
+        <DialogContent className="max-w-xl border" style={{ borderColor: BORDER, background: CARD, color: TEXT }}>
           <DialogHeader>
             <DialogTitle>Enregistrer comme template SIL</DialogTitle>
             <p className="text-sm" style={{ color: TEXT_DIM }}>
@@ -933,7 +943,7 @@ export function ComponentParamsPanel({
 
             {saveError && (
               <div className="rounded-lg border px-3 py-2 text-[11px]"
-                style={{ background: '#7F1D1D20', borderColor: '#F8717130', color: '#FCA5A5' }}>
+                style={{ background: `${semantic.error}15`, borderColor: `${semantic.error}30`, color: semantic.error }}>
                 {saveError}
               </div>
             )}
@@ -966,10 +976,11 @@ export function ComponentParamsPanel({
 
 // ── Live metric chip ──────────────────────────────────────────────────────
 function LiveMetric({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
-  const color = ok === undefined ? TEXT_DIM : ok ? '#4ADE80' : '#F87171'
+  const { BORDER, PAGE_BG, TEXT_DIM, semantic } = usePrismTheme()
+  const color = ok === undefined ? TEXT_DIM : ok ? semantic.success : semantic.error
   return (
     <div className="flex-1 rounded px-1.5 py-1 text-center"
-      style={{ background: BG, border: `1px solid ${BORDER}` }}>
+      style={{ background: PAGE_BG, border: `1px solid ${BORDER}` }}>
       <p className="text-[8px] uppercase tracking-widest" style={{ color: TEXT_DIM }}>{label}</p>
       <p className="text-[11px] font-bold font-mono" style={{ color }}>{value}</p>
     </div>

@@ -34,7 +34,8 @@ import type {
   ComplianceTechnicalFinding,
 } from './complianceCalc'
 import { useAppStore } from '@/store/appStore'
-import { BORDER, CARD_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM, dark, semantic } from '@/styles/tokens'
+import { semantic } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 type PanelTab = 'summary' | 'gap' | 'assumptions' | 'evidence'
 
@@ -80,6 +81,7 @@ interface Props {
 }
 
 function SectionLabel({ children }: { children: ReactNode }) {
+  const { TEXT_DIM } = usePrismTheme()
   return (
     <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
       {children}
@@ -92,6 +94,7 @@ function StatusPill({
 }: {
   status: ComplianceItemStatus | AssumptionStatus | SIFAssumptionStatus | 'ok' | 'review'
 }) {
+  const { TEXT_DIM } = usePrismTheme()
   const tone =
     status === 'complete' || status === 'validated' || status === 'ok'
       ? { color: semantic.success, bg: `${semantic.success}12`, border: `${semantic.success}44`, label: 'OK' }
@@ -120,13 +123,14 @@ function InfoCard({
   value: string
   tone?: 'default' | 'success' | 'warning'
 }) {
+  const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
   const color =
     tone === 'success' ? semantic.success :
     tone === 'warning' ? semantic.warning :
     TEXT
 
   return (
-    <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: dark.page }}>
+    <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
       <p className="text-[10px] uppercase tracking-wide" style={{ color: TEXT_DIM }}>{label}</p>
       <p className="mt-1 text-sm font-bold font-mono" style={{ color }}>{value}</p>
     </div>
@@ -134,6 +138,7 @@ function InfoCard({
 }
 
 function FieldLabel({ children }: { children: ReactNode }) {
+  const { TEXT_DIM } = usePrismTheme()
   return (
     <label className="block text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
       {children}
@@ -142,21 +147,23 @@ function FieldLabel({ children }: { children: ReactNode }) {
 }
 
 function FieldInput(props: InputHTMLAttributes<HTMLInputElement>) {
+  const { BORDER, PAGE_BG, TEXT } = usePrismTheme()
   return (
     <input
       {...props}
       className="w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors"
-      style={{ borderColor: BORDER, background: dark.page, color: TEXT }}
+      style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
     />
   )
 }
 
 function FieldTextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
+  const { BORDER, PAGE_BG, TEXT } = usePrismTheme()
   return (
     <textarea
       {...props}
       className="min-h-[76px] w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors resize-y"
-      style={{ borderColor: BORDER, background: dark.page, color: TEXT }}
+      style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
     />
   )
 }
@@ -170,12 +177,13 @@ function FieldSelect({
   onChange: (value: string) => void
   options: { value: string; label: string }[]
 }) {
+  const { BORDER, PAGE_BG, TEXT } = usePrismTheme()
   return (
     <select
       value={value}
       onChange={event => onChange(event.target.value)}
       className="w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors"
-      style={{ borderColor: BORDER, background: dark.page, color: TEXT }}
+      style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
     >
       {options.map(option => (
         <option key={option.value} value={option.value}>
@@ -195,6 +203,7 @@ function JumpButton({
   tab: SIFTab
   onSelectTab: (tab: SIFTab) => void
 }) {
+  const { TEAL } = usePrismTheme()
   return (
     <button
       type="button"
@@ -215,12 +224,13 @@ function FindingRow({
   finding: ComplianceTechnicalFinding
   selected: boolean
 }) {
+  const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
   return (
     <div
       className="rounded-lg border px-3 py-2.5"
       style={{
         borderColor: selected ? `${semantic.warning}55` : BORDER,
-        background: selected ? `${semantic.warning}10` : dark.page,
+        background: selected ? `${semantic.warning}10` : PAGE_BG,
       }}
     >
       <div className="flex items-start justify-between gap-2">
@@ -244,12 +254,13 @@ function EvidenceRow({
   item: ComplianceEvidenceItem
   selected: boolean
 }) {
+  const { BORDER, PAGE_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   return (
     <div
       className="rounded-lg border px-3 py-2.5"
       style={{
         borderColor: selected ? `${TEAL}55` : BORDER,
-        background: selected ? `${TEAL}10` : dark.page,
+        background: selected ? `${TEAL}10` : PAGE_BG,
       }}
     >
       <div className="flex items-start justify-between gap-2">
@@ -264,8 +275,9 @@ function EvidenceRow({
 }
 
 function DerivedAssumptionRow({ assumption }: { assumption: ComplianceResult['assumptions'][number] }) {
+  const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
   return (
-    <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: dark.page }}>
+    <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
       <div className="flex items-start justify-between gap-2">
         <div>
           <p className="text-sm font-semibold" style={{ color: TEXT }}>{assumption.label}</p>
@@ -301,6 +313,7 @@ export function ComplianceRightPanel({
   onSelectTab,
   onUpdateAssumptions,
 }: Props) {
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const [activeTab, setActiveTab] = useState<PanelTab>('summary')
   const selectedRightPanelTab = useAppStore(s => s.rightPanelTabs.compliance)
   const setRightPanelTab = useAppStore(s => s.setRightPanelTab)
@@ -408,7 +421,7 @@ export function ComplianceRightPanel({
         <div className="space-y-3">
           {activeTab === 'summary' && (
             <>
-              <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: dark.page }}>
+              <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                 <SectionLabel>Compliance Summary</SectionLabel>
                 <div className="mt-2 flex items-start justify-between gap-3">
                   <div>
@@ -428,7 +441,7 @@ export function ComplianceRightPanel({
                 <InfoCard label="Register" value={`${registerReviews} pending`} tone={registerReviews === 0 ? 'success' : 'warning'} />
               </div>
 
-              <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: dark.page }}>
+              <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                 <SectionLabel>Priority Actions</SectionLabel>
                 <div className="mt-2 space-y-2">
                   {compliance.actions.map(action => (
@@ -437,7 +450,7 @@ export function ComplianceRightPanel({
                       type="button"
                       onClick={() => onSelectTab(action.tab)}
                       className="w-full rounded-lg border px-3 py-2.5 text-left transition-colors"
-                      style={{ borderColor: BORDER, background: dark.card2 }}
+                      style={{ borderColor: BORDER, background: CARD_BG }}
                     >
                       <p className="text-sm font-semibold" style={{ color: TEXT }}>{action.title}</p>
                       <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>{action.hint}</p>
@@ -446,7 +459,7 @@ export function ComplianceRightPanel({
                 </div>
               </div>
 
-              <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: dark.page }}>
+              <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                 <SectionLabel>Assumption Signals</SectionLabel>
                 <div className="mt-2 grid grid-cols-2 gap-2">
                   <InfoCard
@@ -470,7 +483,7 @@ export function ComplianceRightPanel({
                 <div className="space-y-3">
                   <FindingRow finding={selectedGap} selected />
 
-                  <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: dark.page }}>
+                  <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                     <SectionLabel>Why It Matters</SectionLabel>
                     <p className="mt-2 text-sm leading-relaxed" style={{ color: TEXT }}>{selectedGap.detail}</p>
                     <div className="mt-3 space-y-1 text-[11px] font-mono" style={{ color: TEXT_DIM }}>
@@ -483,7 +496,7 @@ export function ComplianceRightPanel({
                   </div>
                 </div>
               ) : (
-                <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: dark.page }}>
+                <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <SectionLabel>Gap Inspector</SectionLabel>
                   <div className="mt-2 flex items-center gap-2 text-sm" style={{ color: TEXT_DIM }}>
                     <AlertTriangle size={14} />
@@ -492,7 +505,7 @@ export function ComplianceRightPanel({
                 </div>
               )}
 
-              <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: dark.page }}>
+              <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                 <SectionLabel>Open Gaps</SectionLabel>
                 <div className="mt-2 space-y-2">
                   {compliance.technicalFindings.length > 0 ? (
@@ -512,7 +525,7 @@ export function ComplianceRightPanel({
 
           {activeTab === 'assumptions' && (
             <>
-              <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: dark.page }}>
+              <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                 <div className="flex items-start justify-between gap-3">
                   <SectionLabel>Assumption Register</SectionLabel>
                   <StatusPill status={registerReviews === 0 ? 'ok' : 'review'} />
@@ -545,7 +558,7 @@ export function ComplianceRightPanel({
                     onClick={resetAssumptions}
                     disabled={!assumptionsDirty || assumptionsSaving}
                     className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors disabled:opacity-50"
-                    style={{ borderColor: BORDER, color: TEXT_DIM, background: dark.card2 }}
+                    style={{ borderColor: BORDER, color: TEXT_DIM, background: CARD_BG }}
                   >
                     <RotateCcw size={12} />
                     Reset draft
@@ -574,7 +587,7 @@ export function ComplianceRightPanel({
 
               <div className="space-y-3">
                 {assumptionDrafts.map(assumption => (
-                  <div key={assumption.id} className="rounded-xl border p-3" style={{ borderColor: BORDER, background: dark.page }}>
+                  <div key={assumption.id} className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                     <div className="space-y-2">
                       <SectionLabel>Register Item</SectionLabel>
                       <p className="text-sm font-semibold" style={{ color: TEXT }}>
@@ -670,7 +683,7 @@ export function ComplianceRightPanel({
                         </div>
                       </div>
 
-                      <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: dark.card2 }}>
+                      <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
                         <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
                           Link this assumption to the most relevant SIF workspace so reviewers can jump to the source context.
                         </p>
@@ -683,13 +696,13 @@ export function ComplianceRightPanel({
                 ))}
 
                 {assumptionDrafts.length === 0 && (
-                  <div className="rounded-xl border p-3 text-sm" style={{ borderColor: BORDER, background: dark.page, color: TEXT_DIM }}>
+                  <div className="rounded-xl border p-3 text-sm" style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}>
                     No explicit assumption has been documented for this SIF yet.
                   </div>
                 )}
               </div>
 
-              <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: dark.page }}>
+              <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                 <SectionLabel>Derived Signals</SectionLabel>
                 <p className="mt-2 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
                   These items are inferred from the current record and calculation setup. They help reviewers challenge the explicit register, but they do not replace it.
@@ -712,7 +725,7 @@ export function ComplianceRightPanel({
           {activeTab === 'evidence' && (
             <>
               {selectedEvidence ? (
-                <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: dark.page }}>
+                <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <SectionLabel>Selected Evidence</SectionLabel>
                   <div className="mt-2">
                     <EvidenceRow item={selectedEvidence} selected />
@@ -723,7 +736,7 @@ export function ComplianceRightPanel({
                   </div>
                 </div>
               ) : (
-                <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: dark.page }}>
+                <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <SectionLabel>Evidence Inspector</SectionLabel>
                   <div className="mt-2 flex items-center gap-2 text-sm" style={{ color: TEXT_DIM }}>
                     <ShieldCheck size={14} />
@@ -732,7 +745,7 @@ export function ComplianceRightPanel({
                 </div>
               )}
 
-              <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: dark.page }}>
+              <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                 <SectionLabel>Evidence Status</SectionLabel>
                 <div className="mt-2 space-y-2">
                   {compliance.evidenceItems.map(item => (

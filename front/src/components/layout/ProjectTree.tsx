@@ -13,7 +13,7 @@ import { useAppStore } from '@/store/appStore'
 import { calcSIF } from '@/core/math/pfdCalc'
 import { cn } from '@/lib/utils'
 import { normalizeSIFTab } from '@/store/types'
-import { BORDER, TEAL, TEXT, TEXT_DIM } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 import { StatusIcon } from '@/shared/StatusIcon'
 
 interface Props {
@@ -22,6 +22,7 @@ interface Props {
 }
 
 export function ProjectTree({ projectId, sifId }: Props) {
+  const { BORDER, PAGE_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const navigate = useAppStore(s => s.navigate)
   const view = useAppStore(s => s.view)
   const projects = useAppStore(s => s.projects)
@@ -92,7 +93,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
       { id: 'architecture', label: 'Architecture', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'architecture' }), active: cur && activeTab === 'architecture' },
       { id: 'verification', label: 'Verification', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'verification' }), active: cur && activeTab === 'verification' },
       { id: 'exploitation', label: 'Exploitation', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'exploitation' }), active: cur && activeTab === 'exploitation' },
-      { id: 'history', label: 'Historique', onClick: () => navigate({ type: 'sif-history' }), active: view.type === 'sif-history' && cur },
+      { id: 'history', label: 'Historique', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'history' }), active: cur && activeTab === 'history' },
     ]
 
     return (
@@ -103,12 +104,12 @@ export function ProjectTree({ projectId, sifId }: Props) {
             className="w-full items-center gap-2 rounded-md px-2 py-1 text-left transition-colors flex relative"
             style={{
               backgroundColor: cur ? 'rgba(0, 155, 164, 0.15)' : 'transparent',
-              color: cur ? TEXT : '#C1CDD8',
+              color: cur ? TEXT : TEXT_DIM,
             }}
-            onMouseEnter={e => { if (!cur) e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.05)' }}
+            onMouseEnter={e => { if (!cur) e.currentTarget.style.backgroundColor = PAGE_BG }}
             onMouseLeave={e => { if (!cur) e.currentTarget.style.backgroundColor = 'transparent' }}
           >
-            {inTree && <div className="absolute left-[-5px] top-1/2 -translate-y-1/2 h-px w-2 bg-white/10" />}
+            {inTree && <div className="absolute left-[-5px] top-1/2 -translate-y-1/2 h-px w-2" style={{ background: `${BORDER}55` }} />}
             {inTree && cur && <div className="absolute left-[-11px] top-1 bottom-1 w-0.5 bg-teal-400 rounded-full" />}
             <FileText size={13} className="shrink-0" style={{ color: cur ? TEAL : TEXT_DIM }} />
             <div className="min-w-0 flex-1">
@@ -121,8 +122,10 @@ export function ProjectTree({ projectId, sifId }: Props) {
           </button>
           <button type="button" title={isPinned ? 'Unpin SIF' : 'Pin SIF'}
             onClick={() => togglePinnedSIF(s.id)}
-            className="rounded p-1 transition-colors hover:bg-white/10"
-            style={{ color: isPinned ? TEAL : TEXT_DIM }}>
+            className="rounded p-1 transition-colors"
+            style={{ color: isPinned ? TEAL : TEXT_DIM }}
+            onMouseEnter={e => { e.currentTarget.style.backgroundColor = PAGE_BG }}
+            onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>
             <Pin size={12} />
           </button>
         </div>
@@ -156,7 +159,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
       <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Pinned SIFs</p>
       <div className="mb-3 space-y-0.5">
         {pinnedItems.length === 0 ? (
-          <div className="px-2 py-1 text-xs italic text-white/35">Pin frequently used SIFs for quick access.</div>
+          <div className="px-2 py-1 text-xs italic" style={{ color: TEXT_DIM }}>Pin frequently used SIFs for quick access.</div>
         ) : (
           pinnedItems.map(({ project, sif }) => (
             <SIFRow key={`pin-${sif.id}`} proj={project} s={sif} showProject />
@@ -174,9 +177,9 @@ export function ProjectTree({ projectId, sifId }: Props) {
               .every(result => result.meetsTarget)
           const isCurProj = proj.id === projectId
           return (
-            <div key={proj.id} className={cn(index > 0 && 'pt-2', index > 0 && 'border-t border-white/10')}>
+            <div key={proj.id} className={cn(index > 0 && 'pt-2')} style={index > 0 ? { borderTop: `1px solid ${BORDER}33` } : undefined}>
               <button type="button" onClick={() => toggleProject(`p-${proj.id}`)}
-                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 font-semibold transition-colors hover:bg-white/5"
+                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 font-semibold transition-colors"
                 style={{ color: isCurProj ? TEXT : TEXT_DIM }}>
                 {projOpen ? <ChevronDown size={14} className="shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
                 <Folder size={15} className="shrink-0" style={{ color: isCurProj ? TEAL : TEXT_DIM }} />
@@ -188,10 +191,10 @@ export function ProjectTree({ projectId, sifId }: Props) {
               </button>
               {projOpen && (
                 <div className="mt-0.5 pl-8 relative">
-                  <div className="absolute left-[15px] top-0 bottom-0 w-px bg-white/10" />
+                  <div className="absolute left-[15px] top-0 bottom-0 w-px" style={{ background: `${BORDER}55` }} />
                   <div className="space-y-0.5 py-1">
                     {proj.sifs.length === 0 && (
-                      <div className="px-2 py-1 text-xs text-white/40 italic">Aucune SIF dans ce projet.</div>
+                      <div className="px-2 py-1 text-xs italic" style={{ color: TEXT_DIM }}>Aucune SIF dans ce projet.</div>
                     )}
                     {proj.sifs
                       .slice()
@@ -203,7 +206,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
                     <button
                       type="button"
                       onClick={() => openNewSIF(proj.id)}
-                      className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] transition-colors hover:bg-white/5"
+                      className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] transition-colors"
                       style={{ color: TEXT_DIM }}
                       title={`Nouvelle SIF dans ${proj.name}`}
                     >

@@ -115,12 +115,12 @@ export const RESPONSE_CHECK_TYPE_META: Record<ResponseCheckType, { label: string
 }
 
 export const STATUS_CFG: Record<Status, { label: string; bg: string; color: string; border: string }> = {
-  draft:    { label: 'Brouillon', bg: '#1A1F24', color: '#8FA0B1', border: '#2A3138' },
-  ifr:      { label: 'IFR',       bg: '#1C1500', color: '#F59E0B', border: '#B4530830' },
-  approved: { label: 'Approuvé',  bg: '#052E16', color: '#4ADE80', border: '#15803D30' },
+  draft:    { label: 'Brouillon', bg: '#EEF3F7', color: '#667085', border: '#D6DEE8' },
+  ifr:      { label: 'IFR',       bg: '#FFF6DB', color: '#C27803', border: '#E7C36A' },
+  approved: { label: 'Approuvé',  bg: '#EAF8EF', color: '#15803D', border: '#B7E4C7' },
 }
 
-export const inputCls = 'h-8 px-3 text-xs rounded-xl border border-[#2A3138] bg-[#1D232A] text-[#DFE8F1] focus:outline-none focus:ring-2 focus:ring-[#009BA4]/30 focus:border-[#009BA4] transition-all'
+export const inputCls = 'h-8 px-3 text-xs rounded-xl border border-[#D6DEE8] bg-[#F8FBFD] text-[#102437] placeholder:text-[#667085] focus:outline-none focus:ring-2 focus:ring-[#009BA4]/30 focus:border-[#009BA4] transition-all dark:border-[#2A3138] dark:bg-[#1D232A] dark:text-[#DFE8F1] dark:placeholder:text-[#8FA0B1]'
 
 export function newPersistedId(): string {
   return typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function'

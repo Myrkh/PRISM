@@ -20,7 +20,8 @@ import { GripVertical, SlidersHorizontal } from 'lucide-react'
 import { useAppStore, selectSIFCalc } from '@/store/appStore'
 import { normalizeSIFTab, type CanonicalSIFTab } from '@/store/types'
 import { calcSIF, formatPFD, formatPct } from '@/core/math/pfdCalc'
-import { BORDER, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } from '@/styles/tokens'
+import { semantic } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 import { IconRail } from '@/components/layout/IconRail'
 import { ProjectTree } from '@/components/layout/ProjectTree'
@@ -43,12 +44,13 @@ const LayoutContext = createContext<{
 export const useLayout = () => useContext(LayoutContext)
 
 
-const DEFAULT_RIGHT_PANEL_WIDTH = 260
+const DEFAULT_RIGHT_PANEL_WIDTH = 300
 const MIN_RIGHT_PANEL_WIDTH     = 220
 const MAX_RIGHT_PANEL_WIDTH     = 720
 
 // ─── Right panel — Properties inspector ──────────────────────────────────
 function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) {
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEXT, TEXT_DIM, TEAL_DIM } = usePrismTheme()
   const projects = useAppStore(s => s.projects)
   const project  = projects.find(p => p.id === projectId)
   const sif      = project?.sifs.find(s => s.id === sifId)
@@ -89,12 +91,12 @@ function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) 
           <div
             className="mb-3 flex items-center justify-between rounded-xl border px-3 py-3"
             style={{
-              background:  calc.meetsTarget ? '#4ADE8012' : '#F8717112',
-              borderColor: calc.meetsTarget ? '#4ADE8035' : '#F8717135',
+              background:  calc.meetsTarget ? `${semantic.success}12` : `${semantic.error}12`,
+              borderColor: calc.meetsTarget ? `${semantic.success}35` : `${semantic.error}35`,
             }}
           >
             <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>Vérification SIL</span>
-            <span className="text-sm font-bold" style={{ color: calc.meetsTarget ? '#4ADE80' : '#F87171' }}>
+            <span className="text-sm font-bold" style={{ color: calc.meetsTarget ? semantic.success : semantic.error }}>
               {calc.meetsTarget ? '✓ PASS' : '✗ FAIL'}
             </span>
           </div>
@@ -106,7 +108,7 @@ function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) 
                 key={k}
                 className="flex items-center justify-between px-3 py-2 text-xs"
                 style={{
-                  background:   i % 2 === 0 ? '#1A1F24' : '#17181C',
+                  background:   i % 2 === 0 ? PAGE_BG : CARD_BG,
                   borderBottom: i < kpiRows.length - 1 ? `1px solid ${BORDER}` : 'none',
                 }}
               >
@@ -122,6 +124,7 @@ function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) 
 }
 
 function GlobalRightPanelPlaceholder({ mode }: { mode: 'review' | 'audit' | 'history' | 'engine' | 'hazop' }) {
+  const { BORDER, PAGE_BG, PANEL_BG, TEXT_DIM } = usePrismTheme()
   const labels: Record<typeof mode, string> = {
     review:  'Review Queue',
     audit:   'Audit Log',
@@ -136,7 +139,7 @@ function GlobalRightPanelPlaceholder({ mode }: { mode: 'review' | 'audit' | 'his
       </p>
       <div
         className="rounded-xl border px-3 py-4 text-xs leading-relaxed"
-        style={{ borderColor: BORDER, color: TEXT_DIM, background: '#1A1F24' }}
+        style={{ borderColor: BORDER, color: TEXT_DIM, background: PAGE_BG }}
       >
         {mode === 'engine'
           ? 'Engine overview, integration status, and backend contract details.'
@@ -154,6 +157,7 @@ function ResizeDivider({
   isResizing: boolean
   onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => void
 }) {
+  const { BORDER, PANEL_BG, TEAL, TEXT_DIM } = usePrismTheme()
   const [hovered, setHovered] = useState(false)
   const active = isResizing || hovered
 
@@ -170,13 +174,13 @@ function ResizeDivider({
     >
       <div
         className="pointer-events-none absolute inset-y-0 w-[2px] transition-colors"
-        style={{ background: active ? TEAL : '#44515E' }}
+        style={{ background: active ? TEAL : BORDER }}
       />
       <div
         className="pointer-events-none relative z-10 flex h-10 w-5 items-center justify-center rounded-full border transition-all"
         style={{
-          background:   active ? '#15232D' : PANEL_BG,
-          borderColor:  active ? TEAL : '#44515E',
+          background:   active ? `${TEAL}10` : PANEL_BG,
+          borderColor:  active ? TEAL : BORDER,
           color:        active ? TEAL : TEXT_DIM,
           boxShadow:    active ? '0 0 0 1px rgba(0,155,164,0.18), 0 8px 18px rgba(0,0,0,0.28)' : '0 4px 12px rgba(0,0,0,0.2)',
           transition:   'border-color 0.15s, color 0.15s, background 0.15s, box-shadow 0.15s',
@@ -197,6 +201,7 @@ interface Props {
 }
 
 export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelContent }: Props) {
+  const { BORDER, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const view     = useAppStore(s => s.view)
   const setTab   = useAppStore(s => s.setTab)
   const projects = useAppStore(s => s.projects)

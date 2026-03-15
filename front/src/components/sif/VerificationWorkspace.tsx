@@ -14,7 +14,8 @@ import type { SIFAnalysisSettings } from '@/core/models/analysisSettings'
 import type { SIF, SIFAssumption, SIFCalcResult } from '@/core/types'
 import type { SIFTab } from '@/store/types'
 import { formatPFD, formatRRF, formatPct } from '@/core/math/pfdCalc'
-import { BORDER, CARD_BG, PAGE_BG, TEAL_DIM, TEXT, TEXT_DIM, semantic } from '@/styles/tokens'
+import { semantic } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 interface Props {
   sif: SIF
@@ -36,6 +37,7 @@ function SurfaceCard({
   title: string
   children: React.ReactNode
 }) {
+  const { BORDER, CARD_BG, TEXT } = usePrismTheme()
   return (
     <div className="rounded-2xl border p-5" style={{ borderColor: BORDER, background: CARD_BG }}>
       <p className="mb-4 text-sm font-semibold" style={{ color: TEXT }}>{title}</p>
@@ -52,6 +54,7 @@ export function VerificationWorkspace({
   onSelectGap,
   onSelectEvidence,
 }: Props) {
+  const { BORDER, PAGE_BG, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const openGaps = Math.max(0, compliance.totalChecks - compliance.passedChecks)
   const evidenceComplete = compliance.evidenceItems.filter(item => item.status === 'complete').length
 

@@ -12,10 +12,13 @@ import { LogOut, Moon, Settings, Sun, ChevronRight } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/store/appStore'
 import { normalizeSIFTab } from '@/store/types'
+import { semantic } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 import { CommandPalette } from './CommandPalette'
 
 const TAB_LABELS: Record<string, string> = {
   cockpit:      'Cockpit',
+  history:      'Historique',
   context:      'Contexte',
   architecture: 'Architecture',
   verification: 'Vérification',
@@ -42,6 +45,7 @@ function getUserInitials(value: string | null | undefined): string {
 }
 
 export function AppHeader() {
+  const { BORDER, PANEL_BG, PAGE_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const isDark      = useAppStore(s => s.isDark)
   const toggleTheme = useAppStore(s => s.toggleTheme)
   const view        = useAppStore(s => s.view)
@@ -89,17 +93,17 @@ export function AppHeader() {
           <button
             onClick={() => navigate({ type: 'projects' })}
             className="text-[13px] transition-colors shrink-0 hover:opacity-80"
-            style={{ color: '#8FA0B1' }}
+            style={{ color: TEXT_DIM }}
           >
             {project.name}
           </button>
-          <ChevronRight size={13} style={{ color: '#4A5568', flexShrink: 0 }} />
-          <span className="text-[13px] font-semibold truncate" style={{ color: '#DFE8F1' }}>
+          <ChevronRight size={13} style={{ color: TEXT_DIM, flexShrink: 0 }} />
+          <span className="text-[13px] font-semibold truncate" style={{ color: TEXT }}>
             {sif.sifNumber}
-            {sif.title ? <span style={{ color: '#8FA0B1', fontWeight: 400 }}> · {sif.title}</span> : null}
+            {sif.title ? <span style={{ color: TEXT_DIM, fontWeight: 400 }}> · {sif.title}</span> : null}
           </span>
-          <ChevronRight size={13} style={{ color: '#4A5568', flexShrink: 0 }} />
-          <span className="text-[13px] font-medium shrink-0" style={{ color: '#5FD8D2' }}>
+          <ChevronRight size={13} style={{ color: TEXT_DIM, flexShrink: 0 }} />
+          <span className="text-[13px] font-medium shrink-0" style={{ color: TEAL_DIM }}>
             {TAB_LABELS[normalizeSIFTab(view.tab)] ?? normalizeSIFTab(view.tab)}
           </span>
         </div>
@@ -108,7 +112,7 @@ export function AppHeader() {
     const label = VIEW_LABELS[view.type]
     if (!label || view.type === 'projects') return null
     return (
-      <span className="text-[13px] font-semibold" style={{ color: '#DFE8F1' }}>{label}</span>
+      <span className="text-[13px] font-semibold" style={{ color: TEXT }}>{label}</span>
     )
   }
 
@@ -117,23 +121,23 @@ export function AppHeader() {
       className="sticky top-0 z-50 h-12 grid items-center border-b"
       style={{
         gridTemplateColumns: '288px 1fr auto',
-        background: '#0F1318',
-        borderColor: '#2A3138',
+        background: PANEL_BG,
+        borderColor: BORDER,
       }}
     >
       {/* Left Zone — Logo */}
-      <div className="h-full flex items-center px-4 border-r" style={{ borderColor: '#2A3138' }}>
+      <div className="h-full flex items-center px-4 border-r" style={{ borderColor: BORDER }}>
         <button
           onClick={() => navigate({ type: 'projects' })}
           className="flex items-center gap-2.5 hover:opacity-85 transition-opacity"
         >
           <img src="/favicon2.png" alt="PRISM" className="h-6 w-6 rounded object-contain" />
-          <span className="text-[15px] font-black tracking-widest" style={{ color: '#DFE8F1', letterSpacing: '0.12em' }}>
+          <span className="text-[15px] font-black tracking-widest" style={{ color: TEXT, letterSpacing: '0.12em' }}>
             PRISM
           </span>
           <span
             className="text-[9px] font-bold tracking-widest px-1.5 py-0.5 rounded"
-            style={{ background: '#009BA420', color: '#5FD8D2', border: '1px solid #009BA430' }}
+            style={{ background: `${TEAL}20`, color: TEAL_DIM, border: `1px solid ${TEAL}30` }}
           >
             IEC 61511
           </span>
@@ -160,7 +164,7 @@ export function AppHeader() {
             ) : (
               <span
                 className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold"
-                style={{ background: '#1D232A', color: '#D8E0E8', border: '1px solid #2B323A' }}
+                style={{ background: PAGE_BG, color: TEXT, border: `1px solid ${BORDER}` }}
               >
                 {initials}
               </span>
@@ -170,12 +174,12 @@ export function AppHeader() {
           {isUserMenuOpen && (
             <div
               className="absolute right-0 top-10 w-64 rounded-xl border p-1.5 shadow-2xl z-50"
-              style={{ background: '#14181C', borderColor: '#2A3138' }}
+              style={{ background: PANEL_BG, borderColor: BORDER }}
             >
               {/* User info */}
-              <div className="rounded-lg px-3 py-2.5 mb-1" style={{ background: '#1A1F24' }}>
-                <p className="text-sm font-semibold" style={{ color: '#DFE8F1' }}>{displayName}</p>
-                <p className="mt-0.5 text-[11px]" style={{ color: '#8FA0B1' }}>
+              <div className="rounded-lg px-3 py-2.5 mb-1" style={{ background: PAGE_BG }}>
+                <p className="text-sm font-semibold" style={{ color: TEXT }}>{displayName}</p>
+                <p className="mt-0.5 text-[11px]" style={{ color: TEXT_DIM }}>
                   {displayEmail || 'Authenticated user'}
                 </p>
               </div>
@@ -200,14 +204,14 @@ export function AppHeader() {
                   key={item.label}
                   type="button"
                   className="w-full rounded-lg px-3 py-2 text-left text-[13px] flex items-center gap-2.5 transition-colors"
-                  style={{ color: item.danger ? '#F87171' : '#8FA0B1' }}
+                  style={{ color: item.danger ? semantic.error : TEXT_DIM }}
                   onMouseEnter={e => {
-                    e.currentTarget.style.background = item.danger ? '#EF444415' : '#1D232A'
-                    e.currentTarget.style.color      = item.danger ? '#F87171'  : '#DFE8F1'
+                    e.currentTarget.style.background = item.danger ? `${semantic.error}15` : PAGE_BG
+                    e.currentTarget.style.color      = item.danger ? semantic.error : TEXT
                   }}
                   onMouseLeave={e => {
                     e.currentTarget.style.background = 'transparent'
-                    e.currentTarget.style.color      = item.danger ? '#F87171' : '#8FA0B1'
+                    e.currentTarget.style.color      = item.danger ? semantic.error : TEXT_DIM
                   }}
                   onClick={item.onClick}
                 >

@@ -4,13 +4,11 @@ import { useAppStore, type SIFTab } from '@/store/appStore'
 import { normalizeSIFTab } from '@/store/types'
 import {
   Search, Settings, Moon, Sun, FolderPlus, FilePlus,
-  LayoutDashboard, Network, BarChart3, Shield, FlaskConical,
+  LayoutDashboard, Network, BarChart3, Shield, FlaskConical, GitBranch,
   ChevronRight, FileText, Home, Pencil, ListChecks, History,
   ClipboardCheck, Cpu,
 } from 'lucide-react'
-import { BORDER, TEAL, TEAL_DIM, TEXT, TEXT_DIM, dark } from '@/styles/tokens'
-
-const PANEL = dark.panel
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 type CommandItem = {
   id: string
@@ -29,6 +27,7 @@ type CommandGroup = {
 }
 
 export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void }) {
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(-1)
@@ -101,6 +100,15 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
         Icon: LayoutDashboard,
         onSelect: () => goToTab('cockpit'),
         isActive: currentTab === 'cockpit',
+        level: 0,
+      },
+      {
+        id: 'goto-history',
+        label: 'Go to Revision History',
+        keywords: 'go history historique revisions snapshots compare',
+        Icon: GitBranch,
+        onSelect: () => goToTab('history'),
+        isActive: currentTab === 'history',
         level: 0,
       },
       {
@@ -273,30 +281,12 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
         level: 0,
       },
       {
-        id: 'sif-history',
-        label: 'SIF History',
-        keywords: 'sif history historique révisions',
-        Icon: History,
-        onSelect: () => run(() => navigate({ type: 'sif-history' })),
-        isActive: view.type === 'sif-history',
-        level: 0,
-      },
-      {
         id: 'engine',
         label: 'Engine',
         keywords: 'engine compute solver markov monte carlo python backend quant',
         Icon: Cpu,
         onSelect: () => run(() => navigate({ type: 'engine' })),
         isActive: view.type === 'engine',
-        level: 0,
-      },
-      {
-        id: 'hazop',
-        label: 'HAZOP / LOPA',
-        keywords: 'hazop lopa scenarios scénarios',
-        Icon: FlaskConical,
-        onSelect: () => run(() => navigate({ type: 'hazop' })),
-        isActive: view.type === 'hazop',
         level: 0,
       },
       {
@@ -398,7 +388,7 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
       <div
         className="relative flex flex-col rounded-2xl border shadow-2xl overflow-hidden"
         style={{
-          background: PANEL,
+          background: PANEL_BG,
           borderColor: BORDER,
           width: '90%',
           maxWidth: 580,
@@ -456,7 +446,7 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
                   className="group w-full flex items-center gap-3 px-4 py-2.5 text-left transition-colors"
                   role="option"
                   aria-selected={item.flatIndex === selectedIndex}
-                  style={{ background: item.flatIndex === selectedIndex ? '#1D232A' : 'transparent' }}
+                  style={{ background: item.flatIndex === selectedIndex ? PAGE_BG : 'transparent' }}
                 >
                   <div
                     className="shrink-0 transition-colors"
@@ -467,7 +457,7 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
                     <div
                       className="w-7 h-7 rounded-lg flex items-center justify-center"
                       style={{
-                        background: item.isActive ? `${TEAL}20` : '#1D232A',
+                        background: item.isActive ? `${TEAL}20` : PAGE_BG,
                         border: `1px solid ${item.isActive ? `${TEAL}50` : BORDER}`,
                       }}
                     >
@@ -546,7 +536,7 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
         Quick Actions
         <span
           className="rounded px-1.5 py-0.5 text-[9px] font-mono font-bold"
-          style={{ background: '#0C1117', border: `1px solid ${BORDER}`, color: TEXT_DIM }}
+          style={{ background: CARD_BG, border: `1px solid ${BORDER}`, color: TEXT_DIM }}
         >
           ⌘K
         </span>

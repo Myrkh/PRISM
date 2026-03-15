@@ -7,8 +7,9 @@ import { RightPanelShell } from '@/components/layout/RightPanelShell'
 import { SILBadge } from '@/components/shared/SILBadge'
 import { formatPFD, formatRRF } from '@/core/math/pfdCalc'
 import { getOverviewMetrics } from '@/components/sif/overviewMetrics'
-import { getOverviewPanelCta, OVERVIEW_OPERATIONAL_HEALTH_META } from '@/components/sif/overviewUi'
-import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic } from '@/styles/tokens'
+import { getOverviewOperationalHealthMeta, getOverviewPanelCta } from '@/components/sif/overviewUi'
+import { semantic } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 const OVERVIEW_RIGHT_TABS = [
   { id: 'snapshot' as const, label: 'Snapshot', Icon: ShieldCheck },
@@ -24,9 +25,10 @@ interface Props {
 }
 
 export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Props) {
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const [activeTab, setActiveTab] = useState<(typeof OVERVIEW_RIGHT_TABS)[number]['id']>('snapshot')
   const metrics = useMemo(() => getOverviewMetrics(sif, result, compliance), [compliance, result, sif])
-  const health = OVERVIEW_OPERATIONAL_HEALTH_META[metrics.operationalHealth]
+  const health = getOverviewOperationalHealthMeta(TEXT_DIM)[metrics.operationalHealth]
 
   return (
     <RightPanelShell

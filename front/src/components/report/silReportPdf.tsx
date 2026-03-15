@@ -17,6 +17,34 @@ const SIL_COLORS: Record<number, string> = {
   0: '#6B7280', 1: '#16A34A', 2: '#2563EB', 3: '#D97706', 4: '#7C3AED',
 }
 
+const ASSUMPTION_STATUS_META: Record<string, { label: string; bg: string; color: string; border: string }> = {
+  draft: { label: 'Draft', bg: '#F1F5F9', color: '#64748B', border: '#CBD5E1' },
+  review: { label: 'Review', bg: '#FFF7E8', color: '#C27803', border: '#F3D18B' },
+  validated: { label: 'Validated', bg: '#EAF8EF', color: '#15803D', border: '#B7E4C7' },
+}
+
+const ASSUMPTION_CATEGORY_LABELS: Record<string, string> = {
+  process: 'Process',
+  proof: 'Proof test',
+  architecture: 'Architecture',
+  data: 'Data',
+  governance: 'Governance',
+  other: 'Other',
+}
+
+const ASSUMPTION_TAB_LABELS: Record<string, string> = {
+  cockpit: 'Cockpit',
+  context: 'Context',
+  architecture: 'Architecture',
+  verification: 'Verification',
+  exploitation: 'Exploitation',
+  report: 'Report',
+  overview: 'Cockpit',
+  analysis: 'Verification',
+  compliance: 'Verification',
+  prooftest: 'Exploitation',
+}
+
 export function getDefaultReportConfig(input: {
   project: Project
   sif: SIF
@@ -213,6 +241,9 @@ export function ReportDocument({
 }) {
   const meta = SIL_META[result.SIL as SILLevel]
   const date = new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })
+  const defaultAssumptionsText = assumptionsToReportText(sif.assumptions)
+  const assumptionsNote = cfg.assumptions.trim()
+  const assumptionsNoteIsCustom = assumptionsNote.length > 0 && assumptionsNote !== defaultAssumptionsText.trim()
 
   return (
     <div
@@ -368,7 +399,74 @@ export function ReportDocument({
             <h3 className="text-[10px] font-semibold uppercase tracking-wider text-slate-400 mb-2 mt-5">
               Assumptions & Limitations
             </h3>
-            <p className="text-xs leading-relaxed text-slate-700">{cfg.assumptions}</p>
+            {assumptionsNoteIsCustom && (
+              <div className="mb-3 rounded-xl border border-slate-200 p-3" style={{ background: '#F8FAFC' }}>
+                <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Report note</p>
+                <p className="text-xs leading-relaxed text-slate-700">{assumptionsNote}</p>
+              </div>
+            )}
+
+            {sif.assumptions.length > 0 ? (
+              <div className="space-y-3">
+                {sif.assumptions.map(assumption => {
+                  const status = ASSUMPTION_STATUS_META[assumption.status] ?? ASSUMPTION_STATUS_META.review
+                  return (
+                    <div key={assumption.id} className="rounded-xl border border-slate-200 p-3" style={{ background: '#F8FAFC' }}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0">
+                          <p className="text-sm font-semibold text-slate-900">
+                            {assumption.title || 'Untitled assumption'}
+                          </p>
+                          <div className="mt-1 flex flex-wrap gap-1.5">
+                            <span
+                              className="inline-flex items-center rounded-full border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide"
+                              style={{ background: status.bg, color: status.color, borderColor: status.border }}
+                            >
+                              {status.label}
+                            </span>
+                            <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                              {ASSUMPTION_CATEGORY_LABELS[assumption.category] ?? assumption.category}
+                            </span>
+                            <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[9px] font-semibold uppercase tracking-wide text-slate-500">
+                              {ASSUMPTION_TAB_LABELS[assumption.linkedTab] ?? assumption.linkedTab}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-3 grid gap-3">
+                        <div>
+                          <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Statement</p>
+                          <p className="text-xs leading-relaxed text-slate-700">{assumption.statement || '—'}</p>
+                        </div>
+
+                        {assumption.rationale && (
+                          <div>
+                            <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400 mb-1">Rationale</p>
+                            <p className="text-xs leading-relaxed text-slate-700">{assumption.rationale}</p>
+                          </div>
+                        )}
+
+                        {(assumption.owner || assumption.reviewDate) && (
+                          <div className="flex flex-wrap gap-4 border-t border-slate-200 pt-2">
+                            <div>
+                              <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Owner</p>
+                              <p className="text-[11px] text-slate-700">{assumption.owner || '—'}</p>
+                            </div>
+                            <div>
+                              <p className="text-[9px] font-semibold uppercase tracking-wider text-slate-400">Review date</p>
+                              <p className="text-[11px] text-slate-700">{assumption.reviewDate || '—'}</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+            ) : (
+              <p className="text-xs leading-relaxed text-slate-700">{cfg.assumptions}</p>
+            )}
           </>
         )}
       </div>

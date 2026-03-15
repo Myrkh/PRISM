@@ -8,17 +8,14 @@ import {
   Plus, Trash2, ChevronDown, ChevronUp,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { BORDER, SURFACE, TEAL, TEXT, TEXT_DIM } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 import { ExpectedValueDisplay } from './ResultWidgets'
 import { ResponseChecksCard } from './ResponseChecksCard'
 import type { PTStep, PTCategory, PTProcedure, PTCampaign, ResultType, PTResponseCheck } from './proofTestTypes'
 import { LOCATIONS, CAT_META, STATUS_CFG, inputCls } from './proofTestTypes'
 
 // ─── Table design tokens ─────────────────────────────────────────────────
-const TABLE_BG      = '#14181C'
-const TABLE_HEAD_BG = SURFACE
 const TABLE_HOVER   = 'rgba(0, 155, 164, 0.04)'
-const BORDER_VIS    = '#363F49'   // Slightly brighter border for card visibility
 
 interface Props {
   procedure: PTProcedure
@@ -50,6 +47,7 @@ export function ProcedureView({
   addTestCategory, deleteCategory, updateCategory,
   addResponseCheck, updateResponseCheck, removeResponseCheck,
 }: Props) {
+  const { BORDER, CARD_BG, PAGE_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const sm = STATUS_CFG[procedure.status]
 
   const toggleCollapse = (catId: string) =>
@@ -59,7 +57,7 @@ export function ProcedureView({
     <div className="space-y-3">
 
       {/* Procedure header card */}
-      <div className="rounded-2xl border shadow-sm p-5" style={{ background: SURFACE, borderColor: BORDER_VIS }}>
+      <div className="rounded-2xl border shadow-sm p-5" style={{ background: CARD_BG, borderColor: BORDER }}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
@@ -111,11 +109,11 @@ export function ProcedureView({
         const isCollapsed = collapsed.has(cat.id)
 
         return (
-          <div key={cat.id} className="rounded-2xl border shadow-sm overflow-hidden" style={{ background: TABLE_BG, borderColor: BORDER_VIS }}>
+          <div key={cat.id} className="rounded-2xl border shadow-sm overflow-hidden" style={{ background: CARD_BG, borderColor: BORDER }}>
 
             {/* Category header */}
             <div className="flex items-center gap-3 px-5 py-3 border-b"
-              style={{ background: TABLE_HEAD_BG, borderColor: BORDER }}
+              style={{ background: PAGE_BG, borderColor: BORDER }}
             >
               <div className="w-2 h-2 rounded-full shrink-0" style={{ background: meta.color }} />
               {editMode && !meta.locked ? (
@@ -130,11 +128,13 @@ export function ProcedureView({
               <span className="text-[10px] font-semibold" style={{ color: TEXT_DIM }}>{steps.length} étape{steps.length !== 1 ? 's' : ''}</span>
               {editMode && cat.type === 'test' && (
                 <button onClick={() => deleteCategory(cat.id)}
-                  className="p-1 rounded text-[#8FA0B1] hover:text-red-400 transition-colors"
+                  className="p-1 rounded transition-colors"
+                  style={{ color: TEXT_DIM }}
                 ><Trash2 size={12} /></button>
               )}
               <button onClick={() => toggleCollapse(cat.id)}
-                className="p-1 rounded text-[#8FA0B1] hover:text-[#DFE8F1] transition-colors"
+                className="p-1 rounded transition-colors"
+                style={{ color: TEXT_DIM }}
               >
                 {isCollapsed ? <ChevronDown size={14} /> : <ChevronUp size={14} />}
               </button>
@@ -146,7 +146,7 @@ export function ProcedureView({
                 {steps.length > 0 && (
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="border-b" style={{ borderColor: BORDER, background: TABLE_HEAD_BG }}>
+                      <tr className="border-b" style={{ borderColor: BORDER, background: PAGE_BG }}>
                         <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-8" style={{ color: TEXT_DIM }}>#</th>
                         <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Action</th>
                         <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-36" style={{ color: TEXT_DIM }}>Lieu</th>
@@ -169,7 +169,8 @@ export function ProcedureView({
                               <input value={step.action}
                                 onChange={e => updateStep(step.id, { action: e.target.value })}
                                 placeholder="Décrire l'action à réaliser…"
-                                className="w-full bg-transparent text-xs outline-none border-b border-transparent text-[#DFE8F1] focus:border-[#009BA4] py-0.5 placeholder:text-[#8FA0B1] transition-all"
+                                className="w-full bg-transparent text-xs outline-none border-b border-transparent focus:border-[#009BA4] py-0.5 placeholder:text-[#667085] dark:placeholder:text-[#8FA0B1] transition-all"
+                                style={{ color: TEXT }}
                               />
                             ) : (
                               <span style={{ color: TEXT }}>{step.action}</span>
@@ -179,7 +180,8 @@ export function ProcedureView({
                             {editMode ? (
                               <select value={step.location}
                                 onChange={e => updateStep(step.id, { location: e.target.value })}
-                                className="w-full bg-transparent text-xs outline-none border-b border-transparent text-[#DFE8F1] focus:border-[#009BA4] py-0.5 transition-all"
+                                className="w-full bg-transparent text-xs outline-none border-b border-transparent focus:border-[#009BA4] py-0.5 transition-all"
+                                style={{ color: TEXT }}
                               >
                                 {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
                               </select>
@@ -193,7 +195,8 @@ export function ProcedureView({
                             {editMode ? (
                               <select value={step.resultType}
                                 onChange={e => updateStep(step.id, { resultType: e.target.value as ResultType })}
-                                className="w-full bg-transparent text-xs outline-none border-b border-transparent text-[#DFE8F1] focus:border-[#009BA4] py-0.5 transition-all"
+                                className="w-full bg-transparent text-xs outline-none border-b border-transparent focus:border-[#009BA4] py-0.5 transition-all"
+                                style={{ color: TEXT }}
                               >
                                 <option value="oui_non">Oui / Non</option>
                                 <option value="valeur">Valeur</option>
@@ -210,7 +213,8 @@ export function ProcedureView({
                               <input value={step.expectedValue}
                                 onChange={e => updateStep(step.id, { expectedValue: e.target.value })}
                                 placeholder={step.resultType === 'valeur' ? 'ex: < 500 ms, ≥ 4 mA…' : 'Décrire le résultat attendu…'}
-                                className="w-full bg-transparent text-xs outline-none border-b border-transparent text-[#DFE8F1] focus:border-[#009BA4] py-0.5 placeholder:text-[#8FA0B1] transition-all font-mono"
+                                className="w-full bg-transparent text-xs outline-none border-b border-transparent focus:border-[#009BA4] py-0.5 placeholder:text-[#667085] dark:placeholder:text-[#8FA0B1] transition-all font-mono"
+                                style={{ color: TEXT }}
                               />
                             ) : (
                               <ExpectedValueDisplay step={step} />
@@ -219,7 +223,8 @@ export function ProcedureView({
                           {editMode && (
                             <td className="px-2 py-2.5">
                               <button onClick={() => deleteStep(step.id)}
-                                className="p-1 rounded text-[#8FA0B1] hover:text-red-400 opacity-0 group-hover:opacity-100 transition-all"
+                                className="p-1 rounded opacity-0 group-hover:opacity-100 transition-all"
+                                style={{ color: TEXT_DIM }}
                               ><Trash2 size={12} /></button>
                             </td>
                           )}
@@ -253,7 +258,7 @@ export function ProcedureView({
       {editMode && (
         <button onClick={addTestCategory}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed text-sm font-semibold transition-all hover:border-[#009BA4] hover:text-[#009BA4]"
-          style={{ color: TEXT_DIM, borderColor: BORDER, background: SURFACE }}
+          style={{ color: TEXT_DIM, borderColor: BORDER, background: PAGE_BG }}
         ><Plus size={14} />Ajouter une catégorie de test</button>
       )}
 
@@ -266,7 +271,7 @@ export function ProcedureView({
       />
 
       {/* Signatures */}
-      <div className="rounded-2xl border shadow-sm p-5" style={{ background: SURFACE, borderColor: BORDER_VIS }}>
+      <div className="rounded-2xl border shadow-sm p-5" style={{ background: CARD_BG, borderColor: BORDER }}>
         <p className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: TEXT_DIM }}>Signatures de la procédure</p>
         <div className="grid grid-cols-3 gap-4">
           {[
@@ -274,7 +279,7 @@ export function ProcedureView({
             { key: 'verifiedBy' as const,  keyDate: 'verifiedByDate' as const,  label: 'Vérifié par' },
             { key: 'approvedBy' as const,  keyDate: 'approvedByDate' as const,  label: 'Approuvé par' },
           ].map(({ key, keyDate, label }) => (
-            <div key={key} className="border rounded-xl p-4 min-h-[80px]" style={{ borderColor: BORDER_VIS, background: TABLE_BG }}>
+            <div key={key} className="border rounded-xl p-4 min-h-[80px]" style={{ borderColor: BORDER, background: PAGE_BG }}>
               <p className="text-[9px] font-bold uppercase tracking-wider mb-2" style={{ color: TEXT_DIM }}>{label}</p>
               {editMode ? (
                 <div className="space-y-1.5">

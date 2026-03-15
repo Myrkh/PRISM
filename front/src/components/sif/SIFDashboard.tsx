@@ -15,6 +15,7 @@ import { SIFPhaseHeader } from '@/components/sif/SIFPhaseHeader'
 import { VerificationRightPanel } from '@/components/sif/VerificationRightPanel'
 import { VerificationWorkspace } from '@/components/sif/VerificationWorkspace'
 import { SILReportStudio } from '@/components/report/SILReportStudio'
+import { SIFHistoryWorkspace } from '@/components/global/SIFHistoryWorkspace'
 import {
   DEFAULT_SIF_ANALYSIS_SETTINGS,
   analysisSettingsToMissionTimeHours,
@@ -121,7 +122,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
       return () => setRightPanelOverride(null)
     }
 
-    if (activeTab !== 'architecture' && activeTab !== 'exploitation' && activeTab !== 'report') {
+    if (activeTab !== 'architecture' && activeTab !== 'exploitation' && activeTab !== 'report' && activeTab !== 'history') {
       setRightPanelOverride(null)
     }
 
@@ -141,7 +142,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
   if (!project || !sif || !result || !compliance || !overviewMetrics) return null
 
   const isLocked = Boolean(sif.revisionLockedAt)
-  const lockCurrentTab = isLocked && activeTab !== 'exploitation' && activeTab !== 'report'
+  const lockCurrentTab = isLocked && activeTab !== 'exploitation' && activeTab !== 'history' && activeTab !== 'report'
 
   const handlePublishRevision = async (payload: { changeDescription: string; createdBy: string }) => {
     setIsPublishingRevision(true)
@@ -263,6 +264,10 @@ export function SIFDashboard({ projectId, sifId }: Props) {
             >
               <ProofTestTab project={project} sif={sif} onSelectTab={setTab} />
             </ExploitationWorkspace>
+          )}
+
+          {activeTab === 'history' && (
+            <SIFHistoryWorkspace projectId={projectId} sifId={sifId} />
           )}
 
           {activeTab === 'report' && (

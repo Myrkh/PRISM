@@ -6,9 +6,10 @@
 import { FolderPlus } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { LifecycleCockpit } from '@/components/layout/LifecycleCockpit'
-import { PAGE_BG, TEAL, TEXT, TEXT_DIM } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 export function HomeScreen() {
+  const { PAGE_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const projects = useAppStore(state => state.projects)
   const openNewProject = useAppStore(state => state.openNewProject)
 
