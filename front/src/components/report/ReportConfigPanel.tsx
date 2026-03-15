@@ -1,4 +1,4 @@
-import { Settings2, Printer, FileText } from 'lucide-react'
+import { Settings2, Printer, FileText, Cpu } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -13,7 +13,9 @@ interface ReportConfigPanelProps {
   setCfg: <K extends keyof ReportConfig>(key: K, value: ReportConfig[K]) => void
   showPreview: boolean
   onPrint: () => void
+  onBackendPrint: () => void
   isExporting: boolean
+  isBackendExporting: boolean
 }
 
 const TABS = [{ id: 'studio', label: 'Report Studio', Icon: Settings2 }]
@@ -59,7 +61,9 @@ export function ReportConfigPanel({
   cfg,
   setCfg: set,
   onPrint,
+  onBackendPrint,
   isExporting,
+  isBackendExporting,
 }: ReportConfigPanelProps) {
   const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic } = usePrismTheme()
 
@@ -72,19 +76,35 @@ export function ReportConfigPanel({
     >
       <div className="flex h-full flex-col overflow-hidden" style={{ background: PANEL_BG }}>
         <div className="shrink-0 border-b px-3 py-3" style={{ borderColor: BORDER }}>
-          <Button
-            size="sm"
-            onClick={onPrint}
-            disabled={isExporting}
-            className="h-8 min-w-[120px] gap-1.5 px-3 text-xs"
-            style={{ background: `${TEAL}14`, color: TEAL_DIM, border: `1px solid ${TEAL}35` }}
-          >
-            {isExporting ? (
-              <><span className="animate-spin mr-1">⟳</span> Generating...</>
-            ) : (
-              <><Printer size={12} /> Export PDF</>
-            )}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              onClick={onBackendPrint}
+              disabled={isBackendExporting}
+              className="h-8 min-w-[132px] gap-1.5 px-3 text-xs"
+              style={{ background: TEAL, color: '#F8FAFC', border: `1px solid ${TEAL}` }}
+            >
+              {isBackendExporting ? (
+                <><span className="animate-spin mr-1">⟳</span> Backend...</>
+              ) : (
+                <><Cpu size={12} /> Backend PDF</>
+              )}
+            </Button>
+
+            <Button
+              size="sm"
+              onClick={onPrint}
+              disabled={isExporting}
+              className="h-8 min-w-[120px] gap-1.5 px-3 text-xs"
+              style={{ background: `${TEAL}14`, color: TEAL_DIM, border: `1px solid ${TEAL}35` }}
+            >
+              {isExporting ? (
+                <><span className="animate-spin mr-1">⟳</span> Front...</>
+              ) : (
+                <><Printer size={12} /> Front PDF</>
+              )}
+            </Button>
+          </div>
         </div>
 
         <div className="flex-1 overflow-y-auto px-3 py-3">

@@ -1,5 +1,13 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
+import {
+  analysisSettingsToMissionTimeHours,
+  loadSIFAnalysisSettings,
+} from '@/core/models/analysisSettings'
+import {
+  buildSILBackendReportPdf,
+  buildSILBackendReportRequest,
+} from '@/lib/engineApi'
 import { ReportConfigPanel } from './ReportConfigPanel'
 import type { ReportConfig } from './reportTypes'
 import {
@@ -19,13 +27,16 @@ function ReportPanelBridge({
   initialCfg,
   onCfgChange,
   onPrint,
+  onBackendPrint,
 }: {
   initialCfg: ReportConfig
   onCfgChange: (cfg: ReportConfig) => void
   onPrint: () => Promise<void> | void
+  onBackendPrint: () => Promise<void> | void
 }) {
   const [panelCfg, setPanelCfg] = useState<ReportConfig>(initialCfg)
   const [isExporting, setIsExporting] = useState(false)
+  const [isBackendExporting, setIsBackendExporting] = useState(false)
 
   useEffect(() => {
     setPanelCfg(initialCfg)
@@ -48,13 +59,24 @@ function ReportPanelBridge({
     }
   }, [onPrint])
 
+  const handleBackendPrint = useCallback(async () => {
+    setIsBackendExporting(true)
+    try {
+      await onBackendPrint()
+    } finally {
+      setIsBackendExporting(false)
+    }
+  }, [onBackendPrint])
+
   return (
     <ReportConfigPanel
       cfg={panelCfg}
       setCfg={set}
       showPreview
       onPrint={handlePrint}
+      onBackendPrint={handleBackendPrint}
       isExporting={isExporting}
+      isBackendExporting={isBackendExporting}
     />
   )
 }
@@ -89,19 +111,70 @@ export function SILReportStudio({ project, sif, result }: Props) {
     }
   }, [cfg, project, result, sif])
 
+  const handleBackendPrint = useCallback(async () => {
+    const analysisSettings = loadSIFAnalysisSettings(sif.id)
+    const { blob, fileName } = await buildSILBackendReportPdf(
+      buildSILBackendReportRequest(
+        sif,
+        {
+          projectStandard: project.standard,
+          missionTimeHours: analysisSettingsToMissionTimeHours(analysisSettings),
+          curvePoints: analysisSettings.chart.curvePoints,
+        },
+        {
+          calculationMode: result.SIL < sif.targetSIL ? 'MARKOV' : 'AUTO',
+          includeCurve: cfg.showPFDChart,
+        },
+        {
+          projectName: project.name,
+          projectRef: project.ref,
+          sifNumber: sif.sifNumber,
+          sifTitle: sif.title || sif.description,
+          targetSIL: sif.targetSIL,
+          title: cfg.title,
+          docRef: cfg.docRef,
+          version: cfg.version,
+          scope: cfg.scope,
+          hazardDescription: cfg.hazardDescription,
+          assumptions: cfg.assumptions,
+          recommendations: cfg.recommendations,
+          preparedBy: cfg.preparedBy,
+          checkedBy: cfg.checkedBy,
+          approvedBy: cfg.approvedBy,
+          confidentialityLabel: cfg.confidentialityLabel,
+          showPFDChart: cfg.showPFDChart,
+          showSubsystemTable: cfg.showSubsystemTable,
+          showComponentTable: cfg.showComponentTable,
+          showComplianceMatrix: cfg.showComplianceMatrix,
+          showAssumptions: cfg.showAssumptions,
+          showRecommendations: cfg.showRecommendations,
+        },
+      ),
+    )
+    const url = URL.createObjectURL(blob)
+    const anchor = document.createElement('a')
+    anchor.href = url
+    anchor.download = fileName
+    document.body.appendChild(anchor)
+    anchor.click()
+    anchor.remove()
+    URL.revokeObjectURL(url)
+  }, [cfg, project, result.SIL, sif])
+
   useEffect(() => {
     setRightPanelOverride(
       <ReportPanelBridge
         initialCfg={cfg}
         onCfgChange={handlePanelCfgChange}
         onPrint={handlePrint}
+        onBackendPrint={handleBackendPrint}
       />,
     )
 
     return () => {
       setRightPanelOverride(null)
     }
-  }, [cfg, handlePanelCfgChange, handlePrint, setRightPanelOverride, sif.id])
+  }, [cfg, handleBackendPrint, handlePanelCfgChange, handlePrint, setRightPanelOverride, sif.id])
 
   return (
     <div className="flex-1 min-w-0 overflow-auto rounded-xl border p-4" style={{ background: '#F0F4F8' }}>

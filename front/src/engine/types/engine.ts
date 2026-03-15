@@ -154,6 +154,12 @@ export interface SubsystemDef {
   ccf: CCFDef
   /** Norme architecturale — peut être surchargée par sous-système */
   standard?: IECStandard
+  /** Label architecture kept for backend parity (ex: 1oo2D, custom). */
+  architecture?: string
+  /** Optional custom boolean expression when the architecture comes from a custom gate model. */
+  customExpression?: string
+  /** Manual HFT override coming from a custom architecture definition. */
+  manualHFT?: number
 }
 
 export interface ChannelDef {
@@ -178,6 +184,9 @@ export interface SolverDef {
   voteType?: VoteType
   ccf?: CCFDef
   standard?: IECStandard
+  architecture?: string
+  customExpression?: string
+  manualHFT?: number
 }
 
 export interface CCFDef {

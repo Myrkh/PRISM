@@ -329,6 +329,9 @@ function toEngineSubsystem(
     voteType: (subsystem.voteType ?? 'S') as EngineVoteType,
     ccf: normalizeCCF(subsystem),
     standard,
+    architecture: subsystem.architecture,
+    customExpression: subsystem.customBooleanArch?.expression,
+    manualHFT: subsystem.customBooleanArch?.manualHFT,
   }
 }
 
@@ -371,6 +374,7 @@ function makeNeutralSubsystem(
     voteType: 'S',
     ccf: { beta: 0, betaD: 0, method: 'MAX' },
     standard,
+    architecture: '1oo1',
   }
 }
 
@@ -397,7 +401,7 @@ function resolveMissionTime(sif: SIF, overrideHours?: number): number {
   return Math.max(DEFAULT_MISSION_TIME, maxWindow * 3, maxLifetime)
 }
 
-function toEngineInput(sif: SIF, options?: CalcAdapterOptions): EngineInput {
+export function buildEngineInput(sif: SIF, options?: CalcAdapterOptions): EngineInput {
   const standard = standardToEngine(options?.projectStandard)
   const sensors = sif.subsystems.find(sub => sub.type === 'sensor')
   const logic = sif.subsystems.find(sub => sub.type === 'logic')
@@ -416,6 +420,9 @@ function toEngineInput(sif: SIF, options?: CalcAdapterOptions): EngineInput {
           voteType: (logic.voteType ?? 'S') as EngineVoteType,
           ccf: normalizeCCF(logic),
           standard,
+          architecture: logic.architecture,
+          customExpression: logic.customBooleanArch?.expression,
+          manualHFT: logic.customBooleanArch?.manualHFT,
         } satisfies EngineSolverDef)
       : { mode: 'SIMPLE', pfd: 0, pfh: 0 },
     actuators: actuators ? toEngineSubsystem(actuators, standard) : makeNeutralSubsystem('actuator', standard),
@@ -461,7 +468,7 @@ export function calcSIFEngine(sif: SIF, options?: CalcAdapterOptions): EngineRes
   if (cached) return cached
 
   const normalizedSIF = hydrateSIF(sif)
-  const result = computeEngineSIF(toEngineInput(normalizedSIF, options))
+  const result = computeEngineSIF(buildEngineInput(normalizedSIF, options))
   return setCached(engineCache, sif, key, result)
 }
 

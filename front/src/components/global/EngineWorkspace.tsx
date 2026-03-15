@@ -15,11 +15,55 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { IntercalaireCard, IntercalaireTabBar, useLayout } from '@/components/layout/SIFWorkbenchLayout'
-import { calcSIF } from '@/core/math/pfdCalc'
+import { calcSIF, calcSIFEngine, formatPFD, formatRRF } from '@/core/math/pfdCalc'
+import {
+  analysisSettingsToMissionTimeHours,
+  loadSIFAnalysisSettings,
+} from '@/core/models/analysisSettings'
+import {
+  buildSILBackendRequest,
+  computeSILWithBackend,
+  type SILBackendResponse,
+} from '@/lib/engineApi'
+import type { EngineResult } from '@/engine/types/engine'
 import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } from '@/styles/tokens'
 
 type EngineTab = 'runs' | 'contracts' | 'artifacts' | 'compare'
 type EngineRightTab = 'snapshot' | 'integration'
+type BackendRunState =
+  | { status: 'idle' }
+  | { status: 'running' }
+  | { status: 'done'; response: SILBackendResponse }
+  | { status: 'error'; message: string }
+
+interface ComparisonMetric {
+  ts: number | null
+  backend: number | null
+  deltaAbs: number | null
+  deltaPct: number | null
+  withinTolerance: boolean
+}
+
+interface CompareSummary {
+  pfd: ComparisonMetric
+  pfh: ComparisonMetric
+  rrf: ComparisonMetric
+  tsSil: number | null
+  backendSil: number | null
+  silMatch: boolean
+  verdict: 'aligned' | 'drift' | 'mismatch'
+  notes: string[]
+  routeSummary: string[]
+  warningCount: number
+}
+
+type CompareRunState =
+  | { status: 'idle' }
+  | { status: 'running' }
+  | { status: 'done'; response: SILBackendResponse; tsResult: EngineResult; summary: CompareSummary }
+  | { status: 'error'; message: string }
+
+const COMPARE_TOLERANCE_PCT = 0.1
 
 const ENGINE_TABS = [
   { id: 'runs' as const, label: 'Runs', hint: 'Queue & candidates' },
@@ -49,6 +93,84 @@ function StatCard({ label, value, hint, color = TEXT }: { label: string; value: 
       <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>{hint}</p>
     </div>
   )
+}
+
+function compareMetric(tsValue: number | null | undefined, backendValue: number | null | undefined, tolerancePct: number): ComparisonMetric {
+  const ts = tsValue ?? null
+  const backend = backendValue ?? null
+  if (ts === null || backend === null || !Number.isFinite(ts) || !Number.isFinite(backend)) {
+    return { ts, backend, deltaAbs: null, deltaPct: null, withinTolerance: false }
+  }
+
+  const deltaAbs = backend - ts
+  const denominator = Math.abs(ts) > 1e-12 ? Math.abs(ts) : Math.abs(backend)
+  const deltaPct = denominator > 1e-12 ? Math.abs(deltaAbs) / denominator * 100 : 0
+  return {
+    ts,
+    backend,
+    deltaAbs,
+    deltaPct,
+    withinTolerance: deltaPct <= tolerancePct,
+  }
+}
+
+function formatDeltaPct(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  return `${value.toFixed(2)}%`
+}
+
+function formatSignedScientific(value: number | null): string {
+  if (value === null || !Number.isFinite(value)) return '—'
+  return `${value >= 0 ? '+' : ''}${value.toExponential(2)}`
+}
+
+function formatSil(value: number | null): string {
+  return value == null ? '—' : `SIL ${value}`
+}
+
+function buildCompareSummary(tsResult: EngineResult, backendResponse: SILBackendResponse, tolerancePct: number): CompareSummary {
+  const pfd = compareMetric(tsResult.pfdavg, backendResponse.result.pfdavg, tolerancePct)
+  const pfh = compareMetric(tsResult.pfh, backendResponse.result.pfh, tolerancePct)
+  const rrf = compareMetric(tsResult.rrf, backendResponse.result.rrf, tolerancePct)
+  const tsSil = tsResult.silAchieved ?? null
+  const backendSil = backendResponse.result.silAchieved ?? null
+  const silMatch = tsSil === backendSil
+
+  const routeSummary = Object.entries(backendResponse.backend.subsystems).map(([key, meta]) => {
+    const mode = meta.markovTriggered ? 'Markov' : meta.pfdEngine ?? 'backend'
+    return `${key}: ${mode}${meta.thresholdUsed != null ? ` · threshold ${meta.thresholdUsed.toFixed(3)}` : ''}`
+  })
+
+  const notes: string[] = []
+  if (!pfd.withinTolerance) notes.push(`PFD delta ${formatDeltaPct(pfd.deltaPct)} (${formatSignedScientific(pfd.deltaAbs)})`)
+  if (!pfh.withinTolerance) notes.push(`PFH delta ${formatDeltaPct(pfh.deltaPct)} (${formatSignedScientific(pfh.deltaAbs)})`)
+  if (!rrf.withinTolerance) notes.push(`RRF delta ${formatDeltaPct(rrf.deltaPct)}`)
+  if (!silMatch) notes.push(`SIL mismatch: TS ${formatSil(tsSil)} vs Python ${formatSil(backendSil)}`)
+  const markovSubsystems = Object.entries(backendResponse.backend.subsystems)
+    .filter(([, meta]) => meta.markovTriggered)
+    .map(([key]) => key)
+  if (markovSubsystems.length > 0) notes.push(`Backend Markov triggered on ${markovSubsystems.join(', ')}`)
+  if (backendResponse.result.warnings.length > 0) notes.push(`${backendResponse.result.warnings.length} backend warning(s) returned`)
+
+  let verdict: CompareSummary['verdict'] = 'aligned'
+  if (!silMatch) {
+    verdict = 'mismatch'
+  } else if (!pfd.withinTolerance || !pfh.withinTolerance || !rrf.withinTolerance) {
+    verdict = 'drift'
+  }
+
+  return {
+    pfd,
+    pfh,
+    rrf,
+    tsSil,
+    backendSil,
+    silMatch,
+    verdict,
+    notes,
+    routeSummary,
+    warningCount: backendResponse.result.warnings.length,
+  }
 }
 
 function EngineRightPanel({
@@ -135,6 +257,8 @@ export function EngineWorkspace() {
   const navigate = useAppStore(s => s.navigate)
   const { setRightPanelOverride } = useLayout()
   const [activeTab, setActiveTab] = useState<EngineTab>('runs')
+  const [backendRuns, setBackendRuns] = useState<Record<string, BackendRunState>>({})
+  const [compareRuns, setCompareRuns] = useState<Record<string, CompareRunState>>({})
 
   const stats = useMemo(() => {
     const allSifs = projects.flatMap(project => project.sifs)
@@ -166,6 +290,8 @@ export function EngineWorkspace() {
               : 'Design candidate'
         return {
           id: sif.id,
+          sif,
+          projectStandard: project?.standard,
           projectId: sif.projectId,
           projectName: project?.name ?? 'Unknown project',
           sifNumber: sif.sifNumber,
@@ -183,6 +309,75 @@ export function EngineWorkspace() {
         return leftScore - rightScore || left.sifNumber.localeCompare(right.sifNumber)
       })
   ), [projects, stats.allSifs])
+
+  const backendSummary = useMemo(() => {
+    const states = Object.values(backendRuns)
+    const running = states.filter(state => state.status === 'running').length
+    const done = states.filter(state => state.status === 'done').length
+    const failed = states.filter(state => state.status === 'error').length
+    return { running, done, failed }
+  }, [backendRuns])
+
+  const compareSummary = useMemo(() => {
+    const states = Object.values(compareRuns)
+    const running = states.filter(state => state.status === 'running').length
+    const doneStates = states.filter((state): state is Extract<CompareRunState, { status: 'done' }> => state.status === 'done')
+    const aligned = doneStates.filter(state => state.summary.verdict === 'aligned').length
+    const drift = doneStates.filter(state => state.summary.verdict === 'drift').length
+    const mismatch = doneStates.filter(state => state.summary.verdict === 'mismatch').length
+    const failed = states.filter(state => state.status === 'error').length
+    return { running, aligned, drift, mismatch, failed, compared: doneStates.length }
+  }, [compareRuns])
+
+  function getRowCalcOptions(row: (typeof candidateRows)[number]) {
+    const analysisSettings = loadSIFAnalysisSettings(row.id)
+    return {
+      options: {
+        projectStandard: row.projectStandard,
+        missionTimeHours: analysisSettingsToMissionTimeHours(analysisSettings),
+        curvePoints: analysisSettings.chart.curvePoints,
+      },
+      runtime: {
+        calculationMode: row.currentSil < row.targetSil ? 'MARKOV' as const : 'AUTO' as const,
+        includeCurve: false,
+      },
+    }
+  }
+
+  async function executeBackendRun(row: (typeof candidateRows)[number]) {
+    const { options, runtime } = getRowCalcOptions(row)
+    return computeSILWithBackend(buildSILBackendRequest(row.sif, options, runtime))
+  }
+
+  async function handleRunBackend(row: (typeof candidateRows)[number]) {
+    setBackendRuns(current => ({ ...current, [row.id]: { status: 'running' } }))
+
+    try {
+      const response = await executeBackendRun(row)
+      setBackendRuns(current => ({ ...current, [row.id]: { status: 'done', response } }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown backend error'
+      setBackendRuns(current => ({ ...current, [row.id]: { status: 'error', message } }))
+    }
+  }
+
+  async function handleCompare(row: (typeof candidateRows)[number]) {
+    setCompareRuns(current => ({ ...current, [row.id]: { status: 'running' } }))
+    setBackendRuns(current => ({ ...current, [row.id]: { status: 'running' } }))
+
+    try {
+      const { options } = getRowCalcOptions(row)
+      const tsResult = calcSIFEngine(row.sif, options)
+      const response = await executeBackendRun(row)
+      const summary = buildCompareSummary(tsResult, response, COMPARE_TOLERANCE_PCT)
+      setBackendRuns(current => ({ ...current, [row.id]: { status: 'done', response } }))
+      setCompareRuns(current => ({ ...current, [row.id]: { status: 'done', response, tsResult, summary } }))
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown comparison error'
+      setBackendRuns(current => ({ ...current, [row.id]: { status: 'error', message } }))
+      setCompareRuns(current => ({ ...current, [row.id]: { status: 'error', message } }))
+    }
+  }
 
   useEffect(() => {
     setRightPanelOverride(
@@ -255,10 +450,10 @@ export function EngineWorkspace() {
                 <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <div className="flex items-center gap-2">
                     <Cpu size={14} style={{ color: TEAL }} />
-                    <p className="text-sm font-semibold" style={{ color: TEXT }}>Queue not connected yet</p>
+                    <p className="text-sm font-semibold" style={{ color: TEXT }}>Direct backend runs ready</p>
                   </div>
                   <p className="mt-2 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-                    This workspace is ready for job submission, polling, and artifacts. Once your Python service is ready, this card becomes the live queue.
+                    Engine can now send a full SIL payload to the Python backend. Queueing and persisted artifacts can come later without changing the contract.
                   </p>
                 </div>
                 <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: PAGE_BG }}>
@@ -288,7 +483,11 @@ export function EngineWorkspace() {
                     <p className="mt-1 text-sm font-semibold" style={{ color: TEXT }}>Best starting points for backend runs</p>
                   </div>
                   <div className="text-xs" style={{ color: TEXT_DIM }}>
-                    No runs submitted yet
+                    {backendSummary.running > 0
+                      ? `${backendSummary.running} running`
+                      : backendSummary.done > 0
+                        ? `${backendSummary.done} completed${backendSummary.failed > 0 ? ` · ${backendSummary.failed} failed` : ''}`
+                        : 'No backend run yet'}
                   </div>
                 </div>
 
@@ -296,7 +495,7 @@ export function EngineWorkspace() {
                   <table className="w-full text-xs">
                     <thead>
                       <tr style={{ background: PAGE_BG }}>
-                        {['SIF', 'Project', 'Current / Target', 'Recommendation', 'Reason', 'Status', 'Open'].map(head => (
+                        {['SIF', 'Project', 'Current / Target', 'Recommendation', 'Reason', 'Python', 'Open'].map(head => (
                           <th key={head} className="px-4 py-3 text-left text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
                             {head}
                           </th>
@@ -321,9 +520,48 @@ export function EngineWorkspace() {
                           </td>
                           <td className="px-4 py-3" style={{ color: TEXT_DIM }}>{row.reason}</td>
                           <td className="px-4 py-3">
-                            <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: row.status === 'Published' ? '#0F1B3D' : '#1A1F24', color: row.status === 'Published' ? '#60A5FA' : TEXT_DIM }}>
-                              {row.status}
-                            </span>
+                            {(() => {
+                              const backendState = backendRuns[row.id] ?? { status: 'idle' as const }
+                              if (backendState.status === 'running') {
+                                return (
+                                  <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: `${TEAL}18`, color: TEAL }}>
+                                    Running...
+                                  </span>
+                                )
+                              }
+                              if (backendState.status === 'error') {
+                                return (
+                                  <div className="space-y-1">
+                                    <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: '#FEE2E2', color: '#B91C1C' }}>
+                                      Error
+                                    </span>
+                                    <p className="max-w-[180px] text-[10px]" style={{ color: TEXT_DIM }}>{backendState.message}</p>
+                                  </div>
+                                )
+                              }
+                              if (backendState.status === 'done') {
+                                return (
+                                  <div className="space-y-1">
+                                    <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: '#DCFCE7', color: '#15803D' }}>
+                                      SIL {backendState.response.result.silAchieved ?? '—'}
+                                    </span>
+                                    <p className="text-[10px]" style={{ color: TEXT_DIM }}>
+                                      {formatPFD(backendState.response.result.pfdavg)} · {backendState.response.backend.subsystems.sensors.pfdEngine ?? 'backend'}
+                                    </p>
+                                  </div>
+                                )
+                              }
+                              return (
+                                <button
+                                  type="button"
+                                  onClick={() => { void handleRunBackend(row) }}
+                                  className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold transition-colors"
+                                  style={{ background: `${TEAL}15`, color: TEAL }}
+                                >
+                                  Run Python
+                                </button>
+                              )
+                            })()}
                           </td>
                           <td className="px-4 py-3">
                             <button
@@ -445,55 +683,186 @@ export function EngineWorkspace() {
           )}
 
           {activeTab === 'compare' && (
-            <div className="grid grid-cols-3 gap-4">
-              <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                <div className="flex items-center gap-2">
-                  <Cpu size={14} style={{ color: TEAL }} />
-                  <p className="text-sm font-semibold" style={{ color: TEXT }}>TypeScript live path</p>
+            <div className="flex flex-col gap-4">
+              <div className="grid grid-cols-4 gap-4">
+                <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Tolerance</p>
+                  <p className="mt-1 text-2xl font-black font-mono" style={{ color: TEXT }}>{COMPARE_TOLERANCE_PCT.toFixed(2)}%</p>
+                  <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>Default compare threshold until validation settings are persisted globally.</p>
                 </div>
-                <div className="mt-3 space-y-2">
-                  {[
-                    'Instant feedback during editing',
-                    'Always available in the UI',
-                    'Best for interactive design and quick iteration',
-                  ].map(line => (
-                    <div key={line} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}>
-                      {line}
-                    </div>
-                  ))}
+                <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Aligned</p>
+                  <p className="mt-1 text-2xl font-black font-mono" style={{ color: '#15803D' }}>{compareSummary.aligned}</p>
+                  <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>PFD, PFH, RRF and SIL all within tolerance.</p>
                 </div>
-              </div>
-
-              <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                <div className="flex items-center gap-2">
-                  <Bot size={14} style={{ color: '#60A5FA' }} />
-                  <p className="text-sm font-semibold" style={{ color: TEXT }}>Python authoritative path</p>
+                <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Drift</p>
+                  <p className="mt-1 text-2xl font-black font-mono" style={{ color: '#D97706' }}>{compareSummary.drift}</p>
+                  <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>Same SIL but at least one numerical delta exceeds tolerance.</p>
                 </div>
-                <div className="mt-3 space-y-2">
-                  {[
-                    'Markov, Monte Carlo, sensitivity, and batch jobs',
-                    'Worker-backed execution with persisted outputs',
-                    'Best for formal runs, calibration, and deeper validation',
-                  ].map(line => (
-                    <div key={line} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}>
-                      {line}
-                    </div>
-                  ))}
+                <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Mismatch</p>
+                  <p className="mt-1 text-2xl font-black font-mono" style={{ color: '#DC2626' }}>{compareSummary.mismatch}</p>
+                  <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>SIL differs between TS and Python or the compare run failed.</p>
                 </div>
               </div>
 
-              <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                <div className="flex items-center gap-2">
-                  <Activity size={14} style={{ color: '#4ADE80' }} />
-                  <p className="text-sm font-semibold" style={{ color: TEXT }}>Comparison signals</p>
+              <div className="rounded-2xl border shadow-sm overflow-hidden" style={{ borderColor: BORDER, background: CARD_BG }}>
+                <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                  <div>
+                    <SectionLabel>Front / Backend Compare</SectionLabel>
+                    <p className="mt-1 text-sm font-semibold" style={{ color: TEXT }}>Same payload, two engines, explicit deltas</p>
+                  </div>
+                  <div className="text-xs" style={{ color: TEXT_DIM }}>
+                    {compareSummary.running > 0
+                      ? `${compareSummary.running} comparing`
+                      : compareSummary.compared > 0
+                        ? `${compareSummary.compared} compared${compareSummary.failed > 0 ? ` · ${compareSummary.failed} failed` : ''}`
+                        : 'No comparison yet'}
+                  </div>
                 </div>
-                <div className="mt-3 space-y-2">
-                  {comparisonSignals.map(([metric, desc]) => (
-                    <div key={metric} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: BORDER, background: CARD_BG }}>
-                      <p className="font-mono font-semibold" style={{ color: TEAL }}>{metric}</p>
-                      <p className="mt-1" style={{ color: TEXT }}>{desc}</p>
-                    </div>
-                  ))}
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr style={{ background: PAGE_BG }}>
+                        {['SIF', 'TypeScript', 'Python', 'Delta', 'Verdict', 'Routing', 'Action'].map(head => (
+                          <th key={head} className="px-4 py-3 text-left text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+                            {head}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {candidateRows.map(row => {
+                        const compareState = compareRuns[row.id] ?? { status: 'idle' as const }
+                        return (
+                          <tr key={row.id} className="border-t align-top" style={{ borderColor: BORDER }}>
+                            <td className="px-4 py-3">
+                              <p className="font-semibold" style={{ color: TEXT }}>{row.sifNumber}</p>
+                              <p className="text-[10px]" style={{ color: TEXT_DIM }}>{row.projectName}</p>
+                              <p className="text-[10px]" style={{ color: TEXT_DIM }}>{row.title}</p>
+                            </td>
+                            <td className="px-4 py-3">
+                              {compareState.status === 'done' ? (
+                                <div className="space-y-1 text-[10px]" style={{ color: TEXT }}>
+                                  <p>PFD {formatPFD(compareState.tsResult.pfdavg)}</p>
+                                  <p>PFH {formatPFD(compareState.tsResult.pfh)}</p>
+                                  <p>{formatSil(compareState.summary.tsSil)} · RRF {formatRRF(compareState.tsResult.rrf)}</p>
+                                </div>
+                              ) : (
+                                <p className="text-[10px]" style={{ color: TEXT_DIM }}>Run compare to snapshot TS values.</p>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {compareState.status === 'done' ? (
+                                <div className="space-y-1 text-[10px]" style={{ color: TEXT }}>
+                                  <p>PFD {formatPFD(compareState.response.result.pfdavg)}</p>
+                                  <p>PFH {formatPFD(compareState.response.result.pfh)}</p>
+                                  <p>{formatSil(compareState.summary.backendSil)} · RRF {formatRRF(compareState.response.result.rrf ?? 0)}</p>
+                                </div>
+                              ) : compareState.status === 'error' ? (
+                                <p className="max-w-[180px] text-[10px]" style={{ color: '#B91C1C' }}>{compareState.message}</p>
+                              ) : (
+                                <p className="text-[10px]" style={{ color: TEXT_DIM }}>Python not compared yet.</p>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {compareState.status === 'done' ? (
+                                <div className="space-y-1 text-[10px]" style={{ color: TEXT }}>
+                                  <p>PFD {formatDeltaPct(compareState.summary.pfd.deltaPct)}</p>
+                                  <p>PFH {formatDeltaPct(compareState.summary.pfh.deltaPct)}</p>
+                                  <p>RRF {formatDeltaPct(compareState.summary.rrf.deltaPct)}</p>
+                                </div>
+                              ) : (
+                                <p className="text-[10px]" style={{ color: TEXT_DIM }}>—</p>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {compareState.status === 'running' && (
+                                <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: `${TEAL}18`, color: TEAL }}>
+                                  Comparing...
+                                </span>
+                              )}
+                              {compareState.status === 'done' && (
+                                <div className="space-y-1">
+                                  <span
+                                    className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold"
+                                    style={{
+                                      background: compareState.summary.verdict === 'aligned'
+                                        ? '#DCFCE7'
+                                        : compareState.summary.verdict === 'drift'
+                                          ? '#FEF3C7'
+                                          : '#FEE2E2',
+                                      color: compareState.summary.verdict === 'aligned'
+                                        ? '#15803D'
+                                        : compareState.summary.verdict === 'drift'
+                                          ? '#B45309'
+                                          : '#B91C1C',
+                                    }}
+                                  >
+                                    {compareState.summary.verdict === 'aligned'
+                                      ? 'Aligned'
+                                      : compareState.summary.verdict === 'drift'
+                                        ? 'Drift'
+                                        : 'Mismatch'}
+                                  </span>
+                                  <p className="max-w-[220px] text-[10px]" style={{ color: TEXT_DIM }}>
+                                    {compareState.summary.notes[0] ?? 'No material delta detected.'}
+                                  </p>
+                                </div>
+                              )}
+                              {compareState.status === 'error' && (
+                                <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: '#FEE2E2', color: '#B91C1C' }}>
+                                  Compare failed
+                                </span>
+                              )}
+                              {compareState.status === 'idle' && (
+                                <p className="text-[10px]" style={{ color: TEXT_DIM }}>Not compared yet.</p>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              {compareState.status === 'done' ? (
+                                <div className="space-y-1">
+                                  {compareState.summary.routeSummary.slice(0, 3).map(item => (
+                                    <p key={item} className="text-[10px]" style={{ color: TEXT_DIM }}>{item}</p>
+                                  ))}
+                                </div>
+                              ) : (
+                                <div className="space-y-1">
+                                  {comparisonSignals.slice(0, 2).map(([metric, desc]) => (
+                                    <p key={metric} className="text-[10px]" style={{ color: TEXT_DIM }}>{metric}: {desc}</p>
+                                  ))}
+                                </div>
+                              )}
+                            </td>
+                            <td className="px-4 py-3">
+                              <div className="flex flex-col items-start gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => { void handleCompare(row) }}
+                                  disabled={compareState.status === 'running'}
+                                  className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold transition-colors"
+                                  style={{ background: `${TEAL}15`, color: TEAL }}
+                                >
+                                  {compareState.status === 'running' ? 'Comparing...' : compareState.status === 'done' ? 'Run again' : 'Compare'}
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => navigate({ type: 'sif-dashboard', projectId: row.projectId, sifId: row.id, tab: 'report' })}
+                                  className="inline-flex items-center gap-1 text-[10px] font-semibold"
+                                  style={{ color: TEAL }}
+                                >
+                                  Report
+                                  <ArrowRight size={11} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
