@@ -45,11 +45,12 @@ function PanelSection({
   title: string
   children: React.ReactNode
 }) {
-  const { BORDER, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, TEAL, TEXT } = usePrismTheme()
   return (
     <section className="border-b pb-4 last:border-b-0 last:pb-0" style={{ borderColor: `${BORDER}A6` }}>
-      <div className="mb-3">
-        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{title}</p>
+      <div className="mb-3 flex items-center gap-2">
+        <span className="h-1.5 w-1.5 rounded-full" style={{ background: TEAL, boxShadow: SHADOW_SOFT }} />
+        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEAL }}>{title}</p>
       </div>
       <div style={{ color: TEXT }}>{children}</div>
     </section>
@@ -63,7 +64,7 @@ export function ContextRightPanel({
   onOpenEditSheet,
   onSelectTab,
 }: Props) {
-  const { BORDER, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, isDark } = usePrismTheme()
+  const { BORDER, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const readiness = Math.round(((compliance.metadataCompletion * 100) + overviewMetrics.tracePct) / 2)
   const readinessColor = readiness >= 85 ? semantic.success : readiness >= 50 ? semantic.warning : semantic.error
 
@@ -91,38 +92,24 @@ export function ContextRightPanel({
       onSelect={() => {}}
       contentBg={PANEL_BG}
     >
-      <div className="flex-1 overflow-y-auto px-3 py-3" style={{ scrollbarGutter: 'stable' }}>
-        <div
-          className="space-y-4 rounded-[14px] border px-3 py-3"
-          style={{
-            borderColor: `${BORDER}B8`,
-            background: PAGE_BG,
-            boxShadow: isDark ? 'none' : '0 18px 42px rgba(15,23,42,0.05), 0 3px 10px rgba(15,23,42,0.03)',
-          }}
-        >
-          <div
-            className="rounded-xl border px-3 py-3"
-            style={{
-              borderColor: `${BORDER}99`,
-              background: `${PAGE_BG}CC`,
-              boxShadow: isDark ? 'none' : '0 1px 0 rgba(255,255,255,0.88) inset, 0 10px 24px rgba(15,23,42,0.04)',
-            }}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold" style={{ color: TEXT }}>Contexte défendable</p>
-                <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-                  Le panneau conserve seulement les repères utiles avant le passage vers l’architecture.
-                </p>
-              </div>
-              <span className="text-[14px] font-bold font-mono" style={{ color: readinessColor }}>{readiness}%</span>
+      <div className="flex-1 overflow-y-auto px-4 py-4" style={{ scrollbarGutter: 'stable' }}>
+        <section className="border-b pb-4" style={{ borderColor: `${BORDER}A6` }}>
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold" style={{ color: TEXT }}>Contexte défendable</p>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+                Le panneau conserve seulement les repères utiles avant le passage vers l’architecture.
+              </p>
             </div>
-
-            <div className="mt-3">
-              <ProgressBar value={readiness} color={readinessColor} />
-            </div>
+            <span className="text-[14px] font-bold font-mono" style={{ color: readinessColor }}>{readiness}%</span>
           </div>
 
+          <div className="mt-3">
+            <ProgressBar value={readiness} color={readinessColor} />
+          </div>
+        </section>
+
+        <div className="space-y-4 pt-4">
           <PanelSection title="Lecture">
             <MetricRow label="Traçabilité HAZOP" value={overviewMetrics.tracePct} color={overviewMetrics.tracePct === 100 ? semantic.success : TEXT} suffix="%" />
             <MetricRow label="Métadonnées" value={Math.round(compliance.metadataCompletion * 100)} color={compliance.metadataCompletion >= 0.85 ? semantic.success : TEXT} suffix="%" />

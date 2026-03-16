@@ -6,12 +6,12 @@
  *   - Ici : uniquement les résultats, le graphe, le breakdown, les écarts, les hypothèses et les preuves.
  *   - Pas de footer navigation (lifecycle bar gère ça).
  */
-import { useMemo } from 'react'
 import { PFDChart } from '@/components/analysis/PFDChart'
 import { SILBadge } from '@/components/shared/SILBadge'
+import { AlertTriangle, BarChart3, Boxes, ClipboardCheck, ShieldCheck } from 'lucide-react'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
 import type { SIFAnalysisSettings } from '@/core/models/analysisSettings'
-import type { SIF, SIFAssumption, SIFCalcResult } from '@/core/types'
+import type { SIF, SIFCalcResult } from '@/core/types'
 import type { SIFTab } from '@/store/types'
 import { formatPFD, formatRRF, formatPct } from '@/core/math/pfdCalc'
 import { semantic } from '@/styles/tokens'
@@ -32,15 +32,27 @@ interface Props {
 
 function SurfaceCard({
   title,
+  icon,
   children,
 }: {
   title: string
+  icon: React.ReactNode
   children: React.ReactNode
 }) {
-  const { BORDER, CARD_BG, TEXT } = usePrismTheme()
+  const { BORDER, CARD_BG, SHADOW_PANEL, SHADOW_SOFT, TEAL } = usePrismTheme()
   return (
-    <div className="rounded-2xl border p-5" style={{ borderColor: BORDER, background: CARD_BG }}>
-      <p className="mb-4 text-sm font-semibold" style={{ color: TEXT }}>{title}</p>
+    <div className="rounded-2xl border p-5" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
+      <div className="mb-4 flex items-center gap-2 border-b pb-2" style={{ borderColor: BORDER }}>
+        <span
+          className="inline-flex h-6 w-6 items-center justify-center rounded-md border"
+          style={{ color: TEAL, background: `${TEAL}10`, borderColor: `${TEAL}22`, boxShadow: SHADOW_SOFT }}
+        >
+          {icon}
+        </span>
+        <span className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: TEAL }}>
+          {title}
+        </span>
+      </div>
       {children}
     </div>
   )
@@ -54,53 +66,16 @@ export function VerificationWorkspace({
   onSelectGap,
   onSelectEvidence,
 }: Props) {
-  const { BORDER, PAGE_BG, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
   const openGaps = Math.max(0, compliance.totalChecks - compliance.passedChecks)
   const evidenceComplete = compliance.evidenceItems.filter(item => item.status === 'complete').length
-
-  const assumptionsInReview = useMemo(
-    () => sif.assumptions.filter((a: SIFAssumption) => a.status !== 'validated').length,
-    [sif.assumptions],
-  )
 
   return (
     <div className="flex min-h-full flex-col gap-4">
 
-      {/* ── Status badges ── */}
-      <div className="flex flex-wrap gap-2">
-        {[
-          {
-            label: result.meetsTarget ? `SIL ${sif.targetSIL} atteint` : `SIL ${sif.targetSIL} non atteint`,
-            tone: result.meetsTarget ? semantic.success : semantic.error,
-            bg: result.meetsTarget ? `${semantic.success}12` : `${semantic.error}12`,
-            border: result.meetsTarget ? `${semantic.success}33` : `${semantic.error}33`,
-          },
-          {
-            label: openGaps === 0 ? 'Aucun écart' : `${openGaps} écart${openGaps > 1 ? 's' : ''} ouvert${openGaps > 1 ? 's' : ''}`,
-            tone: openGaps === 0 ? semantic.success : semantic.warning,
-            bg: openGaps === 0 ? `${semantic.success}12` : `${semantic.warning}12`,
-            border: openGaps === 0 ? `${semantic.success}33` : `${semantic.warning}33`,
-          },
-          {
-            label: assumptionsInReview === 0 ? 'Hypothèses validées' : `${assumptionsInReview} hypothèse${assumptionsInReview > 1 ? 's' : ''} à revoir`,
-            tone: assumptionsInReview === 0 ? semantic.success : TEXT,
-            bg: assumptionsInReview === 0 ? `${semantic.success}12` : `${TEAL_DIM}10`,
-            border: assumptionsInReview === 0 ? `${semantic.success}33` : `${TEAL_DIM}33`,
-          },
-        ].map(item => (
-          <div
-            key={item.label}
-            className="rounded-xl border px-3 py-2 text-sm font-semibold"
-            style={{ color: item.tone, background: item.bg, borderColor: item.border }}
-          >
-            {item.label}
-          </div>
-        ))}
-      </div>
-
       {/* ── Résultats + Breakdown ── */}
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
-        <SurfaceCard title="Résultats de calcul">
+        <SurfaceCard title="Résultats de calcul" icon={<BarChart3 size={12} />}>
           <div className="space-y-4">
             {/* KPIs */}
             <div className="grid gap-3 grid-cols-2">
@@ -108,7 +83,7 @@ export function VerificationWorkspace({
                 { label: 'PFDavg', value: formatPFD(result.PFD_avg), tone: TEXT },
                 { label: 'RRF',    value: formatRRF(result.RRF),    tone: TEXT },
               ].map(item => (
-                <div key={item.label} className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                <div key={item.label} className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
                   <p className="text-[10px] uppercase tracking-wide" style={{ color: TEXT_DIM }}>{item.label}</p>
                   <p className="mt-1 text-lg font-black font-mono" style={{ color: item.tone }}>{item.value}</p>
                 </div>
@@ -119,7 +94,7 @@ export function VerificationWorkspace({
           </div>
         </SurfaceCard>
 
-        <SurfaceCard title="Breakdown sous-systèmes">
+        <SurfaceCard title="Breakdown sous-systèmes" icon={<Boxes size={12} />}>
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b" style={{ borderColor: BORDER }}>
@@ -153,7 +128,7 @@ export function VerificationWorkspace({
 
       {/* ── Écarts + Hypothèses ── */}
       <div className="grid gap-4 xl:grid-cols-2">
-        <SurfaceCard title="Écarts techniques">
+        <SurfaceCard title="Écarts techniques" icon={<AlertTriangle size={12} />}>
           <div className="space-y-2">
             {compliance.technicalFindings.length > 0 ? compliance.technicalFindings.map(finding => (
               <button
@@ -161,7 +136,7 @@ export function VerificationWorkspace({
                 type="button"
                 onClick={() => onSelectGap(finding.id)}
                 className="w-full rounded-lg border px-3 py-2.5 text-left transition-colors hover:opacity-80"
-                style={{ borderColor: BORDER, background: PAGE_BG }}
+                style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
@@ -179,17 +154,17 @@ export function VerificationWorkspace({
                 </div>
               </button>
             )) : (
-              <div className="rounded-lg border px-3 py-3 text-xs" style={{ borderColor: `${semantic.success}44`, background: `${semantic.success}10`, color: semantic.success }}>
+              <div className="rounded-lg border px-3 py-3 text-xs" style={{ borderColor: `${semantic.success}44`, background: `${semantic.success}10`, color: semantic.success, boxShadow: SHADOW_SOFT }}>
                 Aucun écart technique ouvert.
               </div>
             )}
           </div>
         </SurfaceCard>
 
-        <SurfaceCard title="Hypothèses">
+        <SurfaceCard title="Hypothèses" icon={<ShieldCheck size={12} />}>
           <div className="space-y-2">
             {sif.assumptions.length > 0 ? sif.assumptions.map(assumption => (
-              <div key={assumption.id} className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
+              <div key={assumption.id} className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold truncate" style={{ color: TEXT }}>{assumption.title}</p>
@@ -208,7 +183,7 @@ export function VerificationWorkspace({
                 </div>
               </div>
             )) : (
-              <div className="rounded-lg border px-3 py-3 text-xs" style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}>
+              <div className="rounded-lg border px-3 py-3 text-xs" style={{ borderColor: BORDER, background: SURFACE, color: TEXT_DIM, boxShadow: SHADOW_SOFT }}>
                 Aucune hypothèse enregistrée.
               </div>
             )}
@@ -217,7 +192,7 @@ export function VerificationWorkspace({
       </div>
 
       {/* ── Preuves ── */}
-      <SurfaceCard title="Package de preuves">
+      <SurfaceCard title="Package de preuves" icon={<ClipboardCheck size={12} />}>
         <div className="grid gap-4 xl:grid-cols-[1fr_auto]">
           <div className="space-y-2">
             {compliance.evidenceItems.map(item => (
@@ -226,7 +201,7 @@ export function VerificationWorkspace({
                 type="button"
                 onClick={() => onSelectEvidence(item.id)}
                 className="w-full rounded-lg border px-3 py-2.5 text-left transition-colors hover:opacity-80"
-                style={{ borderColor: BORDER, background: PAGE_BG }}
+                style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}
               >
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
@@ -256,7 +231,7 @@ export function VerificationWorkspace({
               { label: 'Preuves', value: `${evidenceComplete}/${compliance.evidenceItems.length}`, tone: compliance.evidenceItems.every(i => i.status === 'complete') ? semantic.success : TEXT },
               { label: 'Proof test', value: sif.proofTestProcedure ? 'Défini' : 'Manquant', tone: sif.proofTestProcedure ? semantic.success : semantic.error },
             ].map(item => (
-              <div key={item.label} className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
+              <div key={item.label} className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
                 <p className="text-[10px] uppercase tracking-wide" style={{ color: TEXT_DIM }}>{item.label}</p>
                 <p className="mt-1 text-base font-black font-mono" style={{ color: item.tone }}>{item.value}</p>
               </div>

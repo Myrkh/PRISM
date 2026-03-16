@@ -18,7 +18,7 @@ export function RailIconButton({
   badge?: RailBadge
   indicatorSide?: 'left' | 'right'
 }) {
-  const { BORDER, CARD_BG, PAGE_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, SHADOW_CARD, SHADOW_SOFT, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
   const [hovered, setHovered] = useState(false)
   const showDotBadge = typeof badge === 'boolean' ? badge : badge !== null && badge !== undefined && badge !== ''
   const indicatorStyle = indicatorSide === 'left'
@@ -35,9 +35,12 @@ export function RailIconButton({
       onMouseLeave={() => setHovered(false)}
       className="relative flex h-9 w-9 items-center justify-center rounded-lg transition-all"
       style={{
-        background: active ? `${TEAL}16` : hovered ? PAGE_BG : 'transparent',
+        background: active ? CARD_BG : hovered ? PAGE_BG : 'transparent',
         color: active ? TEAL : hovered ? TEXT : TEXT_DIM,
-        boxShadow: active ? `inset 0 0 0 1px ${TEAL}22` : 'none',
+        border: `1px solid ${active ? `${TEAL}24` : hovered ? `${BORDER}D0` : 'transparent'}`,
+        boxShadow: active
+          ? `${isDark ? `0 0 0 1px ${TEAL}12, ` : ''}${SHADOW_CARD}`
+          : hovered ? SHADOW_SOFT : 'none',
       }}
     >
       {active && (

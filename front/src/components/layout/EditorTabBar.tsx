@@ -18,11 +18,11 @@ export function EditorTabBar<T extends string>({
   active: T
   onSelect: (id: T) => void
 }) {
-  const { BORDER, CARD_BG, TEAL, TEXT, TEXT_DIM, PANEL_BG, PAGE_BG } = usePrismTheme()
+  const { BORDER, CARD_BG, SHADOW_CARD, SHADOW_SOFT, TEAL, TEXT, TEXT_DIM, PANEL_BG, SURFACE } = usePrismTheme()
   return (
     <div
       className="flex items-end border-b shrink-0"
-      style={{ borderColor: BORDER, background: PANEL_BG }}
+      style={{ borderColor: BORDER, background: PANEL_BG, boxShadow: SHADOW_SOFT }}
     >
       {tabs.map(tab => {
         const isActive = tab.id === active
@@ -38,7 +38,8 @@ export function EditorTabBar<T extends string>({
               borderBottom: isActive ? `2px solid ${TEAL}` : '2px solid transparent',
               fontWeight:   isActive ? 600 : 400,
               fontSize:     13,
-              background:   isActive ? PAGE_BG : 'transparent',
+              background:   isActive ? CARD_BG : 'transparent',
+              boxShadow:    isActive ? SHADOW_CARD : 'none',
             }}
             onMouseEnter={e => { if (!isActive) e.currentTarget.style.color = TEXT }}
             onMouseLeave={e => { if (!isActive) e.currentTarget.style.color = TEXT_DIM }}
@@ -95,7 +96,7 @@ function PhaseBtn({
 }: {
   phase: PhaseEntry; isActive: boolean; onClick: () => void
 }) {
-  const { BORDER, CARD_BG, TEAL, TEXT, TEXT_DIM, PAGE_BG } = usePrismTheme()
+  const { BORDER, CARD_BG, SHADOW_CARD, SHADOW_SOFT, TEAL, TEXT, TEXT_DIM, PAGE_BG, SURFACE } = usePrismTheme()
   const isReport = phase.id === 'report'
 
   return (
@@ -106,20 +107,23 @@ function PhaseBtn({
       className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium transition-all shrink-0"
       style={{
         color:      isActive ? phase.accent : TEXT_DIM,
-        background: isActive ? `${phase.accent}14` : 'transparent',
-        border:     `1px solid ${isActive ? `${phase.accent}35` : 'transparent'}`,
+        background: isActive ? SURFACE : 'transparent',
+        border:     `1px solid ${isActive ? `${phase.accent}30` : 'transparent'}`,
         fontWeight: isActive ? 600 : 400,
+        boxShadow:  isActive ? SHADOW_CARD : 'none',
       }}
       onMouseEnter={e => {
         if (!isActive) {
           e.currentTarget.style.color = TEXT
           e.currentTarget.style.background = PAGE_BG
+          e.currentTarget.style.boxShadow = SHADOW_SOFT
         }
       }}
       onMouseLeave={e => {
         if (!isActive) {
           e.currentTarget.style.color = TEXT_DIM
           e.currentTarget.style.background = 'transparent'
+          e.currentTarget.style.boxShadow = 'none'
         }
       }}
     >
@@ -150,14 +154,14 @@ export function SIFLifecycleBar({
   active: CanonicalSIFTab
   onSelect: (id: CanonicalSIFTab) => void
 }) {
-  const { BORDER, TEXT_DIM, PANEL_BG } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, TEXT_DIM, PANEL_BG } = usePrismTheme()
   const cockpit = LIFECYCLE_PHASES[0]
   const report  = LIFECYCLE_PHASES[LIFECYCLE_PHASES.length - 1]
 
   return (
     <div
       className="flex items-center shrink-0 px-3 border-b gap-0.5 overflow-x-auto"
-      style={{ borderColor: BORDER, background: PANEL_BG, height: 40, scrollbarWidth: 'none' }}
+      style={{ borderColor: BORDER, background: PANEL_BG, height: 40, scrollbarWidth: 'none', boxShadow: SHADOW_SOFT }}
     >
       {/* Cockpit — hub */}
       <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
@@ -187,14 +191,14 @@ export function SIFWorkbenchBar({
   active: CanonicalSIFTab
   onSelect: (id: CanonicalSIFTab) => void
 }) {
-  const { BORDER, TEXT_DIM, PANEL_BG } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, TEXT_DIM, PANEL_BG } = usePrismTheme()
   const cockpit = LIFECYCLE_PHASES[0]
   const report  = LIFECYCLE_PHASES[LIFECYCLE_PHASES.length - 1]
 
   return (
     <div
       className="flex shrink-0 justify-center border-b px-4"
-      style={{ borderColor: BORDER, background: PANEL_BG, height: 40 }}
+      style={{ borderColor: BORDER, background: PANEL_BG, height: 40, boxShadow: SHADOW_SOFT }}
     >
       <div className="flex min-w-0 max-w-full items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
         <PhaseBtn phase={cockpit} isActive={active === 'cockpit'} onClick={() => onSelect('cockpit')} />
@@ -221,11 +225,17 @@ export function EditorContent({
   children: ReactNode
   className?: string
 }) {
-  const { PANEL_BG } = usePrismTheme()
+  const { PAGE_BG, SHADOW_SOFT, isDark } = usePrismTheme()
   return (
     <div
       className={cn('flex-1 min-h-0 overflow-hidden', className)}
-      style={{ background: PANEL_BG }}
+      style={{
+        background: PAGE_BG,
+        boxShadow: SHADOW_SOFT,
+        backgroundImage: isDark
+          ? 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%)'
+          : 'linear-gradient(180deg, rgba(255,255,255,0.36) 0%, rgba(255,255,255,0) 100%)',
+      }}
     >
       {children}
     </div>

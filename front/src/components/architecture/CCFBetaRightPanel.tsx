@@ -37,7 +37,7 @@ export function CCFBetaRightPanel({
   previewBeta,
   previewBetaD,
 }: Props) {
-  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM, semantic } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, SHADOW_SOFT, SURFACE, TEAL, TEXT, TEXT_DIM, semantic } = usePrismTheme()
   return (
     <div
       className="flex h-full flex-col overflow-hidden"
@@ -68,7 +68,7 @@ export function CCFBetaRightPanel({
       <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
         {selectedSubsystem ? (
           <>
-            <section className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: CARD_BG }}>
+            <section className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
               <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>
                 Subsystem
               </p>
@@ -76,7 +76,7 @@ export function CCFBetaRightPanel({
                 value={selectedSubsystemId ?? ''}
                 onChange={e => onSelectSubsystem(e.target.value)}
                 className="mt-2 h-10 w-full rounded-lg border px-2.5 text-sm outline-none"
-                style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
+                style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT, boxShadow: SHADOW_SOFT }}
               >
                 {redundantSubsystems.map(subsystem => (
                   <option key={subsystem.id} value={subsystem.id}>
@@ -91,7 +91,7 @@ export function CCFBetaRightPanel({
                   { label: 'Profile', value: profileLabel },
                   { label: 'Vote', value: voteType },
                 ].map(item => (
-                  <div key={item.label} className="rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                  <div key={item.label} className="rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
                     <p className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{item.label}</p>
                     <p className="mt-1 text-[11px] font-bold font-mono" style={{ color: TEXT }}>{item.value}</p>
                   </div>
@@ -99,7 +99,7 @@ export function CCFBetaRightPanel({
               </div>
             </section>
 
-            <section className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: CARD_BG }}>
+            <section className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
               <div className="flex items-center gap-2">
                 <SlidersHorizontal size={12} style={{ color: TEAL }} />
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>
@@ -120,7 +120,8 @@ export function CCFBetaRightPanel({
                       className="w-full rounded-lg border px-3 py-2 text-left transition-colors"
                       style={{
                         borderColor: active ? `${TEAL}80` : BORDER,
-                        background: active ? `${TEAL}10` : PAGE_BG,
+                        background: active ? `${TEAL}10` : SURFACE,
+                        boxShadow: SHADOW_SOFT,
                       }}
                     >
                       <p className="text-sm font-semibold" style={{ color: active ? TEXT : TEXT_DIM }}>{option.label}</p>
@@ -131,7 +132,7 @@ export function CCFBetaRightPanel({
               </div>
             </section>
 
-            <section className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: CARD_BG }}>
+            <section className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
               <div className="flex items-center gap-2">
                 <BarChart3 size={12} style={{ color: TEAL }} />
                 <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>
@@ -145,7 +146,7 @@ export function CCFBetaRightPanel({
                   { label: 'Beta', value: formatBetaPct(previewBeta) },
                   { label: 'BetaD', value: formatBetaPct(previewBetaD) },
                 ].map(item => (
-                  <div key={item.label} className="rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                  <div key={item.label} className="rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
                     <p className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{item.label}</p>
                     <p className="mt-1 text-[11px] font-bold font-mono" style={{ color: TEXT }}>{item.value}</p>
                   </div>
@@ -162,7 +163,7 @@ export function CCFBetaRightPanel({
             </section>
           </>
         ) : (
-          <div className="rounded-xl border px-3 py-4 text-sm" style={{ borderColor: BORDER, background: CARD_BG, color: TEXT_DIM }}>
+          <div className="rounded-xl border px-3 py-4 text-sm" style={{ borderColor: BORDER, background: CARD_BG, color: TEXT_DIM, boxShadow: SHADOW_SOFT }}>
             Aucun sous-systeme redondant n&apos;est disponible pour l&apos;evaluation CCF.
           </div>
         )}

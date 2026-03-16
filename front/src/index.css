@@ -73,14 +73,20 @@
 
   html:not(.dark) body {
     background-image:
-      radial-gradient(circle at top left, rgba(255, 255, 255, 0.92) 0%, rgba(255, 255, 255, 0) 34%),
-      linear-gradient(180deg, rgba(255, 255, 255, 0.74) 0%, rgba(247, 250, 252, 0.18) 100%),
-      linear-gradient(120deg, rgba(15, 23, 42, 0.018) 0%, rgba(15, 23, 42, 0) 42%, rgba(15, 23, 42, 0.024) 100%);
+      radial-gradient(circle at top left, rgba(255, 255, 255, 0.96) 0%, rgba(255, 255, 255, 0) 34%),
+      radial-gradient(circle at top right, rgba(226, 233, 240, 0.55) 0%, rgba(226, 233, 240, 0) 28%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.82) 0%, rgba(247, 250, 252, 0.28) 100%),
+      linear-gradient(120deg, rgba(15, 23, 42, 0.022) 0%, rgba(15, 23, 42, 0) 42%, rgba(15, 23, 42, 0.03) 100%);
     background-attachment: fixed;
   }
 
   html.dark body {
-    background-image: none;
+    background-image:
+      radial-gradient(circle at top left, rgba(95, 216, 210, 0.08) 0%, rgba(95, 216, 210, 0) 30%),
+      radial-gradient(circle at top right, rgba(255, 255, 255, 0.035) 0%, rgba(255, 255, 255, 0) 24%),
+      linear-gradient(180deg, rgba(255, 255, 255, 0.025) 0%, rgba(255, 255, 255, 0) 100%),
+      linear-gradient(120deg, rgba(0, 0, 0, 0.20) 0%, rgba(0, 0, 0, 0) 42%, rgba(0, 0, 0, 0.26) 100%);
+    background-attachment: fixed;
   }
 }
 

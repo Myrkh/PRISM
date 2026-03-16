@@ -74,7 +74,7 @@ function ReviewQueueRightPanel({
   setTypeFilter: (next: 'all' | ReviewIssueType) => void
   onOpenSelected: () => void
 }) {
-  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, SHADOW_PANEL, SHADOW_SOFT, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
   const [activeTab, setActiveTab] = useState<'filters' | 'details'>('filters')
   const activeIdx = REVIEW_RIGHT_TABS.findIndex(t => t.id === activeTab)
 
@@ -178,7 +178,7 @@ function ReviewQueueRightPanel({
 }
 
 export function ReviewQueueWorkspace() {
-  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, SHADOW_PANEL, SHADOW_SOFT, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
   const projects = useAppStore(s => s.projects)
   const navigate = useAppStore(s => s.navigate)
   const { setRightPanelOverride } = useLayout()
@@ -377,7 +377,7 @@ export function ReviewQueueWorkspace() {
             style={{
               borderColor: BORDER,
               background: PAGE_BG,
-              boxShadow: isDark ? 'none' : '0 12px 28px rgba(15,23,42,0.04)',
+              boxShadow: SHADOW_SOFT,
             }}
           >
             <p className="text-sm" style={{ color: TEXT_DIM }}>No items match current filters.</p>
@@ -388,7 +388,7 @@ export function ReviewQueueWorkspace() {
             style={{
               borderColor: BORDER,
               background: CARD_BG,
-              boxShadow: isDark ? 'none' : '0 18px 42px rgba(15,23,42,0.05), 0 4px 12px rgba(15,23,42,0.03)',
+              boxShadow: SHADOW_PANEL,
             }}
           >
             <table className="w-full">

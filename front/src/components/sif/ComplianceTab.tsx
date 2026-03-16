@@ -33,17 +33,17 @@ function SurfaceCard({
   icon: React.ReactNode
   children: React.ReactNode
 }) {
-  const { BORDER, CARD_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, SHADOW_PANEL, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   return (
-    <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: CARD_BG }}>
+    <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-sm font-semibold" style={{ color: TEXT }}>{title}</h3>
+          <h3 className="text-sm font-semibold" style={{ color: TEAL }}>{title}</h3>
           {hint && <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{hint}</p>}
         </div>
         <div
           className="rounded-lg border p-2"
-          style={{ borderColor: `${TEAL}33`, background: `${TEAL}12`, color: TEAL_DIM }}
+          style={{ borderColor: `${TEAL}33`, background: SURFACE, color: TEAL_DIM }}
         >
           {icon}
         </div>
@@ -62,14 +62,14 @@ function MiniMetric({
   value: string
   tone?: 'default' | 'success' | 'warning'
 }) {
-  const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
   const color =
     tone === 'success' ? semantic.success :
     tone === 'warning' ? semantic.warning :
     TEXT
 
   return (
-    <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
+    <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
       <p className="text-[10px] uppercase tracking-wide" style={{ color: TEXT_DIM }}>{label}</p>
       <p className="mt-1 text-sm font-bold font-mono" style={{ color }}>{value}</p>
     </div>
@@ -103,13 +103,13 @@ function ActionButton({
   hint: string
   onClick: () => void
 }) {
-  const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
   return (
     <button
       type="button"
       onClick={onClick}
       className="w-full rounded-lg border px-3 py-3 text-left transition-colors"
-      style={{ borderColor: BORDER, background: PAGE_BG }}
+      style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}
     >
       <div className="flex items-center justify-between gap-3">
         <p className="text-sm font-semibold" style={{ color: TEXT }}>{title}</p>
@@ -127,13 +127,13 @@ function EvidenceButton({
   item: ComplianceEvidenceItem
   onClick: () => void
 }) {
-  const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
   return (
     <button
       type="button"
       onClick={onClick}
       className="w-full rounded-lg border px-3 py-2.5 text-left transition-colors"
-      style={{ borderColor: BORDER, background: PAGE_BG }}
+      style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}
     >
       <div className="flex items-start justify-between gap-3">
         <div>
@@ -154,7 +154,7 @@ export function ComplianceTab({
   onSelectGap,
   onSelectEvidence,
 }: Props) {
-  const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
   const openGaps = Math.max(0, compliance.totalChecks - compliance.passedChecks)
   const metadataPct = Math.round(compliance.metadataCompletion * 100)
   const registerReviews = sif.assumptions.filter(item => item.status !== 'validated').length
@@ -247,7 +247,7 @@ export function ComplianceTab({
                 type="button"
                 onClick={() => onSelectGap(finding.id)}
                 className="w-full rounded-lg border px-3 py-2.5 text-left transition-colors"
-                style={{ borderColor: BORDER, background: PAGE_BG }}
+                style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}
               >
                 <div className="flex items-start justify-between gap-3">
                   <div>
@@ -268,7 +268,7 @@ export function ComplianceTab({
           ) : (
             <div
               className="flex items-center gap-2 rounded-lg border px-3 py-3 text-sm"
-              style={{ borderColor: `${semantic.success}44`, background: `${semantic.success}10`, color: semantic.success }}
+              style={{ borderColor: `${semantic.success}44`, background: `${semantic.success}10`, color: semantic.success, boxShadow: SHADOW_SOFT }}
             >
               <CheckCircle2 size={14} />
               No open technical gap is currently blocking the compliance view.

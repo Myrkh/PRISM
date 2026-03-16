@@ -31,11 +31,16 @@ function SectionKicker({ children }: { children: React.ReactNode }) {
 }
 
 function SectionHeader({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  const { BORDER, TEAL_DIM } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, TEAL } = usePrismTheme()
   return (
     <div className="mb-3 flex items-center gap-2 border-b pb-2" style={{ borderColor: BORDER }}>
-      <span style={{ color: TEAL_DIM }}>{icon}</span>
-      <span className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: TEAL_DIM }}>
+      <span
+        className="inline-flex h-6 w-6 items-center justify-center rounded-md border"
+        style={{ color: TEAL, background: `${TEAL}10`, borderColor: `${TEAL}22`, boxShadow: SHADOW_SOFT }}
+      >
+        {icon}
+      </span>
+      <span className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: TEAL }}>
         {children}
       </span>
     </div>
@@ -51,13 +56,14 @@ function SurfaceCard({
   className?: string
   style?: React.CSSProperties
 }) {
-  const { BORDER, SURFACE } = usePrismTheme()
+  const { BORDER, CARD_BG, SHADOW_PANEL } = usePrismTheme()
   return (
     <div
       className={`rounded-xl border ${className}`.trim()}
       style={{
         borderColor: BORDER,
-        background: SURFACE,
+        background: CARD_BG,
+        boxShadow: SHADOW_PANEL,
         ...style,
       }}
     >
@@ -96,9 +102,9 @@ function InlineMetric({
   value: string
   tone: string
 }) {
-  const { BORDER, PAGE_BG, TEXT_DIM } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, SURFACE, TEXT_DIM } = usePrismTheme()
   return (
-    <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
+    <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
       <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{label}</p>
       <p className="mt-1 text-sm font-semibold font-mono" style={{ color: tone }}>{value}</p>
     </div>
@@ -231,7 +237,7 @@ export function OverviewTab({
   onSelectTab,
   onCloseRevision,
 }: Props) {
-  const { BORDER, PAGE_BG, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM, R } = usePrismTheme()
+  const { BORDER, SHADOW_CARD, SHADOW_SOFT, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM, R } = usePrismTheme()
   const operationalHealth = getOverviewOperationalHealthMeta(TEXT_DIM)[overviewMetrics.operationalHealth]
   const decision = getDecisionState(sif, result, compliance, overviewMetrics)
   const priorityActions = overviewMetrics.actions.filter(action => action.id !== 'stable-overview')
@@ -282,7 +288,7 @@ export function OverviewTab({
             </StatusPill>
           </div>
 
-          <div className="mt-4 rounded-lg border px-3 py-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+          <div className="mt-4 rounded-lg border px-3 py-3" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
             <SectionKicker>Événement dangereux</SectionKicker>
             <p className="mt-2 text-sm leading-6" style={{ color: TEXT }}>
               {sif.hazardousEvent || 'Événement dangereux non documenté.'}
@@ -313,7 +319,7 @@ export function OverviewTab({
             <InlineMetric label="Preuves" value={`${overviewMetrics.evidenceCompleteCount}/${overviewMetrics.evidenceTotalCount}`} tone={TEXT} />
           </div>
 
-          <div className="mt-4 rounded-lg border px-3 py-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+          <div className="mt-4 rounded-lg border px-3 py-3" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
             <SectionKicker>Cap suivant</SectionKicker>
             <p className="mt-2 text-sm font-semibold" style={{ color: TEXT }}>
               {leadAction ? leadAction.title : 'Rien de bloquant à traiter'}
@@ -330,7 +336,7 @@ export function OverviewTab({
               type="button"
               onClick={() => onSelectTab(leadAction ? leadAction.tab : 'report')}
               className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold"
-              style={{ borderColor: `${TEAL}55`, background: `${TEAL}12`, color: TEAL_DIM }}
+              style={{ borderColor: `${TEAL}55`, background: `${TEAL}12`, color: TEAL_DIM, boxShadow: SHADOW_SOFT }}
             >
               {leadAction ? getOverviewActionCta(leadAction.tab) : 'Ouvrir le rapport'}
               <ArrowRight size={12} />
@@ -343,7 +349,7 @@ export function OverviewTab({
                 onClick={onCloseRevision}
                 disabled={isPublishingRevision}
                 className="h-9 justify-center text-xs"
-                style={{ borderRadius: R }}
+                style={{ borderRadius: R, background: SURFACE, borderColor: BORDER, color: TEXT, boxShadow: SHADOW_CARD }}
               >
                 <Lock size={12} />
                 {isPublishingRevision ? 'Publication…' : `Clôturer rév. ${sif.revision}`}
@@ -434,7 +440,7 @@ export function OverviewTab({
         {priorityActions.length === 0 ? (
           <div
             className="mt-4 rounded-xl border px-4 py-4"
-            style={{ borderColor: `${semantic.success}32`, background: `${semantic.success}08` }}
+            style={{ borderColor: `${semantic.success}32`, background: `${semantic.success}08`, boxShadow: SHADOW_SOFT }}
           >
             <div className="flex items-start gap-3">
               <CheckCircle2 size={16} style={{ color: semantic.success, flexShrink: 0, marginTop: 2 }} />
@@ -449,7 +455,7 @@ export function OverviewTab({
                   type="button"
                   onClick={() => onSelectTab('report')}
                   className="mt-3 inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-semibold"
-                  style={{ borderColor: `${TEAL}55`, background: `${TEAL}12`, color: TEAL_DIM }}
+                  style={{ borderColor: `${TEAL}55`, background: `${TEAL}12`, color: TEAL_DIM, boxShadow: SHADOW_SOFT }}
                 >
                   Ouvrir le rapport
                   <ArrowRight size={12} />
@@ -463,12 +469,12 @@ export function OverviewTab({
               <div
                 key={action.id}
                 className="rounded-xl border p-4"
-                style={{ borderColor: BORDER, background: PAGE_BG }}
+                style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}
               >
                 <div className="flex items-start gap-3">
                   <div
                     className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-[11px] font-bold"
-                    style={{ borderColor: BORDER, background: SURFACE, color: TEAL_DIM }}
+                    style={{ borderColor: BORDER, background: `${TEAL}10`, color: TEAL_DIM, boxShadow: SHADOW_SOFT }}
                   >
                     {index + 1}
                   </div>
@@ -482,7 +488,7 @@ export function OverviewTab({
                   type="button"
                   onClick={() => onSelectTab(action.tab)}
                   className="mt-4 inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-semibold"
-                  style={{ borderColor: `${TEAL}55`, background: `${TEAL}12`, color: TEAL_DIM }}
+                  style={{ borderColor: `${TEAL}55`, background: `${TEAL}12`, color: TEAL_DIM, boxShadow: SHADOW_SOFT }}
                 >
                   {getOverviewActionCta(action.tab)}
                   <ArrowRight size={12} />
@@ -493,7 +499,7 @@ export function OverviewTab({
         )}
 
         <div className="mt-4 grid gap-3 lg:grid-cols-3">
-          <div className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+          <div className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
             <div className="flex items-start gap-2">
               <CheckCircle2 size={14} style={{ color: result.meetsTarget ? semantic.success : semantic.warning, flexShrink: 0, marginTop: 2 }} />
               <div>
@@ -507,7 +513,7 @@ export function OverviewTab({
             </div>
           </div>
 
-          <div className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+          <div className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
             <div className="flex items-start gap-2">
               <TimerReset size={14} style={{ color: operationalHealth.color, flexShrink: 0, marginTop: 2 }} />
               <div>
@@ -519,7 +525,7 @@ export function OverviewTab({
             </div>
           </div>
 
-          <div className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+          <div className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
             <div className="flex items-start gap-2">
               <ShieldCheck size={14} style={{ color: governanceReady ? semantic.success : TEAL_DIM, flexShrink: 0, marginTop: 2 }} />
               <div>

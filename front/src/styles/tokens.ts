@@ -24,13 +24,14 @@ export const dark = {
 
 // ─── Light Mode (DA KORE paper) ──────────────────────────────────────────
 export const light = {
-  rail:    '#EEF3F7',
-  panel:   '#EEF3F7',
+  rail:    '#E9EEF3',
+  panel:   '#EDF2F6',
   card:    '#FFFFFF',
-  page:    '#EEF3F7',
-  border:  '#D6DEE8',
-  text:    '#1F2937',
-  textDim: '#667085',
+  card2:   '#F6F8FB',
+  page:    '#F2F5F8',
+  border:  '#D5DDE6',
+  text:    '#18212B',
+  textDim: '#667281',
 } as const
 
 // ─── Brand Colors ────────────────────────────────────────────────────────

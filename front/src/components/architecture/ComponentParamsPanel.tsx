@@ -195,15 +195,21 @@ function StyledInput({ value, onChange, placeholder, type = 'text', step }: {
   value: string | number; onChange: (v: string) => void
   placeholder?: string; type?: string; step?: string
 }) {
-  const { BORDER, PAGE_BG, TEAL, TEXT } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, SURFACE, TEAL, TEXT } = usePrismTheme()
   return (
     <input
       type={type} step={step} value={value} onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
       className="w-full rounded-md border px-2 py-1.5 text-xs outline-none transition-colors"
-      style={{ background: PAGE_BG, borderColor: BORDER, color: TEXT }}
-      onFocus={e => (e.target.style.borderColor = TEAL)}
-      onBlur={e => (e.target.style.borderColor = BORDER)}
+      style={{ background: SURFACE, borderColor: BORDER, color: TEXT, boxShadow: SHADOW_SOFT }}
+      onFocus={e => {
+        e.target.style.borderColor = TEAL
+        e.target.style.boxShadow = `0 0 0 1px ${TEAL}18, ${SHADOW_SOFT}`
+      }}
+      onBlur={e => {
+        e.target.style.borderColor = BORDER
+        e.target.style.boxShadow = SHADOW_SOFT
+      }}
     />
   )
 }
@@ -217,7 +223,7 @@ function ScientificInput({
   onCommit: (value: number) => void
   placeholder?: string
 }) {
-  const { BORDER, PAGE_BG, TEXT } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, SURFACE, TEAL, TEXT } = usePrismTheme()
   const [draft, setDraft] = useState(() => formatEditableNumber(value))
   const [invalid, setInvalid] = useState(false)
 
@@ -247,14 +253,18 @@ function ScientificInput({
         setDraft(e.target.value)
         if (invalid) setInvalid(false)
       }}
-      onBlur={() => {
+      onBlur={e => {
         const parsed = parseNumericText(draft)
         if (parsed === null) {
           setInvalid(draft.trim().length > 0)
           setDraft(draft.trim().length > 0 ? draft : formatEditableNumber(value))
+          e.target.style.borderColor = draft.trim().length > 0 ? semantic.error : BORDER
+          e.target.style.boxShadow = SHADOW_SOFT
           return
         }
         commitDraft()
+        e.target.style.borderColor = BORDER
+        e.target.style.boxShadow = SHADOW_SOFT
       }}
       onKeyDown={e => {
         if (e.key === 'Enter') {
@@ -270,9 +280,14 @@ function ScientificInput({
       placeholder={placeholder}
       className="w-full rounded-md border px-2 py-1.5 text-xs outline-none transition-colors font-mono"
       style={{
-        background: PAGE_BG,
+        background: SURFACE,
         borderColor: invalid ? semantic.error : BORDER,
         color: TEXT,
+        boxShadow: SHADOW_SOFT,
+      }}
+      onFocus={e => {
+        if (!invalid) e.target.style.borderColor = TEAL
+        e.target.style.boxShadow = `0 0 0 1px ${invalid ? semantic.error : TEAL}18, ${SHADOW_SOFT}`
       }}
     />
   )
@@ -282,12 +297,20 @@ function StyledSelect({ value, onChange, options }: {
   value: string; onChange: (v: string) => void
   options: { value: string; label: string }[]
 }) {
-  const { BORDER, PAGE_BG, TEXT } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, SURFACE, TEAL, TEXT } = usePrismTheme()
   return (
     <select
       value={value} onChange={e => onChange(e.target.value)}
       className="w-full rounded-md border px-2 py-1.5 text-xs outline-none appearance-none"
-      style={{ background: PAGE_BG, borderColor: BORDER, color: TEXT }}
+      style={{ background: SURFACE, borderColor: BORDER, color: TEXT, boxShadow: SHADOW_SOFT }}
+      onFocus={e => {
+        e.target.style.borderColor = TEAL
+        e.target.style.boxShadow = `0 0 0 1px ${TEAL}18, ${SHADOW_SOFT}`
+      }}
+      onBlur={e => {
+        e.target.style.borderColor = BORDER
+        e.target.style.boxShadow = SHADOW_SOFT
+      }}
     >
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
@@ -305,11 +328,11 @@ function CheckboxField({
   checked: boolean
   onChange: (checked: boolean) => void
 }) {
-  const { BORDER, PAGE_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, SURFACE, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   return (
     <label
       className="flex items-start gap-3 rounded-md border px-3 py-2.5"
-      style={{ borderColor: BORDER, background: PAGE_BG }}
+      style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}
     >
       <input
         type="checkbox"
@@ -403,11 +426,11 @@ function SliderField({ label, value, min, max, step = 0.01, format, onChange, co
 }
 
 function ComputedRow({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
-  const { BORDER, PAGE_BG, TEXT, TEXT_DIM, semantic } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM, semantic } = usePrismTheme()
   const c = ok === undefined ? TEXT : ok ? semantic.success : semantic.error
   return (
     <div className="flex justify-between items-center rounded px-2 py-1.5"
-      style={{ background: PAGE_BG, border: `1px solid ${BORDER}` }}>
+      style={{ background: SURFACE, border: `1px solid ${BORDER}`, boxShadow: SHADOW_SOFT }}>
       <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>{label}</span>
       <span className="text-xs font-bold font-mono" style={{ color: c }}>{value}</span>
     </div>
@@ -439,7 +462,7 @@ interface Props {
 export function ComponentParamsPanel({
   component, subsystemType, projectId, sifId, subsystemId, channelId, onClose,
 }: Props) {
-  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, SHADOW_PANEL, SHADOW_SOFT, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const PANEL = PANEL_BG
   const CARD = CARD_BG
   const BG = PAGE_BG
@@ -622,6 +645,7 @@ export function ComponentParamsPanel({
           borderRight: `1px solid ${BORDER}`,
           borderBottom: `1px solid ${BORDER}`,
           borderRadius: `0 0 ${R}px ${R}px`,
+          boxShadow: SHADOW_PANEL,
         }}
       >
 
@@ -676,7 +700,7 @@ export function ComponentParamsPanel({
                 onChange={e => upd({ description: e.target.value })}
                 rows={3}
                 className="w-full rounded-md border px-2 py-1.5 text-xs outline-none resize-none"
-                style={{ background: BG, borderColor: BORDER2, color: TEXT }}
+                style={{ background: BG, borderColor: BORDER2, color: TEXT, boxShadow: SHADOW_SOFT }}
                 placeholder="Description optionnelle…"
               />
             </FieldRow>
@@ -1186,11 +1210,11 @@ export function ComponentParamsPanel({
 
 // ── Live metric chip ──────────────────────────────────────────────────────
 function LiveMetric({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
-  const { BORDER, PAGE_BG, TEXT_DIM, semantic } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, SURFACE, TEXT_DIM, semantic } = usePrismTheme()
   const color = ok === undefined ? TEXT_DIM : ok ? semantic.success : semantic.error
   return (
     <div className="flex-1 rounded px-1.5 py-1 text-center"
-      style={{ background: PAGE_BG, border: `1px solid ${BORDER}` }}>
+      style={{ background: SURFACE, border: `1px solid ${BORDER}`, boxShadow: SHADOW_SOFT }}>
       <p className="text-[8px] uppercase tracking-widest" style={{ color: TEXT_DIM }}>{label}</p>
       <p className="text-[11px] font-bold font-mono" style={{ color }}>{value}</p>
     </div>

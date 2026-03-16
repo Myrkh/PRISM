@@ -45,7 +45,7 @@ function getUserInitials(value: string | null | undefined): string {
 }
 
 export function AppHeader() {
-  const { BORDER, RAIL_BG, PANEL_BG, PAGE_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, isDark: themeIsDark } = usePrismTheme()
+  const { BORDER, RAIL_BG, PANEL_BG, PAGE_BG, SHADOW_SOFT, SHADOW_TAB, TEAL, TEAL_DIM, TEXT, TEXT_DIM, isDark: themeIsDark } = usePrismTheme()
   const toggleTheme = useAppStore(s => s.toggleTheme)
   const view        = useAppStore(s => s.view)
   const navigate    = useAppStore(s => s.navigate)
@@ -122,11 +122,17 @@ export function AppHeader() {
         gridTemplateColumns: '288px 1fr auto',
         background: RAIL_BG,
         borderColor: BORDER,
-        boxShadow: themeIsDark ? 'none' : '0 1px 0 rgba(255,255,255,0.92) inset, 0 8px 24px rgba(15,23,42,0.04)',
+        boxShadow: `${SHADOW_TAB}, inset 0 1px 0 ${themeIsDark ? 'rgba(255,255,255,0.085)' : 'rgba(255,255,255,0.92)'}, inset 0 -1px 0 ${themeIsDark ? 'rgba(0,0,0,0.28)' : 'rgba(15,23,42,0.06)'}`,
       }}
     >
       {/* Left Zone — Logo */}
-      <div className="h-full flex items-center px-2 border-r" style={{ borderColor: BORDER }}>
+      <div
+        className="h-full flex items-center px-2 border-r"
+        style={{
+          borderColor: BORDER,
+          boxShadow: `inset -1px 0 0 ${themeIsDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.82)'}, inset 0 1px 0 ${themeIsDark ? 'rgba(255,255,255,0.04)' : 'transparent'}`,
+        }}
+      >
         <button
           onClick={() => navigate({ type: 'projects' })}
           className="flex items-center gap-2 hover:opacity-85 transition-opacity"
@@ -158,7 +164,12 @@ export function AppHeader() {
             ) : (
               <span
                 className="inline-flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-bold"
-                style={{ background: PAGE_BG, color: TEXT, border: `1px solid ${BORDER}` }}
+                style={{
+                  background: PAGE_BG,
+                  color: TEXT,
+                  border: `1px solid ${BORDER}`,
+                  boxShadow: `${SHADOW_SOFT}, inset 0 1px 0 ${themeIsDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.9)'}`,
+                }}
               >
                 {initials}
               </span>
@@ -168,7 +179,12 @@ export function AppHeader() {
           {isUserMenuOpen && (
             <div
               className="absolute right-0 top-10 w-64 rounded-xl border p-1.5 shadow-2xl z-50"
-              style={{ background: PANEL_BG, borderColor: BORDER }}
+              style={{
+                background: PANEL_BG,
+                backgroundImage: themeIsDark ? 'linear-gradient(180deg, rgba(255,255,255,0.03) 0%, rgba(255,255,255,0) 100%)' : 'none',
+                borderColor: BORDER,
+                boxShadow: `${SHADOW_SOFT}, inset 0 1px 0 ${themeIsDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.92)'}`,
+              }}
             >
               {/* User info */}
               <div className="rounded-lg px-3 py-2.5 mb-1" style={{ background: PAGE_BG }}>

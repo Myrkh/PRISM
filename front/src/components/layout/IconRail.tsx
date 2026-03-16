@@ -37,7 +37,7 @@ interface IconRailProps {
 export function IconRail({
   leftOpen, rightOpen, onToggleLeft, onToggleRight, showRightToggle, showPanelToggles = true,
 }: IconRailProps) {
-  const { BORDER, RAIL_BG } = usePrismTheme()
+  const { BORDER, RAIL_BG, SHADOW_SOFT, SHADOW_TAB, isDark } = usePrismTheme()
   const navigate = useAppStore(s => s.navigate)
   const view     = useAppStore(s => s.view)
 
@@ -50,7 +50,12 @@ export function IconRail({
   return (
     <div
       className="flex shrink-0 flex-col items-center gap-0.5 py-2 border-r"
-      style={{ width: 48, background: RAIL_BG, borderColor: BORDER }}
+      style={{
+        width: 48,
+        background: RAIL_BG,
+        borderColor: BORDER,
+        boxShadow: `${SHADOW_TAB}, inset -1px 0 0 ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.7)'}, inset 0 1px 0 ${isDark ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.9)'}, inset 0 -1px 0 ${isDark ? 'rgba(0,0,0,0.26)' : 'rgba(15,23,42,0.05)'}`,
+      }}
     >
       {showPanelToggles && (
         <>

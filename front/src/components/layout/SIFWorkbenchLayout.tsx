@@ -50,7 +50,7 @@ const MAX_RIGHT_PANEL_WIDTH     = 720
 
 // ─── Right panel — Properties inspector ──────────────────────────────────
 function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) {
-  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEXT, TEXT_DIM, TEAL_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, SHADOW_SOFT, TEXT, TEXT_DIM, TEAL_DIM } = usePrismTheme()
   const projects = useAppStore(s => s.projects)
   const project  = projects.find(p => p.id === projectId)
   const sif      = project?.sifs.find(s => s.id === sifId)
@@ -93,6 +93,7 @@ function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) 
             style={{
               background:  calc.meetsTarget ? `${semantic.success}12` : `${semantic.error}12`,
               borderColor: calc.meetsTarget ? `${semantic.success}35` : `${semantic.error}35`,
+              boxShadow: SHADOW_SOFT,
             }}
           >
             <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>Vérification SIL</span>
@@ -124,7 +125,7 @@ function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) 
 }
 
 function GlobalRightPanelPlaceholder({ mode }: { mode: 'review' | 'audit' | 'history' | 'engine' | 'hazop' }) {
-  const { BORDER, PAGE_BG, PANEL_BG, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, PANEL_BG, SHADOW_PANEL, TEXT_DIM } = usePrismTheme()
   const labels: Record<typeof mode, string> = {
     review:  'Review Queue',
     audit:   'Audit Log',
@@ -139,7 +140,7 @@ function GlobalRightPanelPlaceholder({ mode }: { mode: 'review' | 'audit' | 'his
       </p>
       <div
         className="rounded-xl border px-3 py-4 text-xs leading-relaxed"
-        style={{ borderColor: BORDER, color: TEXT_DIM, background: PAGE_BG }}
+        style={{ borderColor: BORDER, color: TEXT_DIM, background: CARD_BG, boxShadow: SHADOW_PANEL }}
       >
         {mode === 'engine'
           ? 'Engine overview, integration status, and backend contract details.'
@@ -201,7 +202,7 @@ interface Props {
 }
 
 export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelContent }: Props) {
-  const { BORDER, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, PAGE_BG, PANEL_BG, SHADOW_DOCK, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const view     = useAppStore(s => s.view)
   const setTab   = useAppStore(s => s.setTab)
   const projects = useAppStore(s => s.projects)
@@ -331,7 +332,15 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                 <div className="flex flex-1 min-h-0 overflow-hidden">
                   <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">{children}</div>
                   {rightOpen && (
-                    <div className="relative min-h-0 shrink-0 overflow-hidden" style={{ width: rightPanelWidth }}>
+                    <div
+                      className="relative min-h-0 shrink-0 overflow-hidden"
+                      style={{
+                        width: rightPanelWidth,
+                        background: PANEL_BG,
+                        borderLeft: `1px solid ${BORDER}`,
+                        boxShadow: SHADOW_DOCK,
+                      }}
+                    >
                       <ResizeDivider isResizing={isResizingRightPanel} onPointerDown={startResize} />
                       {rightPanelOverride || (
                         <GlobalRightPanelPlaceholder
@@ -386,6 +395,8 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                   borderLeftWidth: rightOpen ? 1 : 0,
                   borderLeftStyle: 'solid',
                   borderColor: BORDER,
+                  background: PANEL_BG,
+                  boxShadow: rightOpen ? SHADOW_DOCK : 'none',
                   transition: 'width 0.2s ease, border-left-width 0.2s ease',
                 }}
               >

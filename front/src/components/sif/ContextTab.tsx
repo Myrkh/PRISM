@@ -68,11 +68,16 @@ function buildDraft(sif: SIF): ContextDraft {
 // ── Design primitives ─────────────────────────────────────────────────────
 
 function SectionHeader({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  const { BORDER, TEAL_DIM } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, TEAL } = usePrismTheme()
   return (
     <div className="flex items-center gap-2 pb-2 mb-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
-      <span style={{ color: TEAL_DIM }}>{icon}</span>
-      <span className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: TEAL_DIM }}>{children}</span>
+      <span
+        className="inline-flex h-6 w-6 items-center justify-center rounded-md border"
+        style={{ color: TEAL, background: `${TEAL}10`, borderColor: `${TEAL}22`, boxShadow: SHADOW_SOFT }}
+      >
+        {icon}
+      </span>
+      <span className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: TEAL }}>{children}</span>
     </div>
   )
 }
@@ -90,7 +95,7 @@ function FInput({ value, onChange, placeholder, type = 'text', step, readOnly }:
   value: string | number; onChange?: (v: string) => void
   placeholder?: string; type?: string; step?: string; readOnly?: boolean
 }) {
-  const { BORDER, PAGE_BG, TEAL, TEXT } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, SURFACE, TEAL, TEXT } = usePrismTheme()
   return (
     <input
       type={type} step={step} value={value} readOnly={readOnly}
@@ -98,11 +103,20 @@ function FInput({ value, onChange, placeholder, type = 'text', step, readOnly }:
       placeholder={placeholder}
       className="w-full rounded-lg border px-2.5 py-2 text-xs outline-none transition-all"
       style={{
-        background: PAGE_BG, borderColor: BORDER, color: TEXT,
+        background: SURFACE, borderColor: BORDER, color: TEXT,
+        boxShadow: SHADOW_SOFT,
         opacity: readOnly ? 0.6 : 1,
       }}
-      onFocus={e => { if (!readOnly) e.target.style.borderColor = TEAL }}
-      onBlur={e => { e.target.style.borderColor = BORDER }}
+      onFocus={e => {
+        if (!readOnly) {
+          e.target.style.borderColor = TEAL
+          e.target.style.boxShadow = `0 0 0 1px ${TEAL}18, ${SHADOW_SOFT}`
+        }
+      }}
+      onBlur={e => {
+        e.target.style.borderColor = BORDER
+        e.target.style.boxShadow = SHADOW_SOFT
+      }}
     />
   )
 }
@@ -110,23 +124,29 @@ function FInput({ value, onChange, placeholder, type = 'text', step, readOnly }:
 function FTextarea({ value, onChange, placeholder, rows = 3 }: {
   value: string; onChange: (v: string) => void; placeholder?: string; rows?: number
 }) {
-  const { BORDER, PAGE_BG, TEAL, TEXT } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, SURFACE, TEAL, TEXT } = usePrismTheme()
   return (
     <textarea
       value={value} onChange={e => onChange(e.target.value)}
       rows={rows} placeholder={placeholder}
       className="w-full rounded-lg border px-2.5 py-2 text-xs outline-none resize-none transition-all"
-      style={{ background: PAGE_BG, borderColor: BORDER, color: TEXT }}
-      onFocus={e => { e.target.style.borderColor = TEAL }}
-      onBlur={e => { e.target.style.borderColor = BORDER }}
+      style={{ background: SURFACE, borderColor: BORDER, color: TEXT, boxShadow: SHADOW_SOFT }}
+      onFocus={e => {
+        e.target.style.borderColor = TEAL
+        e.target.style.boxShadow = `0 0 0 1px ${TEAL}18, ${SHADOW_SOFT}`
+      }}
+      onBlur={e => {
+        e.target.style.borderColor = BORDER
+        e.target.style.boxShadow = SHADOW_SOFT
+      }}
     />
   )
 }
 
 function Card({ children }: { children: React.ReactNode }) {
-  const { BORDER, SURFACE } = usePrismTheme()
+  const { BORDER, CARD_BG, SHADOW_PANEL } = usePrismTheme()
   return (
-    <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: SURFACE }}>
+    <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
       {children}
     </div>
   )
@@ -135,7 +155,7 @@ function Card({ children }: { children: React.ReactNode }) {
 const SIL_COLORS: Record<number, string> = { 1: '#16A34A', 2: '#2563EB', 3: '#D97706', 4: '#7C3AED' }
 
 function SILSelector({ value, onChange }: { value: SILLevel; onChange: (v: SILLevel) => void }) {
-  const { BORDER, PAGE_BG, TEXT_DIM } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, SURFACE, TEXT_DIM } = usePrismTheme()
   return (
     <div className="flex gap-1.5">
       {([1, 2, 3, 4] as SILLevel[]).map(sil => {
@@ -145,8 +165,8 @@ function SILSelector({ value, onChange }: { value: SILLevel; onChange: (v: SILLe
           <button key={sil} type="button" onClick={() => onChange(sil)}
             className="flex-1 py-2 rounded-lg text-[13px] font-mono font-bold transition-all"
             style={active
-              ? { background: color, color: '#fff', boxShadow: `0 0 12px ${color}40` }
-              : { background: PAGE_BG, color: TEXT_DIM, border: `1px solid ${BORDER}` }
+              ? { background: color, color: '#fff', boxShadow: `0 10px 22px ${color}26, 0 0 0 1px ${color}30` }
+              : { background: SURFACE, color: TEXT_DIM, border: `1px solid ${BORDER}`, boxShadow: SHADOW_SOFT }
             }>SIL {sil}</button>
         )
       })}
@@ -157,7 +177,7 @@ function SILSelector({ value, onChange }: { value: SILLevel; onChange: (v: SILLe
 // ── Main component ────────────────────────────────────────────────────────
 
 export function ContextTab({ projectId, sif, compliance, overviewMetrics, onSelectTab }: Props) {
-  const { BORDER, SURFACE, TEAL, TEAL_DIM, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, SHADOW_CARD, SHADOW_PANEL, SURFACE, TEAL, TEAL_DIM, TEXT_DIM } = usePrismTheme()
   const updateSIF = useAppStore(s => s.updateSIF)
   const updateHAZOPTrace = useAppStore(s => s.updateHAZOPTrace)
 
@@ -348,7 +368,11 @@ export function ContextTab({ projectId, sif, compliance, overviewMetrics, onSele
       {/* Floating save bar */}
       <div
         className="sticky bottom-0 flex items-center justify-between gap-3 rounded-xl border px-4 py-2.5"
-        style={{ background: `${SURFACE}EE`, borderColor: isDirty ? `${TEAL}40` : BORDER, backdropFilter: 'blur(8px)' }}
+        style={{
+          background: CARD_BG,
+          borderColor: isDirty ? `${TEAL}40` : BORDER,
+          boxShadow: SHADOW_PANEL,
+        }}
       >
         {saveError
           ? <p className="text-xs flex items-center gap-1.5" style={{ color: semantic.error }}>
@@ -361,8 +385,8 @@ export function ContextTab({ projectId, sif, compliance, overviewMetrics, onSele
         <button type="button" onClick={handleSave} disabled={!isDirty || isSaving}
           className="flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-[11px] font-bold transition-all disabled:opacity-40"
           style={isDirty
-            ? { background: TEAL, color: '#041014', boxShadow: `0 0 12px ${TEAL}30` }
-            : { background: BORDER, color: TEXT_DIM }
+            ? { background: TEAL, color: '#041014', boxShadow: `0 12px 24px ${TEAL}26, 0 0 0 1px ${TEAL}20` }
+            : { background: SURFACE, color: TEXT_DIM, boxShadow: SHADOW_CARD }
           }>
           <Save size={12} />
           {isSaving ? 'Enregistrement…' : 'Enregistrer'}

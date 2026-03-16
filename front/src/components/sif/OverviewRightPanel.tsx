@@ -25,7 +25,7 @@ interface Props {
 }
 
 export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Props) {
-  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, SHADOW_SOFT, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const [activeTab, setActiveTab] = useState<(typeof OVERVIEW_RIGHT_TABS)[number]['id']>('snapshot')
   const metrics = useMemo(() => getOverviewMetrics(sif, result, compliance), [compliance, result, sif])
   const health = getOverviewOperationalHealthMeta(TEXT_DIM)[metrics.operationalHealth]
@@ -44,7 +44,7 @@ export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Pro
               <div className="rounded-xl border p-3 space-y-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+                    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEAL }}>
                       Operational confidence
                     </p>
                     <p className="text-2xl font-black font-mono" style={{ color: health.color }}>
@@ -78,7 +78,7 @@ export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Pro
               </div>
 
               <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEAL }}>
                   Governance snapshot
                 </p>
 
@@ -131,7 +131,7 @@ export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Pro
           {activeTab === 'context' && (
             <div className="space-y-3">
               <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEAL }}>
                   Identification
                 </p>
                 {[
@@ -150,7 +150,7 @@ export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Pro
               </div>
 
               <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEAL }}>
                   Accountability
                 </p>
                 {[
@@ -172,16 +172,16 @@ export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Pro
 
           <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
             <div className="flex items-start gap-2">
-              <ShieldCheck size={14} style={{ color: TEAL_DIM, flexShrink: 0, marginTop: 2 }} />
+              <ShieldCheck size={14} style={{ color: TEAL, flexShrink: 0, marginTop: 2 }} />
               <div>
-                <p className="text-xs font-semibold" style={{ color: TEXT }}>Current SIF</p>
+                <p className="text-xs font-semibold" style={{ color: TEAL }}>Current SIF</p>
                 <p className="text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
                   {sif.sifNumber} · {sif.title || 'Untitled SIF'}
                 </p>
               </div>
             </div>
 
-            <div className="mt-3 flex items-center justify-between rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+              <div className="mt-3 flex items-center justify-between rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
               <div>
                 <p className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>Result</p>
                 <p className="text-sm font-bold" style={{ color: result.meetsTarget ? semantic.success : semantic.error }}>

@@ -81,9 +81,9 @@ interface Props {
 }
 
 function SectionLabel({ children }: { children: ReactNode }) {
-  const { TEXT_DIM } = usePrismTheme()
+  const { TEAL } = usePrismTheme()
   return (
-    <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+    <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEAL }}>
       {children}
     </p>
   )

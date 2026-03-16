@@ -85,22 +85,39 @@ interface AnimatedEdgeData { label?: string }
 
 // ─── Metric pill ──────────────────────────────────────────────────────────
 function MetricPill({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
-  const { PAGE_BG, TEXT_DIM, semantic } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, SURFACE, TEXT_DIM, semantic } = usePrismTheme()
   const color = ok === undefined ? TEXT_DIM : ok ? semantic.success : semantic.error
   return (
-    <div className="flex flex-col items-center rounded px-1 py-0.5" style={{ background: PAGE_BG, minWidth: 36 }}>
+    <div
+      className="flex min-w-[44px] flex-col items-center rounded-md border px-1.5 py-1"
+      style={{ background: SURFACE, borderColor: BORDER, boxShadow: SHADOW_SOFT }}
+    >
       <span className="text-[8px] uppercase tracking-widest" style={{ color: TEXT_DIM }}>{label}</span>
       <span className="text-[9px] font-bold font-mono" style={{ color }}>{value}</span>
     </div>
   )
 }
 
-function ComposerSectionHeader({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
-  const { BORDER, TEAL_DIM } = usePrismTheme()
+function ComposerSectionHeader({
+  icon,
+  children,
+  accent,
+}: {
+  icon: React.ReactNode
+  children: React.ReactNode
+  accent?: string
+}) {
+  const { BORDER, SHADOW_SOFT, TEAL } = usePrismTheme()
+  const tone = accent ?? TEAL
   return (
     <div className="mb-3 flex items-center gap-2 border-b pb-2" style={{ borderColor: BORDER }}>
-      <span style={{ color: TEAL_DIM }}>{icon}</span>
-      <span className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: TEAL_DIM }}>
+      <span
+        className="inline-flex h-6 w-6 items-center justify-center rounded-md border"
+        style={{ color: tone, background: `${tone}10`, borderColor: `${tone}22`, boxShadow: SHADOW_SOFT }}
+      >
+        {icon}
+      </span>
+      <span className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: tone }}>
         {children}
       </span>
     </div>
@@ -123,7 +140,7 @@ function CompCard({
   comp: SIFComponent; color: string; selected: boolean
   onSelect: () => void; onDelete: () => void
 }) {
-  const { BORDER, PAGE_BG, TEXT_DIM } = usePrismTheme()
+  const { BORDER, SHADOW_PANEL, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
   const d   = factorizedToDeveloped(comp.factorized)
   const sff = calcComponentSFF(d)
   const dc  = calcComponentDC(d)
@@ -132,10 +149,10 @@ function CompCard({
     <div onClick={e => { e.stopPropagation(); onSelect() }}
       className="group relative rounded-lg border cursor-pointer transition-all"
       style={{
-        background:  selected ? `${color}20` : PAGE_BG,
-        borderColor: selected ? color : BORDER,
+        background:  selected ? `${color}12` : SURFACE,
+        borderColor: selected ? `${color}55` : BORDER,
         borderWidth: selected ? 1.5 : 1,
-        boxShadow:   selected ? `0 0 12px ${color}40` : 'none',
+        boxShadow:   selected ? `${SHADOW_PANEL}, 0 0 0 1px ${color}22` : SHADOW_SOFT,
         padding: '8px 10px', minWidth: 0, width: '100%',
       }}>
       <div className="flex items-start justify-between gap-1 mb-1.5">
@@ -150,7 +167,7 @@ function CompCard({
         <MetricPill label="DC"  value={formatPct(dc)}  ok={dc  >= 0.6} />
         <MetricPill label="λ"   value={`${comp.factorized.lambda.toFixed(1)}`} />
       </div>
-      {selected && <div className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full" style={{ background: color, boxShadow: `0 0 6px ${color}` }} />}
+      {selected && <div className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full" style={{ background: color, boxShadow: `0 0 0 2px ${TEXT}, 0 0 12px ${color}55` }} />}
     </div>
   )
 }
@@ -165,7 +182,7 @@ function ChannelBlock({
   canDelete: boolean
   onDelete: () => void
 }) {
-  const { BORDER, PAGE_BG, TEAL, TEXT_DIM } = usePrismTheme()
+  const { BORDER, PAGE_BG, SHADOW_SOFT, SURFACE, TEAL, TEXT_DIM } = usePrismTheme()
   const addComponent    = useAppStore(s => s.addComponent)
   const removeComponent = useAppStore(s => s.removeComponent)
   const selectComponent = useAppStore(s => s.selectComponent)
@@ -192,7 +209,14 @@ function ChannelBlock({
 
   return (
     <div className="rounded-lg border transition-all"
-      style={{ borderColor: over ? `${color}40` : BORDER, background: over ? `${color}06` : PAGE_BG, padding: 8, minWidth: 0, width: '100%' }}
+      style={{
+        borderColor: over ? `${color}40` : BORDER,
+        background: over ? `${color}08` : SURFACE,
+        boxShadow: SHADOW_SOFT,
+        padding: 8,
+        minWidth: 0,
+        width: '100%',
+      }}
       onDragOver={e => { e.preventDefault(); setOver(true) }}
       onDragLeave={() => setOver(false)} onDrop={handleDrop}>
       <div className="flex items-center gap-1.5 mb-2">
@@ -242,7 +266,7 @@ function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUp
   onUpdateCustomGate: (subId: string, gate: BooleanGate, expression: string) => void
   onUpdateEngineSettings: (subId: string, patch: Pick<SIFSubsystem, 'voteType' | 'ccf'>) => void
 }) {
-  const { BORDER, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, PAGE_BG, SHADOW_SOFT, SURFACE, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const isCustom = subsystem.architecture === 'custom'
   const gate = subsystem.customBooleanArch?.gate ?? 'OR'
   const expr = subsystem.customBooleanArch?.expression ?? ''
@@ -264,7 +288,7 @@ function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUp
                 className="rounded-md px-2 py-1 text-[10px] font-mono font-bold transition-colors"
                 style={active
                   ? { background: color, color: '#fff', boxShadow: `0 0 12px ${color}35` }
-                  : { background: PAGE_BG, color: TEXT_DIM, border: `1px solid ${BORDER}` }}
+                  : { background: SURFACE, color: TEXT_DIM, border: `1px solid ${BORDER}`, boxShadow: SHADOW_SOFT }}
                 title={option === 'custom' ? 'Architecture booléenne libre' : ARCHITECTURE_META[option].desc}
               >
                 {option}
@@ -286,7 +310,7 @@ function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUp
             value={voteType}
             onChange={e => onUpdateEngineSettings(subsystem.id, { voteType: e.target.value as VoteType, ccf })}
             className="w-full h-6 rounded border px-1 text-[10px] font-mono font-bold outline-none"
-            style={{ background: PAGE_BG, borderColor: `${color}30`, color }}
+            style={{ background: PAGE_BG, borderColor: `${color}30`, color, boxShadow: SHADOW_SOFT }}
           >
             <option value="S">Standard (S)</option>
             <option value="A">Availability (A)</option>
@@ -297,7 +321,7 @@ function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUp
           <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>CCF</span>
           <div
             className="rounded border px-2 py-1.5"
-            style={{ background: PAGE_BG, borderColor: `${color}30` }}
+            style={{ background: SURFACE, borderColor: `${color}30`, boxShadow: SHADOW_SOFT }}
           >
             <p className="text-[10px] font-mono font-bold" style={{ color }}>{ccf.method}</p>
             <p className="mt-0.5 text-[9px] font-mono" style={{ color: TEXT_DIM }}>
@@ -309,7 +333,7 @@ function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUp
 
       {/* Custom boolean editor */}
       {isCustom && (
-        <div className="rounded-lg border p-2 space-y-1.5" style={{ background: PAGE_BG, borderColor: `${color}30` }}>
+        <div className="rounded-lg border p-2 space-y-1.5" style={{ background: SURFACE, borderColor: `${color}30`, boxShadow: SHADOW_SOFT }}>
           <div className="flex items-center gap-1">
             <span className="text-[9px] font-bold" style={{ color: TEXT_DIM }}>Gate :</span>
             {(['OR', 'AND'] as BooleanGate[]).map(g => (
@@ -324,7 +348,7 @@ function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUp
           <input value={expr} placeholder="ex: (A1·A2) + (A3·A4)"
             onChange={e => onUpdateCustomGate(subsystem.id, gate, e.target.value)}
             className="w-full h-6 px-2 text-[10px] font-mono rounded border outline-none transition-all"
-            style={{ background: PANEL_BG, borderColor: BORDER, color: TEAL }}
+            style={{ background: PAGE_BG, borderColor: BORDER, color: TEAL, boxShadow: SHADOW_SOFT }}
           />
           <p className="text-[8px] leading-tight" style={{ color: TEXT_DIM }}>
             · = ET (série) · + = OU (parallèle) · ex: [(V1·V2) + (V3·V4)]
@@ -363,17 +387,17 @@ function SubsystemComposerColumn({
   onUpdateEngineSettings: (subId: string, patch: Pick<SIFSubsystem, 'voteType' | 'ccf'>) => void
 }) {
   const meta = SUB_META[subsystem.type]
-  const { BORDER, PAGE_BG, SURFACE, TEAL_DIM, TEXT, TEXT_DIM, semantic } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, SHADOW_PANEL, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM, semantic } = usePrismTheme()
   const isCustom = subsystem.architecture === 'custom'
   const lastChannelId = subsystem.channels[subsystem.channels.length - 1]?.id
 
   return (
     <section
       className="flex min-w-[320px] flex-1 flex-col overflow-hidden rounded-xl border"
-      style={{ borderColor: BORDER, background: SURFACE }}
+      style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}
     >
       <header className="border-b px-4 py-4" style={{ borderColor: BORDER }}>
-        <ComposerSectionHeader icon={<meta.Icon size={12} style={{ color: meta.color }} />}>
+        <ComposerSectionHeader icon={<meta.Icon size={12} />} accent={meta.color}>
           {meta.label}
         </ComposerSectionHeader>
 
@@ -405,19 +429,19 @@ function SubsystemComposerColumn({
         </div>
 
         <div className="mt-4 grid gap-2 sm:grid-cols-3">
-          <div className="rounded-xl border px-3 py-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
+          <div className="rounded-xl border px-3 py-2" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
             <p className="text-[9px] uppercase tracking-widest" style={{ color: TEXT_DIM }}>PFDavg</p>
             <p className="mt-1 text-sm font-bold font-mono" style={{ color: meta.color }}>
               {calcResult ? formatPFD(calcResult.PFD_avg) : '—'}
             </p>
           </div>
-          <div className="rounded-xl border px-3 py-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
+          <div className="rounded-xl border px-3 py-2" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
             <p className="text-[9px] uppercase tracking-widest" style={{ color: TEXT_DIM }}>SIL</p>
             <p className="mt-1 text-sm font-bold font-mono" style={{ color: calcResult ? (calcResult.SIL >= 2 ? semantic.success : semantic.warning) : TEXT }}>
               {calcResult ? `SIL ${calcResult.SIL}` : '—'}
             </p>
           </div>
-          <div className="rounded-xl border px-3 py-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
+          <div className="rounded-xl border px-3 py-2" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
             <p className="text-[9px] uppercase tracking-widest" style={{ color: TEXT_DIM }}>Voies</p>
             <p className="mt-1 text-sm font-bold font-mono" style={{ color: TEXT }}>
               {subsystem.channels.length}
@@ -436,7 +460,7 @@ function SubsystemComposerColumn({
         />
       </div>
 
-      <div className="border-b px-4 py-3" style={{ borderColor: BORDER, background: SURFACE }}>
+      <div className="border-b px-4 py-3" style={{ borderColor: BORDER, background: CARD_BG }}>
         <div className="space-y-3">
           <div className="flex items-center justify-between gap-3">
             <div>
@@ -481,8 +505,9 @@ function SubsystemComposerColumn({
                   className="rounded-lg border px-3 py-2"
                   style={{
                     borderColor: active ? `${meta.color}30` : BORDER,
-                    background: active ? `${meta.color}08` : PAGE_BG,
+                    background: active ? `${meta.color}08` : SURFACE,
                     color: active ? meta.color : TEXT_DIM,
+                    boxShadow: SHADOW_SOFT,
                   }}
                 >
                   <p className="text-[9px] uppercase tracking-widest" style={{ color: active ? `${meta.color}B8` : TEXT_DIM }}>
@@ -525,7 +550,7 @@ function SubsystemComposerColumn({
               onClick={() => onAddChannel(subsystem.id)}
               disabled={subsystem.channels.length >= 4}
               className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-3 text-[11px] font-semibold transition-colors disabled:opacity-40"
-              style={{ borderColor: `${meta.color}28`, color: meta.color, background: PAGE_BG }}
+              style={{ borderColor: `${meta.color}28`, color: meta.color, background: SURFACE, boxShadow: SHADOW_SOFT }}
             >
               <Plus size={14} />
               Ajouter une voie
@@ -545,12 +570,12 @@ function MissingSubsystemColumn({
   onAdd: () => void
 }) {
   const meta = SUB_META[type]
-  const { BORDER, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, SHADOW_PANEL, TEXT, TEXT_DIM } = usePrismTheme()
 
   return (
     <section
       className="flex min-w-[320px] flex-1 flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-8 text-center"
-      style={{ borderColor: `${meta.color}28`, background: SURFACE }}
+      style={{ borderColor: `${meta.color}28`, background: CARD_BG, boxShadow: SHADOW_PANEL }}
     >
       <div
         className="flex h-12 w-12 items-center justify-center rounded-2xl border"
@@ -673,9 +698,9 @@ interface Props { sif: SIF; projectId: string }
 type LoopEditorWorkspaceMode = 'composer' | 'ccf-beta'
 
 export function LoopEditorFlow({ sif, projectId }: Props) {
-  const { BORDER, CARD_BG, SURFACE, RAIL_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic } = usePrismTheme()
-  const CANVAS_BG = RAIL_BG
-  const NODE_BG2 = SURFACE
+  const { BORDER, CARD_BG, PAGE_BG, SHADOW_PANEL, SHADOW_SOFT, SURFACE, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic } = usePrismTheme()
+  const CANVAS_BG = 'transparent'
+  const NODE_BG2 = PAGE_BG
   const { setRightPanelOverride } = useLayout()
   const addSubsystem    = useAppStore(s => s.addSubsystem)
   const updateSubsystem = useAppStore(s => s.updateSubsystem)
@@ -1030,9 +1055,9 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
 
   return (
     <div className="flex min-h-full min-w-0 w-full flex-col" style={{ background: CANVAS_BG }}>
-      <div className="shrink-0 border-b px-3 py-3" style={{ borderColor: BORDER, background: PANEL_BG }}>
+      <div className="shrink-0 pb-3" style={{ background: CANVAS_BG }}>
         <div className="grid gap-3 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)]">
-          <section className="rounded-xl border px-4 py-4" style={{ borderColor: BORDER, background: SURFACE }}>
+          <section className="rounded-xl border px-4 py-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
             <ComposerSectionHeader icon={<ShieldCheck size={12} />}>
               Parametres globaux
             </ComposerSectionHeader>
@@ -1050,7 +1075,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
                 onClick={handleApplyGlobalTests}
                 disabled={!globalConfigValid}
                 className="rounded-xl border px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-40"
-                style={{ borderColor: `${TEAL}35`, background: `${TEAL}10`, color: TEAL }}
+                style={{ borderColor: `${TEAL}35`, background: `${TEAL}10`, color: TEAL, boxShadow: SHADOW_SOFT }}
               >
                 Appliquer a la SIF
               </button>
@@ -1080,7 +1105,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
                   onUnitChange: setMissionTimeUnit,
                 },
               ].map(field => (
-                <div key={field.label} className="min-w-0 rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: NODE_BG2 }}>
+                <div key={field.label} className="min-w-0 rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: NODE_BG2, boxShadow: SHADOW_SOFT }}>
                   <label className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>
                     {field.label}
                   </label>
@@ -1092,13 +1117,13 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
                       value={field.value}
                       onChange={e => field.onChange(e.target.value)}
                       className="h-10 rounded-lg border px-2.5 text-sm font-mono outline-none"
-                      style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}
+                      style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT, boxShadow: SHADOW_SOFT }}
                     />
                     <select
                       value={field.unit}
                       onChange={e => field.onUnitChange(e.target.value as 'hr' | 'yr')}
                       className="h-10 rounded-lg border px-2.5 text-sm font-mono outline-none"
-                      style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}
+                      style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT, boxShadow: SHADOW_SOFT }}
                     >
                       <option value="yr">yr</option>
                       <option value="hr">hr</option>
@@ -1109,7 +1134,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
             </div>
           </section>
 
-          <section className="rounded-xl border px-4 py-4" style={{ borderColor: BORDER, background: SURFACE }}>
+          <section className="rounded-xl border px-4 py-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
             <ComposerSectionHeader icon={<ShieldCheck size={12} />}>
               CCF / Beta
             </ComposerSectionHeader>
@@ -1127,7 +1152,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
                 onClick={() => setWorkspaceMode(workspaceMode === 'ccf-beta' ? 'composer' : 'ccf-beta')}
                 disabled={!redundantSubsystems.length}
                 className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-40"
-                style={{ borderColor: `${TEAL}35`, background: `${TEAL}10`, color: TEAL }}
+                style={{ borderColor: `${TEAL}35`, background: `${TEAL}10`, color: TEAL, boxShadow: SHADOW_SOFT }}
               >
                 <ShieldCheck size={12} />
                 {workspaceMode === 'ccf-beta' ? 'Retour composition' : 'Workspace CCF/BETA'}
@@ -1141,11 +1166,11 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
                     Sous-systeme redondant
                   </label>
                   <select
-                    value={selectedCcfSubsystemId ?? ''}
-                    onChange={e => setSelectedCcfSubsystemId(e.target.value)}
-                    className="mt-2 h-10 w-full rounded-lg border px-2.5 text-sm outline-none"
-                    style={{ borderColor: BORDER, background: NODE_BG2, color: TEXT }}
-                  >
+                  value={selectedCcfSubsystemId ?? ''}
+                  onChange={e => setSelectedCcfSubsystemId(e.target.value)}
+                  className="mt-2 h-10 w-full rounded-lg border px-2.5 text-sm outline-none"
+                  style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT, boxShadow: SHADOW_SOFT }}
+                >
                     {redundantSubsystems.map(subsystem => (
                       <option key={subsystem.id} value={subsystem.id}>
                         {subsystem.label}
@@ -1161,7 +1186,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
                     { label: 'Beta', value: formatBetaPct(ccfPreviewBeta ?? 0) },
                     { label: 'BetaD', value: formatBetaPct(ccfPreviewBetaD ?? 0) },
                   ].map(item => (
-                    <div key={item.label} className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: NODE_BG2 }}>
+                    <div key={item.label} className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: NODE_BG2, boxShadow: SHADOW_SOFT }}>
                       <p className="text-[9px] uppercase tracking-widest" style={{ color: TEXT_DIM }}>{item.label}</p>
                       <p className="mt-1 text-[11px] font-bold font-mono" style={{ color: TEXT }}>{item.value}</p>
                     </div>
@@ -1169,7 +1194,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
                 </div>
               </div>
             ) : (
-              <div className="mt-4 rounded-xl border px-4 py-4 text-sm leading-relaxed" style={{ borderColor: BORDER, background: NODE_BG2, color: TEXT_DIM }}>
+              <div className="mt-4 rounded-xl border px-4 py-4 text-sm leading-relaxed" style={{ borderColor: BORDER, background: NODE_BG2, color: TEXT_DIM, boxShadow: SHADOW_SOFT }}>
                 Aucun sous-systeme redondant n’est encore disponible. Choisissez une architecture redondante pour activer l’analyse beta.
               </div>
             )}
@@ -1178,7 +1203,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
       </div>
 
       {workspaceMode === 'ccf-beta' ? (
-        <div className="flex-1 min-h-0 overflow-hidden p-3">
+        <div className="flex-1 min-h-0 overflow-hidden pb-3">
           <CCFBetaWorkspace
             selectedSubsystem={selectedCcfSubsystem}
             profileLabel={ccfProfileLabel}
@@ -1203,7 +1228,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
           />
         </div>
       ) : (
-        <div className="p-3">
+        <div className="pb-3">
           <div className="flex flex-col gap-3">
             <div className="overflow-x-auto pb-1">
               <div className="grid min-w-[1020px] grid-cols-3 gap-3">
@@ -1242,7 +1267,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
             </div>
 
             <div className="grid gap-3 xl:grid-cols-[1.2fr_0.8fr]">
-              <section className="rounded-xl border px-4 py-4" style={{ borderColor: BORDER, background: SURFACE }}>
+              <section className="rounded-xl border px-4 py-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                 <ComposerSectionHeader icon={<ShieldCheck size={12} />}>
                   Synthese calcul
                 </ComposerSectionHeader>
@@ -1254,7 +1279,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
                     { label: 'RRF', value: formatRRF(calc.RRF), color: TEXT },
                     { label: 'Verdict', value: calc.meetsTarget ? 'PASS' : 'FAIL', color: calc.meetsTarget ? semantic.success : semantic.error },
                   ].map(item => (
-                    <div key={item.label} className="rounded-lg border px-3 py-3" style={{ borderColor: BORDER, background: NODE_BG2 }}>
+                    <div key={item.label} className="rounded-lg border px-3 py-3" style={{ borderColor: BORDER, background: NODE_BG2, boxShadow: SHADOW_SOFT }}>
                       <p className="text-[9px] uppercase tracking-widest" style={{ color: TEXT_DIM }}>{item.label}</p>
                       <p className="mt-1 text-sm font-bold font-mono" style={{ color: item.color }}>{item.value}</p>
                     </div>
@@ -1262,7 +1287,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
                 </div>
               </section>
 
-              <section className="rounded-xl border px-4 py-4" style={{ borderColor: BORDER, background: SURFACE }}>
+              <section className="rounded-xl border px-4 py-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                 <ComposerSectionHeader icon={<ShieldCheck size={12} />}>
                   Breakdown par sous-systeme
                 </ComposerSectionHeader>
@@ -1273,7 +1298,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
                       <div
                         key={subsystem.subsystemId}
                         className="flex items-center justify-between rounded-xl border px-3 py-3"
-                        style={{ borderColor: BORDER, background: NODE_BG2 }}
+                        style={{ borderColor: BORDER, background: NODE_BG2, boxShadow: SHADOW_SOFT }}
                       >
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-2 rounded-full" style={{ background: meta.color }} />

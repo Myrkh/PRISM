@@ -45,11 +45,12 @@ function PanelSection({
   title: string
   children: React.ReactNode
 }) {
-  const { BORDER, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, TEAL, TEXT } = usePrismTheme()
   return (
     <section className="border-b pb-4 last:border-b-0 last:pb-0" style={{ borderColor: `${BORDER}A6` }}>
-      <div className="mb-3">
-        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{title}</p>
+      <div className="mb-3 flex items-center gap-2">
+        <span className="h-1.5 w-1.5 rounded-full" style={{ background: TEAL, boxShadow: SHADOW_SOFT }} />
+        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEAL }}>{title}</p>
       </div>
       <div style={{ color: TEXT }}>{children}</div>
     </section>
@@ -104,9 +105,9 @@ function ChecklistRow({
   value: string
   status: ItemStatus
 }) {
-  const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
   return (
-    <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${BORDER}99`, background: PAGE_BG }}>
+    <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${BORDER}99`, background: SURFACE }}>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{label}</p>
@@ -135,7 +136,7 @@ function ReferenceRow({
 }
 
 export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: Props) {
-  const { BORDER, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, isDark } = usePrismTheme()
+  const { BORDER, PANEL_BG, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const evidenceById = new Map(compliance.evidenceItems.map(item => [item.id, item]))
   const proofProcedureItem = evidenceById.get('proof-procedure')
   const proofEvidenceItem = evidenceById.get('proof-evidence')
@@ -160,53 +161,38 @@ export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: 
       onSelect={() => {}}
       contentBg={PANEL_BG}
     >
-      <div className="flex-1 overflow-y-auto px-3 py-3" style={{ scrollbarGutter: 'stable' }}>
-        <div
-          className="space-y-4 rounded-[14px] border px-3 py-3"
-          style={{
-            borderColor: `${BORDER}B8`,
-            background: PAGE_BG,
-            boxShadow: isDark ? 'none' : '0 18px 42px rgba(15,23,42,0.05), 0 3px 10px rgba(15,23,42,0.03)',
-          }}
-        >
-          <div
-            className="rounded-xl border px-3 py-3"
-            style={{
-              borderColor: `${BORDER}99`,
-              background: `${PAGE_BG}CC`,
-              boxShadow: isDark ? 'none' : '0 1px 0 rgba(255,255,255,0.88) inset, 0 10px 24px rgba(15,23,42,0.04)',
-            }}
-          >
-            <div className="mb-2 flex items-start justify-between gap-3">
-              <div>
-                <p className="text-sm font-semibold" style={{ color: TEXT }}>Dossier cockpit</p>
-                <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-                  Le panneau garde le statut de défense du dossier sans répéter tout le cockpit central.
-                </p>
-              </div>
-              <span className="text-[14px] font-bold font-mono" style={{ color: readinessColor }}>{readiness}%</span>
-            </div>
-            <ProgressBar value={readiness} color={readinessColor} />
-
-            <div className="mt-3 rounded-lg border px-2.5 py-2.5" style={{ borderColor: `${BORDER}99`, background: PAGE_BG }}>
-              <p className="text-[10px] font-semibold" style={{ color: TEXT }}>
-                {sif.sifNumber} · {sif.title || 'Safety Instrumented Function'}
+      <div className="flex-1 overflow-y-auto px-4 py-4" style={{ scrollbarGutter: 'stable' }}>
+        <section className="border-b pb-4" style={{ borderColor: `${BORDER}A6` }}>
+          <div className="mb-2 flex items-start justify-between gap-3">
+            <div>
+              <p className="text-sm font-semibold" style={{ color: TEXT }}>Dossier cockpit</p>
+              <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+                Le panneau garde le statut de défense du dossier sans répéter tout le cockpit central.
               </p>
-              <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-                {result.meetsTarget ? 'Base calcul cohérente pour une lecture audit.' : 'Base calcul à reprendre avant défense dossier.'}
-              </p>
-              <div className="mt-2 inline-flex items-center gap-1 rounded-full border px-2 py-1 text-[10px] font-semibold"
-                style={{
-                  color: sif.revisionLockedAt ? semantic.success : TEAL_DIM,
-                  background: sif.revisionLockedAt ? `${semantic.success}10` : `${TEAL}10`,
-                  borderColor: sif.revisionLockedAt ? `${semantic.success}32` : `${TEAL}35`,
-                }}>
-                <Lock size={10} />
-                {sif.revisionLockedAt ? `Rév. ${sif.revision} publiée` : `Rév. ${sif.revision} en travail`}
-              </div>
             </div>
+            <span className="text-[14px] font-bold font-mono" style={{ color: readinessColor }}>{readiness}%</span>
           </div>
+          <ProgressBar value={readiness} color={readinessColor} />
 
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]" style={{ color: TEXT_DIM }}>
+            <span style={{ color: TEXT }}>{sif.sifNumber}</span>
+            <span>·</span>
+            <span>{result.meetsTarget ? 'Base calcul cohérente' : 'Base calcul à reprendre'}</span>
+            <span
+              className="inline-flex items-center gap-1 rounded-full border px-2 py-1 font-semibold"
+              style={{
+                color: sif.revisionLockedAt ? semantic.success : TEAL_DIM,
+                background: sif.revisionLockedAt ? `${semantic.success}10` : `${TEAL}10`,
+                borderColor: sif.revisionLockedAt ? `${semantic.success}32` : `${TEAL}35`,
+              }}
+            >
+              <Lock size={10} />
+              {sif.revisionLockedAt ? `Rév. ${sif.revision} publiée` : `Rév. ${sif.revision} en travail`}
+            </span>
+          </div>
+        </section>
+
+        <div className="space-y-4 pt-4">
           <PanelSection title="Lecture">
             <MetricRow label="Calcul" value={result.meetsTarget ? 'Tenu' : 'Sous cible'} color={result.meetsTarget ? semantic.success : semantic.error} />
             <MetricRow label="Trace" value={overviewMetrics.tracePct} color={overviewMetrics.tracePct === 100 ? semantic.success : TEXT} suffix="%" />
@@ -253,7 +239,7 @@ export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: 
               Ce panneau garde les points utiles pour audit et relecture, sans répéter le cockpit central.
             </p>
 
-            <div className="mt-3 rounded-xl border px-3 py-2" style={{ borderColor: `${BORDER}99`, background: PAGE_BG }}>
+            <div className="mt-3 rounded-xl border px-3 py-2" style={{ borderColor: `${BORDER}99`, background: SURFACE }}>
               <ReferenceRow label="Scenario ID" value={sif.hazopTrace?.scenarioId || 'Non renseigné'} />
               <ReferenceRow label="HAZOP node" value={sif.hazopTrace?.hazopNode || 'Non renseigné'} />
               <ReferenceRow label="LOPA ref." value={sif.hazopTrace?.lopaRef || 'Non renseigné'} />
@@ -264,7 +250,7 @@ export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: 
               />
             </div>
 
-            <div className="mt-3 rounded-lg border px-3 py-2 text-[11px]" style={{ borderColor: `${BORDER}99`, background: PAGE_BG, color: TEXT_DIM }}>
+            <div className="mt-3 rounded-lg border px-3 py-2 text-[11px]" style={{ borderColor: `${BORDER}99`, background: SURFACE, color: TEXT_DIM }}>
               L’historique des révisions et les téléchargements PDF restent dans le cockpit central.
             </div>
           </PanelSection>

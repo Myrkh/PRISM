@@ -22,7 +22,7 @@ interface Props {
 }
 
 export function ProjectTree({ projectId, sifId }: Props) {
-  const { BORDER, PAGE_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, PAGE_BG, PANEL_BG, SHADOW_CARD, SHADOW_SOFT, SURFACE, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
   const navigate = useAppStore(s => s.navigate)
   const view = useAppStore(s => s.view)
   const projects = useAppStore(s => s.projects)
@@ -102,7 +102,9 @@ export function ProjectTree({ projectId, sifId }: Props) {
             onClick={() => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'cockpit' })}
             className="w-full items-center gap-2 rounded-md px-2 py-1 text-left transition-colors flex relative"
             style={{
-              backgroundColor: cur ? 'rgba(0, 155, 164, 0.15)' : 'transparent',
+              backgroundColor: cur ? SURFACE : 'transparent',
+              border: `1px solid ${cur ? `${TEAL}24` : 'transparent'}`,
+              boxShadow: cur ? SHADOW_CARD : 'none',
               color: cur ? TEXT : TEXT_DIM,
             }}
             onMouseEnter={e => { if (!cur) e.currentTarget.style.backgroundColor = PAGE_BG }}
@@ -122,7 +124,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
           <button type="button" title={isPinned ? 'Unpin SIF' : 'Pin SIF'}
             onClick={() => togglePinnedSIF(s.id)}
             className="rounded p-1 transition-colors"
-            style={{ color: isPinned ? TEAL : TEXT_DIM }}
+            style={{ color: isPinned ? TEAL : TEXT_DIM, boxShadow: isPinned ? SHADOW_SOFT : 'none' }}
             onMouseEnter={e => { e.currentTarget.style.backgroundColor = PAGE_BG }}
             onMouseLeave={e => { e.currentTarget.style.backgroundColor = 'transparent' }}>
             <Pin size={12} />
@@ -138,7 +140,9 @@ export function ProjectTree({ projectId, sifId }: Props) {
                 onClick={item.onClick}
                 className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[12px] transition-colors"
                 style={{
-                  background: item.active ? 'rgba(0, 155, 164, 0.12)' : 'transparent',
+                  background: item.active ? SURFACE : 'transparent',
+                  border: `1px solid ${item.active ? `${TEAL}24` : 'transparent'}`,
+                  boxShadow: item.active ? SHADOW_SOFT : 'none',
                   color: item.active ? TEXT : TEXT_DIM,
                 }}
               >
@@ -154,7 +158,14 @@ export function ProjectTree({ projectId, sifId }: Props) {
 
   // ─── Render ──────────────────────────────────────────────────────────────
   return (
-    <div className="flex-1 overflow-y-auto px-2 py-3 text-[13px]" style={{ color: TEXT }}>
+    <div
+      className="flex-1 overflow-y-auto px-2 py-3 text-[13px]"
+      style={{
+        color: TEXT,
+        background: PANEL_BG,
+        boxShadow: `${SHADOW_SOFT}, inset -1px 0 0 ${isDark ? 'rgba(255,255,255,0.055)' : 'rgba(255,255,255,0.78)'}, inset 0 1px 0 ${isDark ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.88)'}, inset 0 -1px 0 ${isDark ? 'rgba(0,0,0,0.24)' : 'rgba(15,23,42,0.05)'}`,
+      }}
+    >
       <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Pinned SIFs</p>
       <div className="mb-3 space-y-0.5">
         {pinnedItems.length === 0 ? (
@@ -179,7 +190,12 @@ export function ProjectTree({ projectId, sifId }: Props) {
             <div key={proj.id} className={cn(index > 0 && 'pt-2')} style={index > 0 ? { borderTop: `1px solid ${BORDER}33` } : undefined}>
               <button type="button" onClick={() => toggleProject(`p-${proj.id}`)}
                 className="flex w-full items-center gap-1.5 rounded-md px-2 py-1.5 font-semibold transition-colors"
-                style={{ color: isCurProj ? TEXT : TEXT_DIM }}>
+                style={{
+                  color: isCurProj ? TEXT : TEXT_DIM,
+                  background: isCurProj ? SURFACE : 'transparent',
+                  border: `1px solid ${isCurProj ? `${BORDER}D0` : 'transparent'}`,
+                  boxShadow: isCurProj ? SHADOW_SOFT : 'none',
+                }}>
                 {projOpen ? <ChevronDown size={14} className="shrink-0" /> : <ChevronRight size={14} className="shrink-0" />}
                 <Folder size={15} className="shrink-0" style={{ color: isCurProj ? TEAL : TEXT_DIM }} />
                 <div className="min-w-0 flex-1 text-left">
@@ -205,8 +221,12 @@ export function ProjectTree({ projectId, sifId }: Props) {
                     <button
                       type="button"
                       onClick={() => openNewSIF(proj.id)}
-                      className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] transition-colors"
-                      style={{ color: TEXT_DIM }}
+                className="flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-[11px] transition-colors"
+                      style={{
+                        color: TEXT_DIM,
+                        background: isDark ? 'rgba(255,255,255,0.015)' : 'transparent',
+                        border: `1px solid ${isDark ? `${BORDER}66` : 'transparent'}`,
+                      }}
                       title={`Nouvelle SIF dans ${proj.name}`}
                     >
                       <Plus size={11} className="shrink-0" />

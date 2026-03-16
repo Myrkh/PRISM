@@ -76,9 +76,9 @@ interface Props {
 }
 
 function SectionTitle({ children }: { children: ReactNode }) {
-  const { TEXT_DIM } = usePrismTheme()
+  const { TEAL } = usePrismTheme()
   return (
-    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEAL }}>
       {children}
     </p>
   )
@@ -93,10 +93,10 @@ function SectionCard({
   hint: string
   children: ReactNode
 }) {
-  const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, PAGE_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   return (
     <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
-      <p className="text-sm font-semibold" style={{ color: TEXT }}>{title}</p>
+      <p className="text-sm font-semibold" style={{ color: TEAL }}>{title}</p>
       <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{hint}</p>
       <div className="mt-3">{children}</div>
     </div>
