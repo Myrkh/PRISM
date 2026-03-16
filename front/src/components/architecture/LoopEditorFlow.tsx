@@ -1,10 +1,10 @@
 /**
  * LoopEditorFlow — PRISM v3 (refactored)
  *
- * ReactFlow canvas pour le Loop Editor.
- *   – Architecture selector (1oo1, 1oo2, 2oo2, 2oo3, 1oo2D, custom)
- *   – Custom boolean expression editor (AND/OR gate + free expression)
- *   – Consistent dark theme design
+ * Composeur guide pour le Loop Editor.
+ *   – Parametres globaux + acces CCF/BETA en barre haute
+ *   – Colonnes fixes Sensors / Logic / Final elements
+ *   – Edition structurelle guidee au centre, composant detaille a droite
  *   – Architecture changes saved to Supabase via store
  */
 
@@ -95,6 +95,18 @@ function MetricPill({ label, value, ok }: { label: string; value: string; ok?: b
   )
 }
 
+function ComposerSectionHeader({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+  const { BORDER, TEAL_DIM } = usePrismTheme()
+  return (
+    <div className="mb-3 flex items-center gap-2 border-b pb-2" style={{ borderColor: BORDER }}>
+      <span style={{ color: TEAL_DIM }}>{icon}</span>
+      <span className="text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: TEAL_DIM }}>
+        {children}
+      </span>
+    </div>
+  )
+}
+
 function formatBetaPct(value: number): string {
   return `${(value * 100).toFixed(1)}%`
 }
@@ -124,7 +136,7 @@ function CompCard({
         borderColor: selected ? color : BORDER,
         borderWidth: selected ? 1.5 : 1,
         boxShadow:   selected ? `0 0 12px ${color}40` : 'none',
-        padding: '8px 10px', minWidth: 160,
+        padding: '8px 10px', minWidth: 0, width: '100%',
       }}>
       <div className="flex items-start justify-between gap-1 mb-1.5">
         <span className="text-[11px] font-bold font-mono truncate" style={{ color }}>{comp.tagName}</span>
@@ -153,7 +165,7 @@ function ChannelBlock({
   canDelete: boolean
   onDelete: () => void
 }) {
-  const { BORDER, SURFACE, TEAL, TEXT_DIM } = usePrismTheme()
+  const { BORDER, PAGE_BG, TEAL, TEXT_DIM } = usePrismTheme()
   const addComponent    = useAppStore(s => s.addComponent)
   const removeComponent = useAppStore(s => s.removeComponent)
   const selectComponent = useAppStore(s => s.selectComponent)
@@ -180,7 +192,7 @@ function ChannelBlock({
 
   return (
     <div className="rounded-lg border transition-all"
-      style={{ borderColor: over ? `${color}60` : BORDER, background: over ? `${color}08` : SURFACE, padding: 8, minWidth: 180 }}
+      style={{ borderColor: over ? `${color}40` : BORDER, background: over ? `${color}06` : PAGE_BG, padding: 8, minWidth: 0, width: '100%' }}
       onDragOver={e => { e.preventDefault(); setOver(true) }}
       onDragLeave={() => setOver(false)} onDrop={handleDrop}>
       <div className="flex items-center gap-1.5 mb-2">
@@ -238,18 +250,33 @@ function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUp
   const ccf = subsystem.ccf ?? { beta: 0.05, betaD: 0.025, method: 'MAX' as CCFMethod }
 
   return (
-    <div className="px-3 pb-2 space-y-2">
-      {/* Architecture dropdown */}
-      <div className="flex items-center gap-2">
+    <div className="space-y-3">
+      <div className="space-y-1.5">
         <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Architecture</span>
-        <select value={subsystem.architecture}
-          onChange={e => onUpdateArch(subsystem.id, e.target.value as Architecture)}
-          className="flex-1 h-6 text-[10px] font-mono font-bold rounded border px-1 outline-none transition-all"
-          style={{ background: PAGE_BG, borderColor: `${color}40`, color }}>
-          {ARCH_OPTIONS.map(a => (
-            <option key={a} value={a}>{a === 'custom' ? 'Custom (booléen)' : `${a} — ${ARCHITECTURE_META[a].desc}`}</option>
-          ))}
-        </select>
+        <div className="flex flex-wrap gap-1.5">
+          {ARCH_OPTIONS.map(option => {
+            const active = subsystem.architecture === option
+            return (
+              <button
+                key={option}
+                type="button"
+                onClick={() => onUpdateArch(subsystem.id, option)}
+                className="rounded-md px-2 py-1 text-[10px] font-mono font-bold transition-colors"
+                style={active
+                  ? { background: color, color: '#fff', boxShadow: `0 0 12px ${color}35` }
+                  : { background: PAGE_BG, color: TEXT_DIM, border: `1px solid ${BORDER}` }}
+                title={option === 'custom' ? 'Architecture booléenne libre' : ARCHITECTURE_META[option].desc}
+              >
+                {option}
+              </button>
+            )
+          })}
+        </div>
+        <p className="text-[10px] leading-relaxed" style={{ color: TEXT_DIM }}>
+          {isCustom
+            ? 'Mode libre avec expression booléenne et nombre de voies piloté manuellement.'
+            : ARCHITECTURE_META[subsystem.architecture].desc}
+        </p>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
@@ -305,6 +332,248 @@ function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUp
         </div>
       )}
     </div>
+  )
+}
+
+function SubsystemComposerColumn({
+  subsystem,
+  calcResult,
+  projectId,
+  sifId,
+  selectedId,
+  onSelectComp,
+  onAddChannel,
+  onRemoveChannel,
+  onRemoveSub,
+  onUpdateArch,
+  onUpdateCustomGate,
+  onUpdateEngineSettings,
+}: {
+  subsystem: SIFSubsystem
+  calcResult: SubsystemCalcResult | undefined
+  projectId: string
+  sifId: string
+  selectedId: string | null
+  onSelectComp: (id: string) => void
+  onAddChannel: (subId: string) => void
+  onRemoveChannel: (subId: string, chId: string) => void
+  onRemoveSub: (subId: string) => void
+  onUpdateArch: (subId: string, arch: Architecture) => void
+  onUpdateCustomGate: (subId: string, gate: BooleanGate, expression: string) => void
+  onUpdateEngineSettings: (subId: string, patch: Pick<SIFSubsystem, 'voteType' | 'ccf'>) => void
+}) {
+  const meta = SUB_META[subsystem.type]
+  const { BORDER, PAGE_BG, SURFACE, TEAL_DIM, TEXT, TEXT_DIM, semantic } = usePrismTheme()
+  const isCustom = subsystem.architecture === 'custom'
+  const lastChannelId = subsystem.channels[subsystem.channels.length - 1]?.id
+
+  return (
+    <section
+      className="flex min-w-[320px] flex-1 flex-col overflow-hidden rounded-xl border"
+      style={{ borderColor: BORDER, background: SURFACE }}
+    >
+      <header className="border-b px-4 py-4" style={{ borderColor: BORDER }}>
+        <ComposerSectionHeader icon={<meta.Icon size={12} style={{ color: meta.color }} />}>
+          {meta.label}
+        </ComposerSectionHeader>
+
+        <div className="flex items-start gap-3">
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="text-base font-semibold" style={{ color: TEXT }}>{subsystem.label}</p>
+              <span
+                className="rounded-full px-2 py-0.5 text-[10px] font-mono font-bold"
+                style={{ background: `${meta.color}16`, color: meta.color }}
+              >
+                {subsystem.architecture}
+              </span>
+            </div>
+            <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+              {meta.label} du SIS. Structurez les voies puis ajoutez les composants defendables.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => onRemoveSub(subsystem.id)}
+            className="rounded-lg p-1.5 transition-colors hover:bg-red-900/20"
+            style={{ color: TEXT_DIM }}
+            aria-label={`Supprimer ${subsystem.label}`}
+            title={`Supprimer ${subsystem.label}`}
+          >
+            <X size={14} />
+          </button>
+        </div>
+
+        <div className="mt-4 grid gap-2 sm:grid-cols-3">
+          <div className="rounded-xl border px-3 py-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
+            <p className="text-[9px] uppercase tracking-widest" style={{ color: TEXT_DIM }}>PFDavg</p>
+            <p className="mt-1 text-sm font-bold font-mono" style={{ color: meta.color }}>
+              {calcResult ? formatPFD(calcResult.PFD_avg) : '—'}
+            </p>
+          </div>
+          <div className="rounded-xl border px-3 py-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
+            <p className="text-[9px] uppercase tracking-widest" style={{ color: TEXT_DIM }}>SIL</p>
+            <p className="mt-1 text-sm font-bold font-mono" style={{ color: calcResult ? (calcResult.SIL >= 2 ? semantic.success : semantic.warning) : TEXT }}>
+              {calcResult ? `SIL ${calcResult.SIL}` : '—'}
+            </p>
+          </div>
+          <div className="rounded-xl border px-3 py-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
+            <p className="text-[9px] uppercase tracking-widest" style={{ color: TEXT_DIM }}>Voies</p>
+            <p className="mt-1 text-sm font-bold font-mono" style={{ color: TEXT }}>
+              {subsystem.channels.length}
+            </p>
+          </div>
+        </div>
+      </header>
+
+      <div className="border-b px-4 py-4" style={{ borderColor: BORDER }}>
+        <ArchSelector
+          subsystem={subsystem}
+          color={meta.color}
+          onUpdateArch={onUpdateArch}
+          onUpdateCustomGate={onUpdateCustomGate}
+          onUpdateEngineSettings={onUpdateEngineSettings}
+        />
+      </div>
+
+      <div className="border-b px-4 py-3" style={{ borderColor: BORDER, background: SURFACE }}>
+        <div className="space-y-3">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>
+                Voies / Channels
+              </p>
+            </div>
+
+            {isCustom && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (lastChannelId) onRemoveChannel(subsystem.id, lastChannelId)
+                  }}
+                  disabled={subsystem.channels.length <= 1 || !lastChannelId}
+                  className="rounded-lg border px-2 py-1 text-[10px] font-semibold transition-colors disabled:opacity-40"
+                  style={{ borderColor: BORDER, color: TEXT_DIM, background: PAGE_BG }}
+                >
+                  - voie
+                </button>
+                <button
+                  type="button"
+                  onClick={() => onAddChannel(subsystem.id)}
+                  disabled={subsystem.channels.length >= 4}
+                  className="rounded-lg border px-2 py-1 text-[10px] font-semibold transition-colors disabled:opacity-40"
+                  style={{ borderColor: `${meta.color}35`, color: meta.color, background: `${meta.color}10` }}
+                >
+                  + voie
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-2 sm:grid-cols-4">
+            {Array.from({ length: Math.max(4, subsystem.channels.length) }, (_, index) => {
+              const channel = subsystem.channels[index]
+              const active = Boolean(channel)
+              return (
+                <div
+                  key={`${subsystem.id}-channel-slot-${index}`}
+                  className="rounded-lg border px-3 py-2"
+                  style={{
+                    borderColor: active ? `${meta.color}30` : BORDER,
+                    background: active ? `${meta.color}08` : PAGE_BG,
+                    color: active ? meta.color : TEXT_DIM,
+                  }}
+                >
+                  <p className="text-[9px] uppercase tracking-widest" style={{ color: active ? `${meta.color}B8` : TEXT_DIM }}>
+                    Voie {index + 1}
+                  </p>
+                  <p className="mt-1 text-[11px] font-semibold">
+                    {active ? channel?.label ?? `Channel ${index + 1}` : 'Inactive'}
+                  </p>
+                </div>
+              )
+            })}
+          </div>
+
+          <p className="text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
+            {subsystem.channels.length} voie{subsystem.channels.length > 1 ? 's' : ''} active{subsystem.channels.length > 1 ? 's' : ''} · {subsystem.architecture}
+          </p>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-4 py-4">
+        <div className="space-y-3">
+          {subsystem.channels.map(channel => (
+            <ChannelBlock
+              key={channel.id}
+              channel={channel}
+              subsystem={subsystem}
+              color={meta.color}
+              selectedId={selectedId}
+              projectId={projectId}
+              sifId={sifId}
+              onSelectComp={onSelectComp}
+              canDelete={isCustom && subsystem.channels.length > 1}
+              onDelete={() => onRemoveChannel(subsystem.id, channel.id)}
+            />
+          ))}
+
+          {isCustom && (
+            <button
+              type="button"
+              onClick={() => onAddChannel(subsystem.id)}
+              disabled={subsystem.channels.length >= 4}
+              className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed px-4 py-3 text-[11px] font-semibold transition-colors disabled:opacity-40"
+              style={{ borderColor: `${meta.color}28`, color: meta.color, background: PAGE_BG }}
+            >
+              <Plus size={14} />
+              Ajouter une voie
+            </button>
+          )}
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function MissingSubsystemColumn({
+  type,
+  onAdd,
+}: {
+  type: SubsystemType
+  onAdd: () => void
+}) {
+  const meta = SUB_META[type]
+  const { BORDER, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
+
+  return (
+    <section
+      className="flex min-w-[320px] flex-1 flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-8 text-center"
+      style={{ borderColor: `${meta.color}28`, background: SURFACE }}
+    >
+      <div
+        className="flex h-12 w-12 items-center justify-center rounded-2xl border"
+        style={{ borderColor: `${meta.color}35`, background: `${meta.color}10`, color: meta.color }}
+      >
+        <meta.Icon size={20} />
+      </div>
+      <p className="mt-4 text-base font-semibold" style={{ color: TEXT }}>
+        Ajouter {meta.label}
+      </p>
+      <p className="mt-2 max-w-[240px] text-sm leading-relaxed" style={{ color: TEXT_DIM }}>
+        Creez ce sous-systeme pour completer la chaine de securite et parametrer son architecture.
+      </p>
+      <button
+        type="button"
+        onClick={onAdd}
+        className="mt-5 inline-flex items-center gap-2 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors"
+        style={{ borderColor: `${meta.color}30`, background: `${meta.color}10`, color: meta.color }}
+      >
+        <Plus size={14} />
+        Ajouter {meta.label}
+      </button>
+    </section>
   )
 }
 
@@ -401,12 +670,11 @@ const EDGE_TYPES = { animated: AnimatedEdge }
 // ─── Main export ─────────────────────────────────────────────────────────
 interface Props { sif: SIF; projectId: string }
 
-type LoopEditorWorkspaceMode = 'canvas' | 'ccf-beta'
+type LoopEditorWorkspaceMode = 'composer' | 'ccf-beta'
 
 export function LoopEditorFlow({ sif, projectId }: Props) {
-  const { BORDER, CARD_BG, SURFACE, RAIL_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic, isDark } = usePrismTheme()
+  const { BORDER, CARD_BG, SURFACE, RAIL_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic } = usePrismTheme()
   const CANVAS_BG = RAIL_BG
-  const NODE_BG = CARD_BG
   const NODE_BG2 = SURFACE
   const { setRightPanelOverride } = useLayout()
   const addSubsystem    = useAppStore(s => s.addSubsystem)
@@ -418,14 +686,13 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
   const selectedId      = useAppStore(s => s.selectedComponentId)
   const calc            = useAppStore(s => selectSIFCalc(s, projectId, sif.id)) ?? calcSIF(sif)
   const firstComponent  = sif.subsystems.flatMap(sub => sub.channels.flatMap(ch => ch.components))[0]
-  const [isGlobalTestsDialogOpen, setIsGlobalTestsDialogOpen] = useState(false)
   const [globalT1, setGlobalT1] = useState(() => String(firstComponent?.test.T1 ?? 1))
   const [globalT1Unit, setGlobalT1Unit] = useState<'hr' | 'yr'>(() => firstComponent?.test.T1Unit ?? 'yr')
   const [globalT0, setGlobalT0] = useState(() => String(firstComponent?.test.T0 ?? 1))
   const [globalT0Unit, setGlobalT0Unit] = useState<'hr' | 'yr'>(() => firstComponent?.test.T0Unit ?? 'yr')
   const [missionTime, setMissionTime] = useState(() => String(loadSIFAnalysisSettings(sif.id).general.missionTime))
   const [missionTimeUnit, setMissionTimeUnit] = useState<'hr' | 'yr'>(() => loadSIFAnalysisSettings(sif.id).general.missionTimeUnit)
-  const [workspaceMode, setWorkspaceMode] = useState<LoopEditorWorkspaceMode>('canvas')
+  const [workspaceMode, setWorkspaceMode] = useState<LoopEditorWorkspaceMode>('composer')
   const [selectedCcfSubsystemId, setSelectedCcfSubsystemId] = useState<string | null>(null)
   const [ccfVoteType, setCcfVoteType] = useState<VoteType>('S')
   const [ccfMethod, setCcfMethod] = useState<CCFMethod>('MAX')
@@ -479,7 +746,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
   useEffect(() => {
     if (!redundantSubsystems.length) {
       setSelectedCcfSubsystemId(null)
-      setWorkspaceMode('canvas')
+      setWorkspaceMode('composer')
       return
     }
 
@@ -645,7 +912,6 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
         })),
       })
     })
-    setIsGlobalTestsDialogOpen(false)
   }, [globalT0, globalT0Unit, globalT1, globalT1Unit, missionTime, missionTimeUnit, projectId, sif, updateSubsystem])
 
   const updateCcfAssessment = useCallback(<K extends keyof BetaAssessmentConfig>(
@@ -688,55 +954,6 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
     })
   }, [ccfAssessmentDraft, ccfAssessmentResult?.beta, ccfAssessmentResult?.betaD, ccfBetaDPct, ccfBetaPct, ccfMethod, ccfVoteType, handleUpdateEngineSettings, selectedCcfSubsystem])
 
-  const onPaneClick = useCallback(() => { selectComponent(null) }, [selectComponent])
-
-  // ── Build graph ────────────────────────────────────────────────────────
-  const buildNodes = useCallback(() => {
-    const ORDER = ['sensor', 'logic', 'actuator']
-    return sif.subsystems
-      .slice().sort((a, b) => ORDER.indexOf(a.type) - ORDER.indexOf(b.type))
-      .map((sub, i) => ({
-        id: sub.id, type: 'subsystem',
-        position: { x: i * 560, y: 80 },
-        data: {
-          subsystem: sub,
-          calcResult: calc.subsystems.find(s => s.subsystemId === sub.id),
-          selectedId, projectId, sifId: sif.id,
-          onSelectComp: handleSelectComp,
-          onAddChannel: handleAddChannel,
-          onRemoveChannel: handleRemoveChannel,
-          onRemoveSub: handleRemoveSub,
-          onUpdateArch: handleUpdateArch,
-          onUpdateCustomGate: handleUpdateCustomGate,
-          onUpdateEngineSettings: handleUpdateEngineSettings,
-        },
-      }))
-  }, [sif, selectedId, calc, projectId, handleSelectComp, handleAddChannel, handleRemoveChannel, handleRemoveSub, handleUpdateArch, handleUpdateCustomGate, handleUpdateEngineSettings])
-
-  const buildEdges = useCallback(() => {
-    const ORDER = ['sensor', 'logic', 'actuator']
-    const sorted = sif.subsystems.slice().sort((a, b) => ORDER.indexOf(a.type) - ORDER.indexOf(b.type))
-    return sorted.slice(0, -1).map((sub, i) => ({
-      id: `e-${sub.id}-${sorted[i + 1].id}`,
-      source: sub.id, target: sorted[i + 1].id,
-      type: 'animated', data: { label: 'signal' },
-    }))
-  }, [sif])
-
-  const [nodes, setNodes, onNodesChange] = useNodesState(buildNodes())
-  const [edges, setEdges, onEdgesChange] = useEdgesState(buildEdges())
-
-  useEffect(() => {
-    setNodes(prev => {
-      const next = buildNodes()
-      return next.map(n => {
-        const existing = prev.find(p => p.id === n.id)
-        return existing ? { ...n, position: existing.position } : n
-      })
-    })
-    setEdges(buildEdges())
-  }, [sif, selectedId, calc])
-
   const hasType = (t: SubsystemType) => sif.subsystems.some(s => s.type === t)
   const ccfProfileLabel = ccfAssessmentDraft.profile === 'logic' ? 'Logic solver' : 'Sensors / final elements'
   const canApplyCcf = Boolean(
@@ -751,6 +968,13 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
   const ccfPreviewBetaD = ccfAssessmentDraft.mode === 'iec61508'
     ? ccfAssessmentResult?.betaD ?? null
     : clamp01((parseFloat(ccfBetaDPct) || 0) / 100)
+  const subsystemOrder: SubsystemType[] = ['sensor', 'logic', 'actuator']
+  const globalConfigValid = Number.isFinite(parseFloat(globalT0))
+    && parseFloat(globalT0) >= 0
+    && Number.isFinite(parseFloat(globalT1))
+    && parseFloat(globalT1) > 0
+    && Number.isFinite(parseFloat(missionTime))
+    && parseFloat(missionTime) > 0
 
   const handleResetManualCcf = useCallback(() => {
     if (!selectedCcfSubsystem) return
@@ -805,123 +1029,153 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
   }, [setRightPanelOverride])
 
   return (
-    <div className="flex h-full min-w-0 w-full flex-1 flex-col overflow-hidden">
-
-      <Dialog open={isGlobalTestsDialogOpen} onOpenChange={setIsGlobalTestsDialogOpen}>
-        <DialogContent className="max-w-md border" style={{ borderColor: BORDER, background: NODE_BG }}>
-          <DialogHeader>
-            <DialogTitle style={{ color: TEXT }}>Parametres generaux</DialogTitle>
-            <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-              `T0` et `T1` sont appliques a tous les composants. Le `mission time` pilote
-              l'horizon de la courbe dans Calculation.
-            </p>
-          </DialogHeader>
-
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>
-                T0
-              </label>
-              <input
-                type="number"
-                min="0"
-                step="0.1"
-                value={globalT0}
-                onChange={e => setGlobalT0(e.target.value)}
-                className="w-full rounded border px-2 py-2 text-xs font-mono outline-none"
-                style={{ background: NODE_BG2, borderColor: BORDER, color: TEXT }}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>
-                Unité T0
-              </label>
-              <select
-                value={globalT0Unit}
-                onChange={e => setGlobalT0Unit(e.target.value as 'hr' | 'yr')}
-                className="w-full rounded border px-2 py-2 text-xs font-mono outline-none"
-                style={{ background: NODE_BG2, borderColor: BORDER, color: TEXT }}
+    <div className="flex min-h-full min-w-0 w-full flex-col" style={{ background: CANVAS_BG }}>
+      <div className="shrink-0 border-b px-3 py-3" style={{ borderColor: BORDER, background: PANEL_BG }}>
+        <div className="grid gap-3 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,0.95fr)]">
+          <section className="rounded-xl border px-4 py-4" style={{ borderColor: BORDER, background: SURFACE }}>
+            <ComposerSectionHeader icon={<ShieldCheck size={12} />}>
+              Parametres globaux
+            </ComposerSectionHeader>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold" style={{ color: TEXT }}>
+                  Reglages communs a la SIF
+                </p>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+                  T0, T1 et mission time sont definis ici puis appliques a toute l’architecture.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={handleApplyGlobalTests}
+                disabled={!globalConfigValid}
+                className="rounded-xl border px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-40"
+                style={{ borderColor: `${TEAL}35`, background: `${TEAL}10`, color: TEAL }}
               >
-                <option value="yr">yr</option>
-                <option value="hr">hr</option>
-              </select>
+                Appliquer a la SIF
+              </button>
             </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>
-                T1
-              </label>
-              <input
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={globalT1}
-                onChange={e => setGlobalT1(e.target.value)}
-                className="w-full rounded border px-2 py-2 text-xs font-mono outline-none"
-                style={{ background: NODE_BG2, borderColor: BORDER, color: TEXT }}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>
-                Unité T1
-              </label>
-              <select
-                value={globalT1Unit}
-                onChange={e => setGlobalT1Unit(e.target.value as 'hr' | 'yr')}
-                className="w-full rounded border px-2 py-2 text-xs font-mono outline-none"
-                style={{ background: NODE_BG2, borderColor: BORDER, color: TEXT }}
-              >
-                <option value="yr">yr</option>
-                <option value="hr">hr</option>
-              </select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>
-                Mission Time
-              </label>
-              <input
-                type="number"
-                min="0.1"
-                step="0.1"
-                value={missionTime}
-                onChange={e => setMissionTime(e.target.value)}
-                className="w-full rounded border px-2 py-2 text-xs font-mono outline-none"
-                style={{ background: NODE_BG2, borderColor: BORDER, color: TEXT }}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>
-                Mission Unit
-              </label>
-              <select
-                value={missionTimeUnit}
-                onChange={e => setMissionTimeUnit(e.target.value as 'hr' | 'yr')}
-                className="w-full rounded border px-2 py-2 text-xs font-mono outline-none"
-                style={{ background: NODE_BG2, borderColor: BORDER, color: TEXT }}
-              >
-                <option value="yr">yr</option>
-                <option value="hr">hr</option>
-              </select>
-            </div>
-          </div>
 
-          <DialogFooter>
-            <button
-              onClick={() => setIsGlobalTestsDialogOpen(false)}
-              className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors"
-              style={{ borderColor: BORDER, color: TEXT_DIM, background: NODE_BG2 }}
-            >
-              Annuler
-            </button>
-            <button
-              onClick={handleApplyGlobalTests}
-              className="rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors"
-              style={{ borderColor: `${TEAL}55`, color: TEAL, background: `${TEAL}10` }}
-            >
-              Enregistrer et appliquer
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            <div className="mt-4 grid gap-3 md:grid-cols-2 2xl:grid-cols-3">
+              {[
+                {
+                  label: 'T0',
+                  value: globalT0,
+                  onChange: setGlobalT0,
+                  unit: globalT0Unit,
+                  onUnitChange: setGlobalT0Unit,
+                },
+                {
+                  label: 'T1',
+                  value: globalT1,
+                  onChange: setGlobalT1,
+                  unit: globalT1Unit,
+                  onUnitChange: setGlobalT1Unit,
+                },
+                {
+                  label: 'Mission time',
+                  value: missionTime,
+                  onChange: setMissionTime,
+                  unit: missionTimeUnit,
+                  onUnitChange: setMissionTimeUnit,
+                },
+              ].map(field => (
+                <div key={field.label} className="min-w-0 rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: NODE_BG2 }}>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>
+                    {field.label}
+                  </label>
+                  <div className="mt-2 grid grid-cols-[minmax(0,1fr)_72px] gap-2">
+                    <input
+                      type="number"
+                      min={field.label === 'T0' ? '0' : '0.1'}
+                      step="0.1"
+                      value={field.value}
+                      onChange={e => field.onChange(e.target.value)}
+                      className="h-10 rounded-lg border px-2.5 text-sm font-mono outline-none"
+                      style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}
+                    />
+                    <select
+                      value={field.unit}
+                      onChange={e => field.onUnitChange(e.target.value as 'hr' | 'yr')}
+                      className="h-10 rounded-lg border px-2.5 text-sm font-mono outline-none"
+                      style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}
+                    >
+                      <option value="yr">yr</option>
+                      <option value="hr">hr</option>
+                    </select>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          <section className="rounded-xl border px-4 py-4" style={{ borderColor: BORDER, background: SURFACE }}>
+            <ComposerSectionHeader icon={<ShieldCheck size={12} />}>
+              CCF / Beta
+            </ComposerSectionHeader>
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="text-sm font-semibold" style={{ color: TEXT }}>
+                  Evaluation de cause commune
+                </p>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+                  Acces direct au workspace IEC 61508 ou override manuel pour les sous-systemes redondants.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWorkspaceMode(workspaceMode === 'ccf-beta' ? 'composer' : 'ccf-beta')}
+                disabled={!redundantSubsystems.length}
+                className="inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition-colors disabled:opacity-40"
+                style={{ borderColor: `${TEAL}35`, background: `${TEAL}10`, color: TEAL }}
+              >
+                <ShieldCheck size={12} />
+                {workspaceMode === 'ccf-beta' ? 'Retour composition' : 'Workspace CCF/BETA'}
+              </button>
+            </div>
+
+            {selectedCcfSubsystem ? (
+              <div className="mt-4 space-y-3">
+                <div>
+                  <label className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>
+                    Sous-systeme redondant
+                  </label>
+                  <select
+                    value={selectedCcfSubsystemId ?? ''}
+                    onChange={e => setSelectedCcfSubsystemId(e.target.value)}
+                    className="mt-2 h-10 w-full rounded-lg border px-2.5 text-sm outline-none"
+                    style={{ borderColor: BORDER, background: NODE_BG2, color: TEXT }}
+                  >
+                    {redundantSubsystems.map(subsystem => (
+                      <option key={subsystem.id} value={subsystem.id}>
+                        {subsystem.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="grid gap-2 sm:grid-cols-2 2xl:grid-cols-4">
+                  {[
+                    { label: 'Mode', value: ccfAssessmentDraft.mode === 'iec61508' ? 'IEC 61508' : 'Manual' },
+                    { label: 'Profile', value: ccfProfileLabel },
+                    { label: 'Beta', value: formatBetaPct(ccfPreviewBeta ?? 0) },
+                    { label: 'BetaD', value: formatBetaPct(ccfPreviewBetaD ?? 0) },
+                  ].map(item => (
+                    <div key={item.label} className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: NODE_BG2 }}>
+                      <p className="text-[9px] uppercase tracking-widest" style={{ color: TEXT_DIM }}>{item.label}</p>
+                      <p className="mt-1 text-[11px] font-bold font-mono" style={{ color: TEXT }}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div className="mt-4 rounded-xl border px-4 py-4 text-sm leading-relaxed" style={{ borderColor: BORDER, background: NODE_BG2, color: TEXT_DIM }}>
+                Aucun sous-systeme redondant n’est encore disponible. Choisissez une architecture redondante pour activer l’analyse beta.
+              </div>
+            )}
+          </section>
+        </div>
+      </div>
 
       {workspaceMode === 'ccf-beta' ? (
         <div className="flex-1 min-h-0 overflow-hidden p-3">
@@ -943,84 +1197,101 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
             onUpdateAssessment={updateCcfAssessment}
             onToggleMeasure={toggleCcfMeasure}
             onResetManual={handleResetManualCcf}
-            onBack={() => setWorkspaceMode('canvas')}
+            onBack={() => setWorkspaceMode('composer')}
             onApply={handleApplyCcfSettings}
             canApply={canApplyCcf}
           />
         </div>
       ) : (
-        <div className="flex-1 min-h-0 min-w-0 w-full relative" style={{ background: CANVAS_BG }}>
+        <div className="p-3">
+          <div className="flex flex-col gap-3">
+            <div className="overflow-x-auto pb-1">
+              <div className="grid min-w-[1020px] grid-cols-3 gap-3">
+                {subsystemOrder.map(type => {
+                  const subsystem = sif.subsystems.find(entry => entry.type === type)
 
-          {/* Floating toolbar card */}
-          <div className="absolute top-3 left-3 z-10 rounded-xl border p-2.5 space-y-2 max-w-[420px]"
-            style={{ background: `${PANEL_BG}ee`, borderColor: BORDER, backdropFilter: 'blur(12px)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
-            <div className="flex items-center gap-1.5">
-              {(['sensor', 'logic', 'actuator'] as SubsystemType[]).map(type => {
-                const meta = SUB_META[type]; const has = hasType(type)
-                return (
-                  <button key={type} disabled={has}
-                    onClick={() => !has && addSubsystem(projectId, sif.id, DEFAULT_SUBSYSTEM(type, sif.sifNumber))}
-                    className="flex items-center gap-1 rounded-lg border px-2 py-1 text-[10px] font-semibold transition-all"
-                    style={has
-                      ? { borderColor: `${meta.color}20`, color: `${meta.color}40`, cursor: 'not-allowed' }
-                      : { borderColor: `${meta.color}50`, color: meta.color, background: `${meta.color}10` }
-                    }><meta.Icon size={10} />{meta.label}{has && <CheckCircle2 size={9} />}</button>
-                )
-              })}
-            </div>
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setIsGlobalTestsDialogOpen(true)}
-                className="rounded-lg border px-2 py-1 text-[9px] font-semibold transition-colors"
-                style={{ borderColor: `${TEAL}40`, color: TEAL, background: `${TEAL}08` }}
-              >Params</button>
-              <button
-                onClick={() => setWorkspaceMode('ccf-beta')}
-                disabled={!redundantSubsystems.length}
-                className="inline-flex items-center gap-1 rounded-lg border px-2 py-1 text-[9px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-40"
-                style={{ borderColor: `${TEAL}40`, color: TEAL, background: `${TEAL}08` }}
-              ><ShieldCheck size={10} />CCF</button>
-            </div>
-          </div>
+                  if (!subsystem) {
+                    return (
+                      <MissingSubsystemColumn
+                        key={type}
+                        type={type}
+                        onAdd={() => addSubsystem(projectId, sif.id, DEFAULT_SUBSYSTEM(type, sif.sifNumber))}
+                      />
+                    )
+                  }
 
-          {/* Floating results card — top right */}
-          {calc.subsystems.length > 0 && (
-            <div className="absolute top-3 right-3 z-10 rounded-xl border p-2.5"
-              style={{ background: `${PANEL_BG}ee`, borderColor: BORDER, backdropFilter: 'blur(12px)', boxShadow: '0 4px 20px rgba(0,0,0,0.3)' }}>
-              <div className="flex items-center gap-3">
-                {calc.subsystems.map(sub => {
-                  const meta = SUB_META[sub.type as SubsystemType]
                   return (
-                    <div key={sub.subsystemId} className="flex items-center gap-1.5">
-                      <div className="h-1.5 w-1.5 rounded-full" style={{ background: meta.color }} />
-                      <span className="text-[9px] font-mono" style={{ color: TEXT_DIM }}>{formatPFD(sub.PFD_avg)}</span>
-                    </div>
+                    <SubsystemComposerColumn
+                      key={subsystem.id}
+                      subsystem={subsystem}
+                      calcResult={calc.subsystems.find(entry => entry.subsystemId === subsystem.id)}
+                      projectId={projectId}
+                      sifId={sif.id}
+                      selectedId={selectedId}
+                      onSelectComp={handleSelectComp}
+                      onAddChannel={handleAddChannel}
+                      onRemoveChannel={handleRemoveChannel}
+                      onRemoveSub={handleRemoveSub}
+                      onUpdateArch={handleUpdateArch}
+                      onUpdateCustomGate={handleUpdateCustomGate}
+                      onUpdateEngineSettings={handleUpdateEngineSettings}
+                    />
                   )
                 })}
-                <div className="border-l pl-2" style={{ borderColor: BORDER }}>
-                  <span className="text-[10px] font-bold font-mono" style={{ color: calc.meetsTarget ? semantic.success : semantic.error }}>
-                    {formatPFD(calc.PFD_avg)}
-                  </span>
-                </div>
               </div>
             </div>
-          )}
 
-          <ReactFlow
-            nodes={nodes} edges={edges}
-            onNodesChange={onNodesChange} onEdgesChange={onEdgesChange}
-            onPaneClick={onPaneClick}
-            nodeTypes={NODE_TYPES} edgeTypes={EDGE_TYPES}
-            fitView fitViewOptions={{ padding: 0.2 }}
-            minZoom={0.3} maxZoom={1.5}
-            proOptions={{ hideAttribution: true }}>
-            <Background color={`${TEAL}12`} gap={32} size={1} />
-            <Controls style={{ background: NODE_BG, border: `1px solid ${BORDER}`, borderRadius: 8 }} showInteractive={false} />
-            <MiniMap
-              style={{ background: CANVAS_BG, border: `1px solid ${BORDER}`, borderRadius: 8, width: 120, height: 80 }}
-              nodeColor={n => { const t = sif.subsystems.find(s => s.id === n.id)?.type; return t ? SUB_META[t as SubsystemType].color : '#333' }}
-              maskColor={isDark ? 'rgba(0,0,0,0.5)' : 'rgba(238,243,247,0.72)'} />
-          </ReactFlow>
+            <div className="grid gap-3 xl:grid-cols-[1.2fr_0.8fr]">
+              <section className="rounded-xl border px-4 py-4" style={{ borderColor: BORDER, background: SURFACE }}>
+                <ComposerSectionHeader icon={<ShieldCheck size={12} />}>
+                  Synthese calcul
+                </ComposerSectionHeader>
+                <div className="mt-3 grid gap-2 md:grid-cols-5">
+                  {[
+                    { label: 'SIL cible', value: `SIL ${sif.targetSIL}`, color: TEXT },
+                    { label: 'SIL atteint', value: `SIL ${calc.SIL}`, color: calc.meetsTarget ? semantic.success : semantic.error },
+                    { label: 'PFDavg', value: formatPFD(calc.PFD_avg), color: TEAL_DIM },
+                    { label: 'RRF', value: formatRRF(calc.RRF), color: TEXT },
+                    { label: 'Verdict', value: calc.meetsTarget ? 'PASS' : 'FAIL', color: calc.meetsTarget ? semantic.success : semantic.error },
+                  ].map(item => (
+                    <div key={item.label} className="rounded-lg border px-3 py-3" style={{ borderColor: BORDER, background: NODE_BG2 }}>
+                      <p className="text-[9px] uppercase tracking-widest" style={{ color: TEXT_DIM }}>{item.label}</p>
+                      <p className="mt-1 text-sm font-bold font-mono" style={{ color: item.color }}>{item.value}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+
+              <section className="rounded-xl border px-4 py-4" style={{ borderColor: BORDER, background: SURFACE }}>
+                <ComposerSectionHeader icon={<ShieldCheck size={12} />}>
+                  Breakdown par sous-systeme
+                </ComposerSectionHeader>
+                <div className="mt-3 space-y-2">
+                  {calc.subsystems.map(subsystem => {
+                    const meta = SUB_META[subsystem.type as SubsystemType]
+                    return (
+                      <div
+                        key={subsystem.subsystemId}
+                        className="flex items-center justify-between rounded-xl border px-3 py-3"
+                        style={{ borderColor: BORDER, background: NODE_BG2 }}
+                      >
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full" style={{ background: meta.color }} />
+                          <span className="text-sm font-semibold" style={{ color: TEXT }}>{meta.label}</span>
+                        </div>
+                        <div className="text-right">
+                          <p className="text-[10px] uppercase tracking-widest" style={{ color: TEXT_DIM }}>PFDavg</p>
+                          <p className="mt-1 text-[11px] font-bold font-mono" style={{ color: meta.color }}>
+                            {formatPFD(subsystem.PFD_avg)}
+                          </p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </section>
+            </div>
+          </div>
         </div>
       )}
     </div>

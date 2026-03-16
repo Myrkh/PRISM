@@ -3,7 +3,7 @@ import { AlertTriangle, Clock3, FileClock, History, Info, Search, SlidersHorizon
 import { useAppStore, type SIFTab } from '@/store/appStore'
 import { IntercalaireCard, IntercalaireTabBar, useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { cn } from '@/lib/utils'
-import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 type AuditLevel = 'info' | 'warning'
 
@@ -53,13 +53,14 @@ function AuditLogRightPanel({
   setLevelFilter: (next: 'all' | AuditLevel) => void
   onOpenSelected: () => void
 }) {
+  const { BORDER, CARD_BG, PANEL_BG, PAGE_BG, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
   const [activeTab, setActiveTab] = useState<'filters' | 'details'>('filters')
   const activeIdx = AUDIT_RIGHT_TABS.findIndex(t => t.id === activeTab)
 
   return (
-    <div className="flex h-full flex-col overflow-hidden border-l" style={{ borderColor: '#2A3138', background: '#14181C' }}>
+    <div className="flex h-full flex-col overflow-hidden border-l" style={{ borderColor: BORDER, background: PANEL_BG }}>
       <div className="px-3 pt-3 shrink-0">
-        <IntercalaireTabBar tabs={AUDIT_RIGHT_TABS} active={activeTab} onSelect={setActiveTab} cardBg="#23292F" />
+        <IntercalaireTabBar tabs={AUDIT_RIGHT_TABS} active={activeTab} onSelect={setActiveTab} cardBg={CARD_BG} />
       </div>
 
       <div className="px-3 pb-3 flex-1 overflow-y-auto">
@@ -67,34 +68,34 @@ function AuditLogRightPanel({
           {activeTab === 'filters' && (
             <>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Audit Log</p>
-                <p className="text-xs mt-1" style={{ color: '#DFE8F1' }}>{filtered}/{total} events</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Audit Log</p>
+                <p className="text-xs mt-1" style={{ color: TEXT }}>{filtered}/{total} events</p>
               </div>
-              <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8FA0B1' }}>Search</label>
-              <div className="flex h-8 items-center gap-2 rounded-lg border px-2" style={{ borderColor: '#2A3138', background: '#1D232A' }}>
-                <Search size={13} style={{ color: '#8FA0B1' }} />
+              <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Search</label>
+              <div className="flex h-8 items-center gap-2 rounded-lg border px-2" style={{ borderColor: BORDER, background: SURFACE }}>
+                <Search size={13} style={{ color: TEXT_DIM }} />
                 <input
                   value={query}
                   onChange={e => setQuery(e.target.value)}
                   placeholder="project, sif, action..."
                   className="w-full bg-transparent text-xs outline-none"
-                  style={{ color: '#DFE8F1' }}
+                  style={{ color: TEXT }}
                 />
               </div>
 
-              <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8FA0B1' }}>Level</label>
+              <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Level</label>
               <select
                 value={levelFilter}
                 onChange={e => setLevelFilter(e.target.value as 'all' | AuditLevel)}
-                className="h-8 w-full rounded-lg border bg-[#1D232A] px-2 text-xs outline-none"
-                style={{ borderColor: '#2A3138', color: '#DFE8F1' }}
+                className="h-8 w-full rounded-lg border px-2 text-xs outline-none"
+                style={{ borderColor: BORDER, background: SURFACE, color: TEXT }}
               >
                 <option value="all">All levels</option>
                 <option value="warning">Warnings</option>
                 <option value="info">Info</option>
               </select>
 
-              <div className="rounded-lg border px-2 py-2 text-xs" style={{ borderColor: '#2A3138', background: '#1D232A', color: '#8FA0B1' }}>
+              <div className="rounded-lg border px-2 py-2 text-xs" style={{ borderColor: BORDER, background: SURFACE, color: TEXT_DIM }}>
                 Warning events: <span style={{ color: '#F59E0B' }}>{warningCount}</span>
               </div>
             </>
@@ -102,22 +103,22 @@ function AuditLogRightPanel({
 
           {activeTab === 'details' && (
             <>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Selected Event</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Selected Event</p>
               {selected ? (
-                <div className="space-y-3 rounded-xl border p-3" style={{ borderColor: '#2A3138', background: '#1D232A' }}>
+                <div className="space-y-3 rounded-xl border p-3" style={{ borderColor: BORDER, background: CARD_BG }}>
                   <div>
-                    <p className="text-sm font-semibold" style={{ color: '#DFE8F1' }}>{selected.action}</p>
-                    <p className="text-xs" style={{ color: '#8FA0B1' }}>{formatWhen(selected.timestamp)}</p>
+                    <p className="text-sm font-semibold" style={{ color: TEXT }}>{selected.action}</p>
+                    <p className="text-xs" style={{ color: TEXT_DIM }}>{formatWhen(selected.timestamp)}</p>
                   </div>
-                  <div className="rounded border px-2 py-2" style={{ borderColor: '#2A3138', background: '#14181C' }}>
-                    <p className="text-[10px] uppercase tracking-wider" style={{ color: '#8FA0B1' }}>Scope</p>
-                    <p className="text-xs mt-1" style={{ color: '#DFE8F1' }}>
+                  <div className="rounded border px-2 py-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                    <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>Scope</p>
+                    <p className="text-xs mt-1" style={{ color: TEXT }}>
                       {selected.projectName}{selected.sifNumber ? ` · ${selected.sifNumber}` : ''}
                     </p>
-                    <p className="text-xs mt-1" style={{ color: '#8FA0B1' }}>{selected.details}</p>
+                    <p className="text-xs mt-1" style={{ color: TEXT_DIM }}>{selected.details}</p>
                   </div>
-                  <div className="text-[11px]" style={{ color: '#8FA0B1' }}>
-                    Actor: <span style={{ color: '#DFE8F1' }}>{selected.actor || 'System'}</span>
+                  <div className="text-[11px]" style={{ color: TEXT_DIM }}>
+                    Actor: <span style={{ color: TEXT }}>{selected.actor || 'System'}</span>
                   </div>
                   {!!selected.sifId && (
                     <button
@@ -131,7 +132,7 @@ function AuditLogRightPanel({
                   )}
                 </div>
               ) : (
-                <div className="rounded-xl border px-3 py-4 text-xs" style={{ borderColor: '#2A3138', color: '#8FA0B1' }}>
+                <div className="rounded-xl border px-3 py-4 text-xs" style={{ borderColor: BORDER, color: TEXT_DIM, background: CARD_BG }}>
                   Select an event for details.
                 </div>
               )}
@@ -147,6 +148,7 @@ export function AuditLogWorkspace() {
   const projects = useAppStore(s => s.projects)
   const navigate = useAppStore(s => s.navigate)
   const { setRightPanelOverride } = useLayout()
+  const { BORDER, CARD_BG, PANEL_BG, PAGE_BG, SURFACE, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
 
   const [query, setQuery] = useState('')
   const [levelFilter, setLevelFilter] = useState<'all' | AuditLevel>('all')
@@ -323,29 +325,37 @@ export function AuditLogWorkspace() {
       </div>
       <div className="flex-1 overflow-auto min-h-0">
         {filteredEntries.length === 0 ? (
-          <div className="flex min-h-[220px] items-center justify-center rounded-xl border mx-6 my-4" style={{ borderColor: '#2A3138', background: '#14181C' }}>
-            <p className="text-sm" style={{ color: '#8FA0B1' }}>No events match current filters.</p>
+          <div className="flex min-h-[220px] items-center justify-center rounded-xl border mx-6 my-4" style={{ borderColor: BORDER, background: CARD_BG }}>
+            <p className="text-sm" style={{ color: TEXT_DIM }}>No events match current filters.</p>
           </div>
         ) : (
-          <div className="mx-6 my-4 overflow-hidden rounded-2xl border" style={{ borderColor: '#2A3138', background: '#14181C' }}>
+          <div className="mx-6 my-4 overflow-hidden rounded-2xl border" style={{ borderColor: BORDER, background: CARD_BG }}>
             <table className="w-full">
               <thead>
-                <tr className="border-b" style={{ borderColor: '#2A3138', background: '#1D232A' }}>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Level</th>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Timestamp</th>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Action</th>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Scope</th>
+                <tr className="border-b" style={{ borderColor: BORDER, background: SURFACE }}>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Level</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Timestamp</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Action</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Scope</th>
                 </tr>
               </thead>
               <tbody>
                 {filteredEntries.map(entry => {
                   const active = entry.id === selectedId
+                  const activeBg = isDark ? '#1E2A33' : `${TEAL}10`
+                  const hoverBg = isDark ? SURFACE : PAGE_BG
                   return (
                     <tr
                       key={entry.id}
-                      className={cn('cursor-pointer border-b last:border-b-0', active ? 'bg-[#1E2A33]' : 'hover:bg-[#1D232A]')}
-                      style={{ borderColor: '#2A3138' }}
+                      className="cursor-pointer border-b last:border-b-0 transition-colors"
+                      style={{ borderColor: BORDER, background: active ? activeBg : 'transparent' }}
                       onClick={() => setSelectedId(entry.id)}
+                      onMouseEnter={e => {
+                        if (!active) e.currentTarget.style.background = hoverBg
+                      }}
+                      onMouseLeave={e => {
+                        e.currentTarget.style.background = active ? activeBg : 'transparent'
+                      }}
                     >
                       <td className="px-4 py-3">
                         <span
@@ -361,19 +371,19 @@ export function AuditLogWorkspace() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 text-xs" style={{ color: '#8FA0B1' }}>
+                        <div className="flex items-center gap-2 text-xs" style={{ color: TEXT_DIM }}>
                           <Clock3 size={12} />
                           {formatWhen(entry.timestamp)}
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <p className="text-sm font-semibold" style={{ color: '#DFE8F1' }}>{entry.action}</p>
-                        <p className="text-xs" style={{ color: '#8FA0B1' }}>{entry.details}</p>
+                        <p className="text-sm font-semibold" style={{ color: TEXT }}>{entry.action}</p>
+                        <p className="text-xs" style={{ color: TEXT_DIM }}>{entry.details}</p>
                       </td>
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
-                          <FileClock size={12} style={{ color: '#8FA0B1' }} />
-                          <p className="text-xs" style={{ color: '#8FA0B1' }}>
+                          <FileClock size={12} style={{ color: TEXT_DIM }} />
+                          <p className="text-xs" style={{ color: TEXT_DIM }}>
                             {entry.projectName}{entry.sifNumber ? ` · ${entry.sifNumber}` : ''}
                           </p>
                         </div>

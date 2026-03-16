@@ -260,7 +260,7 @@ function toEngineComponent(component: SIFComponent): EngineComponentParams {
       T0: toHours(component.test.T0, component.test.T0Unit),
       sigma: component.advanced.sigma ?? 1,
       gamma: component.advanced.gamma ?? 0,
-      pi: 0,
+      pi: component.advanced.testDuration ?? 0,
       X: component.test.testType === 'online',
       lambdaStar,
       omega1: component.advanced.omega1 ?? 0,

@@ -1,8 +1,8 @@
 /**
- * ArchitectureWorkspace — conteneur minimal pour le Loop Editor.
+ * ArchitectureWorkspace — conteneur minimal pour le composeur d'architecture.
  *
  * Principes :
- *   - Le canvas ReactFlow prend tout l'espace disponible.
+ *   - Le workspace central prend tout l'espace disponible.
  *   - Zéro chrome parasite (stats, footer nav) → lifecycle bar gère la navigation,
  *     right panel (LoopEditorRightPanel) gère les KPIs et la librairie.
  *   - Seul élément conservé : une micro-barre de statut en haut (1 ligne, discret).
@@ -25,7 +25,7 @@ export function ArchitectureWorkspace({ sif, result, children }: Props) {
   const redundant     = sif.subsystems.filter(s => s.channels.length > 1).length
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+    <div className="flex min-h-full flex-col">
 
       {/* Micro status bar — 1 ligne, très discret */}
       <div
@@ -45,8 +45,8 @@ export function ArchitectureWorkspace({ sif, result, children }: Props) {
         <span className="ml-auto text-[10px]" style={{ color: `${TEXT_DIM}60` }}>Autosave actif</span>
       </div>
 
-      {/* Canvas ReactFlow — plein écran */}
-      <div className="flex min-h-0 flex-1 overflow-hidden">
+      {/* Workspace principal — plein écran */}
+      <div className="flex flex-1">
         {children}
       </div>
 

@@ -53,6 +53,7 @@ export interface AdvancedParams {
   gamma: number
   lambdaStar: number
   lambdaStarEqualToLambda: boolean
+  testDuration: number
   sigma: number
   omega1: number
   omega2: number

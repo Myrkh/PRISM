@@ -171,9 +171,9 @@ export function SIFDashboard({ projectId, sifId }: Props) {
   if (resolvedTab === 'architecture') {
     return (
       <>
-        <div className="relative flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden px-3 pb-3 pt-2">
+        <div className="relative flex flex-1 min-h-0 min-w-0 flex-col overflow-y-auto px-3 pb-3 pt-2">
           <div
-            className="relative mt-4 flex flex-1 min-h-0 min-w-0 transition-[filter,opacity] duration-200"
+            className="relative mt-4 flex min-h-full min-w-0 flex-col transition-[filter,opacity] duration-200"
             style={{
               filter: isLocked ? 'blur(3px)' : 'none',
               opacity: isLocked ? 0.45 : 1,

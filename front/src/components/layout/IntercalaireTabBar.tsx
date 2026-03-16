@@ -24,7 +24,7 @@ export function IntercalaireTabBar<T extends string>({
   showHints?: boolean
   autoHideHintsOnOverflow?: boolean
 }) {
-  const { BORDER, CARD_BG, TEAL_DIM, TEXT, TEXT_DIM, R } = usePrismTheme()
+  const { BORDER, CARD_BG, TEAL_DIM, TEXT, TEXT_DIM, R, isDark } = usePrismTheme()
   const measurementRef = useRef<HTMLDivElement | null>(null)
   const [hideHintsForOverflow, setHideHintsForOverflow] = useState(false)
 
@@ -70,6 +70,7 @@ export function IntercalaireTabBar<T extends string>({
               borderRight: `1px solid ${BORDER}`, borderBottom: `1px solid ${cardBg}`,
               borderRadius: `${R}px ${R}px 0 0`,
               color: TEAL_DIM, marginBottom: '-1px', zIndex: 10,
+              boxShadow: isDark ? 'none' : '0 1px 0 rgba(255,255,255,0.88) inset, 0 6px 18px rgba(15,23,42,0.04)',
             } : {
               color: TEXT_DIM,
               borderTop: '1px solid transparent', borderLeft: '1px solid transparent',
@@ -143,7 +144,7 @@ export function IntercalaireCard({
   className?: string
   style?: React.CSSProperties
 }) {
-  const { BORDER, CARD_BG, R } = usePrismTheme()
+  const { BORDER, CARD_BG, R, isDark } = usePrismTheme()
   const defaultCardBg = CARD_BG
   const bg = cardBg ?? defaultCardBg
   const tlr = activeIdx === 0 ? 0 : R
@@ -152,7 +153,11 @@ export function IntercalaireCard({
     <div className={className}
       style={{
         background: bg, border: `1px solid ${BORDER}`, borderTopWidth: 0,
-        borderRadius: `${tlr}px ${trr}px ${R}px ${R}px`, ...style,
+        borderRadius: `${tlr}px ${trr}px ${R}px ${R}px`,
+        boxShadow: isDark
+          ? 'none'
+          : '0 1px 0 rgba(255,255,255,0.9) inset, 0 18px 42px rgba(15,23,42,0.06), 0 4px 12px rgba(15,23,42,0.04)',
+        ...style,
       }}>
       {children}
     </div>

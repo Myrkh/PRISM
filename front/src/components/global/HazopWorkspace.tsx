@@ -28,7 +28,7 @@ import {
 import { useAppStore, type SIFTab } from '@/store/appStore'
 import type { Project, SIF, HAZOPTrace } from '@/core/types'
 import { calcSIF } from '@/core/math/pfdCalc'
-import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 import { IntercalaireCard, IntercalaireTabBar, useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import {
   Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle,
@@ -36,19 +36,20 @@ import {
 
 // ─── Design tokens ────────────────────────────────────────────────────────
 // ─── Risk matrix cell color ───────────────────────────────────────────────
-function riskColor(riskMatrix: string): { bg: string; color: string } {
+function riskColor(riskMatrix: string, isDark: boolean): { bg: string; color: string } {
   const level = riskMatrix?.trim().toUpperCase()
   // Typical risk matrix codes: 1A-1D (low), 2A-3C (medium), 3D-4D (high), 5A+ (critical)
-  if (!level) return { bg: '#1A1F24', color: '#8FA0B1' }
+  if (!level) return { bg: isDark ? '#1A1F24' : '#F3F6F8', color: isDark ? '#8FA0B1' : '#667085' }
   const severity = parseInt(level[0] ?? '0', 10)
-  if (severity >= 4)   return { bg: '#EF444415', color: '#F87171' }
-  if (severity === 3)  return { bg: '#F59E0B15', color: '#F59E0B' }
-  if (severity === 2)  return { bg: '#2563EB15', color: '#60A5FA' }
-  return               { bg: '#16A34A15', color: '#4ADE80' }
+  if (severity >= 4)   return { bg: isDark ? '#EF444415' : '#FEF2F2', color: isDark ? '#F87171' : '#DC2626' }
+  if (severity === 3)  return { bg: isDark ? '#F59E0B15' : '#FFF7ED', color: isDark ? '#F59E0B' : '#B45309' }
+  if (severity === 2)  return { bg: isDark ? '#2563EB15' : '#EFF6FF', color: isDark ? '#60A5FA' : '#2563EB' }
+  return               { bg: isDark ? '#16A34A15' : '#F0FDF4', color: isDark ? '#4ADE80' : '#15803D' }
 }
 
 // ─── Coming soon button ───────────────────────────────────────────────────
 function ComingSoonBtn({ label, Icon }: { label: string; Icon: React.ElementType }) {
+  const { BORDER, PANEL_BG, TEAL_DIM, TEXT_DIM } = usePrismTheme()
   return (
     <div className="relative group">
       <button
@@ -63,7 +64,7 @@ function ComingSoonBtn({ label, Icon }: { label: string; Icon: React.ElementType
       <div
         className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:flex
           items-center px-2 py-1 rounded text-[9px] font-bold whitespace-nowrap pointer-events-none z-10"
-        style={{ background: '#0F1318', color: TEAL_DIM, border: `1px solid ${BORDER}` }}
+        style={{ background: PANEL_BG, color: TEAL_DIM, border: `1px solid ${BORDER}` }}
       >
         Sprint 2
       </div>
@@ -122,6 +123,7 @@ function createScenarioDraft(projects: Project[], preferredProjectId?: string): 
 }
 
 function FieldLabel({ children }: { children: React.ReactNode }) {
+  const { TEXT_DIM } = usePrismTheme()
   return (
     <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-[0.14em]"
       style={{ color: TEXT_DIM }}>
@@ -158,6 +160,7 @@ function HazopRightPanel({
   setInitiatingFrequency: (next: number) => void
   onOpenSelected: (tab: SIFTab) => void
 }) {
+  const { BORDER, CARD_BG, PANEL_BG, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM, isDark } = usePrismTheme()
   const [activeTab, setActiveTab] = useState<'rrf' | 'matrix' | 'actions'>('rrf')
   const activeIdx = HAZOP_RIGHT_TABS.findIndex(t => t.id === activeTab)
 
@@ -167,7 +170,7 @@ function HazopRightPanel({
         style={{ borderColor: BORDER, background: PANEL_BG }}>
         <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>HAZOP / LOPA</p>
         <div className="mt-3 rounded-xl border px-3 py-4 text-xs"
-          style={{ borderColor: BORDER, color: TEXT_DIM, background: '#1D232A' }}>
+          style={{ borderColor: BORDER, color: TEXT_DIM, background: CARD_BG }}>
           Sélectionnez une ligne du registre pour lancer le check RRF et les actions.
         </div>
       </div>
@@ -184,12 +187,12 @@ function HazopRightPanel({
   return (
     <div className="flex h-full flex-col overflow-hidden border-l" style={{ borderColor: BORDER, background: PANEL_BG }}>
       <div className="px-3 pt-3 shrink-0">
-        <IntercalaireTabBar tabs={HAZOP_RIGHT_TABS} active={activeTab} onSelect={setActiveTab} cardBg="#23292F" />
+        <IntercalaireTabBar tabs={HAZOP_RIGHT_TABS} active={activeTab} onSelect={setActiveTab} cardBg={CARD_BG} />
       </div>
 
       <div className="px-3 pb-3 flex-1 overflow-y-auto">
         <IntercalaireCard tabCount={HAZOP_RIGHT_TABS.length} activeIdx={activeIdx} className="p-3 space-y-3">
-          <div className="rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: '#1D232A' }}>
+          <div className="rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
             <p className="text-[10px] font-bold font-mono" style={{ color: TEAL }}>{sif.sifNumber}</p>
             <p className="text-[10px]" style={{ color: TEXT_DIM }}>{project.name}</p>
           </div>
@@ -208,31 +211,31 @@ function HazopRightPanel({
                   step="0.000001"
                   value={Number.isFinite(initiatingFrequency) ? initiatingFrequency : 0}
                   onChange={e => setInitiatingFrequency(Math.max(0, Number(e.target.value) || 0))}
-                  className="h-8 w-full rounded-lg border bg-[#1D232A] px-2 text-xs outline-none"
-                  style={{ borderColor: BORDER, color: TEXT }}
+                  className="h-8 w-full rounded-lg border px-2 text-xs outline-none"
+                  style={{ borderColor: BORDER, background: SURFACE, color: TEXT }}
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-2 text-[11px]">
-                <div className="rounded border px-2 py-1.5" style={{ borderColor: BORDER, background: '#1D232A' }}>
+                <div className="rounded border px-2 py-1.5" style={{ borderColor: BORDER, background: SURFACE }}>
                   <p style={{ color: TEXT_DIM }}>TMEL (HAZOP)</p>
                   <p className="font-mono font-bold" style={{ color: TEXT }}>
                     {trace.tmel > 0 ? trace.tmel.toExponential(2) : '—'}
                   </p>
                 </div>
-                <div className="rounded border px-2 py-1.5" style={{ borderColor: BORDER, background: '#1D232A' }}>
+                <div className="rounded border px-2 py-1.5" style={{ borderColor: BORDER, background: SURFACE }}>
                   <p style={{ color: TEXT_DIM }}>RRF requis</p>
                   <p className="font-mono font-bold" style={{ color: TEAL_DIM }}>
                     {requiredRRF ? Math.round(requiredRRF).toLocaleString('fr-FR') : '—'}
                   </p>
                 </div>
-                <div className="rounded border px-2 py-1.5" style={{ borderColor: BORDER, background: '#1D232A' }}>
+                <div className="rounded border px-2 py-1.5" style={{ borderColor: BORDER, background: SURFACE }}>
                   <p style={{ color: TEXT_DIM }}>RRF calculé (SIF)</p>
                   <p className="font-mono font-bold" style={{ color: TEXT }}>
                     {Math.round(calc.RRF).toLocaleString('fr-FR')}
                   </p>
                 </div>
-                <div className="rounded border px-2 py-1.5" style={{ borderColor: BORDER, background: '#1D232A' }}>
+                <div className="rounded border px-2 py-1.5" style={{ borderColor: BORDER, background: SURFACE }}>
                   <p style={{ color: TEXT_DIM }}>Verdict</p>
                   <p className="font-bold" style={{ color: isCoherent == null ? TEXT_DIM : isCoherent ? '#4ADE80' : '#F87171' }}>
                     {isCoherent == null ? 'N/A' : isCoherent ? 'Cohérent' : 'Écart'}
@@ -242,7 +245,11 @@ function HazopRightPanel({
 
               {ratio != null && isCoherent === false && (
                 <div className="rounded-lg border px-2.5 py-2 text-[11px]"
-                  style={{ borderColor: '#F8717140', background: '#7F1D1D20', color: '#FCA5A5' }}>
+                  style={{
+                    borderColor: '#F8717140',
+                    background: isDark ? '#7F1D1D20' : '#FEF2F2',
+                    color: isDark ? '#FCA5A5' : '#B91C1C',
+                  }}>
                   RRF requis est ~{ratio.toFixed(2)}x supérieur au RRF calculé.
                 </div>
               )}
@@ -252,7 +259,7 @@ function HazopRightPanel({
           {activeTab === 'matrix' && (
             <>
               <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Risk Matrix</p>
-              <div className="rounded-lg border px-2.5 py-2 text-[11px]" style={{ borderColor: BORDER, background: '#1D232A' }}>
+              <div className="rounded-lg border px-2.5 py-2 text-[11px]" style={{ borderColor: BORDER, background: SURFACE }}>
                 <span style={{ color: TEXT_DIM }}>Position scénario:</span>{' '}
                 <span className="font-bold" style={{ color: TEAL_DIM }}>{trace.riskMatrix || '—'}</span>
               </div>
@@ -264,7 +271,7 @@ function HazopRightPanel({
                     const letter = ['A', 'B', 'C', 'D'][c]
                     const code = `${severity}${letter}`
                     const active = matrix?.severity === severity && matrix?.likelihood === likelihood
-                    const color = riskColor(code)
+                    const color = riskColor(code, isDark)
                     return (
                       <div key={code} className="rounded border py-1 text-center text-[9px] font-bold"
                         style={{
@@ -288,7 +295,7 @@ function HazopRightPanel({
                 type="button"
                 onClick={() => onOpenSelected('overview')}
                 className="w-full rounded-lg px-3 py-2 text-xs font-bold border transition-colors"
-                style={{ borderColor: BORDER, color: TEXT, background: '#1D232A' }}
+                style={{ borderColor: BORDER, color: TEXT, background: SURFACE }}
               >
                 Ouvrir la SIF liée
               </button>
@@ -296,7 +303,7 @@ function HazopRightPanel({
                 type="button"
                 onClick={() => onOpenSelected('analysis')}
                 className="w-full rounded-lg px-3 py-2 text-xs font-bold border transition-colors"
-                style={{ borderColor: BORDER, color: TEXT, background: '#1D232A' }}
+                style={{ borderColor: BORDER, color: TEXT, background: SURFACE }}
               >
                 Aller aux calculs
               </button>
@@ -333,11 +340,14 @@ function HazopRow({
   onToggle: () => void
   onNavigate: (projectId: string, sifId: string, tab: SIFTab) => void
 }) {
+  const { BORDER, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM, isDark } = usePrismTheme()
   const { sif, trace, project } = data
   const result = useMemo(() => calcSIF(sif), [sif])
-  const risk   = riskColor(trace.riskMatrix)
+  const risk   = riskColor(trace.riskMatrix, isDark)
+  const selectedBg = isDark ? '#1E2A33' : `${TEAL}10`
+  const hoverBg = isDark ? 'rgba(255,255,255,0.02)' : SURFACE
   const rowStyle = isSelected
-    ? { borderColor: BORDER, background: '#1E2A33' }
+    ? { borderColor: BORDER, background: selectedBg }
     : { borderColor: BORDER }
 
   return (
@@ -349,10 +359,10 @@ function HazopRow({
         data-row-id={rowId}
         onClick={onSelect}
         onMouseEnter={e => {
-          if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(255,255,255,0.02)'
+          if (!isSelected) (e.currentTarget as HTMLTableRowElement).style.background = hoverBg
         }}
         onMouseLeave={e => {
-          (e.currentTarget as HTMLTableRowElement).style.background = isSelected ? '#1E2A33' : 'transparent'
+          (e.currentTarget as HTMLTableRowElement).style.background = isSelected ? selectedBg : 'transparent'
         }}
       >
         {/* Scénario ID */}
@@ -521,7 +531,7 @@ function HazopRow({
                 </p>
                 <div
                   className="rounded-lg px-3 py-2.5 text-[10px]"
-                  style={{ background: '#1D232A', border: `1px solid ${BORDER}`, color: TEXT_DIM }}
+                  style={{ background: SURFACE, border: `1px solid ${BORDER}`, color: TEXT_DIM }}
                 >
                   <p className="font-semibold mb-1" style={{ color: TEAL_DIM }}>Sprint 2</p>
                   <p>Calcul fréquence résiduelle avec IPLs, validation SIL requis automatique.</p>
@@ -563,13 +573,14 @@ function ProjectSection({
   onToggle: (id: string) => void
   onNavigate: (projectId: string, sifId: string, tab: SIFTab) => void
 }) {
+  const { BORDER, SURFACE, TEAL, TEAL_DIM, TEXT } = usePrismTheme()
   const [collapsed, setCollapsed] = useState(false)
 
   return (
     <>
       <tr
         className="border-b cursor-pointer select-none"
-        style={{ borderColor: BORDER, background: '#1D232A' }}
+        style={{ borderColor: BORDER, background: SURFACE }}
         onClick={() => setCollapsed(v => !v)}
       >
         <td colSpan={9} className="px-4 py-2.5">
@@ -613,6 +624,7 @@ function ProjectSection({
 
 // ─── Empty state ──────────────────────────────────────────────────────────
 function EmptyState({ hasSearch }: { hasSearch: boolean }) {
+  const { TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   return (
     <div className="flex flex-1 flex-col items-center justify-center gap-4 py-24">
       <div
@@ -650,6 +662,7 @@ function NewScenarioModal({
   setDraft: React.Dispatch<React.SetStateAction<ScenarioDraft>>
   onSubmit: () => void
 }) {
+  const { BORDER, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM, isDark } = usePrismTheme()
   const selectedProject = projects.find(project => project.id === draft.projectId) ?? null
   const sifOptions = selectedProject?.sifs ?? []
   const selectedSif = sifOptions.find(sif => sif.id === draft.sifId) ?? null
@@ -663,7 +676,7 @@ function NewScenarioModal({
     && !!draft.riskMatrix.trim()
     && Number(draft.tmel) > 0
   const inputStyle = {
-    background: '#151B22',
+    background: SURFACE,
     borderColor: BORDER,
     color: TEXT,
   }
@@ -674,8 +687,12 @@ function NewScenarioModal({
         <div className="overflow-hidden rounded-[28px] border"
           style={{
             borderColor: BORDER,
-            background: 'linear-gradient(180deg, #1B222B 0%, #131920 100%)',
-            boxShadow: '0 24px 64px rgba(3, 7, 12, 0.48)',
+            background: isDark
+              ? 'linear-gradient(180deg, #1B222B 0%, #131920 100%)'
+              : 'linear-gradient(180deg, #FFFFFF 0%, #F2F6F9 100%)',
+            boxShadow: isDark
+              ? '0 24px 64px rgba(3, 7, 12, 0.48)'
+              : '0 24px 64px rgba(15, 23, 42, 0.10)',
           }}>
           <DialogHeader className="border-b px-7 py-6" style={{ borderColor: BORDER }}>
             <p className="text-[10px] font-bold uppercase tracking-[0.22em]" style={{ color: TEAL_DIM }}>
@@ -892,7 +909,7 @@ function NewScenarioModal({
               </div>
 
               <div className="rounded-3xl border p-5"
-                style={{ borderColor: BORDER, background: '#151B22' }}>
+                style={{ borderColor: BORDER, background: SURFACE }}>
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em]" style={{ color: TEXT_DIM }}>
                   Comportement
                 </p>
@@ -905,7 +922,11 @@ function NewScenarioModal({
                 </p>
                 {hasOverwriteRisk && (
                   <div className="mt-4 rounded-2xl border px-3 py-2.5 text-[11px]"
-                    style={{ borderColor: '#F59E0B55', background: '#2B2110', color: '#FCD34D' }}>
+                    style={{
+                      borderColor: '#F59E0B55',
+                      background: isDark ? '#2B2110' : '#FFF7ED',
+                      color: isDark ? '#FCD34D' : '#B45309',
+                    }}>
                     Cette SIF possède déjà une trace HAZOP. Enregistrer remplacera la trace actuelle.
                   </div>
                 )}
@@ -918,7 +939,7 @@ function NewScenarioModal({
               type="button"
               onClick={() => onOpenChange(false)}
               className="rounded-2xl border px-4 py-2 text-xs font-bold transition-colors"
-              style={{ borderColor: BORDER, color: TEXT_DIM, background: '#151B22' }}
+              style={{ borderColor: BORDER, color: TEXT_DIM, background: SURFACE }}
             >
               Annuler
             </button>
@@ -944,6 +965,7 @@ export function HazopWorkspace() {
   const navigate  = useAppStore(s => s.navigate)
   const updateHAZOPTrace = useAppStore(s => s.updateHAZOPTrace)
   const { setRightPanelOverride } = useLayout()
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
 
   const [search,       setSearch]       = useState('')
   const [projectFilter, setProjectFilter] = useState<string>('all')

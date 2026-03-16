@@ -11,6 +11,7 @@ import { Switch } from '@/components/ui/switch'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
 import { useAppStore, type SettingsSection } from '@/store/appStore'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 interface SettingsDraft {
   theme: 'dark' | 'light'
@@ -91,6 +92,7 @@ function NumberField({
   max: number
   step?: number
 }) {
+  const { BORDER, PAGE_BG, TEAL, TEXT } = usePrismTheme()
   return (
     <input
       type="number"
@@ -99,7 +101,10 @@ function NumberField({
       max={max}
       step={step}
       onChange={e => onChange(Number(e.target.value))}
-      className="h-9 w-28 rounded-lg border border-[#2A3138] bg-[#1A1F24] px-2.5 text-sm text-[#DFE8F1] outline-none focus:border-[#009BA4]"
+      className="h-9 w-28 rounded-lg border px-2.5 text-sm outline-none transition-colors"
+      style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
+      onFocus={e => { e.currentTarget.style.borderColor = TEAL }}
+      onBlur={e => { e.currentTarget.style.borderColor = BORDER }}
     />
   )
 }
@@ -113,11 +118,15 @@ function SelectField<T extends string>({
   onChange: (next: T) => void
   options: readonly { label: string; value: T }[]
 }) {
+  const { BORDER, PAGE_BG, TEAL, TEXT } = usePrismTheme()
   return (
     <select
       value={value}
       onChange={e => onChange(e.target.value as T)}
-      className="h-9 min-w-52 rounded-lg border border-[#2A3138] bg-[#1A1F24] px-2.5 text-sm text-[#DFE8F1] outline-none focus:border-[#009BA4]"
+      className="h-9 min-w-52 rounded-lg border px-2.5 text-sm outline-none transition-colors"
+      style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
+      onFocus={e => { e.currentTarget.style.borderColor = TEAL }}
+      onBlur={e => { e.currentTarget.style.borderColor = BORDER }}
     >
       {options.map(opt => (
         <option key={opt.value} value={opt.value}>
@@ -137,11 +146,12 @@ function Row({
   hint: string
   children: ReactNode
 }) {
+  const { BORDER, CARD_BG, TEXT, TEXT_DIM } = usePrismTheme()
   return (
-    <div className="flex items-center justify-between gap-4 rounded-lg border border-[#2A3138] bg-[#1D232A] px-4 py-3">
+    <div className="flex items-center justify-between gap-4 rounded-lg border px-4 py-3" style={{ borderColor: BORDER, background: CARD_BG }}>
       <div>
-        <p className="text-sm font-semibold text-[#DFE8F1]">{label}</p>
-        <p className="text-xs text-[#8FA0B1]">{hint}</p>
+        <p className="text-sm font-semibold" style={{ color: TEXT }}>{label}</p>
+        <p className="text-xs" style={{ color: TEXT_DIM }}>{hint}</p>
       </div>
       {children}
     </div>
@@ -157,6 +167,7 @@ interface SettingsWorkspaceProps {
 export function SettingsWorkspace({ section, onSectionChange, onExit }: SettingsWorkspaceProps) {
   const isDark = useAppStore(s => s.isDark)
   const setTheme = useAppStore(s => s.setTheme)
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, isDark: themeIsDark } = usePrismTheme()
 
   const [saved, setSaved] = useState<SettingsDraft>(() => initialDraft(isDark))
   const [draft, setDraft] = useState<SettingsDraft>(() => initialDraft(isDark))
@@ -207,11 +218,16 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
   return (
     <div className="flex-1 min-h-0 px-5 pb-5 pt-2" onClick={requestExit}>
       <div
-        className="grid h-full min-h-0 grid-cols-[240px_1fr] overflow-hidden rounded-xl border border-[#2A3138] bg-[#23292F]"
+        className="grid h-full min-h-0 grid-cols-[240px_1fr] overflow-hidden rounded-xl border"
+        style={{
+          borderColor: BORDER,
+          background: CARD_BG,
+          boxShadow: themeIsDark ? 'none' : '0 18px 42px rgba(15,23,42,0.05), 0 4px 12px rgba(15,23,42,0.03)',
+        }}
         onClick={e => e.stopPropagation()}
       >
-        <aside className="overflow-y-auto border-r border-[#2A3138] bg-[#14181C] p-3">
-          <p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-[0.12em] text-[#8FA0B1]">Settings</p>
+        <aside className="overflow-y-auto border-r p-3" style={{ borderColor: BORDER, background: PANEL_BG }}>
+          <p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: TEXT_DIM }}>Settings</p>
           <div className="space-y-1">
             {SECTIONS.map(({ id, label, hint, Icon }) => {
               const selected = id === section
@@ -220,18 +236,28 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
                   key={id}
                   type="button"
                   onClick={() => onSectionChange(id)}
-                  className={cn(
-                    'w-full rounded-lg border px-2.5 py-2 text-left transition-colors',
-                    selected
-                      ? 'border-[#009BA480] bg-[#1D232A]'
-                      : 'border-transparent hover:border-[#2A3138] hover:bg-[#1D232A]',
-                  )}
+                  className={cn('w-full rounded-lg border px-2.5 py-2 text-left transition-colors')}
+                  style={selected
+                    ? { borderColor: `${TEAL}80`, background: CARD_BG }
+                    : { borderColor: 'transparent', background: 'transparent' }}
+                  onMouseEnter={e => {
+                    if (!selected) {
+                      e.currentTarget.style.background = CARD_BG
+                      e.currentTarget.style.borderColor = BORDER
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!selected) {
+                      e.currentTarget.style.background = 'transparent'
+                      e.currentTarget.style.borderColor = 'transparent'
+                    }
+                  }}
                 >
                   <div className="flex items-center gap-2">
-                    <Icon size={14} className={selected ? 'text-[#5FD8D2]' : 'text-[#8FA0B1]'} />
-                    <span className={selected ? 'text-sm font-semibold text-[#DFE8F1]' : 'text-sm text-[#8FA0B1]'}>{label}</span>
+                    <Icon size={14} style={{ color: selected ? TEAL_DIM : TEXT_DIM }} />
+                    <span className={selected ? 'text-sm font-semibold' : 'text-sm'} style={{ color: selected ? TEXT : TEXT_DIM }}>{label}</span>
                   </div>
-                  <p className="mt-1 text-[11px] text-[#8FA0B1]">{hint}</p>
+                  <p className="mt-1 text-[11px]" style={{ color: TEXT_DIM }}>{hint}</p>
                 </button>
               )
             })}
@@ -239,30 +265,36 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
         </aside>
 
         <section className="flex min-h-0 flex-col">
-          <header className="border-b border-[#2A3138] px-5 py-3">
-            <h1 className="text-base font-bold text-[#DFE8F1]">Configuration Workspace</h1>
-            <p className="text-xs text-[#8FA0B1]">
+          <header className="border-b px-5 py-3" style={{ borderColor: BORDER, background: CARD_BG }}>
+            <h1 className="text-base font-bold" style={{ color: TEXT }}>Configuration Workspace</h1>
+            <p className="text-xs" style={{ color: TEXT_DIM }}>
               Vue avancée de configuration. Les quick settings via command palette restent disponibles.
             </p>
           </header>
 
-          <div className="flex-1 min-h-0 overflow-y-auto p-5">
+          <div className="flex-1 min-h-0 overflow-y-auto p-5" style={{ background: CARD_BG }}>
             <div className="space-y-3">
               {section === 'general' && (
                 <>
                   <Row label="Theme" hint="Applied instantly after save.">
-                    <div className="inline-flex rounded-lg border border-[#2A3138] bg-[#14181C] p-1">
+                    <div className="inline-flex rounded-lg border p-1" style={{ borderColor: BORDER, background: PAGE_BG }}>
                       <button
                         type="button"
                         onClick={() => setDraft(d => ({ ...d, theme: 'dark' }))}
-                        className={cn('rounded px-3 py-1 text-xs', draft.theme === 'dark' ? 'bg-[#009BA4] text-white' : 'text-[#8FA0B1]')}
+                        className={cn('rounded px-3 py-1 text-xs')}
+                        style={draft.theme === 'dark'
+                          ? { background: TEAL, color: '#fff' }
+                          : { color: TEXT_DIM }}
                       >
                         Dark
                       </button>
                       <button
                         type="button"
                         onClick={() => setDraft(d => ({ ...d, theme: 'light' }))}
-                        className={cn('rounded px-3 py-1 text-xs', draft.theme === 'light' ? 'bg-[#009BA4] text-white' : 'text-[#8FA0B1]')}
+                        className={cn('rounded px-3 py-1 text-xs')}
+                        style={draft.theme === 'light'
+                          ? { background: TEAL, color: '#fff' }
+                          : { color: TEXT_DIM }}
                       >
                         Light
                       </button>
@@ -467,8 +499,8 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
             </div>
           </div>
 
-          <footer className="flex items-center justify-between border-t border-[#2A3138] px-5 py-3">
-            <p className="text-xs text-[#8FA0B1]">
+          <footer className="flex items-center justify-between border-t px-5 py-3" style={{ borderColor: BORDER, background: CARD_BG }}>
+            <p className="text-xs" style={{ color: TEXT_DIM }}>
               {isDirty ? 'Unsaved changes' : 'All changes saved for current session'} · Press Esc to exit
             </p>
             <div className="flex items-center gap-2">

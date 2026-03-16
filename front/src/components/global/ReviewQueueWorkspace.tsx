@@ -4,7 +4,7 @@ import { useAppStore, type SIFTab } from '@/store/appStore'
 import { IntercalaireCard, IntercalaireTabBar, useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { calcSIF, formatPFD } from '@/core/math/pfdCalc'
 import { cn } from '@/lib/utils'
-import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 type ReviewIssueType = 'sil_gap' | 'proof_test' | 'traceability'
 type Severity = 'high' | 'medium' | 'low'
@@ -74,13 +74,14 @@ function ReviewQueueRightPanel({
   setTypeFilter: (next: 'all' | ReviewIssueType) => void
   onOpenSelected: () => void
 }) {
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
   const [activeTab, setActiveTab] = useState<'filters' | 'details'>('filters')
   const activeIdx = REVIEW_RIGHT_TABS.findIndex(t => t.id === activeTab)
 
   return (
-    <div className="flex h-full flex-col overflow-hidden border-l" style={{ borderColor: '#2A3138', background: '#14181C' }}>
+    <div className="flex h-full flex-col overflow-hidden border-l" style={{ borderColor: BORDER, background: PANEL_BG }}>
       <div className="px-3 pt-3 shrink-0">
-        <IntercalaireTabBar tabs={REVIEW_RIGHT_TABS} active={activeTab} onSelect={setActiveTab} cardBg="#23292F" />
+        <IntercalaireTabBar tabs={REVIEW_RIGHT_TABS} active={activeTab} onSelect={setActiveTab} cardBg={CARD_BG} />
       </div>
 
       <div className="px-3 pb-3 flex-1 overflow-y-auto">
@@ -88,8 +89,8 @@ function ReviewQueueRightPanel({
           {activeTab === 'filters' && (
             <>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Review Queue</p>
-                <p className="text-xs mt-1" style={{ color: '#DFE8F1' }}>{filtered}/{total} items</p>
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Review Queue</p>
+                <p className="text-xs mt-1" style={{ color: TEXT }}>{filtered}/{total} items</p>
               </div>
               <div className="grid grid-cols-3 gap-2">
                 <div className="rounded border px-2 py-1.5" style={{ borderColor: '#7F1D1D', background: '#7F1D1D20' }}>
@@ -108,12 +109,12 @@ function ReviewQueueRightPanel({
 
               <div className="space-y-2">
                 <div>
-                  <p className="mb-1 text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8FA0B1' }}>Severity</p>
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Severity</p>
                   <select
                     value={severityFilter}
                     onChange={(e) => setSeverityFilter(e.target.value as 'all' | Severity)}
-                    className="h-8 w-full rounded-lg border bg-[#1D232A] px-2 text-xs outline-none"
-                    style={{ borderColor: '#2A3138', color: '#DFE8F1' }}
+                    className="h-8 w-full rounded-lg border px-2 text-xs outline-none"
+                    style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
                   >
                     <option value="all">All severities</option>
                     <option value="high">High</option>
@@ -122,12 +123,12 @@ function ReviewQueueRightPanel({
                   </select>
                 </div>
                 <div>
-                  <p className="mb-1 text-[10px] font-bold uppercase tracking-wider" style={{ color: '#8FA0B1' }}>Type</p>
+                  <p className="mb-1 text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Type</p>
                   <select
                     value={typeFilter}
                     onChange={(e) => setTypeFilter(e.target.value as 'all' | ReviewIssueType)}
-                    className="h-8 w-full rounded-lg border bg-[#1D232A] px-2 text-xs outline-none"
-                    style={{ borderColor: '#2A3138', color: '#DFE8F1' }}
+                    className="h-8 w-full rounded-lg border px-2 text-xs outline-none"
+                    style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
                   >
                     <option value="all">All issue types</option>
                     <option value="sil_gap">SIL gap</option>
@@ -141,18 +142,18 @@ function ReviewQueueRightPanel({
 
           {activeTab === 'details' && (
             <>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Selected Item</p>
+              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Selected Item</p>
               {selected ? (
-                <div className="space-y-3 rounded-xl border p-3" style={{ borderColor: '#2A3138', background: '#1D232A' }}>
+                <div className="space-y-3 rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <div>
-                    <p className="text-sm font-semibold" style={{ color: '#DFE8F1' }}>{selected.sifNumber}</p>
-                    <p className="text-[11px]" style={{ color: '#8FA0B1' }}>{selected.projectName}</p>
+                    <p className="text-sm font-semibold" style={{ color: TEXT }}>{selected.sifNumber}</p>
+                    <p className="text-[11px]" style={{ color: TEXT_DIM }}>{selected.projectName}</p>
                   </div>
-                  <div className="rounded border px-2 py-2" style={{ borderColor: '#2A3138', background: '#14181C' }}>
-                    <p className="text-[10px] uppercase tracking-wider" style={{ color: '#8FA0B1' }}>
+                  <div className="rounded border px-2 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+                    <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>
                       {issueLabel(selected.type)} · {severityLabel(selected.severity)}
                     </p>
-                    <p className="mt-1 text-xs" style={{ color: '#DFE8F1' }}>{selected.message}</p>
+                    <p className="mt-1 text-xs" style={{ color: TEXT }}>{selected.message}</p>
                   </div>
                   <button
                     type="button"
@@ -164,7 +165,7 @@ function ReviewQueueRightPanel({
                   </button>
                 </div>
               ) : (
-                <div className="rounded-xl border px-3 py-4 text-xs" style={{ borderColor: '#2A3138', color: '#8FA0B1' }}>
+                <div className="rounded-xl border px-3 py-4 text-xs" style={{ borderColor: BORDER, color: TEXT_DIM, background: PAGE_BG }}>
                   Select an item to inspect details.
                 </div>
               )}
@@ -177,6 +178,7 @@ function ReviewQueueRightPanel({
 }
 
 export function ReviewQueueWorkspace() {
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
   const projects = useAppStore(s => s.projects)
   const navigate = useAppStore(s => s.navigate)
   const { setRightPanelOverride } = useLayout()
@@ -370,18 +372,32 @@ export function ReviewQueueWorkspace() {
       </div>
       <div className="flex-1 overflow-auto min-h-0">
         {filteredItems.length === 0 ? (
-          <div className="flex min-h-[220px] items-center justify-center rounded-xl border mx-6 my-4" style={{ borderColor: '#2A3138', background: '#14181C' }}>
-            <p className="text-sm" style={{ color: '#8FA0B1' }}>No items match current filters.</p>
+          <div
+            className="mx-6 my-4 flex min-h-[220px] items-center justify-center rounded-xl border"
+            style={{
+              borderColor: BORDER,
+              background: PAGE_BG,
+              boxShadow: isDark ? 'none' : '0 12px 28px rgba(15,23,42,0.04)',
+            }}
+          >
+            <p className="text-sm" style={{ color: TEXT_DIM }}>No items match current filters.</p>
           </div>
         ) : (
-          <div className="mx-6 my-4 overflow-hidden rounded-2xl border" style={{ borderColor: '#2A3138', background: '#14181C' }}>
+          <div
+            className="mx-6 my-4 overflow-hidden rounded-2xl border"
+            style={{
+              borderColor: BORDER,
+              background: CARD_BG,
+              boxShadow: isDark ? 'none' : '0 18px 42px rgba(15,23,42,0.05), 0 4px 12px rgba(15,23,42,0.03)',
+            }}
+          >
             <table className="w-full">
               <thead>
-                <tr className="border-b" style={{ borderColor: '#2A3138', background: '#1D232A' }}>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Priority</th>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Issue</th>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>SIF</th>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: '#8FA0B1' }}>Snapshot</th>
+                <tr className="border-b" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Priority</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Issue</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>SIF</th>
+                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Snapshot</th>
                 </tr>
               </thead>
               <tbody>
@@ -390,8 +406,17 @@ export function ReviewQueueWorkspace() {
                   return (
                     <tr
                       key={item.id}
-                      className={cn('cursor-pointer border-b last:border-b-0', active ? 'bg-[#1E2A33]' : 'hover:bg-[#1D232A]')}
-                      style={{ borderColor: '#2A3138' }}
+                      className="cursor-pointer border-b last:border-b-0"
+                      style={{
+                        borderColor: BORDER,
+                        background: active ? (isDark ? '#1E2A33' : `${TEAL}10`) : 'transparent',
+                      }}
+                      onMouseEnter={e => {
+                        if (!active) e.currentTarget.style.background = isDark ? '#1D232A' : `${PAGE_BG}`
+                      }}
+                      onMouseLeave={e => {
+                        if (!active) e.currentTarget.style.background = 'transparent'
+                      }}
                       onClick={() => setSelectedId(item.id)}
                     >
                       <td className="px-4 py-3">
@@ -415,8 +440,8 @@ export function ReviewQueueWorkspace() {
                           {item.type === 'proof_test' && <Clock3 size={13} className="text-amber-400" />}
                           {item.type === 'traceability' && <FileWarning size={13} className="text-blue-400" />}
                           <div>
-                            <p className="text-sm font-semibold" style={{ color: '#DFE8F1' }}>{issueLabel(item.type)}</p>
-                            <p className="text-xs" style={{ color: '#8FA0B1' }}>{item.message}</p>
+                            <p className="text-sm font-semibold" style={{ color: TEXT }}>{issueLabel(item.type)}</p>
+                            <p className="text-xs" style={{ color: TEXT_DIM }}>{item.message}</p>
                           </div>
                         </div>
                       </td>

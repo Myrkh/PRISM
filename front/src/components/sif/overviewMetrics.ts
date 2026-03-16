@@ -99,22 +99,22 @@ export function getOverviewMetrics(
   if (!sif.proofTestProcedure) {
     pushAction(actions, {
       id: 'proof-procedure',
-      title: 'Document the proof test procedure',
-      hint: 'No procedure is attached to this SIF yet.',
+      title: 'Documenter la procédure de proof test',
+      hint: 'Aucune procédure n’est encore rattachée à cette SIF.',
       tab: 'exploitation',
     })
   } else if (!recentCampaigns.length) {
     pushAction(actions, {
       id: 'proof-evidence',
-      title: 'Record a proof test campaign',
-      hint: 'A procedure exists, but no executed campaign is linked as evidence.',
+      title: 'Enregistrer une campagne de proof test',
+      hint: 'Une procédure existe, mais aucune campagne exécutée n’est reliée comme preuve.',
       tab: 'exploitation',
     })
   } else if (isOverdue && nextDue) {
     pushAction(actions, {
       id: 'proof-overdue',
-      title: 'Proof test campaign is overdue',
-      hint: `Next due date was ${nextDue.toLocaleDateString()}.`,
+      title: 'La campagne de proof test est en retard',
+      hint: `L’échéance prévue était le ${nextDue.toLocaleDateString()}.`,
       tab: 'exploitation',
     })
   }
@@ -122,8 +122,8 @@ export function getOverviewMetrics(
   if (openFaults > 0 || bypassHours > 0) {
     pushAction(actions, {
       id: 'operational-exposure',
-      title: 'Review operational exposure',
-      hint: `${openFaults} open fault${openFaults > 1 ? 's' : ''} and ${bypassHours.toFixed(1)} h of bypass / inhibit exposure.`,
+      title: 'Revoir l’exposition en exploitation',
+      hint: `${openFaults} défaut${openFaults > 1 ? 's' : ''} ouvert${openFaults > 1 ? 's' : ''} et ${bypassHours.toFixed(1)} h de bypass / inhibit.`,
       tab: 'exploitation',
     })
   }
@@ -131,8 +131,8 @@ export function getOverviewMetrics(
   if (!result.meetsTarget || compliance.technicalFindings.length > 0) {
     pushAction(actions, {
       id: 'technical-findings',
-      title: 'Resolve technical findings',
-      hint: `${compliance.technicalFindings.length} compliance finding${compliance.technicalFindings.length > 1 ? 's' : ''} need review.`,
+      title: 'Traiter les écarts techniques',
+      hint: `${compliance.technicalFindings.length} écart${compliance.technicalFindings.length > 1 ? 's' : ''} de conformité demande${compliance.technicalFindings.length > 1 ? 'nt' : ''} une revue.`,
       tab: 'verification',
     })
   }
@@ -140,8 +140,8 @@ export function getOverviewMetrics(
   if (pendingAssumptions > 0) {
     pushAction(actions, {
       id: 'assumptions',
-      title: 'Review the assumption register',
-      hint: `${pendingAssumptions} assumption${pendingAssumptions > 1 ? 's' : ''} still require validation.`,
+      title: 'Revoir le registre d’hypothèses',
+      hint: `${pendingAssumptions} hypothèse${pendingAssumptions > 1 ? 's' : ''} reste${pendingAssumptions > 1 ? 'nt' : ''} à valider.`,
       tab: 'verification',
     })
   }
@@ -149,8 +149,8 @@ export function getOverviewMetrics(
   if (tracePct < 100) {
     pushAction(actions, {
       id: 'hazop-trace',
-      title: 'Complete HAZOP / LOPA traceability',
-      hint: `${traceCompletedCount}/${traceFieldCount} traceability fields are currently filled.`,
+      title: 'Compléter la traçabilité HAZOP / LOPA',
+      hint: `${traceCompletedCount}/${traceFieldCount} champs de traçabilité sont renseignés.`,
       tab: 'context',
     })
   }
@@ -158,8 +158,8 @@ export function getOverviewMetrics(
   if (metadataPct < 100) {
     pushAction(actions, {
       id: 'context-fields',
-      title: 'Complete core context fields',
-      hint: `${metadataPct}% of the overview metadata required for audit readiness is filled.`,
+      title: 'Compléter le socle de contexte',
+      hint: `${metadataPct}% des métadonnées de base requises pour l’audit sont renseignées.`,
       tab: 'context',
     })
   }
@@ -167,8 +167,8 @@ export function getOverviewMetrics(
   if (!actions.length) {
     actions.push({
       id: 'stable-overview',
-      title: 'Overview is in a stable state',
-      hint: 'The current design, operations, and governance signals look aligned.',
+      title: 'Cockpit stabilisé',
+      hint: 'Calcul, exploitation et gouvernance semblent alignés.',
       tab: 'report',
     })
   }

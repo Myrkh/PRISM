@@ -7,38 +7,38 @@ import type { OperationalHealth } from './overviewMetrics'
 export function getOverviewActionCta(tab: SIFTab): string {
   switch (normalizeSIFTab(tab)) {
     case 'cockpit':
-      return 'Review cockpit'
+      return 'Revenir au cockpit'
     case 'context':
-      return 'Complete context'
+      return 'Compléter le contexte'
     case 'history':
-      return 'Review revision history'
+      return 'Voir l’historique'
     case 'architecture':
-      return 'Open loop editor'
+      return 'Ouvrir l’architecture'
     case 'verification':
-      return 'Open verification'
+      return 'Ouvrir la vérification'
     case 'exploitation':
-      return 'Open exploitation'
+      return 'Ouvrir l’exploitation'
     case 'report':
-      return 'Open report studio'
+      return 'Ouvrir le rapport'
   }
 }
 
 export function getOverviewPanelCta(tab: SIFTab): string {
   switch (normalizeSIFTab(tab)) {
     case 'cockpit':
-      return 'Review in cockpit'
+      return 'Voir dans le cockpit'
     case 'context':
-      return 'Open context'
+      return 'Ouvrir le contexte'
     case 'history':
-      return 'Open revision history'
+      return 'Voir l’historique'
     case 'architecture':
-      return 'Open loop editor'
+      return 'Ouvrir l’architecture'
     case 'verification':
-      return 'Open verification'
+      return 'Ouvrir la vérification'
     case 'exploitation':
-      return 'Open exploitation'
+      return 'Ouvrir l’exploitation'
     case 'report':
-      return 'Open report studio'
+      return 'Ouvrir le rapport'
   }
 }
 
@@ -51,28 +51,28 @@ export function getOverviewOperationalHealthMeta(textDim: string): Record<Operat
 }> {
   return {
     healthy: {
-      label: 'Healthy',
+      label: 'Sous contrôle',
       color: semantic.success,
       bg: `${semantic.success}1A`,
       border: `${semantic.success}33`,
       Icon: CheckCircle2,
     },
     watch: {
-      label: 'Watch list',
+      label: 'Sous surveillance',
       color: semantic.warning,
       bg: `${semantic.warning}1A`,
       border: `${semantic.warning}33`,
       Icon: AlertTriangle,
     },
     critical: {
-      label: 'Action required',
+      label: 'Action requise',
       color: semantic.error,
       bg: `${semantic.error}1A`,
       border: `${semantic.error}33`,
       Icon: AlertTriangle,
     },
     unknown: {
-      label: 'No data',
+      label: 'Sans données',
       color: textDim,
       bg: `${textDim}12`,
       border: `${textDim}22`,

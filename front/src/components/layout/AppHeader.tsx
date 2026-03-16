@@ -45,8 +45,7 @@ function getUserInitials(value: string | null | undefined): string {
 }
 
 export function AppHeader() {
-  const { BORDER, PANEL_BG, PAGE_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
-  const isDark      = useAppStore(s => s.isDark)
+  const { BORDER, RAIL_BG, PANEL_BG, PAGE_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, isDark: themeIsDark } = usePrismTheme()
   const toggleTheme = useAppStore(s => s.toggleTheme)
   const view        = useAppStore(s => s.view)
   const navigate    = useAppStore(s => s.navigate)
@@ -121,25 +120,20 @@ export function AppHeader() {
       className="sticky top-0 z-50 h-12 grid items-center border-b"
       style={{
         gridTemplateColumns: '288px 1fr auto',
-        background: PANEL_BG,
+        background: RAIL_BG,
         borderColor: BORDER,
+        boxShadow: themeIsDark ? 'none' : '0 1px 0 rgba(255,255,255,0.92) inset, 0 8px 24px rgba(15,23,42,0.04)',
       }}
     >
       {/* Left Zone — Logo */}
-      <div className="h-full flex items-center px-4 border-r" style={{ borderColor: BORDER }}>
+      <div className="h-full flex items-center px-2 border-r" style={{ borderColor: BORDER }}>
         <button
           onClick={() => navigate({ type: 'projects' })}
-          className="flex items-center gap-2.5 hover:opacity-85 transition-opacity"
+          className="flex items-center gap-2 hover:opacity-85 transition-opacity"
         >
-          <img src="/favicon2.png" alt="PRISM" className="h-6 w-6 rounded object-contain" />
-          <span className="text-[15px] font-black tracking-widest" style={{ color: TEXT, letterSpacing: '0.12em' }}>
+          <img src="/favicon2.png" alt="PRISM" className="h-8 w-8 rounded object-contain" />
+          <span className="text-[17px] font-black tracking-widest" style={{ color: TEXT_DIM}}>
             PRISM
-          </span>
-          <span
-            className="text-[9px] font-bold tracking-widest px-1.5 py-0.5 rounded"
-            style={{ background: `${TEAL}20`, color: TEAL_DIM, border: `1px solid ${TEAL}30` }}
-          >
-            IEC 61511
           </span>
         </button>
       </div>
@@ -191,8 +185,8 @@ export function AppHeader() {
                   onClick: () => { navigate({ type: 'settings', section: 'general' }); setIsUserMenuOpen(false) },
                 },
                 {
-                  icon: isDark ? Sun : Moon,
-                  label: isDark ? 'Light mode' : 'Dark mode',
+                  icon: themeIsDark ? Sun : Moon,
+                  label: themeIsDark ? 'Light mode' : 'Dark mode',
                   onClick: () => { toggleTheme(); setIsUserMenuOpen(false) },
                 },
                 {

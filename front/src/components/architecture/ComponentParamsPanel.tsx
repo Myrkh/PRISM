@@ -65,12 +65,12 @@ const DETERMINED_CHARACTER_OPTIONS: { value: DeterminedCharacter; label: string 
   { value: 'TYPE_B', label: 'Type B' },
   { value: 'NON_TYPE_AB', label: 'Non-Type-AB' },
 ]
-type FactorizedLambdaUnit = 'FIT' | 'MICRO_PER_HOUR' | 'PER_HOUR'
+type FactorizedLambdaUnit = 'FIT' | 'PER_HOUR'
 type DevelopedLambdaUnit = 'FIT' | 'PER_HOUR'
+type TimeDisplayUnit = 'hr' | 'yr'
 
 const FACTORIZED_LAMBDA_UNITS: { value: FactorizedLambdaUnit; label: string }[] = [
   { value: 'FIT', label: 'FIT' },
-  { value: 'MICRO_PER_HOUR', label: '10^-6 h^-1' },
   { value: 'PER_HOUR', label: 'h^-1' },
 ]
 const DEVELOPED_LAMBDA_UNITS: { value: DevelopedLambdaUnit; label: string }[] = [
@@ -79,19 +79,17 @@ const DEVELOPED_LAMBDA_UNITS: { value: DevelopedLambdaUnit; label: string }[] = 
 ]
 
 const FACTORIZED_TO_FIT = 1000
-const MICRO_PER_HOUR_TO_PER_HOUR = 1e-6
 const FIT_TO_PER_HOUR = 1e-9
+const HOURS_PER_YEAR = 8760
 
 function factorizedLambdaToDisplay(value: number, unit: FactorizedLambdaUnit): number {
   if (unit === 'FIT') return value * FACTORIZED_TO_FIT
-  if (unit === 'PER_HOUR') return value * MICRO_PER_HOUR_TO_PER_HOUR
-  return value
+  return value * 1e-6
 }
 
 function displayToFactorizedLambda(value: number, unit: FactorizedLambdaUnit): number {
   if (unit === 'FIT') return value / FACTORIZED_TO_FIT
-  if (unit === 'PER_HOUR') return value / MICRO_PER_HOUR_TO_PER_HOUR
-  return value
+  return value / 1e-6
 }
 
 function developedLambdaToDisplay(value: number, unit: DevelopedLambdaUnit): number {
@@ -100,6 +98,16 @@ function developedLambdaToDisplay(value: number, unit: DevelopedLambdaUnit): num
 
 function displayToDevelopedLambda(value: number, unit: DevelopedLambdaUnit): number {
   return unit === 'PER_HOUR' ? value / FIT_TO_PER_HOUR : value
+}
+
+function hoursToDisplay(value: number | null, unit: TimeDisplayUnit): string {
+  if (value === null || !Number.isFinite(value)) return ''
+  const displayValue = unit === 'yr' ? value / HOURS_PER_YEAR : value
+  return formatEditableNumber(displayValue)
+}
+
+function displayToHours(value: number, unit: TimeDisplayUnit): number {
+  return unit === 'yr' ? value * HOURS_PER_YEAR : value
 }
 
 function parseNumericText(raw: string): number | null {
@@ -286,28 +294,109 @@ function StyledSelect({ value, onChange, options }: {
   )
 }
 
+function CheckboxField({
+  label,
+  description,
+  checked,
+  onChange,
+}: {
+  label: string
+  description?: string
+  checked: boolean
+  onChange: (checked: boolean) => void
+}) {
+  const { BORDER, PAGE_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  return (
+    <label
+      className="flex items-start gap-3 rounded-md border px-3 py-2.5"
+      style={{ borderColor: BORDER, background: PAGE_BG }}
+    >
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={event => onChange(event.target.checked)}
+        className="mt-0.5 h-3.5 w-3.5 shrink-0"
+        style={{ accentColor: TEAL }}
+      />
+      <span className="min-w-0">
+        <span className="block text-[11px] font-semibold" style={{ color: TEXT }}>{label}</span>
+        {description && (
+          <span className="mt-0.5 block text-[10px] leading-relaxed" style={{ color: TEXT_DIM }}>
+            {description}
+          </span>
+        )}
+      </span>
+    </label>
+  )
+}
+
 function SliderField({ label, value, min, max, step = 0.01, format, onChange, color }: {
   label: string; value: number; min: number; max: number; step?: number
   format: (v: number) => string; onChange: (v: number) => void; color?: string
 }) {
-  const { BORDER, TEAL, TEXT_DIM } = usePrismTheme()
-  const tone = color ?? TEAL
-  const pct = ((value - min) / (max - min)) * 100
-  const trackColor = pct < 40 ? semantic.error : pct < 65 ? semantic.warning : tone
+  const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
+  const scale = max <= 1 ? 100 : 1
+  const displayValue = value * scale
+  const displayMin = min * scale
+  const displayMax = max * scale
+  const unit = scale === 100 ? '%' : undefined
+  const tone = color ?? TEXT_DIM
+  const [draft, setDraft] = useState(() => formatEditableNumber(displayValue))
+  const [invalid, setInvalid] = useState(false)
+
+  useEffect(() => {
+    setDraft(formatEditableNumber(displayValue))
+    setInvalid(false)
+  }, [displayValue])
+
+  const commitDraft = () => {
+    const parsed = parseNumericText(draft)
+    if (parsed === null) {
+      setInvalid(draft.trim().length > 0)
+      setDraft(draft.trim().length > 0 ? draft : formatEditableNumber(displayValue))
+      return
+    }
+
+    const clamped = Math.min(displayMax, Math.max(displayMin, parsed))
+    setInvalid(false)
+    onChange(clamped / scale)
+  }
+
   return (
-    <div className="space-y-1">
-      <div className="flex justify-between items-center">
+    <div className="space-y-1.5">
+      <div className="grid grid-cols-[minmax(0,1fr)_120px_auto] items-center gap-x-3 gap-y-1">
         <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>{label}</label>
-        <span className="text-[11px] font-bold font-mono" style={{ color: trackColor }}>{format(value)}</span>
-      </div>
-      <div className="relative h-1.5 rounded-full" style={{ background: BORDER }}>
-        <div className="absolute inset-y-0 left-0 rounded-full"
-          style={{ width: `${pct}%`, background: trackColor, transition: 'background 0.2s' }} />
         <input
-          type="range" min={min} max={max} step={step} value={value}
-          onChange={e => onChange(parseFloat(e.target.value))}
-          className="absolute inset-0 w-full opacity-0 cursor-pointer h-full"
+          type="text"
+          inputMode="decimal"
+          value={draft}
+          onChange={e => {
+            setDraft(e.target.value)
+            if (invalid) setInvalid(false)
+          }}
+          onBlur={commitDraft}
+          onKeyDown={e => {
+            if (e.key === 'Enter') {
+              e.preventDefault()
+              commitDraft()
+            }
+            if (e.key === 'Escape') {
+              e.preventDefault()
+              setDraft(formatEditableNumber(displayValue))
+              setInvalid(false)
+            }
+          }}
+          className="w-full rounded-md border px-2 py-1.5 text-xs font-mono outline-none transition-colors"
+          style={{
+            background: PAGE_BG,
+            borderColor: invalid ? semantic.error : BORDER,
+            color: TEXT,
+          }}
+          aria-label={label}
         />
+        <span className="text-[11px] font-semibold font-mono" style={{ color: tone }}>
+          {unit ?? format(value)}
+        </span>
       </div>
     </div>
   )
@@ -361,6 +450,8 @@ export function ComponentParamsPanel({
   const [local, setLocal] = useState<SIFComponent>(() => synchronizeComponentParams(component))
   const [factorizedLambdaUnit, setFactorizedLambdaUnit] = useState<FactorizedLambdaUnit>('FIT')
   const [developedLambdaUnit, setDevelopedLambdaUnit] = useState<DevelopedLambdaUnit>('FIT')
+  const [lambdaStarUnit, setLambdaStarUnit] = useState<DevelopedLambdaUnit>('PER_HOUR')
+  const [lifetimeUnit, setLifetimeUnit] = useState<TimeDisplayUnit>('yr')
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false)
   const [templateScope, setTemplateScope] = useState<ComponentTemplateUpsertInput['scope']>('user')
   const [templateName, setTemplateName] = useState(component.instrumentType || component.tagName)
@@ -374,7 +465,11 @@ export function ComponentParamsPanel({
 
   // Sync local state whenever the component prop changes
   // (different component selected, OR same component re-selected after store update)
-  useEffect(() => { setLocal(synchronizeComponentParams(component)) }, [component])
+  useEffect(() => {
+    setLocal(synchronizeComponentParams(component))
+    setLambdaStarUnit('PER_HOUR')
+    setLifetimeUnit(component.advanced.lifetime && component.advanced.lifetime < HOURS_PER_YEAR ? 'hr' : 'yr')
+  }, [component])
   useEffect(() => {
     setTemplateName(component.instrumentType || component.tagName)
     setTemplateDescription(component.description)
@@ -414,6 +509,8 @@ export function ComponentParamsPanel({
   const dcOk  = dc  >= 0.6
 
   const meta = TYPE_META[subsystemType]
+  const partialTestActive = local.test.testType === 'partial' || local.advanced.partialTest.enabled
+  const onlineDuringTest = local.test.testType === 'online'
 
   const openSaveDialog = () => {
     setTemplateName(local.instrumentType || local.tagName)
@@ -636,17 +733,13 @@ export function ComponentParamsPanel({
                     placeholder={
                       factorizedLambdaUnit === 'FIT'
                         ? 'Ex. 1500 ou 1.50E3'
-                        : factorizedLambdaUnit === 'PER_HOUR'
-                          ? 'Ex. 1.50E-6'
-                          : 'Ex. 1.5 ou 1.50E0'
+                        : 'Ex. 1.50E-6'
                     }
                   />
                   <p className="text-[10px] mt-1" style={{ color: TEXT_DIM }}>
                     {factorizedLambdaUnit === 'FIT'
                       ? 'Saisie libre en FIT. Exemple equivalent: 1500 FIT = 1.50E-6 h^-1.'
-                      : factorizedLambdaUnit === 'PER_HOUR'
-                        ? 'Saisie libre en h^-1 absolu. Exemple: 1.50E-6 h^-1 = 1500 FIT.'
-                        : 'Saisie libre en 10^-6 h^-1. Exemple: 1.5 = 1500 FIT.'}
+                      : 'Saisie libre en h^-1 absolu. Exemple: 1.50E-6 h^-1 = 1500 FIT.'}
                   </p>
                 </div>
                 <SliderField
@@ -728,24 +821,38 @@ export function ComponentParamsPanel({
           <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEAL_DIM }}>Test de preuve</span>
         </div>
             <SectionTitle>Intervalle de test de preuve</SectionTitle>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <FieldRow label="T1">
+            <div className="grid grid-cols-2 gap-3">
+              <FieldRow label="T1">
+                <div className="flex gap-2">
                   <StyledInput
                     type="number" step="0.1" value={local.test.T1}
                     onChange={v => updT({ T1: parseFloat(v) || 1 })}
                   />
-                </FieldRow>
-              </div>
-              <div className="w-20">
-                <FieldRow label="Unité">
-                  <StyledSelect
-                    value={local.test.T1Unit}
-                    onChange={v => updT({ T1Unit: v as 'hr' | 'yr' })}
-                    options={[{ value: 'yr', label: 'années' }, { value: 'hr', label: 'heures' }]}
+                  <div className="w-24">
+                    <StyledSelect
+                      value={local.test.T1Unit}
+                      onChange={v => updT({ T1Unit: v as 'hr' | 'yr' })}
+                      options={[{ value: 'yr', label: 'années' }, { value: 'hr', label: 'heures' }]}
+                    />
+                  </div>
+                </div>
+              </FieldRow>
+
+              <FieldRow label="T0 — Premier test">
+                <div className="flex gap-2">
+                  <StyledInput
+                    type="number" step="0.1" value={local.test.T0}
+                    onChange={v => updT({ T0: parseFloat(v) || 0 })}
                   />
-                </FieldRow>
-              </div>
+                  <div className="w-24">
+                    <StyledSelect
+                      value={local.test.T0Unit}
+                      onChange={v => updT({ T0Unit: v as 'hr' | 'yr' })}
+                      options={[{ value: 'yr', label: 'années' }, { value: 'hr', label: 'heures' }]}
+                    />
+                  </div>
+                </div>
+              </FieldRow>
             </div>
 
             <SectionTitle>Type de test</SectionTitle>
@@ -773,28 +880,18 @@ export function ComponentParamsPanel({
                 </button>
               ))}
             </div>
-
-            {local.test.testType === 'partial' && (
-              <>
-                <SectionTitle>Test Partiel (PST)</SectionTitle>
-                <div className="rounded-lg border p-3 space-y-2"
-                  style={{ borderColor: `${TEAL}40`, background: `${TEAL}08` }}>
-                  <SliderField
-                    label="Couverture PST" value={local.advanced.partialTest.detectedFaultsPct}
-                    min={0} max={1} step={0.01} format={formatPct}
-                    onChange={v => updA({ partialTest: { ...local.advanced.partialTest, detectedFaultsPct: v } })}
-                    color={TEAL}
-                  />
-                  <FieldRow label="Nb de tests / période">
-                    <StyledInput
-                      type="number" step="1"
-                      value={local.advanced.partialTest.numberOfTests}
-                      onChange={v => updA({ partialTest: { ...local.advanced.partialTest, numberOfTests: parseInt(v) || 1 } })}
-                    />
-                  </FieldRow>
-                </div>
-              </>
-            )}
+            <CheckboxField
+              label="Composant disponible pendant test (X)"
+              description="Alias direct du mode “En ligne” pour le test complet."
+              checked={onlineDuringTest}
+              onChange={checked => updT({
+                testType: checked
+                  ? 'online'
+                  : local.test.testType === 'online'
+                    ? 'stopped'
+                    : local.test.testType,
+              })}
+            />
 
         {/* ══ AVANCÉ ══ */}
         <div className="flex items-center gap-1.5 pb-1.5 mb-2 mt-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
@@ -802,12 +899,57 @@ export function ComponentParamsPanel({
           <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEAL_DIM }}>Avancé</span>
         </div>
             <SectionTitle>Réparation</SectionTitle>
-            <FieldRow label="MTTR [heures]">
-              <StyledInput
-                type="number" step="1" value={local.advanced.MTTR}
-                onChange={v => updA({ MTTR: parseFloat(v) || 0 })}
-              />
-            </FieldRow>
+            <div className="grid grid-cols-2 gap-3">
+              <FieldRow label="MTTR [heures]">
+                <StyledInput
+                  type="number" step="1" value={local.advanced.MTTR}
+                  onChange={v => updA({ MTTR: parseFloat(v) || 0 })}
+                />
+              </FieldRow>
+              <FieldRow label="Durée test (π) [heures]">
+                <StyledInput
+                  type="number" step="0.1" value={local.advanced.testDuration}
+                  onChange={v => updA({ testDuration: parseFloat(v) || 0 })}
+                />
+              </FieldRow>
+            </div>
+
+            <SectionTitle>Paramètres test avancés</SectionTitle>
+            <div className="space-y-3">
+              <div className="space-y-1">
+                <div className="flex items-center justify-between gap-2">
+                  <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>
+                    λ pendant test (λ*)
+                  </label>
+                  <div className="flex rounded-md p-0.5" style={{ background: BG }}>
+                    {DEVELOPED_LAMBDA_UNITS.map(unit => (
+                      <button
+                        key={unit.value}
+                        type="button"
+                        onClick={() => setLambdaStarUnit(unit.value)}
+                        className="rounded px-2 py-1 text-[10px] font-bold font-mono transition-all"
+                        style={lambdaStarUnit === unit.value
+                          ? { background: TEAL, color: '#fff' }
+                          : { color: TEXT_DIM }}
+                      >
+                        {unit.label}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+                <ScientificInput
+                  value={developedLambdaToDisplay(local.advanced.lambdaStar, lambdaStarUnit)}
+                  onCommit={value => updA({ lambdaStar: displayToDevelopedLambda(value, lambdaStarUnit) })}
+                  placeholder={lambdaStarUnit === 'FIT' ? 'Ex. 1.13E2' : 'Ex. 1.13E-7'}
+                />
+                <CheckboxField
+                  label="Equal to Lambda"
+                  description="Utilise le lambda principal pendant le test au lieu d’un λ* dédié."
+                  checked={local.advanced.lambdaStarEqualToLambda}
+                  onChange={checked => updA({ lambdaStarEqualToLambda: checked })}
+                />
+              </div>
+            </div>
 
             <SectionTitle>Facteurs qualité de test</SectionTitle>
             <SliderField
@@ -833,15 +975,31 @@ export function ComponentParamsPanel({
               onChange={v => updA({ proofTestCoverage: v })}
               color={meta.color}
             />
+            <SliderField
+              label="DC alarmed only" value={local.advanced.DCalarmedOnly}
+              min={0} max={1} step={0.01} format={formatPct}
+              onChange={v => updA({ DCalarmedOnly: v })}
+            />
 
             <SectionTitle>Durée de vie</SectionTitle>
-            <FieldRow label="Durée de vie [heures] (optionnel)">
-              <StyledInput
-                type="number" step="1000"
-                value={local.advanced.lifetime ?? ''}
-                onChange={v => updA({ lifetime: v ? parseFloat(v) : null })}
-                placeholder="Ex. 175200 (20 ans)"
-              />
+            <FieldRow label="Durée de vie composant">
+              <div className="flex gap-2">
+                <StyledInput
+                  value={hoursToDisplay(local.advanced.lifetime, lifetimeUnit)}
+                  onChange={v => {
+                    const parsed = parseNumericText(v)
+                    updA({ lifetime: parsed === null ? null : displayToHours(parsed, lifetimeUnit) })
+                  }}
+                  placeholder={lifetimeUnit === 'yr' ? 'Ex. 20' : 'Ex. 175200'}
+                />
+                <div className="w-24">
+                  <StyledSelect
+                    value={lifetimeUnit}
+                    onChange={value => setLifetimeUnit(value as TimeDisplayUnit)}
+                    options={[{ value: 'yr', label: 'années' }, { value: 'hr', label: 'heures' }]}
+                  />
+                </div>
+              </div>
             </FieldRow>
 
             <SectionTitle>Sigma</SectionTitle>
@@ -851,6 +1009,58 @@ export function ComponentParamsPanel({
                 onChange={v => updA({ sigma: parseFloat(v) || 1 })}
               />
             </FieldRow>
+
+            <SectionTitle>Test partiel (PST)</SectionTitle>
+            <div className="space-y-3">
+              <CheckboxField
+                label="Activer le test partiel"
+                description="Active la logique PST intermédiaire entre deux proof tests complets."
+                checked={partialTestActive}
+                onChange={checked => {
+                  if (checked) {
+                    updA({ partialTest: { ...local.advanced.partialTest, enabled: true } })
+                    return
+                  }
+
+                  commit(prev => ({
+                    ...prev,
+                    test: prev.test.testType === 'partial'
+                      ? { ...prev.test, testType: 'stopped' }
+                      : prev.test,
+                    advanced: {
+                      ...prev.advanced,
+                      partialTest: { ...prev.advanced.partialTest, enabled: false },
+                    },
+                  }))
+                }}
+              />
+
+              {partialTestActive && (
+                <div className="rounded-lg border p-3 space-y-3"
+                  style={{ borderColor: `${TEAL}35`, background: `${TEAL}08` }}>
+                  <FieldRow label="Durée (π) [heures]">
+                    <StyledInput
+                      type="number" step="0.1"
+                      value={local.advanced.partialTest.duration}
+                      onChange={v => updA({ partialTest: { ...local.advanced.partialTest, duration: parseFloat(v) || 0 } })}
+                    />
+                  </FieldRow>
+                  <SliderField
+                    label="Couverture PST" value={local.advanced.partialTest.detectedFaultsPct}
+                    min={0} max={1} step={0.01} format={formatPct}
+                    onChange={v => updA({ partialTest: { ...local.advanced.partialTest, detectedFaultsPct: v } })}
+                    color={TEAL}
+                  />
+                  <FieldRow label="Nb de tests / période">
+                    <StyledInput
+                      type="number" step="1"
+                      value={local.advanced.partialTest.numberOfTests}
+                      onChange={v => updA({ partialTest: { ...local.advanced.partialTest, numberOfTests: parseInt(v) || 1 } })}
+                    />
+                  </FieldRow>
+                </div>
+              )}
+            </div>
 
       </div>
 

@@ -57,6 +57,7 @@ export const DEFAULT_COMPONENT = (subsystemType: SubsystemType, tagName: string)
     gamma: 0,
     lambdaStar: 0,
     lambdaStarEqualToLambda: false,
+    testDuration: 0,
     sigma: 1,
     omega1: 0,
     omega2: 0.01,
