@@ -218,6 +218,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
   const rightPanelResizeStartWidth = useRef(DEFAULT_RIGHT_PANEL_WIDTH)
 
   const activeTab: CanonicalSIFTab = view.type === 'sif-dashboard' ? normalizeSIFTab(view.tab) : 'cockpit'
+  const visibleTab: CanonicalSIFTab = activeTab === 'history' ? 'cockpit' : activeTab
 
   const showSettings  = view.type === 'settings'
   const showReview    = view.type === 'review-queue'
@@ -239,7 +240,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
     setRightPanelWidth(DEFAULT_RIGHT_PANEL_WIDTH)
     setIsResizingRightPanel(false)
     rightPanelResizeStartX.current = null
-  }, [activeTab, view.type, projectId, sifId])
+  }, [visibleTab, view.type, projectId, sifId])
 
   useEffect(() => {
     if (!rightOpen) {
@@ -367,7 +368,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                 {/* Editor column */}
                 <div className="flex flex-1 min-w-0 min-h-0 flex-col overflow-hidden">
                   <SIFWorkbenchBar
-                    active={activeTab}
+                    active={visibleTab}
                     onSelect={(id) => setTab(id)}
                   />
 
@@ -379,11 +380,13 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
 
               {/* Right dock */}
               <div
-                className="relative min-h-0 shrink-0 overflow-hidden border-l"
+                className="relative min-h-0 shrink-0 overflow-hidden"
                 style={{
-                  width: rightOpen ? rightPanelWidth : 48,
+                  width: rightOpen ? rightPanelWidth : 0,
+                  borderLeftWidth: rightOpen ? 1 : 0,
+                  borderLeftStyle: 'solid',
                   borderColor: BORDER,
-                  transition: 'width 0.2s ease',
+                  transition: 'width 0.2s ease, border-left-width 0.2s ease',
                 }}
               >
                 {rightOpen && (

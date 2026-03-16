@@ -63,7 +63,15 @@ type CompareRunState =
   | { status: 'done'; response: SILBackendResponse; tsResult: EngineResult; summary: CompareSummary }
   | { status: 'error'; message: string }
 
+type CompareSubsystemKey = 'sensors' | 'solver' | 'actuators'
+
 const COMPARE_TOLERANCE_PCT = 0.1
+const SUBSYSTEM_ORDER: CompareSubsystemKey[] = ['sensors', 'solver', 'actuators']
+const SUBSYSTEM_LABELS: Record<CompareSubsystemKey, string> = {
+  sensors: 'Sensors',
+  solver: 'Logic solver',
+  actuators: 'Final elements',
+}
 
 const ENGINE_TABS = [
   { id: 'runs' as const, label: 'Runs', hint: 'Queue & candidates' },
@@ -173,6 +181,192 @@ function buildCompareSummary(tsResult: EngineResult, backendResponse: SILBackend
   }
 }
 
+function getSubsystemWarnings(response: SILBackendResponse, subsystem: CompareSubsystemKey) {
+  return response.result.warnings.filter(item => {
+    if (!item.affected) return false
+    return item.affected === subsystem || item.affected.startsWith(`${subsystem}:`) || item.affected.includes(`:${subsystem}:`)
+  })
+}
+
+function describeRoute(meta: SILBackendResponse['backend']['subsystems'][string]): string[] {
+  const lines = [
+    `Requested mode: ${meta.requestedMode}`,
+    `Effective architecture: ${meta.effectiveArchitecture}${meta.architecture !== meta.effectiveArchitecture ? ` (input ${meta.architecture})` : ''}`,
+    `PFD engine: ${meta.pfdEngine ?? '—'}`,
+    `PFH engine: ${meta.pfhEngine ?? '—'}`,
+  ]
+
+  if (meta.lambdaT1 != null && meta.thresholdUsed != null) {
+    lines.push(`Routing threshold check: lambdaD×T1 = ${meta.lambdaT1.toFixed(3)} vs threshold ${meta.thresholdUsed.toFixed(3)}`)
+  } else if (meta.lambdaT1 != null) {
+    lines.push(`lambdaD×T1 = ${meta.lambdaT1.toFixed(3)} (no calibrated threshold exposed)`)
+  }
+
+  lines.push(meta.markovTriggered ? 'Markov path was triggered by the backend.' : 'Markov path was not triggered by the backend.')
+
+  if (meta.heterogeneousChannels) {
+    lines.push('Non-identical channels were reduced to an equivalent subsystem before solving.')
+  }
+
+  return lines
+}
+
+function verdictMeta(verdict: CompareSummary['verdict']) {
+  if (verdict === 'aligned') return { label: 'Aligned', bg: '#DCFCE7', color: '#15803D' }
+  if (verdict === 'drift') return { label: 'Drift', bg: '#FEF3C7', color: '#B45309' }
+  return { label: 'Mismatch', bg: '#FEE2E2', color: '#B91C1C' }
+}
+
+function RouteInspector({
+  row,
+  state,
+}: {
+  row: {
+    id: string
+    projectId: string
+    projectName: string
+    sifNumber: string
+    title: string
+    targetSil: number
+  }
+  state: Extract<CompareRunState, { status: 'done' }>
+}) {
+  const verdict = verdictMeta(state.summary.verdict)
+
+  return (
+    <div className="rounded-2xl border shadow-sm" style={{ borderColor: BORDER, background: CARD_BG }}>
+      <div className="flex items-start justify-between gap-4 border-b px-5 py-4" style={{ borderColor: BORDER, background: PAGE_BG }}>
+        <div>
+          <SectionLabel>Route Inspector</SectionLabel>
+          <p className="mt-1 text-sm font-semibold" style={{ color: TEXT }}>
+            {row.sifNumber} · {row.projectName}
+          </p>
+          <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>
+            {row.title}
+          </p>
+        </div>
+        <div className="flex flex-col items-end gap-1">
+          <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: verdict.bg, color: verdict.color }}>
+            {verdict.label}
+          </span>
+          <p className="text-[10px]" style={{ color: TEXT_DIM }}>
+            Target {formatSil(row.targetSil)} · TS {formatSil(state.summary.tsSil)} · Python {formatSil(state.summary.backendSil)}
+          </p>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 px-5 py-4">
+        <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: PAGE_BG }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Why Different</p>
+          <div className="mt-3 space-y-2">
+            {(state.summary.notes.length > 0 ? state.summary.notes : ['No material delta detected between TypeScript and Python on this payload.']).map(note => (
+              <div key={note} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}>
+                {note}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: PAGE_BG }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Global Delta</p>
+          <div className="mt-3 space-y-2 text-xs" style={{ color: TEXT }}>
+            <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+              <p className="font-mono font-semibold" style={{ color: TEAL }}>PFD</p>
+              <p className="mt-1">TS {formatPFD(state.tsResult.pfdavg)} · Python {formatPFD(state.response.result.pfdavg)}</p>
+              <p className="mt-1" style={{ color: TEXT_DIM }}>Delta {formatDeltaPct(state.summary.pfd.deltaPct)} ({formatSignedScientific(state.summary.pfd.deltaAbs)})</p>
+            </div>
+            <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+              <p className="font-mono font-semibold" style={{ color: TEAL }}>PFH / RRF</p>
+              <p className="mt-1">PFH delta {formatDeltaPct(state.summary.pfh.deltaPct)}</p>
+              <p className="mt-1">RRF delta {formatDeltaPct(state.summary.rrf.deltaPct)}</p>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: PAGE_BG }}>
+          <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Backend Signals</p>
+          <div className="mt-3 space-y-2 text-xs" style={{ color: TEXT }}>
+            <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+              <p className="font-mono font-semibold" style={{ color: TEAL }}>Requested mode</p>
+              <p className="mt-1">{state.response.backend.requestedMode}</p>
+            </div>
+            <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+              <p className="font-mono font-semibold" style={{ color: TEAL }}>Runtime</p>
+              <p className="mt-1">{state.response.backend.runtimeMs.toFixed(2)} ms</p>
+              <p className="mt-1" style={{ color: TEXT_DIM }}>{state.summary.warningCount} warning(s) surfaced by backend</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-3 gap-4 px-5 pb-5">
+        {SUBSYSTEM_ORDER.map(key => {
+          const meta = state.response.backend.subsystems[key]
+          const backend = state.response.result.contributions[key]
+          const ts = state.tsResult.contributions[key]
+          const warnings = getSubsystemWarnings(state.response, key)
+          const pfdDelta = compareMetric(ts?.pfdavg, backend?.pfdavg, COMPARE_TOLERANCE_PCT)
+          const pfhDelta = compareMetric(ts?.pfh, backend?.pfh, COMPARE_TOLERANCE_PCT)
+          const routeLines = describeRoute(meta)
+          const routeTone = meta.markovTriggered
+            ? { bg: '#DBEAFE', color: '#1D4ED8', label: 'Markov' }
+            : meta.pfdEngine === 'MANUFACTURER_INPUT'
+              ? { bg: '#EDE9FE', color: '#6D28D9', label: 'Manufacturer input' }
+              : { bg: '#E0F2FE', color: '#0369A1', label: 'Analytical / IEC' }
+
+          return (
+            <div key={key} className="rounded-xl border p-4" style={{ borderColor: BORDER, background: PAGE_BG }}>
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: TEXT }}>{SUBSYSTEM_LABELS[key]}</p>
+                  <p className="mt-1 text-[10px]" style={{ color: TEXT_DIM }}>{meta.effectiveArchitecture}</p>
+                </div>
+                <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: routeTone.bg, color: routeTone.color }}>
+                  {routeTone.label}
+                </span>
+              </div>
+
+              <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
+                <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+                  <p className="font-mono font-semibold" style={{ color: TEAL }}>PFD</p>
+                  <p className="mt-1" style={{ color: TEXT }}>TS {formatPFD(ts?.pfdavg ?? NaN)}</p>
+                  <p className="mt-1" style={{ color: TEXT }}>Py {formatPFD(backend?.pfdavg ?? NaN)}</p>
+                  <p className="mt-1" style={{ color: TEXT_DIM }}>Delta {formatDeltaPct(pfdDelta.deltaPct)}</p>
+                </div>
+                <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+                  <p className="font-mono font-semibold" style={{ color: TEAL }}>PFH / SIL</p>
+                  <p className="mt-1" style={{ color: TEXT }}>Delta PFH {formatDeltaPct(pfhDelta.deltaPct)}</p>
+                  <p className="mt-1" style={{ color: TEXT }}>{formatSil(ts?.silFromPFD ?? null)} {'->'} {formatSil(backend?.silFromPFD ?? null)}</p>
+                  <p className="mt-1" style={{ color: TEXT_DIM }}>HFT {backend?.hft ?? '—'} · SFF {(backend?.sff ?? 0).toFixed(3)}</p>
+                </div>
+              </div>
+
+              <div className="mt-3 space-y-2">
+                {routeLines.map(line => (
+                  <div key={line} className="rounded-lg border px-3 py-2 text-[10px]" style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}>
+                    {line}
+                  </div>
+                ))}
+              </div>
+
+              {warnings.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {warnings.map(warning => (
+                    <div key={`${warning.code}-${warning.affected ?? ''}`} className="rounded-lg border px-3 py-2 text-[10px]" style={{ borderColor: '#FCD34D', background: '#FFFBEB', color: '#92400E' }}>
+                      <p className="font-semibold">{warning.code}</p>
+                      <p className="mt-1">{warning.message}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 function EngineRightPanel({
   totalSifs,
   criticalCandidates,
@@ -259,6 +453,7 @@ export function EngineWorkspace() {
   const [activeTab, setActiveTab] = useState<EngineTab>('runs')
   const [backendRuns, setBackendRuns] = useState<Record<string, BackendRunState>>({})
   const [compareRuns, setCompareRuns] = useState<Record<string, CompareRunState>>({})
+  const [selectedCompareId, setSelectedCompareId] = useState<string | null>(null)
 
   const stats = useMemo(() => {
     const allSifs = projects.flatMap(project => project.sifs)
@@ -329,6 +524,22 @@ export function EngineWorkspace() {
     return { running, aligned, drift, mismatch, failed, compared: doneStates.length }
   }, [compareRuns])
 
+  const selectedCompareEntry = useMemo(() => {
+    const preferredIds = selectedCompareId
+      ? [selectedCompareId, ...candidateRows.map(row => row.id).filter(id => id !== selectedCompareId)]
+      : candidateRows.map(row => row.id)
+
+    for (const id of preferredIds) {
+      const state = compareRuns[id]
+      if (state?.status === 'done') {
+        const row = candidateRows.find(item => item.id === id)
+        if (row) return { row, state }
+      }
+    }
+
+    return null
+  }, [candidateRows, compareRuns, selectedCompareId])
+
   function getRowCalcOptions(row: (typeof candidateRows)[number]) {
     const analysisSettings = loadSIFAnalysisSettings(row.id)
     return {
@@ -372,6 +583,7 @@ export function EngineWorkspace() {
       const summary = buildCompareSummary(tsResult, response, COMPARE_TOLERANCE_PCT)
       setBackendRuns(current => ({ ...current, [row.id]: { status: 'done', response } }))
       setCompareRuns(current => ({ ...current, [row.id]: { status: 'done', response, tsResult, summary } }))
+      setSelectedCompareId(row.id)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown comparison error'
       setBackendRuns(current => ({ ...current, [row.id]: { status: 'error', message } }))
@@ -736,8 +948,9 @@ export function EngineWorkspace() {
                     <tbody>
                       {candidateRows.map(row => {
                         const compareState = compareRuns[row.id] ?? { status: 'idle' as const }
+                        const isSelected = selectedCompareEntry?.row.id === row.id
                         return (
-                          <tr key={row.id} className="border-t align-top" style={{ borderColor: BORDER }}>
+                          <tr key={row.id} className="border-t align-top" style={{ borderColor: BORDER, background: isSelected ? `${TEAL}08` : undefined }}>
                             <td className="px-4 py-3">
                               <p className="font-semibold" style={{ color: TEXT }}>{row.sifNumber}</p>
                               <p className="text-[10px]" style={{ color: TEXT_DIM }}>{row.projectName}</p>
@@ -847,6 +1060,16 @@ export function EngineWorkspace() {
                                 >
                                   {compareState.status === 'running' ? 'Comparing...' : compareState.status === 'done' ? 'Run again' : 'Compare'}
                                 </button>
+                                {compareState.status === 'done' && (
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedCompareId(row.id)}
+                                    className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold transition-colors"
+                                    style={{ background: isSelected ? `${TEAL}18` : PAGE_BG, color: TEAL, border: `1px solid ${BORDER}` }}
+                                  >
+                                    Inspect
+                                  </button>
+                                )}
                                 <button
                                   type="button"
                                   onClick={() => navigate({ type: 'sif-dashboard', projectId: row.projectId, sifId: row.id, tab: 'report' })}
@@ -865,6 +1088,18 @@ export function EngineWorkspace() {
                   </table>
                 </div>
               </div>
+
+              {selectedCompareEntry ? (
+                <RouteInspector row={selectedCompareEntry.row} state={selectedCompareEntry.state} />
+              ) : (
+                <div className="rounded-2xl border p-5 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                  <SectionLabel>Route Inspector</SectionLabel>
+                  <p className="mt-2 text-sm font-semibold" style={{ color: TEXT }}>No inspected run yet</p>
+                  <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+                    Launch a compare on any SIF, then inspect the backend route per subsystem to understand why Python stayed analytical or switched to Markov.
+                  </p>
+                </div>
+              )}
             </div>
           )}
         </IntercalaireCard>

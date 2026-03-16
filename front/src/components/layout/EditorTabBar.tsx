@@ -65,10 +65,10 @@ export function EditorTabBar<T extends string>({
 // ─── SIFLifecycleBar ──────────────────────────────────────────────────────
 /**
  * Stepper horizontal représentant l'espace de travail d'une SIF.
- * Structure : [Cockpit] | [Historique] | [1 Contexte] → [2 Architecture] → [3 Vérification] → [4 Exploitation] | [Rapport ↗]
+ * Structure : [Cockpit] | [1 Contexte] → [2 Architecture] → [3 Vérification] → [4 Exploitation] | [Rapport ↗]
  *
  * Cockpit    = hub toujours accessible
- * Historique = vue native de la SIF, hors séquence de phase
+ * Historique = intégré au cockpit
  * Étapes 1-4 = phases successives IEC 61511
  * Rapport    = action finale, stylistiquement différenciée (orange)
  */
@@ -81,7 +81,6 @@ type PhaseEntry = {
 
 const LIFECYCLE_PHASES: PhaseEntry[] = [
   { id: 'cockpit',      label: 'Cockpit',      step: null, accent: '#4FD1C5' },
-  { id: 'history',      label: 'Historique',   step: null, accent: '#94A3B8' },
   { id: 'context',      label: 'Contexte',     step: '1',  accent: '#60A5FA' },
   { id: 'architecture', label: 'Architecture', step: '2',  accent: '#F59E0B' },
   { id: 'verification', label: 'Vérification', step: '3',  accent: '#A78BFA' },
@@ -89,7 +88,6 @@ const LIFECYCLE_PHASES: PhaseEntry[] = [
   { id: 'report',       label: 'Rapport',      step: null, accent: '#F97316' },
 ]
 
-const HISTORY_PHASE = LIFECYCLE_PHASES[1]
 const PHASES_STEPS = LIFECYCLE_PHASES.filter(p => p.step !== null)  // steps 1-4
 
 function PhaseBtn({
@@ -162,11 +160,6 @@ export function SIFLifecycleBar({
       style={{ borderColor: BORDER, background: PANEL_BG, height: 40, scrollbarWidth: 'none' }}
     >
       {/* Cockpit — hub */}
-      <PhaseBtn phase={cockpit} isActive={active === 'cockpit'} onClick={() => onSelect('cockpit')} />
-      <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
-      <PhaseBtn phase={HISTORY_PHASE} isActive={active === 'history'} onClick={() => onSelect('history')} />
-
-      {/* Séparateur */}
       <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
 
       {/* Étapes 1–4 avec flèches */}
@@ -205,8 +198,6 @@ export function SIFWorkbenchBar({
     >
       <div className="flex min-w-0 max-w-full items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
         <PhaseBtn phase={cockpit} isActive={active === 'cockpit'} onClick={() => onSelect('cockpit')} />
-        <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
-        <PhaseBtn phase={HISTORY_PHASE} isActive={active === 'history'} onClick={() => onSelect('history')} />
         <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
         {PHASES_STEPS.map((phase, index) => (
           <div key={phase.id} className="flex items-center">

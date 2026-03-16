@@ -1,4 +1,4 @@
-import { ArrowRight, CheckCircle2, FileWarning, Lock, ShieldAlert, ShieldCheck, TimerReset } from 'lucide-react'
+import { ArrowRight, CheckCircle2, FileWarning, GitBranch, Lock, ShieldAlert, ShieldCheck, TimerReset } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { SILBadge } from '@/components/shared/SILBadge'
 import { formatPFD } from '@/core/math/pfdCalc'
@@ -7,6 +7,7 @@ import type { SIFTab } from '@/store/types'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
 import type { OverviewMetrics } from '@/components/sif/overviewMetrics'
 import { getOverviewActionCta, getOverviewOperationalHealthMeta } from '@/components/sif/overviewUi'
+import { SIFRevisionHistoryLedger } from '@/components/sif/SIFRevisionHistoryLedger'
 import { colors, semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
@@ -351,6 +352,16 @@ export function OverviewTab({
           </div>
         </SurfaceCard>
       </div>
+
+      <SurfaceCard className="p-5">
+        <SectionHeader icon={<GitBranch size={12} />}>Historique des révisions</SectionHeader>
+        <p className="text-sm leading-relaxed" style={{ color: TEXT_DIM }}>
+          Les publications, comparaisons et artefacts figés vivent désormais dans le cockpit, au plus près de la décision de révision.
+        </p>
+        <div className="mt-4">
+          <SIFRevisionHistoryLedger sif={sif} />
+        </div>
+      </SurfaceCard>
 
       <div className="grid gap-3 xl:grid-cols-3">
         <SignalCard

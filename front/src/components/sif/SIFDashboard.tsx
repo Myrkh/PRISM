@@ -11,11 +11,9 @@ import { ExploitationWorkspace } from '@/components/sif/ExploitationWorkspace'
 import { RevisionCloseDialog } from '@/components/sif/RevisionCloseDialog'
 import { RevisionLockedOverlay } from '@/components/sif/RevisionLockedOverlay'
 import { OverviewTab } from '@/components/sif/OverviewTab'
-import { SIFPhaseHeader } from '@/components/sif/SIFPhaseHeader'
 import { VerificationRightPanel } from '@/components/sif/VerificationRightPanel'
 import { VerificationWorkspace } from '@/components/sif/VerificationWorkspace'
 import { SILReportStudio } from '@/components/report/SILReportStudio'
-import { SIFHistoryWorkspace } from '@/components/global/SIFHistoryWorkspace'
 import {
   DEFAULT_SIF_ANALYSIS_SETTINGS,
   analysisSettingsToMissionTimeHours,
@@ -41,6 +39,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
   const sif = project?.sifs.find(s => s.id === sifId)
 
   const activeTab = view.type === 'sif-dashboard' ? normalizeSIFTab(view.tab) : 'cockpit'
+  const resolvedTab = activeTab === 'history' ? 'cockpit' : activeTab
   const [analysisSettings, setAnalysisSettings] = useState(() =>
     sif ? loadSIFAnalysisSettings(sif.id) : DEFAULT_SIF_ANALYSIS_SETTINGS,
   )
@@ -49,9 +48,14 @@ export function SIFDashboard({ projectId, sifId }: Props) {
   const [isStartingNextRevision, setIsStartingNextRevision] = useState(false)
 
   useEffect(() => {
+    if (activeTab !== 'history') return
+    setTab('cockpit')
+  }, [activeTab, setTab])
+
+  useEffect(() => {
     if (!sif) return
     setAnalysisSettings(loadSIFAnalysisSettings(sif.id))
-  }, [activeTab, sif?.id])
+  }, [resolvedTab, sif?.id])
 
   useEffect(() => {
     if (!sif) return
@@ -79,7 +83,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
   useEffect(() => {
     if (!sif || !result || !compliance || !overviewMetrics) return
 
-    if (activeTab === 'cockpit') {
+    if (resolvedTab === 'cockpit') {
       setRightPanelOverride(
         <CockpitRightPanel
           sif={sif}
@@ -91,7 +95,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
       return () => setRightPanelOverride(null)
     }
 
-    if (activeTab === 'context') {
+    if (resolvedTab === 'context') {
       setRightPanelOverride(
         <ContextRightPanel
           sif={sif}
@@ -104,7 +108,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
       return () => setRightPanelOverride(null)
     }
 
-    if (activeTab === 'verification') {
+    if (resolvedTab === 'verification') {
       setRightPanelOverride(
         <VerificationRightPanel
           sif={sif}
@@ -122,13 +126,13 @@ export function SIFDashboard({ projectId, sifId }: Props) {
       return () => setRightPanelOverride(null)
     }
 
-    if (activeTab !== 'architecture' && activeTab !== 'exploitation' && activeTab !== 'report' && activeTab !== 'history') {
+    if (resolvedTab !== 'architecture' && resolvedTab !== 'exploitation' && resolvedTab !== 'report') {
       setRightPanelOverride(null)
     }
 
     return undefined
   }, [
-    activeTab,
+    resolvedTab,
     compliance,
     openEditSIF,
     updateSIF,
@@ -142,7 +146,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
   if (!project || !sif || !result || !compliance || !overviewMetrics) return null
 
   const isLocked = Boolean(sif.revisionLockedAt)
-  const lockCurrentTab = isLocked && activeTab !== 'exploitation' && activeTab !== 'history' && activeTab !== 'report'
+  const lockCurrentTab = isLocked && resolvedTab !== 'exploitation' && resolvedTab !== 'report'
 
   const handlePublishRevision = async (payload: { changeDescription: string; createdBy: string }) => {
     setIsPublishingRevision(true)
@@ -164,12 +168,10 @@ export function SIFDashboard({ projectId, sifId }: Props) {
     }
   }
 
-  if (activeTab === 'architecture') {
+  if (resolvedTab === 'architecture') {
     return (
       <>
         <div className="relative flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden px-3 pb-3 pt-2">
-          <SIFPhaseHeader tab={activeTab} />
-
           <div
             className="relative mt-4 flex flex-1 min-h-0 min-w-0 transition-[filter,opacity] duration-200"
             style={{
@@ -219,9 +221,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
             userSelect: lockCurrentTab ? 'none' : 'auto',
           }}
         >
-          <SIFPhaseHeader tab={activeTab} />
-
-          {activeTab === 'cockpit' && (
+          {resolvedTab === 'cockpit' && (
             <OverviewTab
               sif={sif}
               result={result}
@@ -233,7 +233,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
             />
           )}
 
-          {activeTab === 'context' && (
+          {resolvedTab === 'context' && (
             <ContextTab
               projectId={projectId}
               sif={sif}
@@ -243,7 +243,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
             />
           )}
 
-          {activeTab === 'verification' && (
+          {resolvedTab === 'verification' && (
             <VerificationWorkspace
               sif={sif}
               result={result}
@@ -257,7 +257,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
             />
           )}
 
-          {activeTab === 'exploitation' && (
+          {resolvedTab === 'exploitation' && (
             <ExploitationWorkspace
               project={project}
               sif={sif}
@@ -266,11 +266,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
             </ExploitationWorkspace>
           )}
 
-          {activeTab === 'history' && (
-            <SIFHistoryWorkspace projectId={projectId} sifId={sifId} />
-          )}
-
-          {activeTab === 'report' && (
+          {resolvedTab === 'report' && (
             <SILReportStudio project={project} sif={sif} result={result} />
           )}
         </div>

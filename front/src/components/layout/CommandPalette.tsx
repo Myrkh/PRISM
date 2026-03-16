@@ -4,7 +4,7 @@ import { useAppStore, type SIFTab } from '@/store/appStore'
 import { normalizeSIFTab } from '@/store/types'
 import {
   Search, Settings, Moon, Sun, FolderPlus, FilePlus,
-  LayoutDashboard, Network, BarChart3, Shield, FlaskConical, GitBranch,
+  LayoutDashboard, Network, BarChart3, Shield, FlaskConical,
   ChevronRight, FileText, Home, Pencil, ListChecks, History,
   ClipboardCheck, Cpu,
 } from 'lucide-react'
@@ -96,19 +96,10 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
       {
         id: 'goto-overview',
         label: 'Go to Cockpit',
-        keywords: 'go cockpit dashboard overview accueil tableau de bord',
+        keywords: 'go cockpit dashboard overview accueil tableau de bord history historique revisions snapshots compare',
         Icon: LayoutDashboard,
         onSelect: () => goToTab('cockpit'),
         isActive: currentTab === 'cockpit',
-        level: 0,
-      },
-      {
-        id: 'goto-history',
-        label: 'Go to Revision History',
-        keywords: 'go history historique revisions snapshots compare',
-        Icon: GitBranch,
-        onSelect: () => goToTab('history'),
-        isActive: currentTab === 'history',
         level: 0,
       },
       {

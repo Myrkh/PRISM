@@ -3,7 +3,6 @@ import type { SIF, SIFCalcResult } from '@/core/types'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
 import type { OverviewMetrics } from '@/components/sif/overviewMetrics'
 import { RightPanelShell } from '@/components/layout/RightPanelShell'
-import { useAppStore } from '@/store/appStore'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
@@ -150,7 +149,6 @@ function ReferenceRow({
 
 export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: Props) {
   const { BORDER, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
-  const setTab = useAppStore(state => state.setTab)
   const evidenceById = new Map(compliance.evidenceItems.map(item => [item.id, item]))
   const proofProcedureItem = evidenceById.get('proof-procedure')
   const proofEvidenceItem = evidenceById.get('proof-evidence')
@@ -267,14 +265,9 @@ export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: 
             />
           </div>
 
-          <button
-            type="button"
-            onClick={() => setTab('history')}
-            className="mt-3 w-full rounded-lg border px-3 py-2 text-xs font-semibold transition-colors hover:border-[#009BA4] hover:text-[#009BA4]"
-            style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}
-          >
-            Ouvrir l’historique des révisions
-          </button>
+          <div className="mt-3 rounded-lg border px-3 py-2 text-[11px]" style={{ borderColor: `${BORDER}99`, background: PAGE_BG, color: TEXT_DIM }}>
+            L’historique des révisions et les téléchargements PDF sont maintenant intégrés au cockpit central.
+          </div>
         </PanelCard>
       </div>
     </RightPanelShell>

@@ -93,7 +93,6 @@ export function ProjectTree({ projectId, sifId }: Props) {
       { id: 'architecture', label: 'Architecture', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'architecture' }), active: cur && activeTab === 'architecture' },
       { id: 'verification', label: 'Verification', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'verification' }), active: cur && activeTab === 'verification' },
       { id: 'exploitation', label: 'Exploitation', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'exploitation' }), active: cur && activeTab === 'exploitation' },
-      { id: 'history', label: 'Historique', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'history' }), active: cur && activeTab === 'history' },
     ]
 
     return (
