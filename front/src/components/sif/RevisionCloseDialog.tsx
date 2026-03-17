@@ -75,7 +75,7 @@ export function RevisionCloseDialog({ sif, onClose, onConfirm }: Props) {
               value={changeDescription}
               onChange={e => setChangeDescription(e.target.value)}
               rows={4}
-              className="w-full rounded-xl border px-3 py-2 text-sm outline-none resize-none"
+              className="prism-field w-full rounded-xl border px-3 py-2 text-sm outline-none resize-none"
               style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}
               placeholder="Summarize what is being published in this revision."
             />
@@ -89,7 +89,7 @@ export function RevisionCloseDialog({ sif, onClose, onConfirm }: Props) {
               type="text"
               value={createdBy}
               onChange={e => setCreatedBy(e.target.value)}
-              className="h-10 w-full rounded-xl border px-3 text-sm outline-none"
+              className="prism-field h-10 w-full rounded-xl border px-3 text-sm outline-none"
               style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}
               placeholder="Name"
             />
@@ -106,7 +106,7 @@ export function RevisionCloseDialog({ sif, onClose, onConfirm }: Props) {
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg border px-4 py-2 text-[12px] font-semibold"
+            className="prism-action rounded-lg border px-4 py-2 text-[12px] font-semibold"
             style={{ borderColor: BORDER, color: TEXT_DIM }}
           >
             Cancel
@@ -115,7 +115,7 @@ export function RevisionCloseDialog({ sif, onClose, onConfirm }: Props) {
             type="button"
             onClick={handleSubmit}
             disabled={saving}
-            className="inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[12px] font-black text-white disabled:opacity-60"
+            className="prism-action inline-flex items-center gap-2 rounded-lg px-4 py-2 text-[12px] font-black text-white disabled:opacity-60"
             style={{ background: 'linear-gradient(135deg, #009BA4, #007A82)' }}
           >
             {saving && <Loader2 size={12} className="animate-spin" />}

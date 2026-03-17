@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -197,6 +197,48 @@ class SILReportMeta(BaseModel):
 
 class SILReportRequest(SILComputeRequest):
     report: SILReportMeta = Field(default_factory=SILReportMeta)
+
+
+class LibraryFactorizedSeed(BaseModel):
+    model_config = ConfigDict(populate_by_name=True, extra="forbid")
+
+    lambda_value: float = Field(alias="lambda")
+    lambdaDRatio: float
+    DCd: float
+    DCs: float
+
+
+class LibraryTestSeed(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    T1: float
+    T1Unit: Literal["hr", "yr"]
+
+
+class LibraryComponentSeed(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    id: str
+    name: str
+    description: str
+    subsystemType: Literal["sensor", "logic", "actuator"]
+    instrumentCategory: str
+    instrumentType: str
+    manufacturer: str = ""
+    dataSource: str
+    sourceReference: str | None = None
+    tags: list[str] = Field(default_factory=list)
+    factorized: LibraryFactorizedSeed
+    test: LibraryTestSeed
+    componentPatch: dict[str, Any] | None = None
+
+
+class LambdaDbLibraryResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    version: str
+    count: int
+    templates: list[LibraryComponentSeed]
 
 
 class ComponentResult(BaseModel):

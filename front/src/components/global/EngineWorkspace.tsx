@@ -26,7 +26,7 @@ import {
   type SILBackendResponse,
 } from '@/lib/engineApi'
 import type { EngineResult } from '@/engine/types/engine'
-import { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } from '@/styles/tokens'
+import { usePrismTheme } from '@/styles/usePrismTheme'
 
 type EngineTab = 'runs' | 'contracts' | 'artifacts' | 'compare'
 type EngineRightTab = 'snapshot' | 'integration'
@@ -86,18 +86,21 @@ const ENGINE_RIGHT_TABS = [
 ]
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
+  const { TEAL } = usePrismTheme()
   return (
-    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEAL }}>
       {children}
     </p>
   )
 }
 
-function StatCard({ label, value, hint, color = TEXT }: { label: string; value: string; hint: string; color?: string }) {
+function StatCard({ label, value, hint, color }: { label: string; value: string; hint: string; color?: string }) {
+  const { BORDER, CARD_BG, SHADOW_PANEL, TEXT, TEXT_DIM } = usePrismTheme()
+  const resolvedColor = color ?? TEXT
   return (
-    <div className="rounded-2xl border px-5 py-4 shadow-sm" style={{ background: CARD_BG, borderColor: BORDER }}>
+    <div className="rounded-2xl border px-5 py-4" style={{ background: CARD_BG, borderColor: BORDER, boxShadow: SHADOW_PANEL }}>
       <p className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>{label}</p>
-      <p className="mt-1 text-2xl font-black font-mono" style={{ color }}>{value}</p>
+      <p className="mt-1 text-2xl font-black font-mono" style={{ color: resolvedColor }}>{value}</p>
       <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>{hint}</p>
     </div>
   )
@@ -231,10 +234,11 @@ function RouteInspector({
   }
   state: Extract<CompareRunState, { status: 'done' }>
 }) {
+  const { BORDER, CARD_BG, PAGE_BG, SHADOW_PANEL, SHADOW_SOFT, TEAL, TEXT, TEXT_DIM, semantic } = usePrismTheme()
   const verdict = verdictMeta(state.summary.verdict)
 
   return (
-    <div className="rounded-2xl border shadow-sm" style={{ borderColor: BORDER, background: CARD_BG }}>
+    <div className="rounded-2xl border" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
       <div className="flex items-start justify-between gap-4 border-b px-5 py-4" style={{ borderColor: BORDER, background: PAGE_BG }}>
         <div>
           <SectionLabel>Route Inspector</SectionLabel>
@@ -256,26 +260,26 @@ function RouteInspector({
       </div>
 
       <div className="grid grid-cols-3 gap-4 px-5 py-4">
-        <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: PAGE_BG }}>
+        <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: PAGE_BG, boxShadow: SHADOW_SOFT }}>
           <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Why Different</p>
           <div className="mt-3 space-y-2">
             {(state.summary.notes.length > 0 ? state.summary.notes : ['No material delta detected between TypeScript and Python on this payload.']).map(note => (
-              <div key={note} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}>
+              <div key={note} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: BORDER, background: CARD_BG, color: TEXT, boxShadow: SHADOW_SOFT }}>
                 {note}
               </div>
             ))}
           </div>
         </div>
 
-        <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: PAGE_BG }}>
+        <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: PAGE_BG, boxShadow: SHADOW_SOFT }}>
           <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Global Delta</p>
           <div className="mt-3 space-y-2 text-xs" style={{ color: TEXT }}>
-            <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+            <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
               <p className="font-mono font-semibold" style={{ color: TEAL }}>PFD</p>
               <p className="mt-1">TS {formatPFD(state.tsResult.pfdavg)} · Python {formatPFD(state.response.result.pfdavg)}</p>
               <p className="mt-1" style={{ color: TEXT_DIM }}>Delta {formatDeltaPct(state.summary.pfd.deltaPct)} ({formatSignedScientific(state.summary.pfd.deltaAbs)})</p>
             </div>
-            <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+            <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
               <p className="font-mono font-semibold" style={{ color: TEAL }}>PFH / RRF</p>
               <p className="mt-1">PFH delta {formatDeltaPct(state.summary.pfh.deltaPct)}</p>
               <p className="mt-1">RRF delta {formatDeltaPct(state.summary.rrf.deltaPct)}</p>
@@ -283,14 +287,14 @@ function RouteInspector({
           </div>
         </div>
 
-        <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: PAGE_BG }}>
+        <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: PAGE_BG, boxShadow: SHADOW_SOFT }}>
           <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Backend Signals</p>
           <div className="mt-3 space-y-2 text-xs" style={{ color: TEXT }}>
-            <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+            <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
               <p className="font-mono font-semibold" style={{ color: TEAL }}>Requested mode</p>
               <p className="mt-1">{state.response.backend.requestedMode}</p>
             </div>
-            <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+            <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
               <p className="font-mono font-semibold" style={{ color: TEAL }}>Runtime</p>
               <p className="mt-1">{state.response.backend.runtimeMs.toFixed(2)} ms</p>
               <p className="mt-1" style={{ color: TEXT_DIM }}>{state.summary.warningCount} warning(s) surfaced by backend</p>
@@ -327,13 +331,13 @@ function RouteInspector({
               </div>
 
               <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-                <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+                <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
                   <p className="font-mono font-semibold" style={{ color: TEAL }}>PFD</p>
                   <p className="mt-1" style={{ color: TEXT }}>TS {formatPFD(ts?.pfdavg ?? NaN)}</p>
                   <p className="mt-1" style={{ color: TEXT }}>Py {formatPFD(backend?.pfdavg ?? NaN)}</p>
                   <p className="mt-1" style={{ color: TEXT_DIM }}>Delta {formatDeltaPct(pfdDelta.deltaPct)}</p>
                 </div>
-                <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+                <div className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
                   <p className="font-mono font-semibold" style={{ color: TEAL }}>PFH / SIL</p>
                   <p className="mt-1" style={{ color: TEXT }}>Delta PFH {formatDeltaPct(pfhDelta.deltaPct)}</p>
                   <p className="mt-1" style={{ color: TEXT }}>{formatSil(ts?.silFromPFD ?? null)} {'->'} {formatSil(backend?.silFromPFD ?? null)}</p>
@@ -343,7 +347,7 @@ function RouteInspector({
 
               <div className="mt-3 space-y-2">
                 {routeLines.map(line => (
-                  <div key={line} className="rounded-lg border px-3 py-2 text-[10px]" style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}>
+                  <div key={line} className="rounded-lg border px-3 py-2 text-[10px]" style={{ borderColor: BORDER, background: CARD_BG, color: TEXT, boxShadow: SHADOW_SOFT }}>
                     {line}
                   </div>
                 ))}
@@ -352,7 +356,11 @@ function RouteInspector({
               {warnings.length > 0 && (
                 <div className="mt-3 space-y-2">
                   {warnings.map(warning => (
-                    <div key={`${warning.code}-${warning.affected ?? ''}`} className="rounded-lg border px-3 py-2 text-[10px]" style={{ borderColor: '#FCD34D', background: '#FFFBEB', color: '#92400E' }}>
+                    <div
+                      key={`${warning.code}-${warning.affected ?? ''}`}
+                      className="rounded-lg border px-3 py-2 text-[10px]"
+                      style={{ borderColor: `${semantic.warning}55`, background: `${semantic.warning}12`, color: semantic.warning, boxShadow: SHADOW_SOFT }}
+                    >
                       <p className="font-semibold">{warning.code}</p>
                       <p className="mt-1">{warning.message}</p>
                     </div>
@@ -376,6 +384,7 @@ function EngineRightPanel({
   criticalCandidates: number
   totalCampaigns: number
 }) {
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, SHADOW_PANEL, SHADOW_SOFT, TEXT, TEXT_DIM, TEAL, semantic } = usePrismTheme()
   const [activeTab, setActiveTab] = useState<EngineRightTab>('snapshot')
   const activeIdx = ENGINE_RIGHT_TABS.findIndex(tab => tab.id === activeTab)
 
@@ -386,7 +395,12 @@ function EngineRightPanel({
           <IntercalaireTabBar tabs={ENGINE_RIGHT_TABS} active={activeTab} onSelect={setActiveTab} cardBg={CARD_BG} />
         </div>
         <div className="px-3 pb-3">
-          <IntercalaireCard tabCount={ENGINE_RIGHT_TABS.length} activeIdx={activeIdx} className="p-3 space-y-3">
+          <IntercalaireCard
+            tabCount={ENGINE_RIGHT_TABS.length}
+            activeIdx={activeIdx}
+            className="space-y-3 p-3"
+            style={{ background: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: SHADOW_PANEL }}
+          >
           {activeTab === 'snapshot' && (
             <>
               <div>
@@ -398,19 +412,19 @@ function EngineRightPanel({
               </div>
 
               <div className="grid grid-cols-2 gap-2">
-                <div className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                <div className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: PAGE_BG, boxShadow: SHADOW_SOFT }}>
                   <p className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>Tracked SIFs</p>
                   <p className="mt-1 text-lg font-black font-mono" style={{ color: TEXT }}>{totalSifs}</p>
                 </div>
-                <div className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                <div className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: PAGE_BG, boxShadow: SHADOW_SOFT }}>
                   <p className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>Proof campaigns</p>
                   <p className="mt-1 text-lg font-black font-mono" style={{ color: TEXT }}>{totalCampaigns}</p>
                 </div>
               </div>
 
-              <div className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+              <div className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: PAGE_BG, boxShadow: SHADOW_SOFT }}>
                 <p className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>High-value candidates</p>
-                <p className="mt-1 text-lg font-black font-mono" style={{ color: criticalCandidates > 0 ? '#F87171' : '#4ADE80' }}>
+                <p className="mt-1 text-lg font-black font-mono" style={{ color: criticalCandidates > 0 ? semantic.error : semantic.success }}>
                   {criticalCandidates}
                 </p>
                 <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>
@@ -431,7 +445,7 @@ function EngineRightPanel({
                     'Outputs stay separate from revision PDFs and proof-test archives',
                     'Compare tab reconciles live TS estimates against authoritative Python runs',
                   ].map(item => (
-                    <div key={item} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}>
+                    <div key={item} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT, boxShadow: SHADOW_SOFT }}>
                       {item}
                     </div>
                   ))}
@@ -447,6 +461,7 @@ function EngineRightPanel({
 }
 
 export function EngineWorkspace() {
+  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, SHADOW_PANEL, SHADOW_SOFT, TEAL, TEXT, TEXT_DIM, semantic } = usePrismTheme()
   const projects = useAppStore(s => s.projects)
   const navigate = useAppStore(s => s.navigate)
   const { setRightPanelOverride } = useLayout()
@@ -641,7 +656,7 @@ export function EngineWorkspace() {
   return (
     <div
       className="flex flex-1 min-h-0 flex-col overflow-y-auto overflow-x-hidden px-5 py-5"
-      style={{ scrollbarGutter: 'stable' }}
+      style={{ background: PAGE_BG, scrollbarGutter: 'stable' }}
     >
       <div className="grid grid-cols-4 gap-4 shrink-0">
         <StatCard label="Tracked SIFs" value={String(stats.totalSifs)} hint="Current PRISM estate visible to the engine" />
@@ -659,7 +674,7 @@ export function EngineWorkspace() {
           {activeTab === 'runs' && (
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-3 gap-4 shrink-0">
-                <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                   <div className="flex items-center gap-2">
                     <Cpu size={14} style={{ color: TEAL }} />
                     <p className="text-sm font-semibold" style={{ color: TEXT }}>Direct backend runs ready</p>
@@ -668,7 +683,7 @@ export function EngineWorkspace() {
                     Engine can now send a full SIL payload to the Python backend. Queueing and persisted artifacts can come later without changing the contract.
                   </p>
                 </div>
-                <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                   <div className="flex items-center gap-2">
                     <Sigma size={14} style={{ color: '#60A5FA' }} />
                     <p className="text-sm font-semibold" style={{ color: TEXT }}>Target solver modes</p>
@@ -677,9 +692,9 @@ export function EngineWorkspace() {
                     Markov chains, stiff solvers, Monte Carlo, sensitivity sweeps, and batch comparison between TS preview and backend results.
                   </p>
                 </div>
-                <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                   <div className="flex items-center gap-2">
-                    <CheckCircle2 size={14} style={{ color: '#4ADE80' }} />
+                    <CheckCircle2 size={14} style={{ color: semantic.success }} />
                     <p className="text-sm font-semibold" style={{ color: TEXT }}>Frontend already ready</p>
                   </div>
                   <p className="mt-2 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
@@ -688,7 +703,7 @@ export function EngineWorkspace() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border shadow-sm overflow-hidden" style={{ borderColor: BORDER, background: CARD_BG }}>
+              <div className="overflow-hidden rounded-2xl border" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                 <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <div>
                     <SectionLabel>Run Candidates</SectionLabel>
@@ -744,9 +759,9 @@ export function EngineWorkspace() {
                               if (backendState.status === 'error') {
                                 return (
                                   <div className="space-y-1">
-                                    <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: '#FEE2E2', color: '#B91C1C' }}>
-                                      Error
-                                    </span>
+                                  <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: `${semantic.error}12`, color: semantic.error }}>
+                                    Error
+                                  </span>
                                     <p className="max-w-[180px] text-[10px]" style={{ color: TEXT_DIM }}>{backendState.message}</p>
                                   </div>
                                 )
@@ -754,7 +769,7 @@ export function EngineWorkspace() {
                               if (backendState.status === 'done') {
                                 return (
                                   <div className="space-y-1">
-                                    <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: '#DCFCE7', color: '#15803D' }}>
+                                    <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: `${semantic.success}12`, color: semantic.success }}>
                                       SIL {backendState.response.result.silAchieved ?? '—'}
                                     </span>
                                     <p className="text-[10px]" style={{ color: TEXT_DIM }}>
@@ -797,14 +812,14 @@ export function EngineWorkspace() {
 
           {activeTab === 'contracts' && (
             <div className="grid grid-cols-2 gap-4">
-              <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
+              <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                 <div className="flex items-center gap-2">
                   <Boxes size={14} style={{ color: '#60A5FA' }} />
                   <p className="text-sm font-semibold" style={{ color: TEXT }}>Run payload</p>
                 </div>
                 <div className="mt-3 space-y-2">
                   {runPayloadFields.map(([field, desc]) => (
-                    <div key={field} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: BORDER, background: CARD_BG }}>
+                    <div key={field} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: BORDER, background: PAGE_BG, boxShadow: SHADOW_SOFT }}>
                       <p className="font-mono font-semibold" style={{ color: TEAL }}>{field}</p>
                       <p className="mt-1" style={{ color: TEXT }}>{desc}</p>
                     </div>
@@ -812,14 +827,14 @@ export function EngineWorkspace() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
+              <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                 <div className="flex items-center gap-2">
                   <Bot size={14} style={{ color: TEAL }} />
                   <p className="text-sm font-semibold" style={{ color: TEXT }}>Job lifecycle</p>
                 </div>
                 <div className="mt-3 space-y-2">
                   {jobLifecycle.map(([status, desc]) => (
-                    <div key={status} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: BORDER, background: CARD_BG }}>
+                    <div key={status} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: BORDER, background: PAGE_BG, boxShadow: SHADOW_SOFT }}>
                       <p className="font-mono font-semibold" style={{ color: TEAL }}>{status}</p>
                       <p className="mt-1" style={{ color: TEXT }}>{desc}</p>
                     </div>
@@ -827,14 +842,14 @@ export function EngineWorkspace() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
+              <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                 <div className="flex items-center gap-2">
                   <Sigma size={14} style={{ color: '#4ADE80' }} />
                   <p className="text-sm font-semibold" style={{ color: TEXT }}>Result structure</p>
                 </div>
                 <div className="mt-3 space-y-2">
                   {resultShape.map(([field, desc]) => (
-                    <div key={field} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: BORDER, background: CARD_BG }}>
+                    <div key={field} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: BORDER, background: PAGE_BG, boxShadow: SHADOW_SOFT }}>
                       <p className="font-mono font-semibold" style={{ color: TEAL }}>{field}</p>
                       <p className="mt-1" style={{ color: TEXT }}>{desc}</p>
                     </div>
@@ -842,14 +857,14 @@ export function EngineWorkspace() {
                 </div>
               </div>
 
-              <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
+              <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                 <div className="flex items-center gap-2">
                   <Database size={14} style={{ color: '#60A5FA' }} />
                   <p className="text-sm font-semibold" style={{ color: TEXT }}>Expected outputs</p>
                 </div>
                 <div className="mt-3 space-y-2">
                   {expectedOutputs.map(([field, desc]) => (
-                    <div key={field} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: BORDER, background: CARD_BG }}>
+                    <div key={field} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: BORDER, background: PAGE_BG, boxShadow: SHADOW_SOFT }}>
                       <p className="font-mono font-semibold" style={{ color: TEAL }}>{field}</p>
                       <p className="mt-1" style={{ color: TEXT }}>{desc}</p>
                     </div>
@@ -883,7 +898,7 @@ export function EngineWorkspace() {
                   desc: 'Keep raw runs separable from SIF revision PDFs, so regulatory snapshots stay clean while engine research can evolve.',
                 },
               ].map(item => (
-                <div key={item.title} className="rounded-2xl border p-5 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                <div key={item.title} className="rounded-2xl border p-5" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                   <div className="flex items-center gap-2">
                     <item.icon size={14} style={{ color: TEAL }} />
                     <p className="text-sm font-semibold" style={{ color: TEXT }}>{item.title}</p>
@@ -897,29 +912,29 @@ export function EngineWorkspace() {
           {activeTab === 'compare' && (
             <div className="flex flex-col gap-4">
               <div className="grid grid-cols-4 gap-4">
-                <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                   <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Tolerance</p>
                   <p className="mt-1 text-2xl font-black font-mono" style={{ color: TEXT }}>{COMPARE_TOLERANCE_PCT.toFixed(2)}%</p>
                   <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>Default compare threshold until validation settings are persisted globally.</p>
                 </div>
-                <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                   <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Aligned</p>
                   <p className="mt-1 text-2xl font-black font-mono" style={{ color: '#15803D' }}>{compareSummary.aligned}</p>
                   <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>PFD, PFH, RRF and SIL all within tolerance.</p>
                 </div>
-                <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                   <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Drift</p>
                   <p className="mt-1 text-2xl font-black font-mono" style={{ color: '#D97706' }}>{compareSummary.drift}</p>
                   <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>Same SIL but at least one numerical delta exceeds tolerance.</p>
                 </div>
-                <div className="rounded-2xl border p-4 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                <div className="rounded-2xl border p-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                   <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Mismatch</p>
                   <p className="mt-1 text-2xl font-black font-mono" style={{ color: '#DC2626' }}>{compareSummary.mismatch}</p>
                   <p className="mt-1 text-xs" style={{ color: TEXT_DIM }}>SIL differs between TS and Python or the compare run failed.</p>
                 </div>
               </div>
 
-              <div className="rounded-2xl border shadow-sm overflow-hidden" style={{ borderColor: BORDER, background: CARD_BG }}>
+              <div className="overflow-hidden rounded-2xl border" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                 <div className="flex items-center justify-between px-5 py-3 border-b" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <div>
                     <SectionLabel>Front / Backend Compare</SectionLabel>
@@ -975,7 +990,7 @@ export function EngineWorkspace() {
                                   <p>{formatSil(compareState.summary.backendSil)} · RRF {formatRRF(compareState.response.result.rrf ?? 0)}</p>
                                 </div>
                               ) : compareState.status === 'error' ? (
-                                <p className="max-w-[180px] text-[10px]" style={{ color: '#B91C1C' }}>{compareState.message}</p>
+                                <p className="max-w-[180px] text-[10px]" style={{ color: semantic.error }}>{compareState.message}</p>
                               ) : (
                                 <p className="text-[10px]" style={{ color: TEXT_DIM }}>Python not compared yet.</p>
                               )}
@@ -1008,10 +1023,10 @@ export function EngineWorkspace() {
                                           ? '#FEF3C7'
                                           : '#FEE2E2',
                                       color: compareState.summary.verdict === 'aligned'
-                                        ? '#15803D'
+                                        ? semantic.success
                                         : compareState.summary.verdict === 'drift'
-                                          ? '#B45309'
-                                          : '#B91C1C',
+                                          ? semantic.warning
+                                          : semantic.error,
                                     }}
                                   >
                                     {compareState.summary.verdict === 'aligned'
@@ -1026,7 +1041,7 @@ export function EngineWorkspace() {
                                 </div>
                               )}
                               {compareState.status === 'error' && (
-                                <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: '#FEE2E2', color: '#B91C1C' }}>
+                                <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: `${semantic.error}12`, color: semantic.error }}>
                                   Compare failed
                                 </span>
                               )}
@@ -1092,7 +1107,7 @@ export function EngineWorkspace() {
               {selectedCompareEntry ? (
                 <RouteInspector row={selectedCompareEntry.row} state={selectedCompareEntry.state} />
               ) : (
-                <div className="rounded-2xl border p-5 shadow-sm" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                <div className="rounded-2xl border p-5" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
                   <SectionLabel>Route Inspector</SectionLabel>
                   <p className="mt-2 text-sm font-semibold" style={{ color: TEXT }}>No inspected run yet</p>
                   <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>

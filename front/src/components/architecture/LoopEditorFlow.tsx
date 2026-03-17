@@ -1030,7 +1030,16 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
       return
     }
 
-    setRightPanelOverride(<LoopEditorRightPanel sif={sif} projectId={projectId} />)
+    setRightPanelOverride(
+      <LoopEditorRightPanel
+        sif={sif}
+        projectId={projectId}
+        onOpenCcfBeta={(subsystemId) => {
+          setSelectedCcfSubsystemId(subsystemId)
+          setWorkspaceMode('ccf-beta')
+        }}
+      />,
+    )
   }, [
     ccfAssessmentDraft.mode,
     ccfAssessmentResult,
@@ -1044,7 +1053,9 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
     selectedCcfSubsystem,
     selectedCcfSubsystemId,
     setRightPanelOverride,
+    setSelectedCcfSubsystemId,
     sif,
+    setWorkspaceMode,
     updateCcfAssessment,
     workspaceMode,
   ])

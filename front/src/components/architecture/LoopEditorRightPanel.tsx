@@ -27,14 +27,25 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { ComponentParamsPanel } from './ComponentParamsPanel'
-import type { Architecture, ComponentTemplate, SIF, SIFSubsystem, SubsystemType } from '@/core/types'
+import type {
+  AdvancedParams,
+  Architecture,
+  ComponentTemplate,
+  DevelopedParams,
+  SIF,
+  SIFChannel,
+  SIFSubsystem,
+  SubsystemType,
+  VoteType,
+} from '@/core/types'
 import {
   buildLibraryDragPayload,
   parseComponentTemplateImport,
   serializeComponentTemplates,
   useComponentLibrary,
 } from '@/features/library'
-import { RightPanelShell } from '@/components/layout/RightPanelShell'
+import { RightPanelBody, RightPanelShell } from '@/components/layout/RightPanelShell'
+import { DEFAULT_CHANNEL, DEFAULT_COMPONENT } from '@/core/models/defaults'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
@@ -74,54 +85,203 @@ function firstValidArch(channelCount: number): Architecture {
   return getValidArchOptions(channelCount)[0]?.value ?? 'custom'
 }
 
+const COUNT_OPTIONS = [1, 2, 3, 4]
+const VOTE_TYPE_OPTIONS: VoteType[] = ['S', 'A', 'M']
+const PANEL_FORM_GRID = 'repeat(auto-fit, minmax(132px, 1fr))'
+const PANEL_WIDE_GRID = 'repeat(auto-fit, minmax(148px, 1fr))'
+const LIBRARY_PREVIEW_COUNT = 5
+const INITIAL_LIBRARY_VISIBLE_COUNT: Record<SubsystemType, number> = {
+  sensor: LIBRARY_PREVIEW_COUNT,
+  logic: 999,
+  actuator: LIBRARY_PREVIEW_COUNT,
+}
+
+function formatPctInput(value: number | undefined) {
+  return ((value ?? 0) * 100).toFixed(1).replace(/\.0$/, '')
+}
+
+function parsePctInput(raw: string, fallback: number) {
+  const parsed = Number.parseFloat(raw.replace(',', '.'))
+  if (!Number.isFinite(parsed)) return fallback
+  return Math.min(1, Math.max(0, parsed / 100))
+}
+
+function buildComponentTag(subsystemType: SubsystemType, sifNumber: string, channelIndex: number, componentIndex: number) {
+  const prefix = subsystemType === 'sensor' ? 'S' : subsystemType === 'logic' ? 'L' : 'A'
+  return `${sifNumber}_${prefix}${channelIndex + 1}.${componentIndex + 1}`
+}
+
+function normalizeChannelLabels(channels: SIFChannel[]) {
+  return channels.map((channel, index) => ({ ...channel, label: `Channel ${index + 1}` }))
+}
+
+function formatLambda(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return 'n/a'
+  return `${Number(value).toLocaleString('fr-FR', { maximumFractionDigits: value >= 100 ? 0 : 3 })}`
+}
+
+function formatRatio(value: number | null | undefined) {
+  if (value == null || !Number.isFinite(value)) return 'n/a'
+  return `${(value * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}%`
+}
+
+function formatDuration(value: number | null | undefined, unit?: string | null) {
+  if (value == null || !Number.isFinite(value)) return 'n/a'
+  return `${Number(value).toLocaleString('fr-FR', { maximumFractionDigits: 2 })}${unit ? ` ${unit}` : ''}`
+}
+
+function hasDevelopedContent(values: DevelopedParams) {
+  return [values.lambda_DU, values.lambda_DD, values.lambda_SD, values.lambda_SU].some(value => Math.abs(value ?? 0) > 0)
+}
+
+function hasAdvancedContent(values: AdvancedParams) {
+  return [
+    values.MTTR,
+    values.gamma,
+    values.lambdaStar,
+    values.testDuration,
+    values.sigma,
+    values.omega1,
+    values.omega2,
+    values.proofTestCoverage,
+    values.lifetime,
+    values.DCalarmedOnly,
+    values.partialTest.enabled ? 1 : 0,
+  ].some(value => value != null && Math.abs(Number(value) || 0) > 0)
+}
+
 // ─── Subsystem config section ─────────────────────────────────────────────────
 
 function SubsystemArchSection({
   subsystem,
   projectId,
   sifId,
+  sifNumber,
+  onOpenCcfBeta,
 }: {
   subsystem: SIFSubsystem
   projectId: string
   sifId: string
+  sifNumber: string
+  onOpenCcfBeta?: (subsystemId: string) => void
 }) {
-  const { BORDER, CARD_BG, PAGE_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, SHADOW_SOFT, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const updateSubsystem = useAppStore(s => s.updateSubsystem)
-  const addChannel      = useAppStore(s => s.addChannel)
-  const removeChannel   = useAppStore(s => s.removeChannel)
   const [open, setOpen] = useState(true)
+  const [activeChannelId, setActiveChannelId] = useState<string | null>(subsystem.channels[0]?.id ?? null)
 
   const meta         = SUB_META[subsystem.type]
   const channelCount = subsystem.channels.length
   const hasCCF       = channelCount > 1
   const ccfEnabled   = hasCCF && (subsystem.ccf.beta > 0 || subsystem.ccf.betaD > 0)
   const validArchs   = getValidArchOptions(channelCount)
+  const activeChannel = subsystem.channels.find(channel => channel.id === activeChannelId) ?? subsystem.channels[0] ?? null
 
   const upd = (patch: Partial<SIFSubsystem>) =>
     updateSubsystem(projectId, sifId, { ...subsystem, ...patch })
 
-  // Pas d'auto-reset d'architecture ici : upd() utiliserait le subsystem stale
-  // (avant que addChannel ait mis à jour le store) et écraserait la voie ajoutée.
-  // Le dropdown filtré garantit qu'une architecture invalide ne peut pas être sélectionnée.
-  const handleChannelAdd = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (channelCount >= 4) return
-    addChannel(projectId, sifId, subsystem.id)
+  useEffect(() => {
+    if (!activeChannelId || !subsystem.channels.some(channel => channel.id === activeChannelId)) {
+      setActiveChannelId(subsystem.channels[0]?.id ?? null)
+    }
+  }, [activeChannelId, subsystem.channels])
+
+  const replaceChannels = (channels: SIFChannel[]) => {
+    const normalized = normalizeChannelLabels(channels)
+    const nextArchitecture = validArchs.some(option => option.value === subsystem.architecture)
+      ? subsystem.architecture
+      : firstValidArch(normalized.length)
+    upd({
+      channels: normalized,
+      architecture: getValidArchOptions(normalized.length).some(option => option.value === nextArchitecture)
+        ? nextArchitecture
+        : firstValidArch(normalized.length),
+      ccf: normalized.length > 1 ? subsystem.ccf : { ...subsystem.ccf, beta: 0, betaD: 0 },
+    })
   }
 
-  const handleChannelRemove = (e: React.MouseEvent) => {
-    e.stopPropagation()
-    if (channelCount <= 1) return
-    const last = subsystem.channels[channelCount - 1]
-    removeChannel(projectId, sifId, subsystem.id, last.id)
+  const resizeChannels = (nextCount: number) => {
+    const clamped = Math.min(4, Math.max(1, nextCount))
+    if (clamped === subsystem.channels.length) return
+    const nextChannels = [...subsystem.channels]
+    if (clamped > nextChannels.length) {
+      while (nextChannels.length < clamped) {
+        nextChannels.push(DEFAULT_CHANNEL(subsystem.type, nextChannels.length, sifNumber))
+      }
+    } else {
+      nextChannels.splice(clamped)
+    }
+    replaceChannels(nextChannels)
   }
+
+  const updateChannel = (channelId: string, patch: Partial<SIFChannel>) => {
+    replaceChannels(subsystem.channels.map(channel =>
+      channel.id === channelId ? { ...channel, ...patch } : channel,
+    ))
+  }
+
+  const resizeChannelComponents = (channelId: string, nextCount: number) => {
+    const channelIndex = subsystem.channels.findIndex(channel => channel.id === channelId)
+    if (channelIndex < 0) return
+    const channel = subsystem.channels[channelIndex]
+    const clamped = Math.min(4, Math.max(1, nextCount))
+    if (clamped === channel.components.length) return
+
+    const nextComponents = [...channel.components]
+    if (clamped > nextComponents.length) {
+      while (nextComponents.length < clamped) {
+        nextComponents.push(
+          DEFAULT_COMPONENT(
+            subsystem.type,
+            buildComponentTag(subsystem.type, sifNumber, channelIndex, nextComponents.length),
+          ),
+        )
+      }
+    } else {
+      nextComponents.splice(clamped)
+    }
+
+    const nextArch = getValidArchOptions(nextComponents.length).some(option => option.value === (channel.architecture ?? '1oo1'))
+      ? (channel.architecture ?? '1oo1')
+      : firstValidArch(nextComponents.length)
+
+    updateChannel(channelId, {
+      components: nextComponents,
+      architecture: nextArch,
+      beta: nextComponents.length > 1 ? channel.beta : 0,
+      betaD: nextComponents.length > 1 ? channel.betaD : 0,
+    })
+  }
+
+  const toggleSubsystemCcf = () => {
+    upd({
+      ccf: {
+        ...subsystem.ccf,
+        beta: ccfEnabled ? 0 : 0.05,
+        betaD: ccfEnabled ? 0 : 0.025,
+      },
+    })
+  }
+
+  const toggleChannelCcf = (channel: SIFChannel) => {
+    updateChannel(channel.id, {
+      beta: channel.beta && channel.beta > 0 ? 0 : 0.05,
+      betaD: channel.betaD && channel.betaD > 0 ? 0 : 0.025,
+    })
+  }
+
+  const currentChannelComponentCount = activeChannel?.components.length ?? 1
+  const currentChannelArchOptions = getValidArchOptions(currentChannelComponentCount)
+  const currentChannelCcfEnabled = Boolean(activeChannel && currentChannelComponentCount > 1 && ((activeChannel.beta ?? 0) > 0 || (activeChannel.betaD ?? 0) > 0))
+  const actuatorSubCount = activeChannel ? Math.max(0, activeChannel.components.length - 1) : 0
 
   return (
-    <div style={{ borderBottom: `1px solid ${BORDER}` }}>
+    <div className="overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left transition-colors hover:bg-black/5 dark:hover:bg-[#161C24]"
+        className="prism-action flex w-full min-w-0 items-center gap-2.5 px-3 py-2.5 text-left"
+        style={{ background: open ? PAGE_BG : CARD_BG }}
       >
         <div
           className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
@@ -129,223 +289,328 @@ function SubsystemArchSection({
         >
           <meta.Icon size={10} style={{ color: meta.color }} />
         </div>
-        <span className="flex-1 text-[11px] font-semibold" style={{ color: TEXT }}>{meta.label}</span>
-        <span
-          className="rounded px-1.5 py-0.5 text-[9px] font-mono font-bold shrink-0"
-          style={{ background: `${meta.color}15`, color: meta.color }}
-        >
-          {subsystem.architecture}
-        </span>
-        <span className="text-[9px] font-mono shrink-0" style={{ color: TEXT_DIM }}>{channelCount}V</span>
-        {open
-          ? <ChevronDown size={10} style={{ color: TEXT_DIM }} />
-          : <ChevronRight size={10} style={{ color: TEXT_DIM }} />
-        }
+        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold" style={{ color: TEXT }}>{meta.label}</span>
+        <div className="flex shrink-0 items-center gap-1.5">
+          <span
+            className="rounded px-1.5 py-0.5 text-[9px] font-mono font-bold"
+            style={{ background: `${meta.color}15`, color: meta.color }}
+          >
+            {subsystem.architecture}
+          </span>
+          <span className="text-[9px] font-mono" style={{ color: TEXT_DIM }}>{channelCount}V</span>
+          {open
+            ? <ChevronDown size={10} style={{ color: TEXT_DIM }} />
+            : <ChevronRight size={10} style={{ color: TEXT_DIM }} />
+          }
+        </div>
       </button>
 
       {open && (
-        <div className="space-y-3 px-3 pb-3 pt-2" style={{ background: PAGE_BG }}>
-
-          {/* Voies + Architecture — liés */}
-          <div className="flex gap-2">
-            {/* Voies stepper */}
-            <div className="shrink-0">
-              <p className="mb-1 text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Voies</p>
-              <div className="flex items-center overflow-hidden rounded-md border" style={{ borderColor: BORDER }}>
-                <button
-                  type="button"
-                  onClick={handleChannelRemove}
-                  disabled={channelCount <= 1}
-                  className="flex h-[28px] w-6 items-center justify-center text-sm transition-colors hover:bg-black/5 dark:hover:bg-[#1E242B] disabled:opacity-30"
-                  style={{ color: TEXT_DIM, background: CARD_BG }}
-                >−</button>
-                <span
-                  className="flex h-[28px] w-6 items-center justify-center text-xs font-mono font-bold"
-                  style={{ background: CARD_BG, color: TEXT, borderLeft: `1px solid ${BORDER}`, borderRight: `1px solid ${BORDER}` }}
+        <div className="space-y-3 border-t px-3 pb-3 pt-3" style={{ background: PAGE_BG, borderColor: BORDER }}>
+          <div className="space-y-2 rounded-lg border p-3" style={{ borderColor: BORDER, background: CARD_BG }}>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEAL }}>
+              {meta.label} architecture
+            </p>
+            <div className="grid gap-2" style={{ gridTemplateColumns: PANEL_FORM_GRID }}>
+              <label className="min-w-0 space-y-1">
+                <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Number of channels</span>
+                <select
+                  value={channelCount}
+                  onChange={event => resizeChannels(Number(event.target.value))}
+                  className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
+                  style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
                 >
-                  {channelCount}
-                </span>
-                <button
-                  type="button"
-                  onClick={handleChannelAdd}
-                  disabled={channelCount >= 4}
-                  className="flex h-[28px] w-6 items-center justify-center text-sm transition-colors hover:bg-black/5 dark:hover:bg-[#1E242B] disabled:opacity-30"
-                  style={{ color: TEAL_DIM, background: CARD_BG }}
-                >+</button>
-              </div>
+                  {COUNT_OPTIONS.map(count => (
+                    <option key={count} value={count}>{count}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="min-w-0 space-y-1">
+                <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Configured in</span>
+                <select
+                  value={subsystem.architecture}
+                  onChange={event => upd({ architecture: event.target.value as Architecture })}
+                  className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
+                  style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
+                >
+                  {validArchs.map(option => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="min-w-0 space-y-1">
+                <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Vote</span>
+                <select
+                  value={subsystem.voteType}
+                  onChange={event => upd({ voteType: event.target.value as VoteType })}
+                  className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
+                  style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
+                >
+                  {VOTE_TYPE_OPTIONS.map(option => (
+                    <option key={option} value={option}>{option}</option>
+                  ))}
+                </select>
+              </label>
             </div>
 
-            {/* Architecture — voting grid filtré par nombre de voies */}
-            <div className="flex-1 min-w-0">
-              <p className="mb-1 text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Architecture</p>
-              <div className="flex gap-1 flex-wrap">
-                {validArchs.map(o => (
+            <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: ccfEnabled ? `${TEAL}35` : BORDER, background: ccfEnabled ? `${TEAL}06` : PAGE_BG }}>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="inline-flex items-center gap-2 text-[11px] font-medium" style={{ color: ccfEnabled ? TEAL_DIM : TEXT_DIM }}>
+                  <input
+                    type="checkbox"
+                    checked={ccfEnabled}
+                    onChange={toggleSubsystemCcf}
+                  />
+                  Take into account Common Cause Failures
+                </label>
+                {subsystem.ccf.assessment?.mode === 'iec61508' && (
+                  <span className="rounded px-1.5 py-0.5 text-[8px] font-bold" style={{ background: `${TEAL}18`, color: TEAL_DIM }}>
+                    Beta IEC61508-6
+                  </span>
+                )}
+                {onOpenCcfBeta && (
                   <button
-                    key={o.value}
                     type="button"
-                    onClick={() => upd({ architecture: o.value })}
-                    className="rounded-md px-2 py-1.5 text-[10px] font-mono font-bold transition-all"
-                    style={subsystem.architecture === o.value
-                      ? { background: meta.color, color: '#fff', boxShadow: `0 0 8px ${meta.color}40` }
-                      : { background: CARD_BG, color: TEXT_DIM, border: `1px solid ${BORDER}` }
-                    }
+                    onClick={() => onOpenCcfBeta(subsystem.id)}
+                    className="prism-action ml-auto rounded-md border px-2 py-1 text-[10px] font-semibold"
+                    style={{ borderColor: `${TEAL}30`, background: `${TEAL}10`, color: TEAL_DIM }}
                   >
-                    {o.label}
+                    Ouvrir CCF/BETA
                   </button>
+                )}
+              </div>
+
+              <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: PANEL_WIDE_GRID }}>
+                {[
+                  { key: 'beta' as const, label: `Beta inter-${subsystem.type === 'sensor' ? 'channels' : subsystem.type === 'logic' ? 'solvers' : 'channels'} (du)`, value: subsystem.ccf.beta },
+                  { key: 'betaD' as const, label: 'Beta IEC61508-6 D', value: subsystem.ccf.betaD },
+                ].map(field => (
+                  <label key={field.key} className="min-w-0 space-y-1">
+                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{field.label}</span>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        step="0.1"
+                        min="0"
+                        max="100"
+                        readOnly={!ccfEnabled || subsystem.ccf.assessment?.mode === 'iec61508'}
+                        value={formatPctInput(field.value)}
+                        onChange={event => upd({
+                          ccf: {
+                            ...subsystem.ccf,
+                            [field.key]: parsePctInput(event.target.value, field.value),
+                          },
+                        })}
+                        className="prism-field h-9 w-full rounded-md border py-1.5 pl-2.5 pr-7 text-sm font-mono outline-none"
+                        style={{
+                          background: PAGE_BG,
+                          borderColor: BORDER,
+                          color: TEXT,
+                          opacity: !ccfEnabled ? 0.55 : 1,
+                        }}
+                      />
+                      <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px]" style={{ color: TEXT_DIM }}>%</span>
+                    </div>
+                  </label>
                 ))}
               </div>
-              {channelCount === 1 && (
-                <p className="mt-1.5 text-[9px]" style={{ color: TEXT_DIM }}>
-                  Ajoutez des voies pour activer la redondance.
-                </p>
-              )}
             </div>
           </div>
 
-          {/* CCF — uniquement si redondant */}
-          {hasCCF && (
-            <div
-              className="rounded-lg border p-2.5 space-y-2 transition-colors"
-              style={{
-                borderColor: ccfEnabled ? `${TEAL}35` : BORDER,
-                background:  ccfEnabled ? `${TEAL}06` : 'transparent',
-              }}
-            >
-              <button
-                type="button"
-                onClick={() => upd({
-                  ccf: {
-                    ...subsystem.ccf,
-                    beta:  ccfEnabled ? 0 : 0.10,
-                    betaD: ccfEnabled ? 0 : 0.05,
-                  },
-                })}
-                className="flex w-full items-center gap-2"
-              >
-                <div
-                  className="relative h-3.5 w-7 rounded-full shrink-0 transition-colors"
-                  style={{ background: ccfEnabled ? TEAL : BORDER }}
-                >
-                  <div
-                    className="absolute top-0.5 h-2.5 w-2.5 rounded-full transition-all"
-                    style={{ background: '#FFF', left: ccfEnabled ? '16px' : '2px' }}
-                  />
+          {activeChannel && (
+            <div className="space-y-2 rounded-lg border p-3" style={{ borderColor: BORDER, background: CARD_BG }}>
+              <div className="overflow-x-auto border-b pb-2" style={{ borderColor: `${BORDER}88`, scrollbarWidth: 'thin' }}>
+                <div className="flex min-w-max items-center gap-1">
+                  {subsystem.channels.map(channel => {
+                    const active = channel.id === activeChannel.id
+                    return (
+                      <button
+                        key={channel.id}
+                        type="button"
+                        onClick={() => setActiveChannelId(channel.id)}
+                        className="prism-action shrink-0 rounded-md px-2.5 py-1 text-[11px] font-medium"
+                        style={{
+                          color: active ? meta.color : TEXT_DIM,
+                          borderBottom: `2px solid ${active ? meta.color : 'transparent'}`,
+                          background: active ? `${meta.color}08` : 'transparent',
+                        }}
+                      >
+                        {channel.label}
+                      </button>
+                    )
+                  })}
                 </div>
-                <span className="text-[10px] font-semibold" style={{ color: ccfEnabled ? TEAL_DIM : TEXT_DIM }}>
-                  Cause commune (β)
-                </span>
-                {subsystem.ccf.assessment?.mode === 'iec61508' && (
-                  <span
-                    className="ml-auto rounded px-1 py-0.5 text-[8px] font-bold"
-                    style={{ background: `${TEAL}18`, color: TEAL_DIM }}
-                  >
-                    Via tableau
-                  </span>
-                )}
-              </button>
+              </div>
 
-              {ccfEnabled && (() => {
-                // beta/betaD sont stockés en fraction [0-1], on affiche en %
-                const fromPct = (pct: string, fallback: number) =>
-                  Math.min(1, Math.max(0, (parseFloat(pct) || 0) / 100)) || fallback
-                const toPct = (v: number) => +(v * 100).toFixed(4)
-                const isTableDerived = subsystem.ccf.assessment?.mode === 'iec61508'
+              {subsystem.type !== 'actuator' ? (
+                <div className="grid gap-2" style={{ gridTemplateColumns: PANEL_FORM_GRID }}>
+                  <label className="min-w-0 space-y-1">
+                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+                      Number of {subsystem.type === 'sensor' ? 'sensors' : 'solvers'}
+                    </span>
+                    <select
+                      value={currentChannelComponentCount}
+                      onChange={event => resizeChannelComponents(activeChannel.id, Number(event.target.value))}
+                      className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
+                      style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
+                    >
+                      {COUNT_OPTIONS.map(count => (
+                        <option key={count} value={count}>{count}</option>
+                      ))}
+                    </select>
+                  </label>
 
-                return (
-                  <div className="grid grid-cols-2 gap-2">
+                  <label className="min-w-0 space-y-1">
+                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Configured in</span>
+                    <select
+                      value={currentChannelArchOptions.some(option => option.value === (activeChannel.architecture ?? '1oo1'))
+                        ? (activeChannel.architecture ?? '1oo1')
+                        : firstValidArch(currentChannelComponentCount)}
+                      onChange={event => updateChannel(activeChannel.id, { architecture: event.target.value as Architecture })}
+                      className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
+                      style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
+                    >
+                      {currentChannelArchOptions.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </label>
+
+                  <label className="min-w-0 space-y-1">
+                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Vote</span>
+                    <select
+                      value={subsystem.voteType}
+                      onChange={event => upd({ voteType: event.target.value as VoteType })}
+                      className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
+                      style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
+                    >
+                      {VOTE_TYPE_OPTIONS.map(option => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+              ) : (
+                <>
+                  <div className="grid gap-2" style={{ gridTemplateColumns: PANEL_FORM_GRID }}>
+                    <label className="min-w-0 space-y-1">
+                      <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Number of actuators</span>
+                      <input
+                        value="1"
+                        readOnly
+                        className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
+                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT, opacity: 0.75 }}
+                      />
+                    </label>
+
+                    <label className="min-w-0 space-y-1">
+                      <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Configured in</span>
+                      <input
+                        value="1oo1"
+                        readOnly
+                        className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
+                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT, opacity: 0.75 }}
+                      />
+                    </label>
+
+                    <label className="min-w-0 space-y-1">
+                      <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Vote</span>
+                      <select
+                        value={subsystem.voteType}
+                        onChange={event => upd({ voteType: event.target.value as VoteType })}
+                        className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
+                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
+                      >
+                        {VOTE_TYPE_OPTIONS.map(option => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="rounded-lg border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEAL }}>Group 1</p>
+                    <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: PANEL_WIDE_GRID }}>
+                      <label className="min-w-0 space-y-1">
+                        <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Sub-actuator(s)</span>
+                        <select
+                          value={actuatorSubCount}
+                          onChange={event => resizeChannelComponents(activeChannel.id, Number(event.target.value) + 1)}
+                          className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
+                          style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
+                        >
+                          {[0, 1, 2, 3].map(count => (
+                            <option key={count} value={count}>{count}</option>
+                          ))}
+                        </select>
+                      </label>
+
+                      <label className="min-w-0 space-y-1">
+                        <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Configured in</span>
+                        <select
+                          value={currentChannelArchOptions.some(option => option.value === (activeChannel.architecture ?? '1oo1'))
+                            ? (activeChannel.architecture ?? '1oo1')
+                            : firstValidArch(currentChannelComponentCount)}
+                          onChange={event => updateChannel(activeChannel.id, { architecture: event.target.value as Architecture })}
+                          className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
+                          style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
+                        >
+                          {currentChannelArchOptions.map(option => (
+                            <option key={option.value} value={option.value}>{option.label}</option>
+                          ))}
+                        </select>
+                      </label>
+                    </div>
+                  </div>
+                </>
+              )}
+
+              {currentChannelComponentCount > 1 && (
+                <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: currentChannelCcfEnabled ? `${TEAL}35` : BORDER, background: currentChannelCcfEnabled ? `${TEAL}06` : PAGE_BG }}>
+                  <label className="inline-flex items-center gap-2 text-[11px] font-medium" style={{ color: currentChannelCcfEnabled ? TEAL_DIM : TEXT_DIM }}>
+                    <input
+                      type="checkbox"
+                      checked={currentChannelCcfEnabled}
+                      onChange={() => toggleChannelCcf(activeChannel)}
+                    />
+                    Take into account Common Cause Failures
+                  </label>
+
+                  <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: PANEL_WIDE_GRID }}>
                     {[
-                      { key: 'beta',  label: 'β total', val: subsystem.ccf.beta  },
-                      { key: 'betaD', label: 'βD (DD)', val: subsystem.ccf.betaD },
-                    ].map(({ key, label, val }) => (
-                      <div key={key}>
-                        <p className="mb-1 text-[9px] font-bold uppercase" style={{ color: TEXT_DIM }}>{label}</p>
-                        <div className="relative flex items-center">
+                      { key: 'beta' as const, label: `Beta ${subsystem.type}s (du)`, value: activeChannel.beta ?? 0 },
+                      { key: 'betaD' as const, label: `Beta ${subsystem.type}s D`, value: activeChannel.betaD ?? 0 },
+                    ].map(field => (
+                      <label key={field.key} className="min-w-0 space-y-1">
+                        <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{field.label}</span>
+                        <div className="relative">
                           <input
                             type="number"
                             step="0.1"
                             min="0"
                             max="100"
-                            readOnly={isTableDerived}
-                            value={toPct(val)}
-                            onChange={e => {
-                              if (isTableDerived) return
-                              upd({ ccf: { ...subsystem.ccf, [key]: fromPct(e.target.value, val) } })
-                            }}
-                            className="w-full rounded-md border py-1.5 pl-2 pr-6 text-xs font-mono outline-none"
-                      style={{
-                              background:  CARD_BG,
+                            readOnly={!currentChannelCcfEnabled}
+                            value={formatPctInput(field.value)}
+                            onChange={event => updateChannel(activeChannel.id, {
+                              [field.key]: parsePctInput(event.target.value, field.value),
+                            })}
+                            className="prism-field h-9 w-full rounded-md border py-1.5 pl-2.5 pr-7 text-sm font-mono outline-none"
+                            style={{
                               borderColor: BORDER,
-                              color:       TEXT,
-                              opacity:     isTableDerived ? 0.6 : 1,
-                              cursor:      isTableDerived ? 'default' : 'text',
+                              background: PAGE_BG,
+                              color: TEXT,
+                              opacity: currentChannelCcfEnabled ? 1 : 0.55,
                             }}
                           />
-                          <span
-                            className="pointer-events-none absolute right-2 text-[10px]"
-                            style={{ color: TEXT_DIM }}
-                          >%</span>
+                          <span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px]" style={{ color: TEXT_DIM }}>%</span>
                         </div>
-                      </div>
+                      </label>
                     ))}
                   </div>
-                )
-              })()}
-            </div>
-          )}
-
-          {/* Channel-level kooN — when a channel has 2+ components */}
-          {subsystem.channels.some(ch => ch.components.length > 1) && (
-            <div className="space-y-2">
-              <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-                Voting intra-canal
-              </p>
-              {subsystem.channels.filter(ch => ch.components.length > 1).map(ch => {
-                const nComps = ch.components.length
-                const chArch = ch.architecture ?? '1oo1'
-                const validChArchs = ARCH_OPTIONS.filter(o =>
-                  o.channels !== null ? o.channels === nComps : true
-                )
-                const displayArch = validChArchs.find(o => o.value === chArch) ? chArch : '1oo1'
-
-                const handleChArchChange = (arch: Architecture) => {
-                  upd({
-                    channels: subsystem.channels.map(c =>
-                      c.id === ch.id ? { ...c, architecture: arch } : c
-                    ),
-                  })
-                }
-
-                return (
-                  <div key={ch.id} className="rounded-lg border p-2 space-y-1.5"
-                    style={{ borderColor: BORDER, background: CARD_BG }}>
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: meta.color }} />
-                      <span className="text-[10px] font-semibold flex-1" style={{ color: TEXT }}>
-                        {ch.label}
-                      </span>
-                      <span className="text-[9px] font-mono" style={{ color: TEXT_DIM }}>
-                        {nComps} comp.
-                      </span>
-                    </div>
-                    <div className="flex gap-1 flex-wrap">
-                      {validChArchs.map(o => (
-                        <button
-                          key={o.value}
-                          type="button"
-                          onClick={() => handleChArchChange(o.value)}
-                          className="rounded px-2 py-1 text-[9px] font-mono font-bold transition-all"
-                          style={displayArch === o.value
-                            ? { background: meta.color, color: '#fff' }
-                            : { background: PAGE_BG, color: TEXT_DIM, border: `1px solid ${BORDER}` }
-                          }
-                        >
-                          {o.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )
-              })}
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -356,7 +621,15 @@ function SubsystemArchSection({
 
 // ─── Architecture panel ───────────────────────────────────────────────────────
 
-function ArchitectureConfigPanel({ sif, projectId }: { sif: SIF; projectId: string }) {
+function ArchitectureConfigPanel({
+  sif,
+  projectId,
+  onOpenCcfBeta,
+}: {
+  sif: SIF
+  projectId: string
+  onOpenCcfBeta?: (subsystemId: string) => void
+}) {
   const { TEXT_DIM } = usePrismTheme()
   if (sif.subsystems.length === 0) {
     return (
@@ -370,18 +643,20 @@ function ArchitectureConfigPanel({ sif, projectId }: { sif: SIF; projectId: stri
   }
 
   return (
-    <div className="flex h-full flex-col overflow-hidden">
-      <div className="flex-1 overflow-y-auto">
+    <RightPanelBody compact className="space-y-3">
+      <div className="space-y-3">
         {sif.subsystems.map(subsystem => (
           <SubsystemArchSection
             key={subsystem.id}
             subsystem={subsystem}
             projectId={projectId}
             sifId={sif.id}
+            sifNumber={sif.sifNumber}
+            onOpenCcfBeta={onOpenCcfBeta}
           />
         ))}
       </div>
-    </div>
+    </RightPanelBody>
   )
 }
 
@@ -398,15 +673,19 @@ const ORIGIN_STYLE: Record<OriginBadge, { label: string }> = {
 function TemplateCard({
   template,
   origin,
+  expanded,
+  onToggleDetails,
   onArchive,
   onDelete,
 }: {
   template: ComponentTemplate
   origin: OriginBadge
+  expanded: boolean
+  onToggleDetails: (id: string) => void
   onArchive?: (id: string) => void
   onDelete?: (id: string) => void
 }) {
-  const { BORDER, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, PAGE_BG, SURFACE, SHADOW_SOFT, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const meta = SUB_META[template.subsystemType]
   const orig = ORIGIN_STYLE[origin]
   const originTone = origin === 'builtin'
@@ -414,59 +693,202 @@ function TemplateCard({
     : origin === 'project'
       ? { color: '#F59E0B', bg: '#F59E0B18' }
       : { color: TEAL_DIM, bg: `${TEAL}15` }
+  const snapshot = template.componentSnapshot
+  const developedVisible = hasDevelopedContent(snapshot.developed) || snapshot.paramMode === 'developed'
+  const advancedVisible = hasAdvancedContent(snapshot.advanced)
+  const fieldTone = { border: `${BORDER}A6`, background: PAGE_BG }
 
   return (
-    <div
-      draggable
-      onDragStart={e => {
-        e.dataTransfer.setData('application/prism-lib', buildLibraryDragPayload(template))
-        e.dataTransfer.effectAllowed = 'copy'
-      }}
-      className="group flex items-center gap-2 px-3 py-2 cursor-grab active:cursor-grabbing transition-colors hover:bg-black/5 dark:hover:bg-[#1A2028]"
-      style={{ borderBottom: `1px solid ${BORDER}28` }}
-    >
-      <GripVertical size={10} className="shrink-0 opacity-30 group-hover:opacity-70" style={{ color: meta.color }} />
-      <meta.Icon size={11} className="shrink-0" style={{ color: meta.color }} />
-      <div className="min-w-0 flex-1">
-        <p className="truncate text-[11px] font-medium" style={{ color: TEXT }}>{template.name}</p>
-        {(template.manufacturer || template.instrumentType) && (
-          <p className="truncate text-[9px]" style={{ color: TEXT_DIM }}>
-            {[template.instrumentType, template.manufacturer].filter(Boolean).join(' · ')}
-          </p>
-        )}
-      </div>
-      <span
-        className="shrink-0 rounded px-1 py-0.5 text-[8px] font-bold"
-        style={{ background: originTone.bg, color: originTone.color }}
+    <div style={{ borderBottom: `1px solid ${BORDER}28` }}>
+      <div
+        draggable
+        onDragStart={e => {
+          e.dataTransfer.setData('application/prism-lib', buildLibraryDragPayload(template))
+          e.dataTransfer.effectAllowed = 'copy'
+        }}
+        className="group flex items-center gap-2 px-3 py-2 cursor-grab active:cursor-grabbing transition-colors hover:bg-black/5 dark:hover:bg-[#1A2028]"
       >
-        {orig.label}
-      </span>
-      {(onArchive || onDelete) && (
-        <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-          {onArchive && (
-            <button
-              type="button"
-              onClick={e => { e.stopPropagation(); onArchive(template.id) }}
-              className="rounded p-1 transition-colors hover:bg-amber-900/30"
-              style={{ color: '#FBBF24' }}
-              title="Archiver"
-            >
-              <Archive size={10} />
-            </button>
-          )}
-          {onDelete && (
-            <button
-              type="button"
-              onClick={e => { e.stopPropagation(); onDelete(template.id) }}
-              className="rounded p-1 transition-colors hover:bg-red-900/30"
-              style={{ color: '#F87171' }}
-              title="Supprimer"
-            >
-              <Trash2 size={10} />
-            </button>
+        <GripVertical size={10} className="shrink-0 opacity-30 transition-opacity group-hover:opacity-70" style={{ color: meta.color }} />
+        <meta.Icon size={11} className="shrink-0" style={{ color: meta.color }} />
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[11px] font-medium" style={{ color: TEXT }}>{template.name}</p>
+          {(template.manufacturer || template.instrumentType) && (
+            <p className="truncate text-[9px]" style={{ color: TEXT_DIM }}>
+              {[template.instrumentType, template.manufacturer].filter(Boolean).join(' · ')}
+            </p>
           )}
         </div>
+        <button
+          type="button"
+          draggable={false}
+          onClick={event => {
+            event.stopPropagation()
+            onToggleDetails(template.id)
+          }}
+          className="prism-action flex h-6 w-6 shrink-0 items-center justify-center rounded-md border opacity-0 transition-all group-hover:opacity-100 group-focus-within:opacity-100"
+          style={{ borderColor: expanded ? `${meta.color}55` : `${BORDER}A6`, color: expanded ? meta.color : TEXT_DIM, background: expanded ? `${meta.color}10` : PAGE_BG }}
+          title={expanded ? 'Masquer le détail' : 'Voir les paramètres'}
+        >
+          {expanded ? <ChevronDown size={11} /> : <Layers size={11} />}
+        </button>
+        <span
+          className="shrink-0 rounded px-1 py-0.5 text-[8px] font-bold"
+          style={{ background: originTone.bg, color: originTone.color }}
+        >
+          {orig.label}
+        </span>
+        {(onArchive || onDelete) && (
+          <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
+            {onArchive && (
+              <button
+                type="button"
+                draggable={false}
+                onClick={e => { e.stopPropagation(); onArchive(template.id) }}
+                className="rounded p-1 transition-colors hover:bg-amber-900/30"
+                style={{ color: '#FBBF24' }}
+                title="Archiver"
+              >
+                <Archive size={10} />
+              </button>
+            )}
+            {onDelete && (
+              <button
+                type="button"
+                draggable={false}
+                onClick={e => { e.stopPropagation(); onDelete(template.id) }}
+                className="rounded p-1 transition-colors hover:bg-red-900/30"
+                style={{ color: '#F87171' }}
+                title="Supprimer"
+              >
+                <Trash2 size={10} />
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+
+      {expanded && (
+        <div className="px-3 pb-3">
+          <div
+            className="rounded-xl border px-3 py-3"
+            style={{
+              borderColor: `${meta.color}28`,
+              background: SURFACE,
+              boxShadow: SHADOW_SOFT,
+            }}
+          >
+            <div className="mb-3 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: meta.color }}>
+                  {template.instrumentType || meta.label}
+                </p>
+                <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT }}>
+                  {[template.manufacturer, template.dataSource].filter(Boolean).join(' · ') || 'Bibliothèque standard'}
+                </p>
+              </div>
+              {template.sourceReference ? (
+                <span className="rounded px-1.5 py-0.5 text-[8px] font-semibold" style={{ background: `${meta.color}12`, color: meta.color }}>
+                  {template.sourceReference}
+                </span>
+              ) : null}
+            </div>
+
+            <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(112px, 1fr))' }}>
+              <div className="rounded-lg border px-2.5 py-2" style={fieldTone}>
+                <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>lambda</p>
+                <p className="mt-1 text-[11px] font-semibold font-mono" style={{ color: TEXT }}>
+                  {formatLambda(snapshot.factorized.lambda)}
+                </p>
+              </div>
+              <div className="rounded-lg border px-2.5 py-2" style={fieldTone}>
+                <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>λD/λ</p>
+                <p className="mt-1 text-[11px] font-semibold font-mono" style={{ color: TEXT }}>
+                  {formatRatio(snapshot.factorized.lambdaDRatio)}
+                </p>
+              </div>
+              <div className="rounded-lg border px-2.5 py-2" style={fieldTone}>
+                <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>DC</p>
+                <p className="mt-1 text-[11px] font-semibold font-mono" style={{ color: TEXT }}>
+                  {formatRatio(snapshot.factorized.DCd)}
+                </p>
+              </div>
+              <div className="rounded-lg border px-2.5 py-2" style={fieldTone}>
+                <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>T1</p>
+                <p className="mt-1 text-[11px] font-semibold font-mono" style={{ color: TEXT }}>
+                  {formatDuration(snapshot.test.T1, snapshot.test.T1Unit)}
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-3 space-y-2">
+              <div className="rounded-lg border px-2.5 py-2" style={fieldTone}>
+                <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Factorisé</p>
+                <div className="mt-2 grid gap-2 text-[10px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(112px, 1fr))' }}>
+                  <ParameterReadout label="λ total" value={formatLambda(snapshot.factorized.lambda)} />
+                  <ParameterReadout label="λD / λ" value={formatRatio(snapshot.factorized.lambdaDRatio)} />
+                  <ParameterReadout label="DCd" value={formatRatio(snapshot.factorized.DCd)} />
+                  <ParameterReadout label="DCs" value={formatRatio(snapshot.factorized.DCs)} />
+                </div>
+              </div>
+
+              {developedVisible && (
+                <div className="rounded-lg border px-2.5 py-2" style={fieldTone}>
+                  <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Développé</p>
+                  <div className="mt-2 grid gap-2 text-[10px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(112px, 1fr))' }}>
+                    <ParameterReadout label="λDU" value={formatLambda(snapshot.developed.lambda_DU)} />
+                    <ParameterReadout label="λDD" value={formatLambda(snapshot.developed.lambda_DD)} />
+                    <ParameterReadout label="λSD" value={formatLambda(snapshot.developed.lambda_SD)} />
+                    <ParameterReadout label="λSU" value={formatLambda(snapshot.developed.lambda_SU)} />
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-lg border px-2.5 py-2" style={fieldTone}>
+                <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Test</p>
+                <div className="mt-2 grid gap-2 text-[10px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(112px, 1fr))' }}>
+                  <ParameterReadout label="Type" value={snapshot.test.testType} />
+                  <ParameterReadout label="T1" value={formatDuration(snapshot.test.T1, snapshot.test.T1Unit)} />
+                  <ParameterReadout label="T0" value={formatDuration(snapshot.test.T0, snapshot.test.T0Unit)} />
+                </div>
+              </div>
+
+              {advancedVisible && (
+                <div className="rounded-lg border px-2.5 py-2" style={fieldTone}>
+                  <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Avancé</p>
+                  <div className="mt-2 grid gap-2 text-[10px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(112px, 1fr))' }}>
+                    <ParameterReadout label="MTTR" value={formatDuration(snapshot.advanced.MTTR, 'hr')} />
+                    <ParameterReadout label="γ" value={String(snapshot.advanced.gamma ?? 0)} />
+                    <ParameterReadout label="λ*" value={formatLambda(snapshot.advanced.lambdaStar)} />
+                    <ParameterReadout label="π" value={formatDuration(snapshot.advanced.testDuration, 'hr')} />
+                    <ParameterReadout label="PTC" value={formatRatio(snapshot.advanced.proofTestCoverage)} />
+                    <ParameterReadout label="Lifetime" value={snapshot.advanced.lifetime == null ? 'n/a' : formatDuration(snapshot.advanced.lifetime, 'yr')} />
+                  </div>
+                  {snapshot.advanced.partialTest.enabled && (
+                    <div className="mt-2 rounded-lg border px-2.5 py-2" style={{ borderColor: `${meta.color}22`, background: `${meta.color}08` }}>
+                      <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: meta.color }}>Partial stroke test</p>
+                      <div className="mt-2 grid gap-2 text-[10px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(112px, 1fr))' }}>
+                        <ParameterReadout label="Durée" value={formatDuration(snapshot.advanced.partialTest.duration, 'hr')} />
+                        <ParameterReadout label="Détection" value={formatRatio(snapshot.advanced.partialTest.detectedFaultsPct)} />
+                        <ParameterReadout label="Nb tests" value={String(snapshot.advanced.partialTest.numberOfTests ?? 0)} />
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
+    </div>
+  )
+}
+
+function ParameterReadout({ label, value }: { label: string; value: string }) {
+  const { TEXT, TEXT_DIM } = usePrismTheme()
+  return (
+    <div>
+      <p className="text-[8px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{label}</p>
+      <p className="mt-1 text-[10px] font-medium font-mono" style={{ color: TEXT }}>{value}</p>
     </div>
   )
 }
@@ -485,6 +907,8 @@ function LibraryContent({ projectId }: { projectId: string }) {
   const [search, setSearch] = useState('')
   const [openTypes, setOpenTypes] = useState<Set<SubsystemType>>(new Set(['sensor', 'logic', 'actuator']))
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
+  const [expandedTemplateId, setExpandedTemplateId] = useState<string | null>(null)
+  const [visibleCountByType, setVisibleCountByType] = useState<Record<SubsystemType, number>>(INITIAL_LIBRARY_VISIBLE_COUNT)
 
   // Unified list: built-in first, then project, then user
   const allTemplates = [
@@ -497,7 +921,7 @@ function LibraryContent({ projectId }: { projectId: string }) {
     const needle = search.trim().toLowerCase()
     if (!needle) return allTemplates
     return allTemplates.filter(({ template: t }) => {
-      const hay = [t.name, t.description, t.instrumentType, t.manufacturer, t.dataSource, ...t.tags]
+      const hay = [t.name, t.description, t.instrumentType, t.manufacturer, t.dataSource, t.sourceReference, ...t.tags]
         .filter(Boolean).join(' ').toLowerCase()
       return hay.includes(needle)
     })
@@ -515,6 +939,31 @@ function LibraryContent({ projectId }: { projectId: string }) {
       next.has(type) ? next.delete(type) : next.add(type)
       return next
     })
+
+  const toggleDetails = (id: string) => {
+    setExpandedTemplateId(current => current === id ? null : id)
+  }
+
+  const showMore = (type: SubsystemType) => {
+    setVisibleCountByType(prev => ({
+      ...prev,
+      [type]: prev[type] + LIBRARY_PREVIEW_COUNT,
+    }))
+  }
+
+  const showLess = (type: SubsystemType) => {
+    setVisibleCountByType(prev => ({
+      ...prev,
+      [type]: INITIAL_LIBRARY_VISIBLE_COUNT[type],
+    }))
+    setExpandedTemplateId(current => {
+      if (!current) return current
+      const visibleTemplateIds = bySubsystem[type]
+        .slice(0, INITIAL_LIBRARY_VISIBLE_COUNT[type])
+        .map(item => item.template.id)
+      return visibleTemplateIds.includes(current) ? current : null
+    })
+  }
 
   const reset = () => { setStatusMessage(null); clearError(null); setSyncError(null) }
 
@@ -570,15 +1019,13 @@ function LibraryContent({ projectId }: { projectId: string }) {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Rechercher…"
-          className="min-w-0 flex-1 rounded-md border px-2 py-1.5 text-[11px] outline-none transition-colors"
+          className="prism-field min-w-0 flex-1 rounded-md border px-2 py-1.5 text-[11px] outline-none"
           style={{ background: PAGE_BG, borderColor: BORDER, color: TEXT }}
-          onFocus={e => (e.target.style.borderColor = TEAL)}
-          onBlur={e => (e.target.style.borderColor = BORDER)}
         />
         <button
           type="button"
           onClick={() => fileInputRef.current?.click()}
-          className="flex h-7 w-7 items-center justify-center rounded-md border transition-colors hover:bg-black/5 dark:hover:bg-[#1E242B]"
+          className="prism-action flex h-7 w-7 items-center justify-center rounded-md border"
           style={{ borderColor: BORDER, color: TEXT_DIM }}
           title="Importer (JSON)"
         >
@@ -588,7 +1035,7 @@ function LibraryContent({ projectId }: { projectId: string }) {
           type="button"
           onClick={handleExport}
           disabled={userTemplates.length === 0 && projectTemplates.length === 0}
-          className="flex h-7 w-7 items-center justify-center rounded-md border transition-colors hover:bg-black/5 dark:hover:bg-[#1E242B] disabled:opacity-30 disabled:cursor-not-allowed"
+          className="prism-action flex h-7 w-7 items-center justify-center rounded-md border disabled:opacity-30 disabled:cursor-not-allowed"
           style={{ borderColor: BORDER, color: TEXT_DIM }}
           title="Exporter mes templates"
         >
@@ -597,7 +1044,7 @@ function LibraryContent({ projectId }: { projectId: string }) {
         <button
           type="button"
           onClick={() => void fetchTemplates()}
-          className="flex h-7 w-7 items-center justify-center rounded-md border transition-colors hover:bg-black/5 dark:hover:bg-[#1E242B]"
+          className="prism-action flex h-7 w-7 items-center justify-center rounded-md border"
           style={{ borderColor: BORDER, color: TEXT_DIM }}
           title="Recharger"
         >
@@ -629,6 +1076,10 @@ function LibraryContent({ projectId }: { projectId: string }) {
           const meta  = SUB_META[type]
           const items = bySubsystem[type]
           const open  = openTypes.has(type)
+          const visibleCount = search.trim() ? items.length : visibleCountByType[type]
+          const visibleItems = items.slice(0, visibleCount)
+          const remainingCount = Math.max(0, items.length - visibleItems.length)
+          const canShowLess = !search.trim() && visibleCountByType[type] > INITIAL_LIBRARY_VISIBLE_COUNT[type] && items.length > INITIAL_LIBRARY_VISIBLE_COUNT[type]
           return (
             <div key={type}>
               <button
@@ -647,15 +1098,43 @@ function LibraryContent({ projectId }: { projectId: string }) {
                   : <ChevronRight size={9} style={{ color: TEXT_DIM }} />
                 }
               </button>
-              {open && items.map(({ template, origin }) => (
+              {open && visibleItems.map(({ template, origin }) => (
                 <TemplateCard
                   key={template.id}
                   template={template}
                   origin={origin}
+                  expanded={expandedTemplateId === template.id}
+                  onToggleDetails={toggleDetails}
                   onArchive={origin !== 'builtin' ? handleArchive : undefined}
                   onDelete={origin !== 'builtin' ? handleDelete : undefined}
                 />
               ))}
+              {open && !search.trim() && remainingCount > 0 && (
+                <div style={{ borderBottom: `1px solid ${BORDER}28`, background: PAGE_BG }}>
+                  <button
+                    type="button"
+                    onClick={() => showMore(type)}
+                    className="prism-action flex w-full items-center justify-between px-3 py-2 text-left transition-colors"
+                    style={{ color: meta.color }}
+                  >
+                    <span className="text-[10px] font-semibold">Charger plus</span>
+                    <span className="text-[9px] font-mono" style={{ color: TEXT_DIM }}>+{remainingCount}</span>
+                  </button>
+                </div>
+              )}
+              {open && canShowLess && (
+                <div style={{ borderBottom: `1px solid ${BORDER}28`, background: PAGE_BG }}>
+                  <button
+                    type="button"
+                    onClick={() => showLess(type)}
+                    className="prism-action flex w-full items-center justify-between px-3 py-2 text-left transition-colors"
+                    style={{ color: TEXT_DIM }}
+                  >
+                    <span className="text-[10px] font-semibold">Voir moins</span>
+                    <span className="text-[9px] font-mono">{INITIAL_LIBRARY_VISIBLE_COUNT[type]}</span>
+                  </button>
+                </div>
+              )}
               {open && items.length === 0 && (
                 <p className="px-3 py-3 text-center text-[10px]" style={{ color: TEXT_DIM }}>
                   Aucun template{search ? ' correspondant' : ''}.
@@ -709,7 +1188,7 @@ function EmptyComponentState({ onGoToLibrary }: { onGoToLibrary: () => void }) {
       <button
         type="button"
         onClick={onGoToLibrary}
-        className="flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors hover:bg-black/5 dark:hover:bg-[#1E242B]"
+        className="prism-action flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold"
         style={{ borderColor: BORDER, color: TEXT_DIM }}
       >
         <BookOpen size={11} />
@@ -724,9 +1203,10 @@ function EmptyComponentState({ onGoToLibrary }: { onGoToLibrary: () => void }) {
 interface Props {
   sif: SIF
   projectId: string
+  onOpenCcfBeta?: (subsystemId: string) => void
 }
 
-export function LoopEditorRightPanel({ sif, projectId }: Props) {
+export function LoopEditorRightPanel({ sif, projectId, onOpenCcfBeta }: Props) {
   const { PANEL_BG } = usePrismTheme()
   const selectedId      = useAppStore(state => state.selectedComponentId)
   const selectComponent = useAppStore(state => state.selectComponent)
@@ -769,9 +1249,9 @@ export function LoopEditorRightPanel({ sif, projectId }: Props) {
       contentBg={PANEL_BG}
     >
       {/* ── Content ── */}
-      <div className="flex-1 min-w-0 overflow-hidden">
+      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
         {mode === 'architecture' && (
-          <ArchitectureConfigPanel sif={sif} projectId={projectId} />
+          <ArchitectureConfigPanel sif={sif} projectId={projectId} onOpenCcfBeta={onOpenCcfBeta} />
         )}
         {mode === 'component' && (
           found ? (

@@ -1,8 +1,15 @@
-import { FileText, Lock, ShieldCheck } from 'lucide-react'
+import { Lock, ShieldCheck } from 'lucide-react'
 import type { SIF, SIFCalcResult } from '@/core/types'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
 import type { OverviewMetrics } from '@/components/sif/overviewMetrics'
-import { RightPanelShell } from '@/components/layout/RightPanelShell'
+import {
+  InspectorBlock,
+  InspectorReferenceRow,
+  InspectorStatusBadge,
+  InspectorSurface,
+  RightPanelBody,
+  RightPanelShell,
+} from '@/components/layout/RightPanelShell'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
@@ -12,50 +19,7 @@ interface Props {
   compliance: ComplianceResult
   overviewMetrics: OverviewMetrics
 }
-
 type ItemStatus = 'complete' | 'review' | 'missing'
-
-function ProgressBar({ value, color }: { value: number; color: string }) {
-  return (
-    <div className="h-1.5 w-full overflow-hidden rounded-full" style={{ background: `${color}15` }}>
-      <div
-        className="h-full rounded-full transition-all duration-500"
-        style={{ width: `${Math.min(100, Math.max(0, value))}%`, background: color }}
-      />
-    </div>
-  )
-}
-
-function MetricRow({ label, value, color, suffix }: { label: string; value: string | number; color: string; suffix?: string }) {
-  const { BORDER, TEXT_DIM } = usePrismTheme()
-  return (
-    <div className="flex items-center justify-between border-b py-2 last:border-b-0" style={{ borderColor: `${BORDER}99` }}>
-      <span className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{label}</span>
-      <span className="text-[12px] font-semibold font-mono" style={{ color }}>
-        {value}{suffix}
-      </span>
-    </div>
-  )
-}
-
-function PanelSection({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
-  const { BORDER, SHADOW_SOFT, TEAL, TEXT } = usePrismTheme()
-  return (
-    <section className="border-b pb-4 last:border-b-0 last:pb-0" style={{ borderColor: `${BORDER}A6` }}>
-      <div className="mb-3 flex items-center gap-2">
-        <span className="h-1.5 w-1.5 rounded-full" style={{ background: TEAL, boxShadow: SHADOW_SOFT }} />
-        <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEAL }}>{title}</p>
-      </div>
-      <div style={{ color: TEXT }}>{children}</div>
-    </section>
-  )
-}
 
 function statusMeta(status: ItemStatus) {
   if (status === 'complete') {
@@ -84,18 +48,6 @@ function statusMeta(status: ItemStatus) {
   }
 }
 
-function StatusBadge({ status }: { status: ItemStatus }) {
-  const meta = statusMeta(status)
-  return (
-    <span
-      className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold"
-      style={{ color: meta.color, background: meta.background, borderColor: meta.border }}
-    >
-      {meta.label}
-    </span>
-  )
-}
-
 function ChecklistRow({
   label,
   value,
@@ -105,38 +57,28 @@ function ChecklistRow({
   value: string
   status: ItemStatus
 }) {
-  const { BORDER, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
+  const { TEXT, TEXT_DIM } = usePrismTheme()
+  const meta = statusMeta(status)
   return (
-    <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: `${BORDER}99`, background: SURFACE }}>
+    <InspectorSurface>
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
           <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{label}</p>
           <p className="mt-1 text-sm leading-relaxed" style={{ color: TEXT }}>{value}</p>
         </div>
-        <StatusBadge status={status} />
+        <InspectorStatusBadge
+          label={meta.label}
+          color={meta.color}
+          background={meta.background}
+          borderColor={meta.border}
+        />
       </div>
-    </div>
-  )
-}
-
-function ReferenceRow({
-  label,
-  value,
-}: {
-  label: string
-  value: string
-}) {
-  const { BORDER, TEXT, TEXT_DIM } = usePrismTheme()
-  return (
-    <div className="flex items-start justify-between gap-3 border-b py-2 last:border-b-0" style={{ borderColor: `${BORDER}99` }}>
-      <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: TEXT_DIM }}>{label}</span>
-      <span className="max-w-[58%] text-right text-sm leading-relaxed" style={{ color: TEXT }}>{value}</span>
-    </div>
+    </InspectorSurface>
   )
 }
 
 export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: Props) {
-  const { BORDER, PANEL_BG, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const { PANEL_BG, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const evidenceById = new Map(compliance.evidenceItems.map(item => [item.id, item]))
   const proofProcedureItem = evidenceById.get('proof-procedure')
   const proofEvidenceItem = evidenceById.get('proof-evidence')
@@ -161,47 +103,43 @@ export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: 
       onSelect={() => {}}
       contentBg={PANEL_BG}
     >
-      <div className="flex-1 overflow-y-auto px-4 py-4" style={{ scrollbarGutter: 'stable' }}>
-        <section className="border-b pb-4" style={{ borderColor: `${BORDER}A6` }}>
-          <div className="mb-2 flex items-start justify-between gap-3">
-            <div>
-              <p className="text-sm font-semibold" style={{ color: TEXT }}>Dossier cockpit</p>
-              <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-                Le panneau garde le statut de défense du dossier sans répéter tout le cockpit central.
-              </p>
+      <RightPanelBody compact>
+        <div className="space-y-3">
+          <InspectorBlock
+            title="Ready"
+            hint="État de défense du dossier sans répéter le cockpit central."
+          >
+            <div className="space-y-2">
+              {[
+                { label: 'Readiness', value: `${readiness}%`, tone: readinessColor },
+                { label: 'Calcul', value: result.meetsTarget ? 'Tenu' : 'Sous cible', tone: result.meetsTarget ? semantic.success : semantic.error },
+                { label: 'Trace', value: `${overviewMetrics.tracePct}%`, tone: overviewMetrics.tracePct === 100 ? semantic.success : TEXT },
+                { label: 'Preuves', value: `${overviewMetrics.evidenceCompleteCount}/${overviewMetrics.evidenceTotalCount}`, tone: TEAL_DIM },
+                { label: 'Approbations', value: `${overviewMetrics.approvalFilledCount}/3`, tone: overviewMetrics.approvalFilledCount === 3 ? semantic.success : TEXT },
+                { label: 'Hypothèses', value: String(overviewMetrics.pendingAssumptions), tone: overviewMetrics.pendingAssumptions === 0 ? semantic.success : semantic.warning },
+              ].map(item => (
+                <InspectorSurface key={item.label} className="flex items-center justify-between gap-3 rounded-lg px-2.5 py-2">
+                  <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{item.label}</p>
+                  <p className="text-sm font-semibold font-mono" style={{ color: item.tone }}>{item.value}</p>
+                </InspectorSurface>
+              ))}
             </div>
-            <span className="text-[14px] font-bold font-mono" style={{ color: readinessColor }}>{readiness}%</span>
-          </div>
-          <ProgressBar value={readiness} color={readinessColor} />
 
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]" style={{ color: TEXT_DIM }}>
-            <span style={{ color: TEXT }}>{sif.sifNumber}</span>
-            <span>·</span>
-            <span>{result.meetsTarget ? 'Base calcul cohérente' : 'Base calcul à reprendre'}</span>
-            <span
-              className="inline-flex items-center gap-1 rounded-full border px-2 py-1 font-semibold"
-              style={{
-                color: sif.revisionLockedAt ? semantic.success : TEAL_DIM,
-                background: sif.revisionLockedAt ? `${semantic.success}10` : `${TEAL}10`,
-                borderColor: sif.revisionLockedAt ? `${semantic.success}32` : `${TEAL}35`,
-              }}
-            >
-              <Lock size={10} />
-              {sif.revisionLockedAt ? `Rév. ${sif.revision} publiée` : `Rév. ${sif.revision} en travail`}
-            </span>
-          </div>
-        </section>
+            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]" style={{ color: TEXT_DIM }}>
+              <span style={{ color: TEXT }}>{sif.sifNumber}</span>
+              <span>·</span>
+              <span>{result.meetsTarget ? 'Base calcul cohérente' : 'Base calcul à reprendre'}</span>
+              <InspectorStatusBadge
+                label={sif.revisionLockedAt ? `Rév. ${sif.revision} publiée` : `Rév. ${sif.revision} en travail`}
+                color={sif.revisionLockedAt ? semantic.success : TEAL_DIM}
+                background={sif.revisionLockedAt ? `${semantic.success}10` : `${TEAL}10`}
+                borderColor={sif.revisionLockedAt ? `${semantic.success}32` : `${TEAL}35`}
+                icon={<Lock size={10} />}
+              />
+            </div>
+          </InspectorBlock>
 
-        <div className="space-y-4 pt-4">
-          <PanelSection title="Lecture">
-            <MetricRow label="Calcul" value={result.meetsTarget ? 'Tenu' : 'Sous cible'} color={result.meetsTarget ? semantic.success : semantic.error} />
-            <MetricRow label="Trace" value={overviewMetrics.tracePct} color={overviewMetrics.tracePct === 100 ? semantic.success : TEXT} suffix="%" />
-            <MetricRow label="Preuves" value={`${overviewMetrics.evidenceCompleteCount}/${overviewMetrics.evidenceTotalCount}`} color={TEAL_DIM} />
-            <MetricRow label="Approbations" value={`${overviewMetrics.approvalFilledCount}/3`} color={overviewMetrics.approvalFilledCount === 3 ? semantic.success : TEXT} />
-            <MetricRow label="Hypothèses" value={overviewMetrics.pendingAssumptions} color={overviewMetrics.pendingAssumptions === 0 ? semantic.success : semantic.warning} />
-          </PanelSection>
-
-          <PanelSection title="Chaîne de gouvernance">
+          <InspectorBlock title="Gouvernance">
             <div className="space-y-2">
               {governanceSummary.map(item => (
                 <ChecklistRow
@@ -212,9 +150,9 @@ export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: 
                 />
               ))}
             </div>
-          </PanelSection>
+          </InspectorBlock>
 
-          <PanelSection title="Package de preuve">
+          <InspectorBlock title="Package preuve">
             <div className="space-y-2">
               <ChecklistRow
                 label="Procédure proof test"
@@ -232,30 +170,32 @@ export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: 
                 status={(reportPackageItem?.status ?? 'review') as ItemStatus}
               />
             </div>
-          </PanelSection>
+          </InspectorBlock>
 
-          <PanelSection title="Références critiques">
+          <InspectorBlock title="Références">
             <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
               Ce panneau garde les points utiles pour audit et relecture, sans répéter le cockpit central.
             </p>
 
-            <div className="mt-3 rounded-xl border px-3 py-2" style={{ borderColor: `${BORDER}99`, background: SURFACE }}>
-              <ReferenceRow label="Scenario ID" value={sif.hazopTrace?.scenarioId || 'Non renseigné'} />
-              <ReferenceRow label="HAZOP node" value={sif.hazopTrace?.hazopNode || 'Non renseigné'} />
-              <ReferenceRow label="LOPA ref." value={sif.hazopTrace?.lopaRef || 'Non renseigné'} />
-              <ReferenceRow label="Proof test ref." value={sif.proofTestProcedure?.ref || 'Non renseigné'} />
-              <ReferenceRow
+            <InspectorSurface className="mt-3">
+              <InspectorReferenceRow label="Scenario ID" value={sif.hazopTrace?.scenarioId || 'Non renseigné'} />
+              <InspectorReferenceRow label="HAZOP node" value={sif.hazopTrace?.hazopNode || 'Non renseigné'} />
+              <InspectorReferenceRow label="LOPA ref." value={sif.hazopTrace?.lopaRef || 'Non renseigné'} />
+              <InspectorReferenceRow label="Proof test ref." value={sif.proofTestProcedure?.ref || 'Non renseigné'} />
+              <InspectorReferenceRow
                 label="Révision"
                 value={sif.revisionLockedAt ? `Publiée le ${new Date(sif.revisionLockedAt).toLocaleDateString()}` : `Révision ${sif.revision} en travail`}
               />
-            </div>
+            </InspectorSurface>
 
-            <div className="mt-3 rounded-lg border px-3 py-2 text-[11px]" style={{ borderColor: `${BORDER}99`, background: SURFACE, color: TEXT_DIM }}>
-              L’historique des révisions et les téléchargements PDF restent dans le cockpit central.
-            </div>
-          </PanelSection>
+            <InspectorSurface className="mt-3 text-[11px]" background={SURFACE}>
+              <span style={{ color: TEXT_DIM }}>
+                L’historique des révisions et les téléchargements PDF restent dans le cockpit central.
+              </span>
+            </InspectorSurface>
+          </InspectorBlock>
         </div>
-      </div>
+      </RightPanelBody>
     </RightPanelShell>
   )
 }

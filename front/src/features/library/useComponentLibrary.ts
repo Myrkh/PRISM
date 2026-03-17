@@ -1,5 +1,6 @@
-import { useEffect, useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { BUILTIN_COMPONENT_TEMPLATES } from './builtinCatalog'
+import { fetchLambdaDbComponentTemplates } from '@/lib/componentLibraryApi'
 import { useAppStore } from '@/store/appStore'
 
 export function useComponentLibrary(projectId: string) {
@@ -13,11 +14,27 @@ export function useComponentLibrary(projectId: string) {
   const archiveTemplate = useAppStore(state => state.archiveComponentTemplate)
   const deleteTemplate = useAppStore(state => state.deleteComponentTemplate)
   const clearError = useAppStore(state => state.setComponentTemplatesError)
+  const [builtinTemplates, setBuiltinTemplates] = useState(BUILTIN_COMPONENT_TEMPLATES)
 
   useEffect(() => {
     if (!authUserId || loading || templates.length > 0) return
     void fetchTemplates().catch(() => undefined)
   }, [authUserId, fetchTemplates, loading, templates.length])
+
+  useEffect(() => {
+    let active = true
+
+    void fetchLambdaDbComponentTemplates()
+      .then(nextTemplates => {
+        if (!active || nextTemplates.length === 0) return
+        setBuiltinTemplates(nextTemplates)
+      })
+      .catch(() => undefined)
+
+    return () => {
+      active = false
+    }
+  }, [])
 
   const projectTemplates = useMemo(
     () => templates.filter(template => !template.isArchived && template.scope === 'project' && template.projectId === projectId),
@@ -30,7 +47,7 @@ export function useComponentLibrary(projectId: string) {
   )
 
   return {
-    builtinTemplates: BUILTIN_COMPONENT_TEMPLATES,
+    builtinTemplates,
     projectTemplates,
     userTemplates,
     loading,

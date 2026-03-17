@@ -151,7 +151,7 @@ function FieldInput(props: InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className="w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors"
+      className="prism-field w-full rounded-lg border px-3 py-2 text-sm outline-none"
       style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
     />
   )
@@ -162,7 +162,7 @@ function FieldTextArea(props: TextareaHTMLAttributes<HTMLTextAreaElement>) {
   return (
     <textarea
       {...props}
-      className="min-h-[76px] w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors resize-y"
+      className="prism-field min-h-[76px] w-full rounded-lg border px-3 py-2 text-sm outline-none resize-y"
       style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
     />
   )
@@ -182,7 +182,7 @@ function FieldSelect({
     <select
       value={value}
       onChange={event => onChange(event.target.value)}
-      className="w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors"
+      className="prism-field w-full rounded-lg border px-3 py-2 text-sm outline-none"
       style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
     >
       {options.map(option => (
@@ -208,7 +208,7 @@ function JumpButton({
     <button
       type="button"
       onClick={() => onSelectTab(tab)}
-      className="inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors"
+      className="prism-action inline-flex items-center gap-1 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors"
       style={{ borderColor: `${TEAL}55`, color: TEAL, background: `${TEAL}10` }}
     >
       {label}

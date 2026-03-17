@@ -376,10 +376,12 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
 
                 {/* Editor column */}
                 <div className="flex flex-1 min-w-0 min-h-0 flex-col overflow-hidden">
-                  <SIFWorkbenchBar
-                    active={visibleTab}
-                    onSelect={(id) => setTab(id)}
-                  />
+                  {!leftOpen && (
+                    <SIFWorkbenchBar
+                      active={visibleTab}
+                      onSelect={(id) => setTab(id)}
+                    />
+                  )}
 
                   <EditorContent className="flex flex-col">
                     {children}

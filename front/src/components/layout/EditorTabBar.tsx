@@ -5,7 +5,7 @@
  * SIFLifecycleBar : stepper cycle de vie SIF (IEC 61511) — Cockpit | 1→4 | Rapport.
  * EditorContent   : wrapper zone principale.
  */
-import { type ReactNode } from 'react'
+import { useState, type ReactNode } from 'react'
 import type { CanonicalSIFTab } from '@/store/types'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { cn } from '@/lib/utils'
@@ -96,44 +96,48 @@ function PhaseBtn({
 }: {
   phase: PhaseEntry; isActive: boolean; onClick: () => void
 }) {
-  const { BORDER, CARD_BG, SHADOW_CARD, SHADOW_SOFT, TEAL, TEXT, TEXT_DIM, PAGE_BG, SURFACE } = usePrismTheme()
+  const { BORDER, CARD_BG, SHADOW_CARD, SHADOW_SOFT, TEXT, TEXT_DIM, PAGE_BG, SURFACE } = usePrismTheme()
+  const [hovered, setHovered] = useState(false)
+  const [pressed, setPressed] = useState(false)
   const isReport = phase.id === 'report'
+  const borderColor = isActive ? `${phase.accent}30` : hovered ? `${BORDER}D0` : 'transparent'
+  const boxShadow = isActive ? (pressed ? SHADOW_SOFT : SHADOW_CARD) : hovered || pressed ? SHADOW_SOFT : 'none'
+  const transform = pressed
+    ? 'translateY(1px) scale(0.985)'
+    : hovered ? 'translateY(-0.5px) scale(1)' : 'translateY(0) scale(1)'
 
   return (
     <button
       type="button"
       onClick={onClick}
       title={phase.label}
-      className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium transition-all shrink-0"
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => {
+        setHovered(false)
+        setPressed(false)
+      }}
+      onPointerDown={() => setPressed(true)}
+      onPointerUp={() => setPressed(false)}
+      onPointerCancel={() => setPressed(false)}
+      className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[12px] font-medium transition-[background-color,color,border-color,box-shadow,transform] duration-150 ease-out shrink-0"
       style={{
-        color:      isActive ? phase.accent : TEXT_DIM,
-        background: isActive ? SURFACE : 'transparent',
-        border:     `1px solid ${isActive ? `${phase.accent}30` : 'transparent'}`,
+        color:      isActive ? phase.accent : hovered ? TEXT : TEXT_DIM,
+        background: isActive ? SURFACE : hovered ? PAGE_BG : 'transparent',
+        border:     `1px solid ${borderColor}`,
         fontWeight: isActive ? 600 : 400,
-        boxShadow:  isActive ? SHADOW_CARD : 'none',
-      }}
-      onMouseEnter={e => {
-        if (!isActive) {
-          e.currentTarget.style.color = TEXT
-          e.currentTarget.style.background = PAGE_BG
-          e.currentTarget.style.boxShadow = SHADOW_SOFT
-        }
-      }}
-      onMouseLeave={e => {
-        if (!isActive) {
-          e.currentTarget.style.color = TEXT_DIM
-          e.currentTarget.style.background = 'transparent'
-          e.currentTarget.style.boxShadow = 'none'
-        }
+        boxShadow,
+        transform,
       }}
     >
       {/* Numéro de phase (steps 1-4 seulement) */}
       {phase.step && (
         <span
-          className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold shrink-0"
+          className="inline-flex items-center justify-center w-4 h-4 rounded-full text-[9px] font-bold shrink-0 transition-[background-color,color,box-shadow,transform] duration-150 ease-out"
           style={{
-            background: isActive ? phase.accent : CARD_BG,
-            color:      isActive ? '#041014' : TEXT_DIM,
+            background: isActive ? phase.accent : hovered ? PAGE_BG : CARD_BG,
+            color:      isActive ? '#041014' : hovered ? TEXT : TEXT_DIM,
+            boxShadow:  isActive ? SHADOW_SOFT : hovered ? SHADOW_SOFT : 'none',
+            transform:  isActive ? 'scale(1)' : hovered ? 'scale(0.98)' : 'scale(0.96)',
           }}
         >
           {phase.step}

@@ -1,6 +1,7 @@
 import { BarChart3, ShieldCheck, SlidersHorizontal } from 'lucide-react'
 import type { BetaAssessmentResult } from '@/core/math/betaFactor'
 import type { BetaAssessmentConfig, CCFMethod, SIFSubsystem, VoteType } from '@/core/types'
+import { InspectorBlock, InspectorSurface, RightPanelBody } from '@/components/layout/RightPanelShell'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
 function formatBetaPct(value: number | null | undefined): string {
@@ -65,17 +66,14 @@ export function CCFBetaRightPanel({
         </p>
       </div>
 
-      <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
+      <RightPanelBody compact className="space-y-3">
         {selectedSubsystem ? (
           <>
-            <section className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>
-                Subsystem
-              </p>
+            <InspectorBlock title="Subsystem">
               <select
                 value={selectedSubsystemId ?? ''}
                 onChange={e => onSelectSubsystem(e.target.value)}
-                className="mt-2 h-10 w-full rounded-lg border px-2.5 text-sm outline-none"
+                className="prism-field mt-2 h-10 w-full rounded-lg border px-2.5 text-sm outline-none"
                 style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT, boxShadow: SHADOW_SOFT }}
               >
                 {redundantSubsystems.map(subsystem => (
@@ -91,20 +89,17 @@ export function CCFBetaRightPanel({
                   { label: 'Profile', value: profileLabel },
                   { label: 'Vote', value: voteType },
                 ].map(item => (
-                  <div key={item.label} className="rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
+                  <InspectorSurface key={item.label} className="rounded-lg px-2.5 py-2" background={SURFACE} borderColor={BORDER}>
                     <p className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{item.label}</p>
                     <p className="mt-1 text-[11px] font-bold font-mono" style={{ color: TEXT }}>{item.value}</p>
-                  </div>
+                  </InspectorSurface>
                 ))}
               </div>
-            </section>
+            </InspectorBlock>
 
-            <section className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
-              <div className="flex items-center gap-2">
+            <InspectorBlock title="Workspace">
+              <div className="mb-3 flex items-center gap-2">
                 <SlidersHorizontal size={12} style={{ color: TEAL }} />
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>
-                  Workspace
-                </p>
               </div>
               <div className="mt-3 space-y-2">
                 {[
@@ -112,15 +107,15 @@ export function CCFBetaRightPanel({
                   { id: 'manual', label: 'Manual Override', hint: 'Saisie directe de beta / betaD' },
                 ].map(option => {
                   const active = mode === option.id
-                  return (
-                    <button
-                      key={option.id}
-                      type="button"
-                      onClick={() => onModeChange(option.id as BetaAssessmentConfig['mode'])}
-                      className="w-full rounded-lg border px-3 py-2 text-left transition-colors"
-                      style={{
-                        borderColor: active ? `${TEAL}80` : BORDER,
-                        background: active ? `${TEAL}10` : SURFACE,
+                    return (
+                      <button
+                        key={option.id}
+                        type="button"
+                        onClick={() => onModeChange(option.id as BetaAssessmentConfig['mode'])}
+                        className="prism-action w-full rounded-lg border px-3 py-2 text-left"
+                        style={{
+                          borderColor: active ? `${TEAL}80` : BORDER,
+                          background: active ? `${TEAL}10` : SURFACE,
                         boxShadow: SHADOW_SOFT,
                       }}
                     >
@@ -130,14 +125,11 @@ export function CCFBetaRightPanel({
                   )
                 })}
               </div>
-            </section>
+            </InspectorBlock>
 
-            <section className="rounded-xl border px-3 py-3" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
-              <div className="flex items-center gap-2">
+            <InspectorBlock title="Snapshot">
+              <div className="mb-3 flex items-center gap-2">
                 <BarChart3 size={12} style={{ color: TEAL }} />
-                <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>
-                  Snapshot
-                </p>
               </div>
               <div className="mt-3 grid grid-cols-2 gap-2">
                 {[
@@ -146,10 +138,10 @@ export function CCFBetaRightPanel({
                   { label: 'Beta', value: formatBetaPct(previewBeta) },
                   { label: 'BetaD', value: formatBetaPct(previewBetaD) },
                 ].map(item => (
-                  <div key={item.label} className="rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
+                  <InspectorSurface key={item.label} className="rounded-lg px-2.5 py-2" background={SURFACE} borderColor={BORDER}>
                     <p className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{item.label}</p>
                     <p className="mt-1 text-[11px] font-bold font-mono" style={{ color: TEXT }}>{item.value}</p>
-                  </div>
+                  </InspectorSurface>
                 ))}
               </div>
               {result?.warnings.length ? (
@@ -160,14 +152,14 @@ export function CCFBetaRightPanel({
                   {result.warnings[0]}
                 </div>
               ) : null}
-            </section>
+            </InspectorBlock>
           </>
         ) : (
           <div className="rounded-xl border px-3 py-4 text-sm" style={{ borderColor: BORDER, background: CARD_BG, color: TEXT_DIM, boxShadow: SHADOW_SOFT }}>
             Aucun sous-systeme redondant n&apos;est disponible pour l&apos;evaluation CCF.
           </div>
         )}
-      </div>
+      </RightPanelBody>
     </div>
   )
 }

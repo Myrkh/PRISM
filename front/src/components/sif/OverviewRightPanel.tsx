@@ -3,7 +3,16 @@ import { ArrowRight, FileText, ShieldCheck, Sparkles } from 'lucide-react'
 import type { SIF, SIFCalcResult } from '@/core/types'
 import type { SIFTab } from '@/store/types'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
-import { RightPanelShell } from '@/components/layout/RightPanelShell'
+import {
+  InspectorActionButton,
+  InspectorHero,
+  InspectorReferenceRow,
+  InspectorSection,
+  InspectorStatusBadge,
+  InspectorSurface,
+  RightPanelBody,
+  RightPanelShell,
+} from '@/components/layout/RightPanelShell'
 import { SILBadge } from '@/components/shared/SILBadge'
 import { formatPFD, formatRRF } from '@/core/math/pfdCalc'
 import { getOverviewMetrics } from '@/components/sif/overviewMetrics'
@@ -37,29 +46,29 @@ export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Pro
       onSelect={tab => setActiveTab(tab)}
       contentBg={PANEL_BG}
     >
-      <div className="flex-1 overflow-y-auto px-3 py-3" style={{ scrollbarGutter: 'stable' }}>
+      <RightPanelBody compact>
         <div className="space-y-3">
           {activeTab === 'snapshot' && (
             <>
-              <div className="rounded-xl border p-3 space-y-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                <div className="flex items-start justify-between gap-3">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEAL }}>
-                      Operational confidence
-                    </p>
-                    <p className="text-2xl font-black font-mono" style={{ color: health.color }}>
-                      {metrics.recentCampaigns.length || sif.operationalEvents.length ? `${metrics.operationalScore}/100` : '—'}
-                    </p>
-                  </div>
-                  <span
-                    className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold"
-                    style={{ color: health.color, background: health.bg, borderColor: health.border }}
-                  >
-                    <health.Icon size={11} />
-                    {health.label}
-                  </span>
-                </div>
+              <InspectorHero
+                title="Operational confidence"
+                description="Vue condensée de la tenue calcul, exploitation et gouvernance de la SIF."
+                aside={
+                  <InspectorStatusBadge
+                    label={health.label}
+                    color={health.color}
+                    background={health.bg}
+                    borderColor={health.border}
+                    icon={<health.Icon size={11} />}
+                  />
+                }
+              >
+                <p className="text-2xl font-black font-mono" style={{ color: health.color }}>
+                  {metrics.recentCampaigns.length || sif.operationalEvents.length ? `${metrics.operationalScore}/100` : '—'}
+                </p>
+              </InspectorHero>
 
+              <InspectorSection title="Lecture">
                 <div className="grid grid-cols-2 gap-2">
                   {[
                     { label: 'Target SIL', value: `SIL ${sif.targetSIL}`, tone: TEAL_DIM },
@@ -69,41 +78,37 @@ export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Pro
                     { label: 'Next proof test', value: metrics.nextDue ? metrics.nextDue.toLocaleDateString() : 'Not scheduled', tone: metrics.isOverdue ? semantic.error : TEXT },
                     { label: 'Traceability', value: `${metrics.tracePct}%`, tone: metrics.tracePct === 100 ? semantic.success : TEAL_DIM },
                   ].map(item => (
-                    <div key={item.label} className="rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+                    <InspectorSurface key={item.label} className="rounded-lg px-2.5 py-2" background={CARD_BG} borderColor={BORDER}>
                       <p className="mb-1 text-[9px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{item.label}</p>
                       <p className="text-sm font-bold font-mono" style={{ color: item.tone }}>{item.value}</p>
-                    </div>
+                    </InspectorSurface>
                   ))}
                 </div>
-              </div>
+              </InspectorSection>
 
-              <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEAL }}>
-                  Governance snapshot
-                </p>
-
+              <InspectorSection title="Governance snapshot">
                 {[
                   { label: 'Metadata ready', value: `${metrics.metadataPct}%`, detail: `${compliance.missingMetadata.length} field${compliance.missingMetadata.length > 1 ? 's' : ''} still missing` },
                   { label: 'Evidence package', value: `${metrics.evidenceCompleteCount}/${metrics.evidenceTotalCount}`, detail: 'Completed evidence items' },
                   { label: 'Assumptions reviewed', value: `${metrics.reviewedAssumptions}/${compliance.assumptions.length}`, detail: `${metrics.pendingAssumptions} pending review` },
                   { label: 'Approval chain', value: `${metrics.approvalFilledCount}/3`, detail: 'Made / Verified / Approved' },
                 ].map(item => (
-                  <div key={item.label} className="flex items-start justify-between gap-3 rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
+                  <InspectorSurface key={item.label} className="mb-2 flex items-start justify-between gap-3 rounded-lg px-2.5 py-2" background={CARD_BG} borderColor={BORDER}>
                     <div>
                       <p className="text-xs font-semibold" style={{ color: TEXT }}>{item.label}</p>
                       <p className="text-[11px]" style={{ color: TEXT_DIM }}>{item.detail}</p>
                     </div>
                     <span className="text-sm font-bold font-mono" style={{ color: TEAL_DIM }}>{item.value}</span>
-                  </div>
+                  </InspectorSurface>
                 ))}
-              </div>
+              </InspectorSection>
             </>
           )}
 
           {activeTab === 'actions' && (
-            <div className="space-y-2">
+            <InspectorSection title="Actions">
               {metrics.actions.map((action, index) => (
-                <div key={action.id} className="rounded-xl border p-3 space-y-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                <InspectorSurface key={action.id} className="mb-2 space-y-3" background={PAGE_BG} borderColor={BORDER}>
                   <div className="flex items-start gap-3">
                     <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-[11px] font-bold" style={{ borderColor: BORDER, background: CARD_BG, color: TEAL_DIM }}>
                       {index + 1}
@@ -114,26 +119,24 @@ export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Pro
                     </div>
                   </div>
 
-                  <button
-                    type="button"
+                  <InspectorActionButton
                     onClick={() => onSelectTab(action.tab)}
-                    className="inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-semibold transition-colors"
-                    style={{ borderColor: `${TEAL}55`, background: `${TEAL}12`, color: TEAL_DIM }}
+                    color={TEAL_DIM}
+                    background={`${TEAL}12`}
+                    borderColor={`${TEAL}55`}
+                    className="text-xs"
                   >
-                    {getOverviewPanelCta(action.tab)}
+                    <span>{getOverviewPanelCta(action.tab)}</span>
                     <ArrowRight size={12} />
-                  </button>
-                </div>
+                  </InspectorActionButton>
+                </InspectorSurface>
               ))}
-            </div>
+            </InspectorSection>
           )}
 
           {activeTab === 'context' && (
             <div className="space-y-3">
-              <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEAL }}>
-                  Identification
-                </p>
+              <InspectorSection title="Identification">
                 {[
                   ['P&ID', sif.pid],
                   ['Location', sif.location],
@@ -142,17 +145,11 @@ export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Pro
                   ['Demand rate', sif.demandRate ? `${sif.demandRate} yr⁻¹` : '—'],
                   ['Required RRF', sif.rrfRequired ? String(sif.rrfRequired) : '—'],
                 ].map(([label, value]) => (
-                  <div key={label} className="flex items-start justify-between gap-3 border-b py-2 last:border-b-0" style={{ borderColor: BORDER }}>
-                    <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: TEXT_DIM }}>{label}</span>
-                    <span className="max-w-[55%] text-right text-sm" style={{ color: TEXT }}>{value || '—'}</span>
-                  </div>
+                  <InspectorReferenceRow key={String(label)} label={String(label)} value={String(value || '—')} />
                 ))}
-              </div>
+              </InspectorSection>
 
-              <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEAL }}>
-                  Accountability
-                </p>
+              <InspectorSection title="Accountability">
                 {[
                   ['Made by', sif.madeBy],
                   ['Verified by', sif.verifiedBy],
@@ -161,16 +158,13 @@ export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Pro
                   ['HAZOP node', sif.hazopTrace?.hazopNode],
                   ['LOPA ref.', sif.hazopTrace?.lopaRef],
                 ].map(([label, value]) => (
-                  <div key={label} className="flex items-start justify-between gap-3 border-b py-2 last:border-b-0" style={{ borderColor: BORDER }}>
-                    <span className="text-[11px] font-medium uppercase tracking-wide" style={{ color: TEXT_DIM }}>{label}</span>
-                    <span className="max-w-[55%] text-right text-sm" style={{ color: TEXT }}>{value || '—'}</span>
-                  </div>
+                  <InspectorReferenceRow key={String(label)} label={String(label)} value={String(value || '—')} />
                 ))}
-              </div>
+              </InspectorSection>
             </div>
           )}
 
-          <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+          <InspectorSurface background={PAGE_BG} borderColor={BORDER}>
             <div className="flex items-start gap-2">
               <ShieldCheck size={14} style={{ color: TEAL, flexShrink: 0, marginTop: 2 }} />
               <div>
@@ -181,7 +175,7 @@ export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Pro
               </div>
             </div>
 
-              <div className="mt-3 flex items-center justify-between rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
+            <div className="mt-3 flex items-center justify-between rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
               <div>
                 <p className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>Result</p>
                 <p className="text-sm font-bold" style={{ color: result.meetsTarget ? semantic.success : semantic.error }}>
@@ -190,9 +184,9 @@ export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Pro
               </div>
               <SILBadge sil={result.SIL} size="sm" />
             </div>
-          </div>
+          </InspectorSurface>
         </div>
-      </div>
+      </RightPanelBody>
     </RightPanelShell>
   )
 }

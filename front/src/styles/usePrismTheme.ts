@@ -27,18 +27,18 @@ function buildTheme(isDark: boolean) {
 
   const shadows = isDark
     ? {
-        card: '0 1px 0 rgba(255,255,255,0.03) inset, 0 14px 30px rgba(0,0,0,0.28), 0 4px 10px rgba(0,0,0,0.18)',
-        panel: '0 1px 0 rgba(255,255,255,0.04) inset, 0 20px 44px rgba(0,0,0,0.34), 0 6px 16px rgba(0,0,0,0.22)',
-        tab: '0 1px 0 rgba(255,255,255,0.04) inset, 0 10px 22px rgba(0,0,0,0.24), 0 3px 8px rgba(0,0,0,0.16)',
-        dock: '-18px 0 40px rgba(0,0,0,0.34), -2px 0 8px rgba(0,0,0,0.22), 1px 0 0 rgba(255,255,255,0.03) inset',
-        soft: '0 1px 0 rgba(255,255,255,0.03) inset, 0 10px 22px rgba(0,0,0,0.20)',
+        card: '0 24px 46px rgba(0,0,0,0.34), 0 10px 18px rgba(0,0,0,0.22), 0 2px 4px rgba(0,0,0,0.16)',
+        panel: '0 32px 66px rgba(0,0,0,0.42), 0 12px 24px rgba(0,0,0,0.28), 0 3px 6px rgba(0,0,0,0.18)',
+        tab: '0 16px 30px rgba(0,0,0,0.30), 0 6px 12px rgba(0,0,0,0.19), 0 1px 3px rgba(0,0,0,0.14)',
+        dock: '-24px 0 50px rgba(0,0,0,0.42), -6px 0 14px rgba(0,0,0,0.24), 1px 0 0 rgba(255,255,255,0.04) inset',
+        soft: '0 14px 28px rgba(0,0,0,0.22), 0 5px 10px rgba(0,0,0,0.15)',
       }
     : {
-        card: '0 1px 0 rgba(255,255,255,0.95) inset, 0 12px 28px rgba(15,23,42,0.05), 0 3px 8px rgba(15,23,42,0.03)',
-        panel: '0 1px 0 rgba(255,255,255,0.96) inset, 0 18px 42px rgba(15,23,42,0.07), 0 4px 12px rgba(15,23,42,0.04)',
-        tab: '0 1px 0 rgba(255,255,255,0.94) inset, 0 10px 24px rgba(15,23,42,0.05), 0 2px 6px rgba(15,23,42,0.03)',
-        dock: '-18px 0 40px rgba(15,23,42,0.08), -2px 0 8px rgba(15,23,42,0.04), 1px 0 0 rgba(255,255,255,0.82) inset',
-        soft: '0 1px 0 rgba(255,255,255,0.92) inset, 0 8px 22px rgba(15,23,42,0.04)',
+        card: '0 24px 46px rgba(15,23,42,0.065), 0 10px 18px rgba(15,23,42,0.04), 0 2px 4px rgba(15,23,42,0.025)',
+        panel: '0 30px 64px rgba(15,23,42,0.085), 0 12px 24px rgba(15,23,42,0.05), 0 3px 6px rgba(15,23,42,0.03)',
+        tab: '0 16px 30px rgba(15,23,42,0.06), 0 6px 12px rgba(15,23,42,0.035), 0 1px 3px rgba(15,23,42,0.025)',
+        dock: '-24px 0 50px rgba(15,23,42,0.10), -6px 0 14px rgba(15,23,42,0.045), 1px 0 0 rgba(255,255,255,0.62) inset',
+        soft: '0 14px 28px rgba(15,23,42,0.05), 0 5px 10px rgba(15,23,42,0.028)',
       }
 
   return {

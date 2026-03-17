@@ -75,16 +75,14 @@ function FieldLabel({ children, required }: { children: React.ReactNode; require
 
 const StyledInput = forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement> & { error?: boolean }>(
   ({ error, ...props }, ref) => {
-    const { BORDER, PAGE_BG, TEAL, TEXT } = usePrismTheme()
+    const { BORDER, PAGE_BG, TEXT } = usePrismTheme()
     const softBorder = `${BORDER}99`
     return (
       <input
         {...props}
         ref={ref}
-        className="w-full rounded-lg border px-3 py-2 text-sm outline-none transition-all"
+        className="prism-field w-full rounded-lg border px-3 py-2 text-sm outline-none"
         style={{ background: PAGE_BG, borderColor: error ? semantic.error : softBorder, color: TEXT }}
-        onFocus={e => (e.target.style.borderColor = TEAL)}
-        onBlur={e => (e.target.style.borderColor = error ? semantic.error : softBorder)}
       />
     )
   }
@@ -93,16 +91,14 @@ StyledInput.displayName = 'StyledInput'
 
 const StyledTextarea = forwardRef<HTMLTextAreaElement, React.TextareaHTMLAttributes<HTMLTextAreaElement>>(
   (props, ref) => {
-    const { BORDER, PAGE_BG, TEAL, TEXT } = usePrismTheme()
+    const { BORDER, PAGE_BG, TEXT } = usePrismTheme()
     const softBorder = `${BORDER}99`
     return (
       <textarea
         {...props}
         ref={ref}
-        className="w-full rounded-lg border px-3 py-2 text-sm outline-none transition-all resize-none"
+        className="prism-field w-full rounded-lg border px-3 py-2 text-sm outline-none resize-none"
         style={{ background: PAGE_BG, borderColor: softBorder, color: TEXT }}
-        onFocus={e => (e.target.style.borderColor = TEAL)}
-        onBlur={e => (e.target.style.borderColor = softBorder)}
       />
     )
   }
@@ -113,14 +109,12 @@ function StyledSelect({ value, onChange, options }: {
   value: string; onChange: (v: string) => void
   options: { value: string; label: string }[]
 }) {
-  const { BORDER, PAGE_BG, TEAL, TEXT } = usePrismTheme()
+  const { BORDER, PAGE_BG, TEXT } = usePrismTheme()
   const softBorder = `${BORDER}99`
   return (
     <select value={value} onChange={e => onChange(e.target.value)}
-      className="w-full rounded-lg border px-3 py-2 text-sm outline-none appearance-none"
-      style={{ background: PAGE_BG, borderColor: softBorder, color: TEXT }}
-      onFocus={e => (e.target.style.borderColor = TEAL)}
-      onBlur={e => (e.target.style.borderColor = softBorder)}>
+      className="prism-field w-full rounded-lg border px-3 py-2 text-sm outline-none appearance-none"
+      style={{ background: PAGE_BG, borderColor: softBorder, color: TEXT }}>
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
   )

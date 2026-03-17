@@ -16,20 +16,22 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import {
-  calcComponentSFF, calcComponentDC, factorizedToDeveloped, developedToFactorized,
-  formatPct,
+  calcComponentDC, calcComponentPFDValue, calcComponentSFF, factorizedToDeveloped, developedToFactorized,
+  formatPFD, formatPct,
 } from '@/core/math/pfdCalc'
 import type {
   ComponentTemplateUpsertInput,
   SIFComponent, SubsystemType, ParamMode, TestType,
   NatureType, InstrumentCategory, DeterminedCharacter,
 } from '@/core/types'
+import { InspectorBlock, RightPanelBody } from '@/components/layout/RightPanelShell'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
 // ─── Design tokens ────────────────────────────────────────────────────────
-const R        = 6
+const PANEL_FORM_GRID = 'repeat(auto-fit, minmax(132px, 1fr))'
+const PANEL_WIDE_GRID = 'repeat(auto-fit, minmax(152px, 1fr))'
 
 const TYPE_META: Record<SubsystemType, { color: string; label: string; Icon: React.ElementType }> = {
   sensor:   { color: '#0284C7', label: 'Capteur',    Icon: Activity },
@@ -195,21 +197,13 @@ function StyledInput({ value, onChange, placeholder, type = 'text', step }: {
   value: string | number; onChange: (v: string) => void
   placeholder?: string; type?: string; step?: string
 }) {
-  const { BORDER, SHADOW_SOFT, SURFACE, TEAL, TEXT } = usePrismTheme()
+  const { BORDER, SURFACE, TEXT } = usePrismTheme()
   return (
     <input
       type={type} step={step} value={value} onChange={e => onChange(e.target.value)}
       placeholder={placeholder}
-      className="w-full rounded-md border px-2 py-1.5 text-xs outline-none transition-colors"
-      style={{ background: SURFACE, borderColor: BORDER, color: TEXT, boxShadow: SHADOW_SOFT }}
-      onFocus={e => {
-        e.target.style.borderColor = TEAL
-        e.target.style.boxShadow = `0 0 0 1px ${TEAL}18, ${SHADOW_SOFT}`
-      }}
-      onBlur={e => {
-        e.target.style.borderColor = BORDER
-        e.target.style.boxShadow = SHADOW_SOFT
-      }}
+      className="prism-field w-full min-w-0 rounded-md border px-2 py-1.5 text-xs outline-none"
+      style={{ background: SURFACE, borderColor: BORDER, color: TEXT }}
     />
   )
 }
@@ -223,7 +217,7 @@ function ScientificInput({
   onCommit: (value: number) => void
   placeholder?: string
 }) {
-  const { BORDER, SHADOW_SOFT, SURFACE, TEAL, TEXT } = usePrismTheme()
+  const { BORDER, SURFACE, TEXT } = usePrismTheme()
   const [draft, setDraft] = useState(() => formatEditableNumber(value))
   const [invalid, setInvalid] = useState(false)
 
@@ -258,13 +252,9 @@ function ScientificInput({
         if (parsed === null) {
           setInvalid(draft.trim().length > 0)
           setDraft(draft.trim().length > 0 ? draft : formatEditableNumber(value))
-          e.target.style.borderColor = draft.trim().length > 0 ? semantic.error : BORDER
-          e.target.style.boxShadow = SHADOW_SOFT
           return
         }
         commitDraft()
-        e.target.style.borderColor = BORDER
-        e.target.style.boxShadow = SHADOW_SOFT
       }}
       onKeyDown={e => {
         if (e.key === 'Enter') {
@@ -278,16 +268,11 @@ function ScientificInput({
         }
       }}
       placeholder={placeholder}
-      className="w-full rounded-md border px-2 py-1.5 text-xs outline-none transition-colors font-mono"
+      className="prism-field w-full min-w-0 rounded-md border px-2 py-1.5 text-xs font-mono outline-none"
       style={{
         background: SURFACE,
         borderColor: invalid ? semantic.error : BORDER,
         color: TEXT,
-        boxShadow: SHADOW_SOFT,
-      }}
-      onFocus={e => {
-        if (!invalid) e.target.style.borderColor = TEAL
-        e.target.style.boxShadow = `0 0 0 1px ${invalid ? semantic.error : TEAL}18, ${SHADOW_SOFT}`
       }}
     />
   )
@@ -297,20 +282,12 @@ function StyledSelect({ value, onChange, options }: {
   value: string; onChange: (v: string) => void
   options: { value: string; label: string }[]
 }) {
-  const { BORDER, SHADOW_SOFT, SURFACE, TEAL, TEXT } = usePrismTheme()
+  const { BORDER, SURFACE, TEXT } = usePrismTheme()
   return (
     <select
       value={value} onChange={e => onChange(e.target.value)}
-      className="w-full rounded-md border px-2 py-1.5 text-xs outline-none appearance-none"
-      style={{ background: SURFACE, borderColor: BORDER, color: TEXT, boxShadow: SHADOW_SOFT }}
-      onFocus={e => {
-        e.target.style.borderColor = TEAL
-        e.target.style.boxShadow = `0 0 0 1px ${TEAL}18, ${SHADOW_SOFT}`
-      }}
-      onBlur={e => {
-        e.target.style.borderColor = BORDER
-        e.target.style.boxShadow = SHADOW_SOFT
-      }}
+      className="prism-field w-full min-w-0 appearance-none rounded-md border px-2 py-1.5 text-xs outline-none"
+      style={{ background: SURFACE, borderColor: BORDER, color: TEXT }}
     >
       {options.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
     </select>
@@ -328,11 +305,11 @@ function CheckboxField({
   checked: boolean
   onChange: (checked: boolean) => void
 }) {
-  const { BORDER, SHADOW_SOFT, SURFACE, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   return (
     <label
       className="flex items-start gap-3 rounded-md border px-3 py-2.5"
-      style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}
+      style={{ borderColor: BORDER, background: CARD_BG }}
     >
       <input
         type="checkbox"
@@ -387,7 +364,7 @@ function SliderField({ label, value, min, max, step = 0.01, format, onChange, co
 
   return (
     <div className="space-y-1.5">
-      <div className="grid grid-cols-[minmax(0,1fr)_120px_auto] items-center gap-x-3 gap-y-1">
+      <div className="grid items-center gap-x-3 gap-y-1" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(88px,112px) auto' }}>
         <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>{label}</label>
         <input
           type="text"
@@ -409,7 +386,7 @@ function SliderField({ label, value, min, max, step = 0.01, format, onChange, co
               setInvalid(false)
             }
           }}
-          className="w-full rounded-md border px-2 py-1.5 text-xs font-mono outline-none transition-colors"
+          className="prism-field w-full min-w-0 rounded-md border px-2 py-1.5 text-xs font-mono outline-none"
           style={{
             background: PAGE_BG,
             borderColor: invalid ? semantic.error : BORDER,
@@ -438,12 +415,11 @@ function ComputedRow({ label, value, ok }: { label: string; value: string; ok?: 
 }
 
 function SectionTitle({ children }: { children: React.ReactNode }) {
-  const { BORDER, TEXT_DIM } = usePrismTheme()
+  const { SHADOW_SOFT, TEAL } = usePrismTheme()
   return (
-    <div className="flex items-center gap-2 my-2">
-      <div className="flex-1 border-t" style={{ borderColor: BORDER }} />
-      <span className="text-[9px] font-bold uppercase tracking-widest shrink-0" style={{ color: TEXT_DIM }}>{children}</span>
-      <div className="flex-1 border-t" style={{ borderColor: BORDER }} />
+    <div className="mb-2 mt-1 flex items-center gap-2">
+      <span className="h-1.5 w-1.5 rounded-full" style={{ background: TEAL, boxShadow: SHADOW_SOFT }} />
+      <span className="text-[10px] font-bold uppercase tracking-widest shrink-0" style={{ color: TEAL }}>{children}</span>
     </div>
   )
 }
@@ -462,9 +438,7 @@ interface Props {
 export function ComponentParamsPanel({
   component, subsystemType, projectId, sifId, subsystemId, channelId, onClose,
 }: Props) {
-  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, SHADOW_PANEL, SHADOW_SOFT, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
-  const PANEL = PANEL_BG
-  const CARD = CARD_BG
+  const { BORDER, CARD_BG, PAGE_BG, SHADOW_SOFT, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const BG = PAGE_BG
   const BORDER2 = BORDER
   const updateComponent = useAppStore(s => s.updateComponent)
@@ -528,12 +502,14 @@ export function ComponentParamsPanel({
   const effective = local.paramMode === 'factorized' ? derived : local.developed
   const sff = calcComponentSFF(effective)
   const dc  = calcComponentDC(effective)
+  const componentPFD = calcComponentPFDValue(local)
   const sffOk = sff >= 0.6
   const dcOk  = dc  >= 0.6
 
   const meta = TYPE_META[subsystemType]
   const partialTestActive = local.test.testType === 'partial' || local.advanced.partialTest.enabled
   const onlineDuringTest = local.test.testType === 'online'
+  const headerTypeLabel = local.instrumentType || CAT_LABELS[local.instrumentCategory] || meta.label
 
   const openSaveDialog = () => {
     setTemplateName(local.instrumentType || local.tagName)
@@ -584,46 +560,42 @@ export function ComponentParamsPanel({
   }
 
   return (
-    <div className="flex flex-col h-full" style={{ background: PANEL }}>
-      {/* ── Header ── */}
-      <div className="shrink-0 px-3 pt-3 pb-0">
-        {/* Title row */}
-        <div className="flex items-start justify-between gap-2 mb-2">
-          <div className="flex items-center gap-2 min-w-0">
-            <div className="w-6 h-6 rounded flex items-center justify-center shrink-0"
-              style={{ background: `${meta.color}20` }}>
-              <meta.Icon size={12} style={{ color: meta.color }} />
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="shrink-0 border-b px-3 py-3" style={{ borderColor: `${BORDER}A6` }}>
+        <div className="mb-3 flex items-start justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            <div
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
+              style={{ background: `${meta.color}18`, boxShadow: SHADOW_SOFT }}
+            >
+              <meta.Icon size={13} style={{ color: meta.color }} />
             </div>
             <div className="min-w-0">
-              <p className="text-[11px] font-bold truncate" style={{ color: TEXT }}>{local.tagName}</p>
-              <p className="text-[9px] truncate" style={{ color: TEXT_DIM }}>
-                {meta.label} · {local.instrumentCategory}
+              <p className="truncate text-[11px] font-bold tracking-[0.01em]" style={{ color: TEXT }}>{local.tagName}</p>
+              <p className="truncate text-[9px]" style={{ color: TEXT_DIM }}>
+                {meta.label} · {headerTypeLabel}
               </p>
             </div>
           </div>
-          <div className="flex items-center gap-1">
+          <div className="flex shrink-0 items-center gap-1.5">
             <button
               type="button"
               onClick={openSaveDialog}
-              className="inline-flex h-7 items-center gap-1 rounded-md border px-2 text-[10px] font-bold transition-colors"
+              className="prism-action inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-[10px] font-bold"
               style={{ borderColor: `${meta.color}45`, background: `${meta.color}12`, color: meta.color }}
             >
               <Save size={11} />
               Template
             </button>
-            <button onClick={onClose} className="shrink-0 rounded p-1 transition-colors hover:bg-red-900/30"
-              style={{ color: TEXT_DIM }}>
+            <button
+              type="button"
+              onClick={onClose}
+              className="prism-action shrink-0 rounded-md border p-1.5"
+              style={{ color: TEXT_DIM, borderColor: BORDER }}
+            >
               <X size={12} />
             </button>
           </div>
-        </div>
-
-        {/* Live metrics strip */}
-        <div className="flex gap-1.5 mb-3">
-          <LiveMetric label="SFF" value={formatPct(sff)} ok={sffOk} />
-          <LiveMetric label="DC"  value={formatPct(dc)}  ok={dcOk} />
-          <LiveMetric label="λ"   value={`${local.factorized.lambda.toFixed(2)}`} />
-          <LiveMetric label="T1"  value={`${local.test.T1}${local.test.T1Unit}`} />
         </div>
 
         {saveNotice && (
@@ -633,89 +605,79 @@ export function ComponentParamsPanel({
           </div>
         )}
 
-        {/* No tab bar — all sections scroll */}
+        <div className="grid gap-2">
+          <LiveMetric label="PFD" value={formatPFD(componentPFD)} />
+        </div>
       </div>
 
-      {/* ── Scrollable sections (no tabs) ── */}
-      <div
-        className="flex-1 overflow-y-auto p-3 space-y-4"
-        style={{
-          background: CARD,
-          borderLeft: `1px solid ${BORDER}`,
-          borderRight: `1px solid ${BORDER}`,
-          borderBottom: `1px solid ${BORDER}`,
-          borderRadius: `0 0 ${R}px ${R}px`,
-          boxShadow: SHADOW_PANEL,
-        }}
-      >
+      <RightPanelBody compact className="space-y-3">
+        <InspectorBlock title="Identification">
+          <div className="space-y-3">
+            <div className="grid gap-3" style={{ gridTemplateColumns: PANEL_FORM_GRID }}>
+              <FieldRow label="Tag">
+                <StyledInput value={local.tagName} onChange={v => upd({ tagName: v })} placeholder="PT-001" />
+              </FieldRow>
+              <FieldRow label="Catégorie">
+                <StyledSelect
+                  value={local.instrumentCategory}
+                  onChange={v => upd({ instrumentCategory: v as InstrumentCategory })}
+                  options={INSTRUMENT_CATEGORIES.map(c => ({ value: c, label: CAT_LABELS[c] }))}
+                />
+              </FieldRow>
+              <FieldRow label="Type d'instrument">
+                <StyledSelect
+                  value={local.instrumentType}
+                  onChange={v => upd({ instrumentType: v })}
+                  options={(INSTRUMENT_TYPES[local.instrumentCategory] ?? ['Other']).map(t => ({ value: t, label: t }))}
+                />
+              </FieldRow>
+              <FieldRow label="Fabricant">
+                <StyledInput value={local.manufacturer} onChange={v => upd({ manufacturer: v })} placeholder="Rosemount, Emerson…" />
+              </FieldRow>
+              <FieldRow label="Source des données">
+                <StyledSelect
+                  value={local.dataSource}
+                  onChange={v => upd({ dataSource: v })}
+                  options={[
+                    { value: 'SIL-DB', label: 'Base SIL certifiée' },
+                    { value: 'OREDA', label: 'OREDA' },
+                    { value: 'EXIDA', label: 'exida' },
+                    { value: 'Manufacturer', label: 'Constructeur' },
+                    { value: 'Custom', label: 'Données propres' },
+                  ]}
+                />
+              </FieldRow>
+              <FieldRow label="Caractérisation IEC 61508">
+                <StyledSelect
+                  value={local.determinedCharacter ?? (subsystemType === 'actuator' ? 'TYPE_A' : 'TYPE_B')}
+                  onChange={v => upd({ determinedCharacter: v as DeterminedCharacter })}
+                  options={DETERMINED_CHARACTER_OPTIONS}
+                />
+              </FieldRow>
+            </div>
 
-        {/* ══ IDENTIFICATION ══ */}
-        <div className="flex items-center gap-1.5 pb-1.5 mb-2" style={{ borderBottom: `1px solid ${BORDER}` }}>
-          <Tag size={10} style={{ color: TEAL_DIM }} />
-          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEAL_DIM }}>Identification</span>
-        </div>
-            <FieldRow label="Tag">
-              <StyledInput value={local.tagName} onChange={v => upd({ tagName: v })} placeholder="PT-001" />
-            </FieldRow>
-            <FieldRow label="Catégorie">
-              <StyledSelect
-                value={local.instrumentCategory}
-                onChange={v => upd({ instrumentCategory: v as InstrumentCategory })}
-                options={INSTRUMENT_CATEGORIES.map(c => ({ value: c, label: CAT_LABELS[c] }))}
-              />
-            </FieldRow>
-            <FieldRow label="Type d'instrument">
-              <StyledSelect
-                value={local.instrumentType}
-                onChange={v => upd({ instrumentType: v })}
-                options={(INSTRUMENT_TYPES[local.instrumentCategory] ?? ['Other']).map(t => ({ value: t, label: t }))}
-              />
-            </FieldRow>
-            <FieldRow label="Fabricant">
-              <StyledInput value={local.manufacturer} onChange={v => upd({ manufacturer: v })} placeholder="Rosemount, Emerson…" />
-            </FieldRow>
-            <FieldRow label="Source des données">
-              <StyledSelect
-                value={local.dataSource}
-                onChange={v => upd({ dataSource: v })}
-                options={[
-                  { value: 'SIL-DB', label: 'Base SIL certifiée' },
-                  { value: 'OREDA', label: 'OREDA' },
-                  { value: 'EXIDA', label: 'exida' },
-                  { value: 'Manufacturer', label: 'Constructeur' },
-                  { value: 'Custom', label: 'Données propres' },
-                ]}
-              />
-            </FieldRow>
-            <FieldRow label="Caractérisation IEC 61508">
-              <StyledSelect
-                value={local.determinedCharacter ?? (subsystemType === 'actuator' ? 'TYPE_A' : 'TYPE_B')}
-                onChange={v => upd({ determinedCharacter: v as DeterminedCharacter })}
-                options={DETERMINED_CHARACTER_OPTIONS}
-              />
-            </FieldRow>
             <FieldRow label="Description">
               <textarea
                 value={local.description}
                 onChange={e => upd({ description: e.target.value })}
                 rows={3}
-                className="w-full rounded-md border px-2 py-1.5 text-xs outline-none resize-none"
-                style={{ background: BG, borderColor: BORDER2, color: TEXT, boxShadow: SHADOW_SOFT }}
+                className="prism-field w-full rounded-md border px-2 py-1.5 text-xs outline-none resize-none"
+                style={{ background: BG, borderColor: BORDER2, color: TEXT }}
                 placeholder="Description optionnelle…"
               />
             </FieldRow>
+          </div>
+        </InspectorBlock>
 
-        {/* ══ PARAMÈTRES ══ */}
-        <div className="flex items-center gap-1.5 pb-1.5 mb-2 mt-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
-          <FlaskConical size={10} style={{ color: TEAL_DIM }} />
-          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEAL_DIM }}>Paramètres</span>
-        </div>
-            {/* Mode toggle */}
+        <InspectorBlock title="Paramètres">
+          <div className="space-y-3">
             <div className="flex gap-1 rounded-lg p-0.5" style={{ background: BG }}>
               {(['factorized', 'developed'] as ParamMode[]).map(m => (
-                <button key={m} type="button"
+                <button
+                  key={m}
+                  type="button"
                   onClick={() => upd({ paramMode: m })}
-                  className="flex-1 rounded-md py-1 text-[11px] font-bold transition-all"
+                  className="prism-action flex-1 rounded-md py-1.5 text-[11px] font-bold transition-all"
                   style={local.paramMode === m
                     ? { background: TEAL, color: '#FFF' }
                     : { color: TEXT_DIM }
@@ -741,7 +703,7 @@ export function ComponentParamsPanel({
                           key={unit.value}
                           type="button"
                           onClick={() => setFactorizedLambdaUnit(unit.value)}
-                          className="rounded px-2 py-1 text-[10px] font-bold font-mono transition-all"
+                          className="prism-action rounded px-2 py-1 text-[10px] font-bold font-mono transition-all"
                           style={factorizedLambdaUnit === unit.value
                             ? { background: TEAL, color: '#fff' }
                             : { color: TEXT_DIM }}
@@ -754,11 +716,7 @@ export function ComponentParamsPanel({
                   <ScientificInput
                     value={factorizedLambdaToDisplay(local.factorized.lambda, factorizedLambdaUnit)}
                     onCommit={value => updF({ lambda: displayToFactorizedLambda(value, factorizedLambdaUnit) })}
-                    placeholder={
-                      factorizedLambdaUnit === 'FIT'
-                        ? 'Ex. 1500 ou 1.50E3'
-                        : 'Ex. 1.50E-6'
-                    }
+                    placeholder={factorizedLambdaUnit === 'FIT' ? 'Ex. 1500 ou 1.50E3' : 'Ex. 1.50E-6'}
                   />
                   <p className="text-[10px] mt-1" style={{ color: TEXT_DIM }}>
                     {factorizedLambdaUnit === 'FIT'
@@ -796,7 +754,7 @@ export function ComponentParamsPanel({
                           key={unit.value}
                           type="button"
                           onClick={() => setDevelopedLambdaUnit(unit.value)}
-                          className="rounded px-2 py-1 text-[10px] font-bold font-mono transition-all"
+                          className="prism-action rounded px-2 py-1 text-[10px] font-bold font-mono transition-all"
                           style={developedLambdaUnit === unit.value
                             ? { background: TEAL, color: '#fff' }
                             : { color: TEXT_DIM }}
@@ -812,23 +770,26 @@ export function ComponentParamsPanel({
                       : 'Saisie libre en h^-1 absolu. Exemple: 1.13E-7 h^-1 = 113 FIT.'}
                   </p>
                 </div>
-                {[
-                  { key: 'lambda_DU', label: 'λDU [FIT]' },
-                  { key: 'lambda_DD', label: 'λDD [FIT]' },
-                  { key: 'lambda_SU', label: 'λSU [FIT]' },
-                  { key: 'lambda_SD', label: 'λSD [FIT]' },
-                ].map(({ key, label }) => (
-                  <FieldRow
-                    key={key}
-                    label={`${label.split(' ')[0]} [${developedLambdaUnit === 'FIT' ? 'FIT' : 'h^-1'}]`}
-                  >
-                    <ScientificInput
-                      value={developedLambdaToDisplay(local.developed[key as keyof typeof local.developed] as number, developedLambdaUnit)}
-                      onCommit={value => updD({ [key]: displayToDevelopedLambda(value, developedLambdaUnit) })}
-                      placeholder={developedLambdaUnit === 'FIT' ? 'Ex. 1.13E2' : 'Ex. 1.13E-7'}
-                    />
-                  </FieldRow>
-                ))}
+
+                <div className="grid gap-3" style={{ gridTemplateColumns: PANEL_FORM_GRID }}>
+                  {[
+                    { key: 'lambda_DU', label: 'λDU [FIT]' },
+                    { key: 'lambda_DD', label: 'λDD [FIT]' },
+                    { key: 'lambda_SU', label: 'λSU [FIT]' },
+                    { key: 'lambda_SD', label: 'λSD [FIT]' },
+                  ].map(({ key, label }) => (
+                    <FieldRow
+                      key={key}
+                      label={`${label.split(' ')[0]} [${developedLambdaUnit === 'FIT' ? 'FIT' : 'h^-1'}]`}
+                    >
+                      <ScientificInput
+                        value={developedLambdaToDisplay(local.developed[key as keyof typeof local.developed] as number, developedLambdaUnit)}
+                        onCommit={value => updD({ [key]: displayToDevelopedLambda(value, developedLambdaUnit) })}
+                        placeholder={developedLambdaUnit === 'FIT' ? 'Ex. 1.13E2' : 'Ex. 1.13E-7'}
+                      />
+                    </FieldRow>
+                  ))}
+                </div>
                 <p className="text-[10px] -mt-1" style={{ color: TEXT_DIM }}>
                   Saisie libre, avec ou sans notation scientifique.
                 </p>
@@ -836,23 +797,22 @@ export function ComponentParamsPanel({
             )}
 
             <SectionTitle>Métriques calculées</SectionTitle>
-            <ComputedRow label="SFF"    value={formatPct(sff)}    ok={sffOk} />
-            <ComputedRow label="DC eff" value={formatPct(dc)}     ok={dcOk}  />
+            <ComputedRow label="SFF" value={formatPct(sff)} ok={sffOk} />
+            <ComputedRow label="DC eff" value={formatPct(dc)} ok={dcOk} />
+          </div>
+        </InspectorBlock>
 
-        {/* ══ TEST ══ */}
-        <div className="flex items-center gap-1.5 pb-1.5 mb-2 mt-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
-          <ClipboardList size={10} style={{ color: TEAL_DIM }} />
-          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEAL_DIM }}>Test de preuve</span>
-        </div>
+        <InspectorBlock title="Test de preuve">
+          <div className="space-y-3">
             <SectionTitle>Intervalle de test de preuve</SectionTitle>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3" style={{ gridTemplateColumns: PANEL_WIDE_GRID }}>
               <FieldRow label="T1">
                 <div className="flex gap-2">
                   <StyledInput
                     type="number" step="0.1" value={local.test.T1}
                     onChange={v => updT({ T1: parseFloat(v) || 1 })}
                   />
-                  <div className="w-24">
+                  <div className="w-24 shrink-0">
                     <StyledSelect
                       value={local.test.T1Unit}
                       onChange={v => updT({ T1Unit: v as 'hr' | 'yr' })}
@@ -868,7 +828,7 @@ export function ComponentParamsPanel({
                     type="number" step="0.1" value={local.test.T0}
                     onChange={v => updT({ T0: parseFloat(v) || 0 })}
                   />
-                  <div className="w-24">
+                  <div className="w-24 shrink-0">
                     <StyledSelect
                       value={local.test.T0Unit}
                       onChange={v => updT({ T0Unit: v as 'hr' | 'yr' })}
@@ -884,17 +844,17 @@ export function ComponentParamsPanel({
               {TEST_TYPES.map(tt => (
                 <button key={tt.value} type="button"
                   onClick={() => updT({ testType: tt.value })}
-                  className="flex w-full items-start gap-2 rounded-lg border p-2.5 text-left transition-all"
+                  className="prism-action flex w-full items-start gap-2 rounded-lg border p-2.5 text-left transition-all"
                   style={local.test.testType === tt.value ? {
                     borderColor: TEAL, background: `${TEAL}12`, color: TEXT,
                   } : {
                     borderColor: BORDER2, background: BG, color: TEXT_DIM,
                   }}
                 >
-                  <div className="mt-0.5 w-3 h-3 rounded-full border-2 shrink-0 flex items-center justify-center"
+                  <div className="mt-0.5 flex h-3 w-3 shrink-0 items-center justify-center rounded-full border-2"
                     style={{ borderColor: local.test.testType === tt.value ? TEAL : BORDER2 }}>
                     {local.test.testType === tt.value && (
-                      <div className="w-1.5 h-1.5 rounded-full" style={{ background: TEAL }} />
+                      <div className="h-1.5 w-1.5 rounded-full" style={{ background: TEAL }} />
                     )}
                   </div>
                   <div>
@@ -904,6 +864,7 @@ export function ComponentParamsPanel({
                 </button>
               ))}
             </div>
+
             <CheckboxField
               label="Composant disponible pendant test (X)"
               description="Alias direct du mode “En ligne” pour le test complet."
@@ -916,14 +877,13 @@ export function ComponentParamsPanel({
                     : local.test.testType,
               })}
             />
+          </div>
+        </InspectorBlock>
 
-        {/* ══ AVANCÉ ══ */}
-        <div className="flex items-center gap-1.5 pb-1.5 mb-2 mt-4" style={{ borderBottom: `1px solid ${BORDER}` }}>
-          <Settings2 size={10} style={{ color: TEAL_DIM }} />
-          <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEAL_DIM }}>Avancé</span>
-        </div>
+        <InspectorBlock title="Avancé">
+          <div className="space-y-3">
             <SectionTitle>Réparation</SectionTitle>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid gap-3" style={{ gridTemplateColumns: PANEL_WIDE_GRID }}>
               <FieldRow label="MTTR [heures]">
                 <StyledInput
                   type="number" step="1" value={local.advanced.MTTR}
@@ -951,7 +911,7 @@ export function ComponentParamsPanel({
                         key={unit.value}
                         type="button"
                         onClick={() => setLambdaStarUnit(unit.value)}
-                        className="rounded px-2 py-1 text-[10px] font-bold font-mono transition-all"
+                        className="prism-action rounded px-2 py-1 text-[10px] font-bold font-mono transition-all"
                         style={lambdaStarUnit === unit.value
                           ? { background: TEAL, color: '#fff' }
                           : { color: TEXT_DIM }}
@@ -1016,7 +976,7 @@ export function ComponentParamsPanel({
                   }}
                   placeholder={lifetimeUnit === 'yr' ? 'Ex. 20' : 'Ex. 175200'}
                 />
-                <div className="w-24">
+                <div className="w-24 shrink-0">
                   <StyledSelect
                     value={lifetimeUnit}
                     onChange={value => setLifetimeUnit(value as TimeDisplayUnit)}
@@ -1085,14 +1045,15 @@ export function ComponentParamsPanel({
                 </div>
               )}
             </div>
-
-      </div>
+          </div>
+        </InspectorBlock>
+      </RightPanelBody>
 
       <Dialog open={isSaveDialogOpen} onOpenChange={open => {
         setIsSaveDialogOpen(open)
         if (!open) setSaveError(null)
       }}>
-        <DialogContent className="max-w-xl border" style={{ borderColor: BORDER, background: CARD, color: TEXT }}>
+        <DialogContent className="max-w-xl border" style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}>
           <DialogHeader>
             <DialogTitle>Enregistrer comme template SIL</DialogTitle>
             <p className="text-sm" style={{ color: TEXT_DIM }}>
@@ -1157,7 +1118,7 @@ export function ComponentParamsPanel({
                 value={templateDescription}
                 onChange={event => setTemplateDescription(event.target.value)}
                 rows={3}
-                className="w-full rounded-md border px-2 py-1.5 text-xs outline-none resize-none"
+                className="prism-field w-full rounded-md border px-2 py-1.5 text-xs outline-none resize-none"
                 style={{ background: BG, borderColor: BORDER2, color: TEXT }}
                 placeholder="Description technique ou contexte d'utilisation…"
               />
@@ -1209,14 +1170,24 @@ export function ComponentParamsPanel({
 }
 
 // ── Live metric chip ──────────────────────────────────────────────────────
-function LiveMetric({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
-  const { BORDER, SHADOW_SOFT, SURFACE, TEXT_DIM, semantic } = usePrismTheme()
+function LiveMetric({
+  label,
+  value,
+  ok,
+  className,
+}: {
+  label: string
+  value: string
+  ok?: boolean
+  className?: string
+}) {
+  const { BORDER, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM, semantic } = usePrismTheme()
   const color = ok === undefined ? TEXT_DIM : ok ? semantic.success : semantic.error
   return (
-    <div className="flex-1 rounded px-1.5 py-1 text-center"
+    <div className={`min-w-0 rounded-lg px-2.5 py-2 ${className ?? ''}`}
       style={{ background: SURFACE, border: `1px solid ${BORDER}`, boxShadow: SHADOW_SOFT }}>
       <p className="text-[8px] uppercase tracking-widest" style={{ color: TEXT_DIM }}>{label}</p>
-      <p className="text-[11px] font-bold font-mono" style={{ color }}>{value}</p>
+      <p className="mt-1 truncate text-[11px] font-semibold" style={{ color: ok === undefined ? TEXT : color }}>{value}</p>
     </div>
   )
 }

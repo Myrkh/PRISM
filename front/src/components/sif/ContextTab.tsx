@@ -95,27 +95,16 @@ function FInput({ value, onChange, placeholder, type = 'text', step, readOnly }:
   value: string | number; onChange?: (v: string) => void
   placeholder?: string; type?: string; step?: string; readOnly?: boolean
 }) {
-  const { BORDER, SHADOW_SOFT, SURFACE, TEAL, TEXT } = usePrismTheme()
+  const { BORDER, SURFACE, TEXT } = usePrismTheme()
   return (
     <input
       type={type} step={step} value={value} readOnly={readOnly}
       onChange={onChange ? e => onChange(e.target.value) : undefined}
       placeholder={placeholder}
-      className="w-full rounded-lg border px-2.5 py-2 text-xs outline-none transition-all"
+      className="prism-field w-full rounded-lg border px-2.5 py-2 text-xs outline-none"
       style={{
         background: SURFACE, borderColor: BORDER, color: TEXT,
-        boxShadow: SHADOW_SOFT,
         opacity: readOnly ? 0.6 : 1,
-      }}
-      onFocus={e => {
-        if (!readOnly) {
-          e.target.style.borderColor = TEAL
-          e.target.style.boxShadow = `0 0 0 1px ${TEAL}18, ${SHADOW_SOFT}`
-        }
-      }}
-      onBlur={e => {
-        e.target.style.borderColor = BORDER
-        e.target.style.boxShadow = SHADOW_SOFT
       }}
     />
   )
@@ -124,21 +113,13 @@ function FInput({ value, onChange, placeholder, type = 'text', step, readOnly }:
 function FTextarea({ value, onChange, placeholder, rows = 3 }: {
   value: string; onChange: (v: string) => void; placeholder?: string; rows?: number
 }) {
-  const { BORDER, SHADOW_SOFT, SURFACE, TEAL, TEXT } = usePrismTheme()
+  const { BORDER, SURFACE, TEXT } = usePrismTheme()
   return (
     <textarea
       value={value} onChange={e => onChange(e.target.value)}
       rows={rows} placeholder={placeholder}
-      className="w-full rounded-lg border px-2.5 py-2 text-xs outline-none resize-none transition-all"
-      style={{ background: SURFACE, borderColor: BORDER, color: TEXT, boxShadow: SHADOW_SOFT }}
-      onFocus={e => {
-        e.target.style.borderColor = TEAL
-        e.target.style.boxShadow = `0 0 0 1px ${TEAL}18, ${SHADOW_SOFT}`
-      }}
-      onBlur={e => {
-        e.target.style.borderColor = BORDER
-        e.target.style.boxShadow = SHADOW_SOFT
-      }}
+      className="prism-field w-full rounded-lg border px-2.5 py-2 text-xs outline-none resize-none"
+      style={{ background: SURFACE, borderColor: BORDER, color: TEXT }}
     />
   )
 }
@@ -163,7 +144,7 @@ function SILSelector({ value, onChange }: { value: SILLevel; onChange: (v: SILLe
         const color = SIL_COLORS[sil]
         return (
           <button key={sil} type="button" onClick={() => onChange(sil)}
-            className="flex-1 py-2 rounded-lg text-[13px] font-mono font-bold transition-all"
+            className="prism-action flex-1 py-2 rounded-lg text-[13px] font-mono font-bold transition-all"
             style={active
               ? { background: color, color: '#fff', boxShadow: `0 10px 22px ${color}26, 0 0 0 1px ${color}30` }
               : { background: SURFACE, color: TEXT_DIM, border: `1px solid ${BORDER}`, boxShadow: SHADOW_SOFT }
@@ -383,7 +364,7 @@ export function ContextTab({ projectId, sif, compliance, overviewMetrics, onSele
             </p>
         }
         <button type="button" onClick={handleSave} disabled={!isDirty || isSaving}
-          className="flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-[11px] font-bold transition-all disabled:opacity-40"
+          className="prism-action flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-[11px] font-bold transition-all disabled:opacity-40"
           style={isDirty
             ? { background: TEAL, color: '#041014', boxShadow: `0 12px 24px ${TEAL}26, 0 0 0 1px ${TEAL}20` }
             : { background: SURFACE, color: TEXT_DIM, boxShadow: SHADOW_CARD }

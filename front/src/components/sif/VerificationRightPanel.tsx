@@ -14,7 +14,7 @@ import {
 import { nanoid } from 'nanoid'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { RightPanelShell } from '@/components/layout/RightPanelShell'
+import { InspectorBlock, RightPanelBody, RightPanelShell } from '@/components/layout/RightPanelShell'
 import { normalizeSIFAssumptions } from '@/core/models/sifAssumptions'
 import type { SIFAnalysisSettings } from '@/core/models/analysisSettings'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
@@ -93,14 +93,7 @@ function SectionCard({
   hint: string
   children: ReactNode
 }) {
-  const { BORDER, PAGE_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
-  return (
-    <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
-      <p className="text-sm font-semibold" style={{ color: TEAL }}>{title}</p>
-      <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{hint}</p>
-      <div className="mt-3">{children}</div>
-    </div>
-  )
+  return <InspectorBlock title={title} hint={hint}>{children}</InspectorBlock>
 }
 
 function FieldLabel({ children }: { children: ReactNode }) {
@@ -117,7 +110,7 @@ function FieldInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
   return (
     <input
       {...props}
-      className="w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors"
+      className="prism-field w-full rounded-lg border px-3 py-2 text-sm outline-none"
       style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}
     />
   )
@@ -128,7 +121,7 @@ function FieldTextArea(props: React.TextareaHTMLAttributes<HTMLTextAreaElement>)
   return (
     <textarea
       {...props}
-      className="min-h-[76px] w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors resize-y"
+      className="prism-field min-h-[76px] w-full rounded-lg border px-3 py-2 text-sm outline-none resize-y"
       style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}
     />
   )
@@ -148,7 +141,7 @@ function FieldSelect({
     <select
       value={value}
       onChange={event => onChange(event.target.value)}
-      className="w-full rounded-lg border px-3 py-2 text-sm outline-none transition-colors"
+      className="prism-field w-full rounded-lg border px-3 py-2 text-sm outline-none"
       style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}
     >
       {options.map(option => (
@@ -499,12 +492,11 @@ export function VerificationRightPanel({
       }}
       contentBg={PANEL_BG}
     >
-      <div className="flex-1 overflow-y-auto px-3 py-3" style={{ scrollbarGutter: 'stable' }}>
+      <RightPanelBody compact>
         <div className="space-y-3">
           {activeTab === 'summary' && (
             <>
-              <div className="rounded-xl border p-3 space-y-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                <SectionTitle>Ready</SectionTitle>
+              <InspectorBlock title="Ready">
                 <div className="space-y-2">
                   {[
                     { label: 'Phase', value: '3 / 4', tone: TEXT },
@@ -519,10 +511,9 @@ export function VerificationRightPanel({
                     </div>
                   ))}
                 </div>
-              </div>
+              </InspectorBlock>
 
-              <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                <SectionTitle>Blockers</SectionTitle>
+              <InspectorBlock title="Blockers">
                 {openGaps > 0 || assumptionsInReview > 0 ? (
                   <>
                     {compliance.technicalFindings.slice(0, 3).map(finding => (
@@ -541,17 +532,16 @@ export function VerificationRightPanel({
                     Aucun blocage technique ouvert.
                   </div>
                 )}
-              </div>
+              </InspectorBlock>
 
               <PFDContributionDonut result={result} settings={settings} />
 
-              <div className="rounded-xl border p-3 space-y-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                <SectionTitle>CTA</SectionTitle>
+              <InspectorBlock title="CTA">
                 <Button size="sm" className="w-full justify-between" onClick={() => onSelectTab('exploitation')}>
                   Traiter / passer en Exploitation
                   <ArrowRight size={12} />
                 </Button>
-              </div>
+              </InspectorBlock>
             </>
           )}
 
@@ -703,14 +693,9 @@ export function VerificationRightPanel({
 
           {activeTab === 'assumptions' && (
             <>
-              <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+              <InspectorBlock title="Registre hypotheses" hint="Edition restauree du registre explicite d hypotheses SIF.">
                 <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <SectionTitle>Registre hypotheses</SectionTitle>
-                    <p className="mt-2 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-                      Edition restauree du registre explicite d hypotheses SIF.
-                    </p>
-                  </div>
+                  <div />
                   <span
                     className="rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wide"
                     style={assumptionsInReview === 0
@@ -774,7 +759,7 @@ export function VerificationRightPanel({
                     {assumptionsError}
                   </div>
                 )}
-              </div>
+              </InspectorBlock>
 
               <div className="space-y-3">
                 {assumptionDrafts.map(assumption => (
@@ -866,7 +851,7 @@ export function VerificationRightPanel({
             </>
           )}
         </div>
-      </div>
+      </RightPanelBody>
     </RightPanelShell>
   )
 }

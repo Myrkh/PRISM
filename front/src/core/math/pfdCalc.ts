@@ -12,6 +12,7 @@ import {
   type EngineInput,
   type EngineResult,
 } from '@/engine'
+import { computeComponentPFD, computeComponentPFD_withPST } from '@/engine/pfd/component'
 import type {
   CCFMethod as EngineCCFMethod,
   ChannelDef as EngineChannelDef,
@@ -278,6 +279,13 @@ function toEngineComponent(component: SIFComponent): EngineComponentParams {
         }
       : undefined,
   }
+}
+
+export function calcComponentPFDValue(component: SIFComponent): number {
+  const engineComponent = toEngineComponent(component)
+  return engineComponent.partialStroke?.enabled
+    ? computeComponentPFD_withPST(engineComponent)
+    : computeComponentPFD(engineComponent)
 }
 
 function toEngineChannel(channel: SIFSubsystem['channels'][number]): EngineChannelDef {

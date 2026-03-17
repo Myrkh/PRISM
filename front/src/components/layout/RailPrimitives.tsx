@@ -20,10 +20,18 @@ export function RailIconButton({
 }) {
   const { BORDER, CARD_BG, PAGE_BG, SHADOW_CARD, SHADOW_SOFT, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
   const [hovered, setHovered] = useState(false)
+  const [pressed, setPressed] = useState(false)
   const showDotBadge = typeof badge === 'boolean' ? badge : badge !== null && badge !== undefined && badge !== ''
   const indicatorStyle = indicatorSide === 'left'
     ? { left: 0, borderRadius: '0 999px 999px 0' }
     : { right: 0, borderRadius: '999px 0 0 999px' }
+  const borderColor = active ? `${TEAL}24` : hovered ? `${BORDER}D0` : 'transparent'
+  const boxShadow = active
+    ? `${isDark ? `0 0 0 1px ${TEAL}12, ` : ''}${pressed ? SHADOW_SOFT : SHADOW_CARD}`
+    : hovered || pressed ? SHADOW_SOFT : 'none'
+  const transform = pressed
+    ? 'translateY(1px) scale(0.968)'
+    : hovered ? 'translateY(-0.5px) scale(1)' : 'translateY(0) scale(1)'
 
   return (
     <button
@@ -32,15 +40,20 @@ export function RailIconButton({
       aria-label={label}
       onClick={onClick}
       onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      className="relative flex h-9 w-9 items-center justify-center rounded-lg transition-all"
+      onMouseLeave={() => {
+        setHovered(false)
+        setPressed(false)
+      }}
+      onPointerDown={() => setPressed(true)}
+      onPointerUp={() => setPressed(false)}
+      onPointerCancel={() => setPressed(false)}
+      className="relative flex h-9 w-9 items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow,transform] duration-150 ease-out"
       style={{
         background: active ? CARD_BG : hovered ? PAGE_BG : 'transparent',
         color: active ? TEAL : hovered ? TEXT : TEXT_DIM,
-        border: `1px solid ${active ? `${TEAL}24` : hovered ? `${BORDER}D0` : 'transparent'}`,
-        boxShadow: active
-          ? `${isDark ? `0 0 0 1px ${TEAL}12, ` : ''}${SHADOW_CARD}`
-          : hovered ? SHADOW_SOFT : 'none',
+        border: `1px solid ${borderColor}`,
+        boxShadow,
+        transform,
       }}
     >
       {active && (
@@ -50,7 +63,12 @@ export function RailIconButton({
         />
       )}
 
-      <Icon size={16} />
+      <span
+        className="inline-flex items-center justify-center transition-transform duration-150 ease-out"
+        style={{ transform: active ? 'scale(1.03)' : hovered ? 'scale(1.01)' : 'scale(1)' }}
+      >
+        <Icon size={16} strokeWidth={active ? 2.15 : hovered ? 2.02 : 1.9} />
+      </span>
 
       {showDotBadge && (
         typeof badge === 'number' || typeof badge === 'string'
