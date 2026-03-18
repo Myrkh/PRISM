@@ -8,6 +8,7 @@
  *   [BookOpen]  Bibliothèque — liste unifiée glissable
  */
 import { useEffect, useRef, useState } from 'react'
+import { nanoid } from 'nanoid'
 import {
   Activity,
   Archive,
@@ -34,7 +35,9 @@ import type {
   DevelopedParams,
   SIF,
   SIFChannel,
+  SIFComponent,
   SIFSubsystem,
+  SubElement,
   SubsystemType,
   VoteType,
 } from '@/core/types'
@@ -48,6 +51,7 @@ import { RightPanelBody, RightPanelShell } from '@/components/layout/RightPanelS
 import { DEFAULT_CHANNEL, DEFAULT_COMPONENT } from '@/core/models/defaults'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import { InstrumentationIcon } from '@/components/architecture/InstrumentationIcons'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -109,6 +113,28 @@ function parsePctInput(raw: string, fallback: number) {
 function buildComponentTag(subsystemType: SubsystemType, sifNumber: string, channelIndex: number, componentIndex: number) {
   const prefix = subsystemType === 'sensor' ? 'S' : subsystemType === 'logic' ? 'L' : 'A'
   return `${sifNumber}_${prefix}${channelIndex + 1}.${componentIndex + 1}`
+}
+
+function defaultSubComponentFor(component: SIFComponent, index: number): SubElement {
+  const type = component.instrumentType.toLowerCase()
+  const valveLike = component.subsystemType === 'actuator' || component.instrumentCategory === 'valve' || type.includes('valve')
+  const instrumentType = valveLike ? 'Solenoid valve' : 'Sub-component'
+  const label = valveLike ? `Electrovanne ${index + 1}` : `Sous-composant ${index + 1}`
+  const suffix = valveLike ? `SOV${index + 1}` : `SC${index + 1}`
+
+  return {
+    id: nanoid(),
+    tagName: `${component.tagName}-${suffix}`,
+    label,
+    instrumentType,
+    manufacturer: '',
+    factorized: {
+      lambda: 0,
+      lambdaDRatio: 0,
+      DCd: 0,
+      DCs: 0,
+    },
+  }
 }
 
 function normalizeChannelLabels(channels: SIFChannel[]) {
@@ -253,6 +279,36 @@ function SubsystemArchSection({
     })
   }
 
+  const resizeComponentSubComponents = (channelId: string, componentId: string, nextCount: number) => {
+    const channel = subsystem.channels.find(candidate => candidate.id === channelId)
+    if (!channel) return
+
+    const clamped = Math.min(4, Math.max(0, nextCount))
+
+    updateChannel(channelId, {
+      components: channel.components.map(component => {
+        if (component.id !== componentId) return component
+
+        const current = component.subComponents ?? []
+        if (clamped === current.length) return component
+
+        const nextSubComponents = [...current]
+        if (clamped > nextSubComponents.length) {
+          while (nextSubComponents.length < clamped) {
+            nextSubComponents.push(defaultSubComponentFor(component, nextSubComponents.length))
+          }
+        } else {
+          nextSubComponents.splice(clamped)
+        }
+
+        return {
+          ...component,
+          subComponents: nextSubComponents,
+        }
+      }),
+    })
+  }
+
   const toggleSubsystemCcf = () => {
     upd({
       ccf: {
@@ -273,7 +329,11 @@ function SubsystemArchSection({
   const currentChannelComponentCount = activeChannel?.components.length ?? 1
   const currentChannelArchOptions = getValidArchOptions(currentChannelComponentCount)
   const currentChannelCcfEnabled = Boolean(activeChannel && currentChannelComponentCount > 1 && ((activeChannel.beta ?? 0) > 0 || (activeChannel.betaD ?? 0) > 0))
-  const actuatorSubCount = activeChannel ? Math.max(0, activeChannel.components.length - 1) : 0
+  const componentCountLabel = subsystem.type === 'sensor'
+    ? 'Number of sensors'
+    : subsystem.type === 'logic'
+    ? 'Number of solvers'
+    : 'Number of final elements'
 
   return (
     <div className="overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
@@ -444,127 +504,162 @@ function SubsystemArchSection({
                 </div>
               </div>
 
-              {subsystem.type !== 'actuator' ? (
-                <div className="grid gap-2" style={{ gridTemplateColumns: PANEL_FORM_GRID }}>
-                  <label className="min-w-0 space-y-1">
-                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-                      Number of {subsystem.type === 'sensor' ? 'sensors' : 'solvers'}
-                    </span>
-                    <select
-                      value={currentChannelComponentCount}
-                      onChange={event => resizeChannelComponents(activeChannel.id, Number(event.target.value))}
-                      className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
-                      style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
-                    >
-                      {COUNT_OPTIONS.map(count => (
-                        <option key={count} value={count}>{count}</option>
-                      ))}
-                    </select>
-                  </label>
+              <div className="grid gap-2" style={{ gridTemplateColumns: PANEL_FORM_GRID }}>
+                <label className="min-w-0 space-y-1">
+                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+                    {componentCountLabel}
+                  </span>
+                  <select
+                    value={currentChannelComponentCount}
+                    onChange={event => resizeChannelComponents(activeChannel.id, Number(event.target.value))}
+                    className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
+                    style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
+                  >
+                    {COUNT_OPTIONS.map(count => (
+                      <option key={count} value={count}>{count}</option>
+                    ))}
+                  </select>
+                </label>
 
-                  <label className="min-w-0 space-y-1">
-                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Configured in</span>
-                    <select
-                      value={currentChannelArchOptions.some(option => option.value === (activeChannel.architecture ?? '1oo1'))
-                        ? (activeChannel.architecture ?? '1oo1')
-                        : firstValidArch(currentChannelComponentCount)}
-                      onChange={event => updateChannel(activeChannel.id, { architecture: event.target.value as Architecture })}
-                      className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
-                      style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
-                    >
-                      {currentChannelArchOptions.map(option => (
-                        <option key={option.value} value={option.value}>{option.label}</option>
-                      ))}
-                    </select>
-                  </label>
+                <label className="min-w-0 space-y-1">
+                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Configured in</span>
+                  <select
+                    value={currentChannelArchOptions.some(option => option.value === (activeChannel.architecture ?? '1oo1'))
+                      ? (activeChannel.architecture ?? '1oo1')
+                      : firstValidArch(currentChannelComponentCount)}
+                    onChange={event => updateChannel(activeChannel.id, { architecture: event.target.value as Architecture })}
+                    className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
+                    style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
+                  >
+                    {currentChannelArchOptions.map(option => (
+                      <option key={option.value} value={option.value}>{option.label}</option>
+                    ))}
+                  </select>
+                </label>
 
-                  <label className="min-w-0 space-y-1">
-                    <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Vote</span>
-                    <select
-                      value={subsystem.voteType}
-                      onChange={event => upd({ voteType: event.target.value as VoteType })}
-                      className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
-                      style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
-                    >
-                      {VOTE_TYPE_OPTIONS.map(option => (
-                        <option key={option} value={option}>{option}</option>
-                      ))}
-                    </select>
-                  </label>
+                <label className="min-w-0 space-y-1">
+                  <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Vote</span>
+                  <select
+                    value={subsystem.voteType}
+                    onChange={event => upd({ voteType: event.target.value as VoteType })}
+                    className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
+                    style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
+                  >
+                    {VOTE_TYPE_OPTIONS.map(option => (
+                      <option key={option} value={option}>{option}</option>
+                    ))}
+                  </select>
+                </label>
+              </div>
+
+              {subsystem.type === 'actuator' && (
+                <div className="rounded-lg border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                  <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEAL }}>Sous-composants par composant</p>
+                  <p className="mt-1 text-[10px] leading-relaxed" style={{ color: TEXT_DIM }}>
+                    Le channel porte les composants en serie. Chaque composant peut ensuite embarquer ses propres sous-composants.
+                  </p>
+
+                  <div className="mt-3 space-y-2">
+                    {activeChannel.components.map((component, componentIndex) => {
+                      const subComponents = component.subComponents ?? []
+                      const subCount = subComponents.length
+
+                      return (
+                        <div
+                          key={component.id}
+                          className="rounded-lg border p-2.5"
+                          style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}
+                        >
+                          <div className="flex items-start gap-2">
+                            <div
+                              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md border"
+                              style={{ borderColor: `${meta.color}24`, background: `${meta.color}10`, color: meta.color }}
+                            >
+                              <InstrumentationIcon
+                                subsystemType={component.subsystemType}
+                                instrumentCategory={component.instrumentCategory}
+                                instrumentType={component.instrumentType}
+                                size={15}
+                              />
+                            </div>
+
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-[11px] font-semibold" style={{ color: TEXT }}>{component.tagName}</p>
+                              <p className="truncate text-[9px]" style={{ color: TEXT_DIM }}>
+                                {component.instrumentType || `Composant ${componentIndex + 1}`}
+                              </p>
+                            </div>
+
+                            <span
+                              className="rounded px-1.5 py-0.5 text-[8px] font-mono font-bold"
+                              style={{ background: `${meta.color}14`, color: meta.color }}
+                            >
+                              Parent {componentIndex + 1}
+                            </span>
+                          </div>
+
+                          <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: PANEL_FORM_GRID }}>
+                            <label className="min-w-0 space-y-1">
+                              <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Number of sub-components</span>
+                              <select
+                                value={subCount}
+                                onChange={event => resizeComponentSubComponents(activeChannel.id, component.id, Number(event.target.value))}
+                                className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
+                                style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
+                              >
+                                {[0, 1, 2, 3, 4].map(count => (
+                                  <option key={count} value={count}>{count}</option>
+                                ))}
+                              </select>
+                            </label>
+                          </div>
+
+                          {subCount > 0 && (
+                            <div className="mt-2 space-y-1.5 pl-3">
+                              {subComponents.map((subComponent, subIndex) => (
+                                <div
+                                  key={subComponent.id}
+                                  className="relative rounded-md border px-2.5 py-2"
+                                  style={{ borderColor: BORDER, background: PAGE_BG }}
+                                >
+                                  <span
+                                    className="pointer-events-none absolute -left-3 top-1/2 h-px w-3 -translate-y-1/2"
+                                    style={{ background: `${meta.color}42` }}
+                                  />
+                                  <div className="flex items-center gap-2">
+                                    <div
+                                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border"
+                                      style={{ borderColor: `${meta.color}1E`, background: `${meta.color}0D`, color: meta.color }}
+                                    >
+                                      <InstrumentationIcon
+                                        subsystemType={component.subsystemType}
+                                        instrumentCategory={component.instrumentCategory}
+                                        instrumentType={subComponent.instrumentType || subComponent.label}
+                                        size={13}
+                                      />
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="truncate text-[9px] font-mono font-bold" style={{ color: TEXT }}>{subComponent.tagName}</p>
+                                      <p className="truncate text-[9px]" style={{ color: TEXT_DIM }}>
+                                        {subComponent.instrumentType || subComponent.label}
+                                      </p>
+                                    </div>
+                                    <span
+                                      className="rounded px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-widest"
+                                      style={{ background: `${meta.color}12`, color: TEXT_DIM }}
+                                    >
+                                      SC{subIndex + 1}
+                                    </span>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
                 </div>
-              ) : (
-                <>
-                  <div className="grid gap-2" style={{ gridTemplateColumns: PANEL_FORM_GRID }}>
-                    <label className="min-w-0 space-y-1">
-                      <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Number of actuators</span>
-                      <input
-                        value="1"
-                        readOnly
-                        className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
-                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT, opacity: 0.75 }}
-                      />
-                    </label>
-
-                    <label className="min-w-0 space-y-1">
-                      <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Configured in</span>
-                      <input
-                        value="1oo1"
-                        readOnly
-                        className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
-                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT, opacity: 0.75 }}
-                      />
-                    </label>
-
-                    <label className="min-w-0 space-y-1">
-                      <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Vote</span>
-                      <select
-                        value={subsystem.voteType}
-                        onChange={event => upd({ voteType: event.target.value as VoteType })}
-                        className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
-                        style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
-                      >
-                        {VOTE_TYPE_OPTIONS.map(option => (
-                          <option key={option} value={option}>{option}</option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-
-                  <div className="rounded-lg border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEAL }}>Group 1</p>
-                    <div className="mt-2 grid gap-2" style={{ gridTemplateColumns: PANEL_WIDE_GRID }}>
-                      <label className="min-w-0 space-y-1">
-                        <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Sub-actuator(s)</span>
-                        <select
-                          value={actuatorSubCount}
-                          onChange={event => resizeChannelComponents(activeChannel.id, Number(event.target.value) + 1)}
-                          className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
-                          style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
-                        >
-                          {[0, 1, 2, 3].map(count => (
-                            <option key={count} value={count}>{count}</option>
-                          ))}
-                        </select>
-                      </label>
-
-                      <label className="min-w-0 space-y-1">
-                        <span className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Configured in</span>
-                        <select
-                          value={currentChannelArchOptions.some(option => option.value === (activeChannel.architecture ?? '1oo1'))
-                            ? (activeChannel.architecture ?? '1oo1')
-                            : firstValidArch(currentChannelComponentCount)}
-                          onChange={event => updateChannel(activeChannel.id, { architecture: event.target.value as Architecture })}
-                          className="prism-field h-9 w-full min-w-0 rounded-md border px-2.5 text-sm outline-none"
-                          style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
-                        >
-                          {currentChannelArchOptions.map(option => (
-                            <option key={option.value} value={option.value}>{option.label}</option>
-                          ))}
-                        </select>
-                      </label>
-                    </div>
-                  </div>
-                </>
               )}
 
               {currentChannelComponentCount > 1 && (

@@ -15,6 +15,7 @@ import {
   Activity, Cpu, Save, Zap, X,
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
+import { InstrumentationIcon } from './InstrumentationIcons'
 import {
   calcComponentDC, calcComponentPFDValue, calcComponentSFF, factorizedToDeveloped, developedToFactorized,
   formatPFD, formatPct,
@@ -566,9 +567,14 @@ export function ComponentParamsPanel({
           <div className="flex min-w-0 items-center gap-2.5">
             <div
               className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg"
-              style={{ background: `${meta.color}18`, boxShadow: SHADOW_SOFT }}
+              style={{ background: `${meta.color}18`, boxShadow: SHADOW_SOFT, color: meta.color }}
             >
-              <meta.Icon size={13} style={{ color: meta.color }} />
+              <InstrumentationIcon
+                subsystemType={subsystemType}
+                instrumentCategory={local.instrumentCategory}
+                instrumentType={local.instrumentType}
+                size={13}
+              />
             </div>
             <div className="min-w-0">
               <p className="truncate text-[11px] font-bold tracking-[0.01em]" style={{ color: TEXT }}>{local.tagName}</p>

@@ -53,6 +53,7 @@ import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '
 import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { CCFBetaRightPanel } from '@/components/architecture/CCFBetaRightPanel'
 import { CCFBetaWorkspace } from '@/components/architecture/CCFBetaWorkspace'
+import { InstrumentationIcon } from '@/components/architecture/InstrumentationIcons'
 import { LoopEditorRightPanel } from '@/components/architecture/LoopEditorRightPanel'
 import { instantiateComponentTemplate, parseLibraryDragPayload } from '@/features/library'
 import { usePrismTheme } from '@/styles/usePrismTheme'
@@ -140,10 +141,11 @@ function CompCard({
   comp: SIFComponent; color: string; selected: boolean
   onSelect: () => void; onDelete: () => void
 }) {
-  const { BORDER, SHADOW_PANEL, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, PAGE_BG, SHADOW_PANEL, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
   const d   = factorizedToDeveloped(comp.factorized)
   const sff = calcComponentSFF(d)
   const dc  = calcComponentDC(d)
+  const subComponents = comp.subComponents ?? []
 
   return (
     <div onClick={e => { e.stopPropagation(); onSelect() }}
@@ -155,18 +157,90 @@ function CompCard({
         boxShadow:   selected ? `${SHADOW_PANEL}, 0 0 0 1px ${color}22` : SHADOW_SOFT,
         padding: '8px 10px', minWidth: 0, width: '100%',
       }}>
-      <div className="flex items-start justify-between gap-1 mb-1.5">
-        <span className="text-[11px] font-bold font-mono truncate" style={{ color }}>{comp.tagName}</span>
-        <button onClick={e => { e.stopPropagation(); onDelete() }}
-          className="opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5 hover:bg-red-900/40"
-          style={{ color: '#F87171' }}><Trash2 size={10} /></button>
+      <div className="mb-1.5 pr-11">
+        <div className="mb-1 flex items-start justify-between gap-2">
+          <span className="text-[11px] font-bold font-mono truncate" style={{ color }}>{comp.tagName}</span>
+        </div>
+        <p className="min-w-0 text-[10px] truncate" style={{ color: TEXT_DIM }}>{comp.instrumentType || comp.instrumentCategory}</p>
       </div>
-      <p className="text-[10px] truncate mb-1.5" style={{ color: TEXT_DIM }}>{comp.instrumentType || comp.instrumentCategory}</p>
-      <div className="flex gap-2">
+      <button onClick={e => { e.stopPropagation(); onDelete() }}
+        className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5 hover:bg-red-900/40"
+        style={{ color: '#F87171' }}><Trash2 size={10} /></button>
+      <span
+        className="pointer-events-none absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md border"
+        style={{ borderColor: `${color}24`, background: `${color}0D`, color }}
+      >
+        <InstrumentationIcon
+          subsystemType={comp.subsystemType}
+          instrumentCategory={comp.instrumentCategory}
+          instrumentType={comp.instrumentType}
+          size={20}
+        />
+      </span>
+      <div className="flex gap-2 pr-11">
         <MetricPill label="SFF" value={formatPct(sff)} ok={sff >= 0.6} />
         <MetricPill label="DC"  value={formatPct(dc)}  ok={dc  >= 0.6} />
         <MetricPill label="λ"   value={`${comp.factorized.lambda.toFixed(1)}`} />
       </div>
+      {subComponents.length > 0 && (
+        <div className="mt-2 border-t pt-2" style={{ borderColor: `${color}20` }}>
+          <div className="mb-1.5 flex items-center gap-2">
+            <span
+              className="inline-flex h-4 w-4 items-center justify-center rounded-sm"
+              style={{ background: `${color}10`, color }}
+            >
+              <ChevronRight size={10} />
+            </span>
+            <span className="text-[8px] font-bold uppercase tracking-[0.16em]" style={{ color: TEXT_DIM }}>
+              Sous-composants
+            </span>
+            <span
+              className="rounded-full px-1.5 py-0.5 text-[8px] font-mono font-bold"
+              style={{ background: `${color}12`, color }}
+            >
+              {subComponents.length}
+            </span>
+          </div>
+
+          <div className="space-y-1.5 pl-3">
+            {subComponents.map((subComponent, index) => (
+              <div
+                key={subComponent.id ?? `${comp.id}-sub-${index}`}
+                className="relative rounded-md border px-2.5 py-2"
+                style={{ background: PAGE_BG, borderColor: `${color}22`, boxShadow: SHADOW_SOFT }}
+              >
+                <span
+                  className="pointer-events-none absolute -left-3 top-1/2 h-px w-3 -translate-y-1/2"
+                  style={{ background: `${color}40` }}
+                />
+                <div className="flex items-center gap-2">
+                  <span
+                    className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md border"
+                    style={{ borderColor: `${color}22`, background: `${color}0D`, color }}
+                  >
+                    <InstrumentationIcon
+                      subsystemType={comp.subsystemType}
+                      instrumentCategory={comp.instrumentCategory}
+                      instrumentType={subComponent.instrumentType || subComponent.label}
+                      size={14}
+                    />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[9px] font-mono font-bold" style={{ color }}>{subComponent.tagName || `SC${index + 1}`}</p>
+                    <p className="truncate text-[9px]" style={{ color: TEXT_DIM }}>{subComponent.instrumentType || subComponent.label}</p>
+                  </div>
+                  <span
+                    className="rounded px-1.5 py-0.5 text-[8px] font-semibold uppercase tracking-widest"
+                    style={{ background: `${color}10`, color: TEXT_DIM }}
+                  >
+                    Sous-comp.
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {selected && <div className="absolute -top-1 -right-1 h-2.5 w-2.5 rounded-full" style={{ background: color, boxShadow: `0 0 0 2px ${TEXT}, 0 0 12px ${color}55` }} />}
     </div>
   )

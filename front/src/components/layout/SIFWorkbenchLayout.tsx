@@ -45,8 +45,14 @@ export const useLayout = () => useContext(LayoutContext)
 
 
 const DEFAULT_RIGHT_PANEL_WIDTH = 300
+const LARGE_SCREEN_RIGHT_PANEL_WIDTH = 400
 const MIN_RIGHT_PANEL_WIDTH     = 220
 const MAX_RIGHT_PANEL_WIDTH     = 720
+
+function getDefaultRightPanelWidth(viewportWidth?: number) {
+  if (typeof viewportWidth !== 'number') return DEFAULT_RIGHT_PANEL_WIDTH
+  return viewportWidth >= 1440 ? LARGE_SCREEN_RIGHT_PANEL_WIDTH : DEFAULT_RIGHT_PANEL_WIDTH
+}
 
 // ─── Right panel — Properties inspector ──────────────────────────────────
 function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) {
@@ -213,10 +219,10 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
   const [leftOpen,  setLeftOpen]  = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
   const [rightPanelOverride, setRightPanelOverride] = useState<ReactNode | null>(null)
-  const [rightPanelWidth, setRightPanelWidth] = useState(DEFAULT_RIGHT_PANEL_WIDTH)
+  const [rightPanelWidth, setRightPanelWidth] = useState(() => getDefaultRightPanelWidth(typeof window !== 'undefined' ? window.innerWidth : undefined))
   const [isResizingRightPanel, setIsResizingRightPanel] = useState(false)
   const rightPanelResizeStartX     = useRef<number | null>(null)
-  const rightPanelResizeStartWidth = useRef(DEFAULT_RIGHT_PANEL_WIDTH)
+  const rightPanelResizeStartWidth = useRef(getDefaultRightPanelWidth(typeof window !== 'undefined' ? window.innerWidth : undefined))
 
   const activeTab: CanonicalSIFTab = view.type === 'sif-dashboard' ? normalizeSIFTab(view.tab) : 'cockpit'
   const visibleTab: CanonicalSIFTab = activeTab === 'history' ? 'cockpit' : activeTab
@@ -238,7 +244,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
 
   // Reset right panel size on view change
   useEffect(() => {
-    setRightPanelWidth(DEFAULT_RIGHT_PANEL_WIDTH)
+    setRightPanelWidth(getDefaultRightPanelWidth(typeof window !== 'undefined' ? window.innerWidth : undefined))
     setIsResizingRightPanel(false)
     rightPanelResizeStartX.current = null
   }, [visibleTab, view.type, projectId, sifId])

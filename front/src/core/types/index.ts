@@ -22,7 +22,7 @@ export type {
   SubsystemType, ParamMode, TestType, NatureType, InstrumentCategory,
   DeterminedCharacter, VoteType, CCFMethod, BetaAssessmentMode, BetaAssessmentProfile, BetaDiagnosticIntervalUnit, BetaAssessmentConfig, SubsystemCCF,
   FactorizedParams, DevelopedParams, TestParams, PartialTestParams, AdvancedParams,
-  SIFComponent,
+  SIFComponent, SubElement,
   BooleanGate, CustomBooleanArch, LibraryComponent,
   SIFChannel, SIFSubsystem,
 } from './component.types'
