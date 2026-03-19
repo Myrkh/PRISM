@@ -59,6 +59,7 @@ function buildSubsystemResult(
       const tce = computeTCE(comp, mrt)
       return {
         componentId: comp.id,
+        parentComponentId: comp.parentComponentId,
         pfdavg: pfd,
         pfh: 0, // sera rempli par le module PFH
         lambdaDU: rates.lambdaDU,
@@ -146,6 +147,7 @@ function buildSolverResult(
         const tce = computeTCE(comp, mrt)
         return {
           componentId: comp.id,
+          parentComponentId: comp.parentComponentId,
           pfdavg: pfd,
           pfh: 0,
           lambdaDU: rates.lambdaDU,
@@ -202,6 +204,7 @@ function buildSolverResult(
       pfh: 0,
       componentResults: [{
         componentId: comp.id,
+        parentComponentId: comp.parentComponentId,
         pfdavg: pfd,
         pfh: 0,
         lambdaDU: rates.lambdaDU,

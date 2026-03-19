@@ -47,7 +47,7 @@ export function ProcedureView({
   addTestCategory, deleteCategory, updateCategory,
   addResponseCheck, updateResponseCheck, removeResponseCheck,
 }: Props) {
-  const { BORDER, CARD_BG, PAGE_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, TEAL, TEXT, TEXT_DIM, SHADOW_CARD, SHADOW_SOFT } = usePrismTheme()
   const sm = STATUS_CFG[procedure.status]
 
   const toggleCollapse = (catId: string) =>
@@ -57,7 +57,7 @@ export function ProcedureView({
     <div className="space-y-3">
 
       {/* Procedure header card */}
-      <div className="rounded-2xl border shadow-sm p-5" style={{ background: CARD_BG, borderColor: BORDER }}>
+      <div className="rounded-2xl border p-5" style={{ background: CARD_BG, borderColor: BORDER, boxShadow: SHADOW_CARD }}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
@@ -109,7 +109,7 @@ export function ProcedureView({
         const isCollapsed = collapsed.has(cat.id)
 
         return (
-          <div key={cat.id} className="rounded-2xl border shadow-sm overflow-hidden" style={{ background: CARD_BG, borderColor: BORDER }}>
+          <div key={cat.id} className="rounded-2xl border overflow-hidden" style={{ background: CARD_BG, borderColor: BORDER, boxShadow: SHADOW_CARD }}>
 
             {/* Category header */}
             <div className="flex items-center gap-3 px-5 py-3 border-b"
@@ -258,7 +258,7 @@ export function ProcedureView({
       {editMode && (
         <button onClick={addTestCategory}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed text-sm font-semibold transition-all hover:border-[#009BA4] hover:text-[#009BA4]"
-          style={{ color: TEXT_DIM, borderColor: BORDER, background: PAGE_BG }}
+          style={{ color: TEXT_DIM, borderColor: BORDER, background: PAGE_BG, boxShadow: SHADOW_SOFT }}
         ><Plus size={14} />Ajouter une catégorie de test</button>
       )}
 
@@ -271,7 +271,7 @@ export function ProcedureView({
       />
 
       {/* Signatures */}
-      <div className="rounded-2xl border shadow-sm p-5" style={{ background: CARD_BG, borderColor: BORDER }}>
+      <div className="rounded-2xl border p-5" style={{ background: CARD_BG, borderColor: BORDER, boxShadow: SHADOW_CARD }}>
         <p className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: TEXT_DIM }}>Signatures de la procédure</p>
         <div className="grid grid-cols-3 gap-4">
           {[
@@ -279,7 +279,7 @@ export function ProcedureView({
             { key: 'verifiedBy' as const,  keyDate: 'verifiedByDate' as const,  label: 'Vérifié par' },
             { key: 'approvedBy' as const,  keyDate: 'approvedByDate' as const,  label: 'Approuvé par' },
           ].map(({ key, keyDate, label }) => (
-            <div key={key} className="border rounded-xl p-4 min-h-[80px]" style={{ borderColor: BORDER, background: PAGE_BG }}>
+            <div key={key} className="border rounded-xl p-4 min-h-[80px]" style={{ borderColor: BORDER, background: PAGE_BG, boxShadow: SHADOW_SOFT }}>
               <p className="text-[9px] font-bold uppercase tracking-wider mb-2" style={{ color: TEXT_DIM }}>{label}</p>
               {editMode ? (
                 <div className="space-y-1.5">

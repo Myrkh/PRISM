@@ -55,6 +55,7 @@ export interface SILBackendWarning {
 
 export interface SILBackendComponentResult {
   componentId: string
+  parentComponentId?: string | null
   pfdavg: number | null
   pfh: number | null
   lambdaDU: number

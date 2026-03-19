@@ -24,7 +24,7 @@ import {
   Activity, Cpu, Zap, CheckCircle2, ShieldCheck,
 } from 'lucide-react'
 import { useAppStore, selectSIFCalc } from '@/store/appStore'
-import { calcSIF, calcComponentSFF, calcComponentDC, factorizedToDeveloped, formatPFD, formatPct, formatRRF } from '@/core/math/pfdCalc'
+import { calcSIF, calcComponentSFF, calcComponentDC, developedToFactorized, factorizedToDeveloped, formatPFD, formatPct, formatRRF, getEffectiveDeveloped } from '@/core/math/pfdCalc'
 import {
   applicableBetaChecklistItems,
   computeBetaAssessment,
@@ -134,17 +134,26 @@ function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value))
 }
 
+function componentOwnsSelection(component: SIFComponent, selectedId: string | null): boolean {
+  if (!selectedId) return false
+  return component.id === selectedId || (component.subComponents ?? []).some(subComponent => subComponent.id === selectedId)
+}
+
 // ─── Component card ──────────────────────────────────────────────────────
 function CompCard({
-  comp, color, selected, onSelect, onDelete,
+  comp, color, selected, selectedSubId, onSelect, onSelectSubComp, onDelete,
 }: {
   comp: SIFComponent; color: string; selected: boolean
-  onSelect: () => void; onDelete: () => void
+  selectedSubId: string | null
+  onSelect: () => void
+  onSelectSubComp: (id: string) => void
+  onDelete: () => void
 }) {
   const { BORDER, PAGE_BG, SHADOW_PANEL, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
-  const d   = factorizedToDeveloped(comp.factorized)
-  const sff = calcComponentSFF(d)
-  const dc  = calcComponentDC(d)
+  const effective = getEffectiveDeveloped(comp) ?? factorizedToDeveloped(comp.factorized)
+  const effectiveFactorized = developedToFactorized(effective, comp.factorized)
+  const sff = calcComponentSFF(effective)
+  const dc  = calcComponentDC(effective)
   const subComponents = comp.subComponents ?? []
 
   return (
@@ -157,30 +166,30 @@ function CompCard({
         boxShadow:   selected ? `${SHADOW_PANEL}, 0 0 0 1px ${color}22` : SHADOW_SOFT,
         padding: '8px 10px', minWidth: 0, width: '100%',
       }}>
-      <div className="mb-1.5 pr-11">
-        <div className="mb-1 flex items-start justify-between gap-2">
-          <span className="text-[11px] font-bold font-mono truncate" style={{ color }}>{comp.tagName}</span>
+      <div className="mb-2 flex items-start gap-2 pr-6">
+        <span
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border"
+          style={{ borderColor: `${color}24`, background: `${color}0D`, color }}
+        >
+          <InstrumentationIcon
+            subsystemType={comp.subsystemType}
+            instrumentCategory={comp.instrumentCategory}
+            instrumentType={comp.instrumentType}
+            size={16}
+          />
+        </span>
+        <div className="min-w-0 flex-1">
+          <p className="truncate text-[11px] font-bold font-mono" style={{ color }}>{comp.tagName}</p>
+          <p className="mt-0.5 min-w-0 truncate text-[10px]" style={{ color: TEXT_DIM }}>{comp.instrumentType || comp.instrumentCategory}</p>
         </div>
-        <p className="min-w-0 text-[10px] truncate" style={{ color: TEXT_DIM }}>{comp.instrumentType || comp.instrumentCategory}</p>
       </div>
       <button onClick={e => { e.stopPropagation(); onDelete() }}
         className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity rounded p-0.5 hover:bg-red-900/40"
         style={{ color: '#F87171' }}><Trash2 size={10} /></button>
-      <span
-        className="pointer-events-none absolute right-2 top-1/2 inline-flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-md border"
-        style={{ borderColor: `${color}24`, background: `${color}0D`, color }}
-      >
-        <InstrumentationIcon
-          subsystemType={comp.subsystemType}
-          instrumentCategory={comp.instrumentCategory}
-          instrumentType={comp.instrumentType}
-          size={20}
-        />
-      </span>
-      <div className="flex gap-2 pr-11">
+      <div className="flex gap-2">
         <MetricPill label="SFF" value={formatPct(sff)} ok={sff >= 0.6} />
         <MetricPill label="DC"  value={formatPct(dc)}  ok={dc  >= 0.6} />
-        <MetricPill label="λ"   value={`${comp.factorized.lambda.toFixed(1)}`} />
+        <MetricPill label="λ"   value={`${effectiveFactorized.lambda.toFixed(1)}`} />
       </div>
       {subComponents.length > 0 && (
         <div className="mt-2 border-t pt-2" style={{ borderColor: `${color}20` }}>
@@ -203,11 +212,21 @@ function CompCard({
           </div>
 
           <div className="space-y-1.5 pl-3">
-            {subComponents.map((subComponent, index) => (
+            {subComponents.map((subComponent, index) => {
+              const subSelected = selectedSubId === subComponent.id
+              return (
               <div
                 key={subComponent.id ?? `${comp.id}-sub-${index}`}
-                className="relative rounded-md border px-2.5 py-2"
-                style={{ background: PAGE_BG, borderColor: `${color}22`, boxShadow: SHADOW_SOFT }}
+                onClick={event => {
+                  event.stopPropagation()
+                  onSelectSubComp(subComponent.id)
+                }}
+                className="relative rounded-md border px-2.5 py-2 transition-all"
+                style={{
+                  background: subSelected ? `${color}12` : PAGE_BG,
+                  borderColor: subSelected ? `${color}48` : `${color}22`,
+                  boxShadow: subSelected ? `${SHADOW_SOFT}, 0 0 0 1px ${color}18` : SHADOW_SOFT,
+                }}
               >
                 <span
                   className="pointer-events-none absolute -left-3 top-1/2 h-px w-3 -translate-y-1/2"
@@ -220,7 +239,7 @@ function CompCard({
                   >
                     <InstrumentationIcon
                       subsystemType={comp.subsystemType}
-                      instrumentCategory={comp.instrumentCategory}
+                      instrumentCategory={subComponent.instrumentCategory ?? comp.instrumentCategory}
                       instrumentType={subComponent.instrumentType || subComponent.label}
                       size={14}
                     />
@@ -237,7 +256,7 @@ function CompCard({
                   </span>
                 </div>
               </div>
-            ))}
+            )})}
           </div>
         </div>
       )}
@@ -319,11 +338,24 @@ function ChannelBlock({
           onMouseLeave={e => (e.currentTarget.style.color = TEXT_DIM)}><Plus size={12} /></button>
       </div>
       <div className="space-y-2">
-        {channel.components.map(comp => (
-          <CompCard key={comp.id} comp={comp} color={color} selected={selectedId === comp.id}
+        {channel.components.map(comp => {
+          const selectedSubId = (comp.subComponents ?? []).find(subComponent => subComponent.id === selectedId)?.id ?? null
+          const selected = componentOwnsSelection(comp, selectedId)
+          return (
+          <CompCard
+            key={comp.id}
+            comp={comp}
+            color={color}
+            selected={selected}
+            selectedSubId={selectedSubId}
             onSelect={() => onSelectComp(comp.id)}
-            onDelete={() => { removeComponent(projectId, sifId, subsystem.id, channel.id, comp.id); if (selectedId === comp.id) selectComponent(null) }} />
-        ))}
+            onSelectSubComp={onSelectComp}
+            onDelete={() => {
+              removeComponent(projectId, sifId, subsystem.id, channel.id, comp.id)
+              if (componentOwnsSelection(comp, selectedId)) selectComponent(null)
+            }}
+          />
+        )})}
         {channel.components.length === 0 && (
           <div className="rounded border-2 border-dashed px-3 py-4 text-center"
             style={{ borderColor: `${color}30`, color: TEXT_DIM }}><p className="text-[10px]">Déposer ici</p></div>
@@ -905,7 +937,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
       .find(sub => sub.id === subId)
       ?.channels.find(ch => ch.id === chId)
 
-    if (channel?.components.some(comp => comp.id === selectedId)) {
+    if (channel?.components.some(comp => componentOwnsSelection(comp, selectedId))) {
       selectComponent(null)
     }
 
@@ -929,7 +961,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
     let channels = [...sub.channels]
     if (requiredChannels < currentChannels) {
       const removedChannels = channels.slice(requiredChannels)
-      if (removedChannels.some(channel => channel.components.some(comp => comp.id === selectedId))) {
+      if (removedChannels.some(channel => channel.components.some(comp => componentOwnsSelection(comp, selectedId)))) {
         selectComponent(null)
       }
       channels = channels.slice(0, requiredChannels)

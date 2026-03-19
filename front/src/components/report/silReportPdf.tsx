@@ -2,8 +2,17 @@ import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { renderPdfPagesToBlob } from '@/lib/pdf'
 import {
-  formatPFD, formatRRF, formatPct,
+  calcComponentDC,
+  calcComponentPFDValue,
+  calcComponentSFF,
+  calcSubComponentPFDValue,
+  developedToFactorized,
+  factorizedToDeveloped,
+  formatPFD,
+  formatRRF,
+  formatPct,
 } from '@/core/math/pfdCalc'
+import { normalizeSubComponent, type NormalizedSubElement } from '@/core/models/subComponents'
 import { assumptionsToReportText } from '@/core/models/sifAssumptions'
 import { SIL_META } from '@/core/types'
 import type { Project, SIF, SIFCalcResult, SILLevel } from '@/core/types'
@@ -77,6 +86,99 @@ export function getDefaultReportConfig(input: {
 
 export function getSILReportFileName(cfg: ReportConfig, sif: SIF): string {
   return `${cfg.docRef || sif.sifNumber || 'SIL-Report'}`.replace(/[^a-zA-Z0-9-_]+/g, '_')
+}
+
+type ReportComponentLike = SIF['subsystems'][number]['channels'][number]['components'][number] | NormalizedSubElement
+
+interface ReportComponentRow {
+  key: string
+  channelLabel: string
+  tagName: string
+  instrumentType: string
+  lambdaValue: number
+  dcd: number
+  t1: number
+  t1Unit: 'hr' | 'yr'
+  mttr: number
+  sff: number
+  dc: number
+  pfd: number
+  isSubcomponent: boolean
+  parentTagName?: string
+}
+
+function toReportDeveloped(component: ReportComponentLike) {
+  return component.paramMode === 'developed' && component.developed
+    ? component.developed
+    : factorizedToDeveloped(component.factorized)
+}
+
+function toReportFactorized(component: ReportComponentLike) {
+  const developed = toReportDeveloped(component)
+  return component.paramMode === 'developed'
+    ? developedToFactorized(developed, component.factorized)
+    : component.factorized
+}
+
+function buildReportComponentRows(
+  subsystem: SIF['subsystems'][number] | undefined,
+  calcComponents: SIFCalcResult['subsystems'][number]['components'],
+): ReportComponentRow[] {
+  if (!subsystem) return []
+
+  const calcById = new Map(calcComponents.map(component => [component.componentId, component]))
+  const rows: ReportComponentRow[] = []
+
+  for (const channel of subsystem.channels) {
+    const channelLabel = channel.label || channel.id
+
+    for (const component of channel.components) {
+      const calc = calcById.get(component.id)
+      const factorized = toReportFactorized(component)
+      const developed = toReportDeveloped(component)
+
+      rows.push({
+        key: `${channel.id}:${component.id}`,
+        channelLabel,
+        tagName: component.tagName,
+        instrumentType: component.instrumentType || '—',
+        lambdaValue: factorized.lambda,
+        dcd: factorized.DCd,
+        t1: component.test.T1,
+        t1Unit: component.test.T1Unit,
+        mttr: component.advanced.MTTR,
+        sff: calc?.SFF ?? calcComponentSFF(developed),
+        dc: calc?.DC ?? calcComponentDC(developed),
+        pfd: calc?.PFD_avg ?? calcComponentPFDValue(component),
+        isSubcomponent: false,
+      })
+
+      for (const subComponent of component.subComponents ?? []) {
+        const normalized = normalizeSubComponent(component, subComponent)
+        const subFactorized = toReportFactorized(normalized)
+        const subDeveloped = toReportDeveloped(normalized)
+
+        rows.push({
+          key: `${channel.id}:${component.id}:${subComponent.id}`,
+          channelLabel,
+          tagName: normalized.tagName,
+          instrumentType: normalized.instrumentType || normalized.description || '—',
+          lambdaValue: subFactorized.lambda,
+          dcd: subFactorized.DCd,
+          t1: normalized.test.T1,
+          t1Unit: normalized.test.T1Unit,
+          mttr: normalized.advanced.MTTR,
+          sff: calcComponentSFF(subDeveloped),
+          dc: calcComponentDC(subDeveloped),
+          pfd: calcSubComponentPFDValue(component, subComponent),
+          isSubcomponent: true,
+          parentTagName: component.tagName,
+        })
+      }
+    }
+  }
+
+  return rows
 }
 
 function PFDSawtoothSVG({
@@ -546,36 +648,47 @@ export function ReportDocument({
                     <span>HFT {sub.HFT}</span>
                   </div>
                 </div>
-                {cfg.showComponentTable && subsystem?.channels.flatMap(ch => ch.components).length > 0 && (
-                  <table className="w-full text-[10px]">
-                    <thead>
-                      <tr className="border-b border-gray-200" style={{ background: '#F8FAFC' }}>
-                        {['Tag', 'Type', 'λ (×10⁻⁶ h⁻¹)', 'DCd', 'T1', 'MTTR', 'SFF', 'DC', 'PFD'].map(h => (
-                          <th key={h} className="px-3 py-1.5 text-left font-semibold text-slate-500">{h}</th>
-                        ))}
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sub.components.map((comp, ci) => {
-                        const allComps = subsystem.channels.flatMap(ch => ch.components)
-                        const rawComp = allComps[ci]
-                        return (
-                          <tr key={comp.componentId} className={ci % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}>
-                            <td className="px-3 py-1.5 font-mono font-semibold" style={{ color }}>{rawComp?.tagName}</td>
-                            <td className="px-3 py-1.5">{rawComp?.instrumentType || '—'}</td>
-                            <td className="px-3 py-1.5 font-mono">{rawComp?.factorized.lambda.toFixed(2)}</td>
-                            <td className="px-3 py-1.5 font-mono">{((rawComp?.factorized.DCd ?? 0) * 100).toFixed(0)}%</td>
-                            <td className="px-3 py-1.5 font-mono">{rawComp?.test.T1} {rawComp?.test.T1Unit}</td>
-                            <td className="px-3 py-1.5 font-mono">{rawComp?.advanced.MTTR} h</td>
-                            <td className="px-3 py-1.5 font-mono">{formatPct(comp.SFF)}</td>
-                            <td className="px-3 py-1.5 font-mono">{formatPct(comp.DC)}</td>
-                            <td className="px-3 py-1.5 font-mono font-semibold">{formatPFD(comp.PFD_avg)}</td>
+                {cfg.showComponentTable && subsystem?.channels.flatMap(ch => ch.components).length > 0 && (() => {
+                  const componentRows = buildReportComponentRows(subsystem, sub.components)
+                  return (
+                    <table className="w-full text-[10px]">
+                      <thead>
+                        <tr className="border-b border-gray-200" style={{ background: '#F8FAFC' }}>
+                          {['Tag', 'Type', 'λ (×10⁻⁶ h⁻¹)', 'DCd', 'T1', 'MTTR', 'SFF', 'DC', 'PFD'].map(h => (
+                            <th key={h} className="px-3 py-1.5 text-left font-semibold text-slate-500">{h}</th>
+                          ))}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {componentRows.map((row, ci) => (
+                          <tr
+                            key={row.key}
+                            className={row.isSubcomponent ? 'bg-slate-50/80' : ci % 2 === 0 ? 'bg-white' : 'bg-slate-50/50'}
+                          >
+                            <td className="px-3 py-1.5" style={{ color }}>
+                              <div className={cn('space-y-0.5', row.isSubcomponent && 'pl-4')}>
+                                <p className="font-mono font-semibold">{row.tagName}</p>
+                                <p className="text-[9px] text-slate-400">
+                                  {row.isSubcomponent
+                                    ? `Sub-component of ${row.parentTagName} · ${row.channelLabel}`
+                                    : row.channelLabel}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="px-3 py-1.5">{row.instrumentType}</td>
+                            <td className="px-3 py-1.5 font-mono">{row.lambdaValue.toFixed(2)}</td>
+                            <td className="px-3 py-1.5 font-mono">{(row.dcd * 100).toFixed(0)}%</td>
+                            <td className="px-3 py-1.5 font-mono">{row.t1} {row.t1Unit}</td>
+                            <td className="px-3 py-1.5 font-mono">{row.mttr} h</td>
+                            <td className="px-3 py-1.5 font-mono">{formatPct(row.sff)}</td>
+                            <td className="px-3 py-1.5 font-mono">{formatPct(row.dc)}</td>
+                            <td className="px-3 py-1.5 font-mono font-semibold">{formatPFD(row.pfd)}</td>
                           </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                )}
+                        ))}
+                      </tbody>
+                    </table>
+                  )
+                })()}
               </div>
             )
           })}

@@ -101,6 +101,7 @@ export interface PartialStrokeParams {
 export interface ComponentParams {
   id: string
   tag: string
+  parentComponentId?: string
   description?: string
   type: ComponentType
   category?: string
@@ -271,6 +272,7 @@ export interface ChannelResult {
 
 export interface ComponentResult {
   componentId: string
+  parentComponentId?: string
   pfdavg: number
   pfh: number
   lambdaDU: number

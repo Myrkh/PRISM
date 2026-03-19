@@ -562,6 +562,7 @@ def _prepare_component(
     return PreparedComponent(
         result={
             "componentId": component.id,
+            "parentComponentId": component.parentComponentId,
             "pfdavg": pfd_value,
             "pfh": pfh_value,
             "lambdaDU": rates.lambdaDU,

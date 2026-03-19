@@ -64,6 +64,7 @@ class ComponentParams(BaseModel):
 
     id: str
     tag: str
+    parentComponentId: str | None = None
     description: str | None = None
     type: Literal["SENSOR", "SOLVER", "ACTUATOR"]
     category: str | None = None
@@ -243,6 +244,7 @@ class LambdaDbLibraryResponse(BaseModel):
 
 class ComponentResult(BaseModel):
     componentId: str
+    parentComponentId: str | None = None
     pfdavg: float | None = None
     pfh: float | None = None
     lambdaDU: float

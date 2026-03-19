@@ -30,10 +30,10 @@ export function ResponseChecksCard({
   updateResponseCheck,
   removeResponseCheck,
 }: Props) {
-  const { BORDER, CARD_BG, PAGE_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, TEAL, TEXT, TEXT_DIM, SHADOW_CARD } = usePrismTheme()
 
   return (
-    <div className="rounded-2xl border shadow-sm overflow-hidden" style={{ background: CARD_BG, borderColor: BORDER }}>
+    <div className="rounded-2xl border overflow-hidden" style={{ background: CARD_BG, borderColor: BORDER, boxShadow: SHADOW_CARD }}>
       <div className="px-5 py-4 border-b" style={{ background: PAGE_BG, borderColor: BORDER }}>
         <div className="flex items-start justify-between gap-4">
           <div>

@@ -39,9 +39,9 @@ function SurfaceCard({
   icon: React.ReactNode
   children: React.ReactNode
 }) {
-  const { BORDER, CARD_BG, SHADOW_PANEL, SHADOW_SOFT, TEAL } = usePrismTheme()
+  const { BORDER, CARD_BG, SHADOW_CARD, SHADOW_SOFT, TEAL } = usePrismTheme()
   return (
-    <div className="rounded-2xl border p-5" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
+    <div className="rounded-2xl border p-5" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_CARD }}>
       <div className="mb-4 flex items-center gap-2 border-b pb-2" style={{ borderColor: BORDER }}>
         <span
           className="inline-flex h-6 w-6 items-center justify-center rounded-md border"
@@ -53,6 +53,39 @@ function SurfaceCard({
           {title}
         </span>
       </div>
+      {children}
+    </div>
+  )
+}
+
+function MetricTile({
+  label,
+  value,
+  tone,
+  detail,
+}: {
+  label: string
+  value: string
+  tone: string
+  detail?: string
+}) {
+  const { BORDER, SHADOW_SOFT, SURFACE, TEXT_DIM } = usePrismTheme()
+  return (
+    <div className="rounded-xl border px-3.5 py-3" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
+      <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{label}</p>
+      <p className="mt-1 text-base font-black font-mono" style={{ color: tone }}>{value}</p>
+      {detail ? <p className="mt-1 text-[10px]" style={{ color: TEXT_DIM }}>{detail}</p> : null}
+    </div>
+  )
+}
+
+function InsetPanel({ children, className = '' }: { children: React.ReactNode; className?: string }) {
+  const { BORDER, SHADOW_SOFT, SURFACE } = usePrismTheme()
+  return (
+    <div
+      className={`rounded-xl border ${className}`.trim()}
+      style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}
+    >
       {children}
     </div>
   )
@@ -71,58 +104,55 @@ export function VerificationWorkspace({
   const evidenceComplete = compliance.evidenceItems.filter(item => item.status === 'complete').length
 
   return (
-    <div className="flex min-h-full flex-col gap-4">
+    <div className="flex min-h-full flex-col gap-5">
 
       {/* ── Résultats + Breakdown ── */}
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
         <SurfaceCard title="Résultats de calcul" icon={<BarChart3 size={12} />}>
           <div className="space-y-4">
-            {/* KPIs */}
-            <div className="grid gap-3 grid-cols-2">
-              {[
-                { label: 'PFDavg', value: formatPFD(result.PFD_avg), tone: TEXT },
-                { label: 'RRF',    value: formatRRF(result.RRF),    tone: TEXT },
-              ].map(item => (
-                <div key={item.label} className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
-                  <p className="text-[10px] uppercase tracking-wide" style={{ color: TEXT_DIM }}>{item.label}</p>
-                  <p className="mt-1 text-lg font-black font-mono" style={{ color: item.tone }}>{item.value}</p>
-                </div>
-              ))}
+            <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
+              <MetricTile label="PFDavg" value={formatPFD(result.PFD_avg)} tone={TEXT} />
+              <MetricTile label="RRF" value={formatRRF(result.RRF)} tone={TEXT} />
+              <MetricTile label="SIL obtenu" value={`SIL ${result.SIL}`} tone={result.meetsTarget ? semantic.success : semantic.warning} />
+              <MetricTile label="Checks" value={`${compliance.passedChecks}/${compliance.totalChecks}`} tone={openGaps === 0 ? semantic.success : TEXT} />
             </div>
-            {/* Courbe PFD */}
-            <PFDChart sif={sif} chartData={result.chartData} settings={settings.chart} />
+            <InsetPanel className="p-3">
+              <PFDChart sif={sif} chartData={result.chartData} settings={settings.chart} />
+            </InsetPanel>
           </div>
         </SurfaceCard>
 
         <SurfaceCard title="Breakdown sous-systèmes" icon={<Boxes size={12} />}>
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b" style={{ borderColor: BORDER }}>
-                {['Sous-système', 'Archi', 'PFD avg', 'RRF', 'SFF', 'DC', 'HFT', 'SIL'].map(h => (
-                  <th key={h} className="text-left px-3 py-2 text-[11px] font-medium uppercase tracking-wide" style={{ color: TEXT_DIM }}>
-                    {h}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {result.subsystems.map((sub, i) => {
-                const subsystem = sif.subsystems[i]
-                return (
-                  <tr key={sub.subsystemId} className="border-b" style={{ borderColor: `${BORDER}80` }}>
-                    <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: TEXT }}>{subsystem?.label ?? sub.type}</td>
-                    <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT_DIM }}>{subsystem?.architecture ?? '—'}</td>
-                    <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT }}>{formatPFD(sub.PFD_avg)}</td>
-                    <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT }}>{formatRRF(sub.RRF)}</td>
-                    <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT }}>{formatPct(sub.SFF)}</td>
-                    <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT }}>{formatPct(sub.DC)}</td>
-                    <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT }}>{sub.HFT}</td>
-                    <td className="px-3 py-2.5"><SILBadge sil={sub.SIL} size="sm" /></td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
+          <InsetPanel className="overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b" style={{ borderColor: BORDER, background: SURFACE }}>
+                  {['Sous-système', 'Archi', 'PFD avg', 'RRF', 'SFF', 'DC', 'HFT', 'SIL'].map(h => (
+                    <th key={h} className="text-left px-3 py-2 text-[11px] font-medium uppercase tracking-wide" style={{ color: TEXT_DIM }}>
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {result.subsystems.map((sub, i) => {
+                  const subsystem = sif.subsystems[i]
+                  return (
+                    <tr key={sub.subsystemId} className="border-t" style={{ borderColor: `${BORDER}80` }}>
+                      <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: TEXT }}>{subsystem?.label ?? sub.type}</td>
+                      <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT_DIM }}>{subsystem?.architecture ?? '—'}</td>
+                      <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT }}>{formatPFD(sub.PFD_avg)}</td>
+                      <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT }}>{formatRRF(sub.RRF)}</td>
+                      <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT }}>{formatPct(sub.SFF)}</td>
+                      <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT }}>{formatPct(sub.DC)}</td>
+                      <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT }}>{sub.HFT}</td>
+                      <td className="px-3 py-2.5"><SILBadge sil={sub.SIL} size="sm" /></td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </InsetPanel>
         </SurfaceCard>
       </div>
 
@@ -224,17 +254,14 @@ export function VerificationWorkspace({
           </div>
 
           {/* Score résumé */}
-          <div className="grid grid-cols-2 gap-2 xl:grid-cols-1 xl:w-36">
+          <div className="grid grid-cols-2 gap-2 xl:grid-cols-1 xl:w-40">
             {[
               { label: 'Score', value: `${compliance.score}/100`, tone: compliance.score >= 90 ? semantic.success : TEXT },
               { label: 'Checks', value: `${compliance.passedChecks}/${compliance.totalChecks}`, tone: openGaps === 0 ? semantic.success : semantic.warning },
               { label: 'Preuves', value: `${evidenceComplete}/${compliance.evidenceItems.length}`, tone: compliance.evidenceItems.every(i => i.status === 'complete') ? semantic.success : TEXT },
               { label: 'Proof test', value: sif.proofTestProcedure ? 'Défini' : 'Manquant', tone: sif.proofTestProcedure ? semantic.success : semantic.error },
             ].map(item => (
-              <div key={item.label} className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
-                <p className="text-[10px] uppercase tracking-wide" style={{ color: TEXT_DIM }}>{item.label}</p>
-                <p className="mt-1 text-base font-black font-mono" style={{ color: item.tone }}>{item.value}</p>
-              </div>
+              <MetricTile key={item.label} label={item.label} value={item.value} tone={item.tone} />
             ))}
           </div>
         </div>

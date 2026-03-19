@@ -110,7 +110,7 @@ function computeCampaignVerdict(
 }
 
 export function ProofTestTab({ project, sif, onSelectTab }: Props) {
-  const { BORDER, CARD_BG, PAGE_BG, NAVY, TEAL, TEXT, TEXT_DIM, semantic } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, NAVY, TEAL, TEXT, TEXT_DIM, SHADOW_CARD, SHADOW_SOFT, semantic } = usePrismTheme()
   const updateProofTestProcedure = useAppStore(s => s.updateProofTestProcedure)
   const addTestCampaign = useAppStore(s => s.addTestCampaign)
   const updateTestCampaign = useAppStore(s => s.updateTestCampaign)
@@ -342,8 +342,8 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
 
       {/* Overdue alert */}
       {!isActiveExecutionView && isOverdue && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border"
-          style={{ background: `${semantic.error}08`, borderColor: `${semantic.error}22` }}>
+        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border"
+          style={{ background: `${semantic.error}08`, borderColor: `${semantic.error}22`, boxShadow: SHADOW_SOFT }}>
           <AlertTriangle size={15} className="text-red-500 shrink-0" />
           <p className="text-xs font-medium" style={{ color: TEXT }}>
             Test en retard de <strong>{daysOverdue} jours</strong> — dernier test : {lastCampaign?.date} · Périodicité : {procedure.periodicityMonths} mois
@@ -352,8 +352,8 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
       )}
 
       {!isActiveExecutionView && isProcedureLocked && view === 'procedure' && (
-        <div className="flex items-center gap-3 px-4 py-3 rounded-xl border"
-          style={{ background: `${NAVY}10`, borderColor: `${NAVY}24` }}>
+        <div className="flex items-center gap-3 px-4 py-3 rounded-2xl border"
+          style={{ background: `${NAVY}10`, borderColor: `${NAVY}24`, boxShadow: SHADOW_SOFT }}>
           <AlertTriangle size={15} className="shrink-0" style={{ color: NAVY }} />
           <p className="text-xs font-medium" style={{ color: TEXT }}>
             Procédure figée sur la révision publiée. L exécution et l historique des campagnes restent disponibles.
@@ -362,7 +362,7 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
       )}
 
       {isActiveExecutionView ? (
-        <div className="flex items-center justify-between gap-3 rounded-2xl border px-4 py-4" style={{ background: CARD_BG, borderColor: BORDER }}>
+        <div className="flex items-center justify-between gap-3 rounded-2xl border px-4 py-4" style={{ background: CARD_BG, borderColor: BORDER, boxShadow: SHADOW_CARD }}>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Campagne active</p>
             <p className="mt-1 text-sm font-bold" style={{ color: TEXT }}>
@@ -382,7 +382,7 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
         </div>
       ) : (
         <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-1 rounded-xl border p-1" style={{ background: PAGE_BG, borderColor: BORDER }}>
+          <div className="flex items-center gap-1 rounded-2xl border p-1" style={{ background: PAGE_BG, borderColor: BORDER, boxShadow: SHADOW_SOFT }}>
             {([
               { id: 'procedure' as View, label: 'Procedure', icon: ClipboardList },
               { id: 'execution' as View, label: 'Execution', icon: FlaskConical },

@@ -8,7 +8,6 @@
  *   [BookOpen]  Bibliothèque — liste unifiée glissable
  */
 import { useEffect, useRef, useState } from 'react'
-import { nanoid } from 'nanoid'
 import {
   Activity,
   Archive,
@@ -28,6 +27,7 @@ import {
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { ComponentParamsPanel } from './ComponentParamsPanel'
+import { SubComponentParamsPanel } from './SubComponentParamsPanel'
 import type {
   AdvancedParams,
   Architecture,
@@ -49,6 +49,7 @@ import {
 } from '@/features/library'
 import { RightPanelBody, RightPanelShell } from '@/components/layout/RightPanelShell'
 import { DEFAULT_CHANNEL, DEFAULT_COMPONENT } from '@/core/models/defaults'
+import { createDefaultSubComponent } from '@/core/models/subComponents'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { InstrumentationIcon } from '@/components/architecture/InstrumentationIcons'
@@ -116,25 +117,7 @@ function buildComponentTag(subsystemType: SubsystemType, sifNumber: string, chan
 }
 
 function defaultSubComponentFor(component: SIFComponent, index: number): SubElement {
-  const type = component.instrumentType.toLowerCase()
-  const valveLike = component.subsystemType === 'actuator' || component.instrumentCategory === 'valve' || type.includes('valve')
-  const instrumentType = valveLike ? 'Solenoid valve' : 'Sub-component'
-  const label = valveLike ? `Electrovanne ${index + 1}` : `Sous-composant ${index + 1}`
-  const suffix = valveLike ? `SOV${index + 1}` : `SC${index + 1}`
-
-  return {
-    id: nanoid(),
-    tagName: `${component.tagName}-${suffix}`,
-    label,
-    instrumentType,
-    manufacturer: '',
-    factorized: {
-      lambda: 0,
-      lambdaDRatio: 0,
-      DCd: 0,
-      DCs: 0,
-    },
-  }
+  return createDefaultSubComponent(component, index)
 }
 
 function normalizeChannelLabels(channels: SIFChannel[]) {
@@ -633,7 +616,7 @@ function SubsystemArchSection({
                                     >
                                       <InstrumentationIcon
                                         subsystemType={component.subsystemType}
-                                        instrumentCategory={component.instrumentCategory}
+                                        instrumentCategory={subComponent.instrumentCategory ?? component.instrumentCategory}
                                         instrumentType={subComponent.instrumentType || subComponent.label}
                                         size={13}
                                       />
@@ -1277,7 +1260,7 @@ function EmptyComponentState({ onGoToLibrary }: { onGoToLibrary: () => void }) {
       <div className="space-y-1">
         <p className="text-sm font-semibold" style={{ color: TEXT }}>Aucun composant sélectionné</p>
         <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-          Cliquez sur un composant dans le canvas.
+          Cliquez sur un composant ou un sous-composant dans le canvas.
         </p>
       </div>
       <button
@@ -1311,9 +1294,10 @@ export function LoopEditorRightPanel({ sif, projectId, onOpenCcfBeta }: Props) {
     if (selectedId) setMode('component')
   }, [selectedId])
 
-  // Find selected component
+  // Find selected component or selected sub-component
   let found: {
     comp: (typeof sif.subsystems)[0]['channels'][0]['components'][0]
+    subComponent?: SubElement
     subsystemType: SubsystemType
     subsystemId: string
     channelId: string
@@ -1322,9 +1306,10 @@ export function LoopEditorRightPanel({ sif, projectId, onOpenCcfBeta }: Props) {
   if (selectedId) {
     outer: for (const sub of sif.subsystems) {
       for (const ch of sub.channels) {
-        const comp = ch.components.find(c => c.id === selectedId)
+        const comp = ch.components.find(c => c.id === selectedId || (c.subComponents ?? []).some(item => item.id === selectedId))
         if (comp) {
-          found = { comp, subsystemType: sub.type, subsystemId: sub.id, channelId: ch.id }
+          const subComponent = (comp.subComponents ?? []).find(item => item.id === selectedId)
+          found = { comp, subComponent, subsystemType: sub.type, subsystemId: sub.id, channelId: ch.id }
           break outer
         }
       }
@@ -1350,18 +1335,34 @@ export function LoopEditorRightPanel({ sif, projectId, onOpenCcfBeta }: Props) {
         )}
         {mode === 'component' && (
           found ? (
-            <ComponentParamsPanel
-              component={found.comp}
-              subsystemType={found.subsystemType}
-              projectId={projectId}
-              sifId={sif.id}
-              subsystemId={found.subsystemId}
-              channelId={found.channelId}
-              onClose={() => {
-                selectComponent(null)
-                setMode('architecture')
-              }}
-            />
+            found.subComponent ? (
+              <SubComponentParamsPanel
+                component={found.comp}
+                subComponent={found.subComponent}
+                subsystemType={found.subsystemType}
+                projectId={projectId}
+                sifId={sif.id}
+                subsystemId={found.subsystemId}
+                channelId={found.channelId}
+                onClose={() => {
+                  selectComponent(null)
+                  setMode('architecture')
+                }}
+              />
+            ) : (
+              <ComponentParamsPanel
+                component={found.comp}
+                subsystemType={found.subsystemType}
+                projectId={projectId}
+                sifId={sif.id}
+                subsystemId={found.subsystemId}
+                channelId={found.channelId}
+                onClose={() => {
+                  selectComponent(null)
+                  setMode('architecture')
+                }}
+              />
+            )
           ) : (
             <EmptyComponentState onGoToLibrary={() => setMode('library')} />
           )

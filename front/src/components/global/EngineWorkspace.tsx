@@ -16,6 +16,7 @@ import {
 import { useAppStore } from '@/store/appStore'
 import { IntercalaireCard, IntercalaireTabBar, useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { calcSIF, calcSIFEngine, formatPFD, formatRRF } from '@/core/math/pfdCalc'
+import type { SIF } from '@/core/types'
 import {
   analysisSettingsToMissionTimeHours,
   loadSIFAnalysisSettings,
@@ -23,6 +24,7 @@ import {
 import {
   buildSILBackendRequest,
   computeSILWithBackend,
+  type SILBackendChannelResult,
   type SILBackendResponse,
 } from '@/lib/engineApi'
 import type { EngineResult } from '@/engine/types/engine'
@@ -71,6 +73,82 @@ const SUBSYSTEM_LABELS: Record<CompareSubsystemKey, string> = {
   sensors: 'Sensors',
   solver: 'Logic solver',
   actuators: 'Final elements',
+}
+const SUBSYSTEM_TYPE_BY_KEY: Record<CompareSubsystemKey, 'sensor' | 'logic' | 'actuator'> = {
+  sensors: 'sensor',
+  solver: 'logic',
+  actuators: 'actuator',
+}
+
+interface ComponentTraceRow {
+  key: string
+  tagName: string
+  instrumentType: string
+  parentTagName?: string
+  pfdavg: number | null
+  level: 0 | 1
+}
+
+interface ChannelComponentTrace {
+  channelId: string
+  rows: ComponentTraceRow[]
+}
+
+function buildComponentTrace(
+  sif: SIF,
+  subsystemKey: CompareSubsystemKey,
+  backendChannels: SILBackendChannelResult[],
+): ChannelComponentTrace[] {
+  const subsystem = sif.subsystems.find(item => item.type === SUBSYSTEM_TYPE_BY_KEY[subsystemKey])
+  if (!subsystem) return []
+
+  return subsystem.channels
+    .map(channel => {
+      const backendChannel = backendChannels.find(item => item.channelId === channel.id)
+      const resultById = new Map((backendChannel?.componentResults ?? []).map(item => [item.componentId, item]))
+      const seenIds = new Set<string>()
+      const rows: ComponentTraceRow[] = []
+
+      for (const component of channel.components) {
+        const parentResult = resultById.get(component.id)
+        seenIds.add(component.id)
+        rows.push({
+          key: `${channel.id}:${component.id}`,
+          tagName: component.tagName,
+          instrumentType: component.instrumentType || '—',
+          pfdavg: parentResult?.pfdavg ?? null,
+          level: 0,
+        })
+
+        for (const subComponent of component.subComponents ?? []) {
+          const subResult = resultById.get(subComponent.id)
+          seenIds.add(subComponent.id)
+          rows.push({
+            key: `${channel.id}:${component.id}:${subComponent.id}`,
+            tagName: subComponent.tagName,
+            instrumentType: subComponent.instrumentType || subComponent.label || '—',
+            parentTagName: component.tagName,
+            pfdavg: subResult?.pfdavg ?? null,
+            level: 1,
+          })
+        }
+      }
+
+      for (const item of backendChannel?.componentResults ?? []) {
+        if (seenIds.has(item.componentId)) continue
+        rows.push({
+          key: `${channel.id}:${item.componentId}`,
+          tagName: item.componentId,
+          instrumentType: item.parentComponentId ? 'Sub-component' : 'Component',
+          parentTagName: item.parentComponentId ?? undefined,
+          pfdavg: item.pfdavg,
+          level: item.parentComponentId ? 1 : 0,
+        })
+      }
+
+      return { channelId: channel.id, rows }
+    })
+    .filter(channel => channel.rows.length > 0)
 }
 
 const ENGINE_TABS = [
@@ -228,6 +306,7 @@ function RouteInspector({
     id: string
     projectId: string
     projectName: string
+    sif: SIF
     sifNumber: string
     title: string
     targetSil: number
@@ -309,6 +388,7 @@ function RouteInspector({
           const backend = state.response.result.contributions[key]
           const ts = state.tsResult.contributions[key]
           const warnings = getSubsystemWarnings(state.response, key)
+          const componentTrace = buildComponentTrace(row.sif, key, backend.channelResults)
           const pfdDelta = compareMetric(ts?.pfdavg, backend?.pfdavg, COMPARE_TOLERANCE_PCT)
           const pfhDelta = compareMetric(ts?.pfh, backend?.pfh, COMPARE_TOLERANCE_PCT)
           const routeLines = describeRoute(meta)
@@ -352,6 +432,43 @@ function RouteInspector({
                   </div>
                 ))}
               </div>
+
+              {componentTrace.length > 0 && (
+                <div className="mt-3">
+                  <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Component Trace</p>
+                  <div className="mt-2 space-y-2">
+                    {componentTrace.map(channel => (
+                      <div key={channel.channelId} className="rounded-lg border px-3 py-2" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
+                        <p className="text-[10px] font-semibold" style={{ color: TEAL }}>Channel {channel.channelId}</p>
+                        <div className="mt-2 space-y-1">
+                          {channel.rows.map(trace => (
+                            <div
+                              key={trace.key}
+                              className="flex items-center justify-between gap-3 rounded-md px-2 py-1.5"
+                              style={{
+                                background: trace.level === 1 ? PAGE_BG : 'transparent',
+                                paddingLeft: trace.level === 1 ? 18 : 8,
+                              }}
+                            >
+                              <div className="min-w-0">
+                                <p className="truncate font-mono text-[10px] font-semibold" style={{ color: TEXT }}>{trace.tagName}</p>
+                                <p className="mt-0.5 truncate text-[10px]" style={{ color: TEXT_DIM }}>
+                                  {trace.level === 1 && trace.parentTagName
+                                    ? `Sub-component of ${trace.parentTagName} · ${trace.instrumentType}`
+                                    : trace.instrumentType}
+                                </p>
+                              </div>
+                              <p className="shrink-0 font-mono text-[10px] font-semibold" style={{ color: trace.level === 1 ? TEXT : TEAL }}>
+                                {formatPFD(trace.pfdavg ?? Number.NaN)}
+                              </p>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {warnings.length > 0 && (
                 <div className="mt-3 space-y-2">
@@ -625,6 +742,7 @@ export function EngineWorkspace() {
     ['sifId', 'uuid'],
     ['revisionId', 'uuid | null'],
     ['analysis', 'missionTimeHours, demandMode, proofTestIntervalHours'],
+    ['components[].parentComponentId', 'null for a parent component, parent id for a nested sub-component'],
     ['options', 'seed?, samples?, solver?, tolerances?'],
   ] as const
   const jobLifecycle = [
@@ -637,6 +755,7 @@ export function EngineWorkspace() {
   const resultShape = [
     ['summary', 'pfdavg, sil, rrf, pass/fail, warnings'],
     ['backend', 'engineVersion, mode, runtimeMs, seed, samples'],
+    ['componentTrace', 'componentId + parentComponentId preserve parent/sub-component traceability'],
     ['series', 'trace-ready arrays for plots and convergence'],
     ['comparison', 'optional TS vs Python deltas'],
   ] as const

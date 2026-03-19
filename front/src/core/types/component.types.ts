@@ -107,10 +107,19 @@ export interface SubElement {
   id: string
   tagName: string
   label: string
+  nature?: NatureType
+  instrumentCategory?: InstrumentCategory
   instrumentType: string
   manufacturer: string
+  dataSource?: string
+  description?: string
+  determinedCharacter?: DeterminedCharacter
+  paramMode?: ParamMode
   /** Own failure rates — contributes to parent component's total λ */
   factorized: FactorizedParams
+  developed?: DevelopedParams
+  test?: TestParams
+  advanced?: AdvancedParams
 }
 
 // ─── Subsystem & Architecture ─────────────────────────────────────────────

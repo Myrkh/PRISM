@@ -16,11 +16,11 @@ interface Props {
 }
 
 export function CampaignHistoryView({ campaigns, onViewCampaign, onDownloadCampaignPdf }: Props) {
-  const { BORDER, CARD_BG, PAGE_BG, TEAL, TEXT, TEXT_DIM, NAVY, semantic } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, TEAL, TEXT, TEXT_DIM, NAVY, SHADOW_CARD, semantic } = usePrismTheme()
 
   if (campaigns.length === 0) {
     return (
-      <div className="rounded-2xl border shadow-sm p-16 text-center" style={{ background: CARD_BG, borderColor: BORDER }}>
+      <div className="rounded-2xl border p-16 text-center" style={{ background: CARD_BG, borderColor: BORDER, boxShadow: SHADOW_CARD }}>
         <BarChart3 size={32} className="mx-auto mb-3 opacity-20" style={{ color: NAVY }} />
         <p className="font-semibold text-sm" style={{ color: TEXT }}>Aucun test réalisé</p>
         <p className="text-xs mt-1" style={{ color: TEXT_DIM }}>Les campagnes de test apparaîtront ici</p>
@@ -39,7 +39,7 @@ export function CampaignHistoryView({ campaigns, onViewCampaign, onDownloadCampa
           { label: 'Taux de réussite', value: `${passRate}%`,        color: semantic.success },
           { label: 'Dernier test',   value: campaigns[0]?.date ?? '—', color: TEAL },
         ].map(k => (
-          <div key={k.label} className="rounded-2xl border shadow-sm px-5 py-4" style={{ background: CARD_BG, borderColor: BORDER }}>
+          <div key={k.label} className="rounded-2xl border px-5 py-4" style={{ background: CARD_BG, borderColor: BORDER, boxShadow: SHADOW_CARD }}>
             <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: TEXT_DIM }}>{k.label}</p>
             <p className="text-2xl font-bold font-mono" style={{ color: k.color }}>{k.value}</p>
           </div>
@@ -47,7 +47,7 @@ export function CampaignHistoryView({ campaigns, onViewCampaign, onDownloadCampa
       </div>
 
       {/* Campaign list */}
-      <div className="rounded-2xl border shadow-sm overflow-hidden" style={{ background: CARD_BG, borderColor: BORDER }}>
+      <div className="rounded-2xl border overflow-hidden" style={{ background: CARD_BG, borderColor: BORDER, boxShadow: SHADOW_CARD }}>
         <table className="w-full text-xs">
           <thead>
             <tr style={{ background: PAGE_BG }}>

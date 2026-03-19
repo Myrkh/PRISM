@@ -36,6 +36,7 @@ import {
   Info, Save, X, Activity, Cpu, Zap,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { CAT_LABELS, INSTRUMENT_CATEGORIES, INSTRUMENT_TYPES } from '@/components/architecture/componentCatalog'
 import { NAVY, NAVY2, PAGE_BG, TEAL } from '@/styles/tokens'
 
 // ─── KORE tokens ──────────────────────────────────────────────────────────
@@ -47,18 +48,6 @@ const TYPE_META: Record<string, { color: string; label: string; Icon: React.Elem
 }
 
 // ─── Static data ──────────────────────────────────────────────────────────
-const INSTRUMENT_CATEGORIES: InstrumentCategory[] = [
-  'transmitter', 'switch', 'valve', 'positioner', 'controller', 'relay', 'other',
-]
-const INSTRUMENT_TYPES: Record<InstrumentCategory, string[]> = {
-  transmitter: ['Pressure transmitter', 'Temperature transmitter', 'Flow transmitter', 'Level transmitter', 'Differential pressure transmitter'],
-  switch:      ['Pressure switch', 'Temperature switch', 'Flow switch', 'Level switch', 'Vibration switch'],
-  valve:       ['On-off valve', 'Control valve', 'Solenoid valve', 'Ball valve', 'Butterfly valve'],
-  positioner:  ['Electro-pneumatic positioner', 'Digital positioner'],
-  controller:  ['Safety PLC', 'Safety relay module', 'Safety controller'],
-  relay:       ['Safety relay', 'Interposing relay'],
-  other:       ['Other'],
-}
 const NATURE_OPTIONS: NatureType[] = ['instrument', 'valve', 'relay', 'controller', 'other']
 const TEST_TYPES: { value: TestType; label: string; desc: string }[] = [
   { value: 'stopped', label: 'Arrêt unité',      desc: 'Testé à l\'arrêt de l\'unité (le plus courant)' },
@@ -347,7 +336,7 @@ export function ComponentParamsSheet({
                           <SelectTrigger className="h-8 text-xs rounded-xl border-gray-200"><SelectValue /></SelectTrigger>
                           <SelectContent>
                             {INSTRUMENT_CATEGORIES.map(c => (
-                              <SelectItem key={c} value={c} className="capitalize text-xs">{c}</SelectItem>
+                              <SelectItem key={c} value={c} className="text-xs">{CAT_LABELS[c]}</SelectItem>
                             ))}
                           </SelectContent>
                         </Select>

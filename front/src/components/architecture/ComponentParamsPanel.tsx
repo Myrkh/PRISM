@@ -17,7 +17,7 @@ import {
 import { useAppStore } from '@/store/appStore'
 import { InstrumentationIcon } from './InstrumentationIcons'
 import {
-  calcComponentDC, calcComponentPFDValue, calcComponentSFF, factorizedToDeveloped, developedToFactorized,
+  calcComponentDC, calcComponentPFDValue, calcComponentSFF, factorizedToDeveloped, developedToFactorized, getEffectiveDeveloped,
   formatPFD, formatPct,
 } from '@/core/math/pfdCalc'
 import type {
@@ -29,10 +29,11 @@ import { InspectorBlock, RightPanelBody } from '@/components/layout/RightPanelSh
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import { CAT_LABELS, INSTRUMENT_CATEGORIES, INSTRUMENT_TYPES } from './componentCatalog'
 
 // ─── Design tokens ────────────────────────────────────────────────────────
-const PANEL_FORM_GRID = 'repeat(auto-fit, minmax(132px, 1fr))'
-const PANEL_WIDE_GRID = 'repeat(auto-fit, minmax(152px, 1fr))'
+export const PANEL_FORM_GRID = 'repeat(auto-fit, minmax(132px, 1fr))'
+export const PANEL_WIDE_GRID = 'repeat(auto-fit, minmax(152px, 1fr))'
 
 const TYPE_META: Record<SubsystemType, { color: string; label: string; Icon: React.ElementType }> = {
   sensor:   { color: '#0284C7', label: 'Capteur',    Icon: Activity },
@@ -40,30 +41,13 @@ const TYPE_META: Record<SubsystemType, { color: string; label: string; Icon: Rea
   actuator: { color: '#EA580C', label: 'Actionneur', Icon: Zap      },
 }
 
-const INSTRUMENT_CATEGORIES: InstrumentCategory[] = [
-  'transmitter', 'switch', 'valve', 'positioner', 'controller', 'relay', 'other',
-]
-const CAT_LABELS: Record<InstrumentCategory, string> = {
-  transmitter: 'Transmetteur', switch: 'Pressoswitche / Switch',
-  valve: 'Vanne', positioner: 'Positionneur',
-  controller: 'Contrôleur / PLC', relay: 'Relais', other: 'Autre',
-}
-const INSTRUMENT_TYPES: Record<InstrumentCategory, string[]> = {
-  transmitter: ['Pressure transmitter', 'Temperature transmitter', 'Flow transmitter', 'Level transmitter', 'DP transmitter'],
-  switch:      ['Pressure switch', 'Temperature switch', 'Flow switch', 'Level switch', 'Vibration switch'],
-  valve:       ['On-off valve', 'Control valve', 'Solenoid valve', 'Ball valve', 'Butterfly valve'],
-  positioner:  ['Electro-pneumatic positioner', 'Digital positioner'],
-  controller:  ['Safety PLC', 'Safety relay module', 'Safety controller'],
-  relay:       ['Safety relay', 'Interposing relay'],
-  other:       ['Other'],
-}
 const TEST_TYPES: { value: TestType; label: string; desc: string }[] = [
   { value: 'stopped', label: 'Arrêt unité',    desc: 'Testé lors d\'un arrêt unité' },
   { value: 'online',  label: 'En ligne',        desc: 'Test complet en service'      },
   { value: 'partial', label: 'PST (partiel)',   desc: 'Course partielle (vanne)'     },
   { value: 'none',    label: 'Aucun test',      desc: 'Pas de test de preuve'        },
 ]
-const DETERMINED_CHARACTER_OPTIONS: { value: DeterminedCharacter; label: string }[] = [
+export const DETERMINED_CHARACTER_OPTIONS: { value: DeterminedCharacter; label: string }[] = [
   { value: 'TYPE_A', label: 'Type A' },
   { value: 'TYPE_B', label: 'Type B' },
   { value: 'NON_TYPE_AB', label: 'Non-Type-AB' },
@@ -72,11 +56,11 @@ type FactorizedLambdaUnit = 'FIT' | 'PER_HOUR'
 type DevelopedLambdaUnit = 'FIT' | 'PER_HOUR'
 type TimeDisplayUnit = 'hr' | 'yr'
 
-const FACTORIZED_LAMBDA_UNITS: { value: FactorizedLambdaUnit; label: string }[] = [
+export const FACTORIZED_LAMBDA_UNITS: { value: FactorizedLambdaUnit; label: string }[] = [
   { value: 'FIT', label: 'FIT' },
   { value: 'PER_HOUR', label: 'h^-1' },
 ]
-const DEVELOPED_LAMBDA_UNITS: { value: DevelopedLambdaUnit; label: string }[] = [
+export const DEVELOPED_LAMBDA_UNITS: { value: DevelopedLambdaUnit; label: string }[] = [
   { value: 'FIT', label: 'FIT' },
   { value: 'PER_HOUR', label: 'h^-1' },
 ]
@@ -85,35 +69,35 @@ const FACTORIZED_TO_FIT = 1000
 const FIT_TO_PER_HOUR = 1e-9
 const HOURS_PER_YEAR = 8760
 
-function factorizedLambdaToDisplay(value: number, unit: FactorizedLambdaUnit): number {
+export function factorizedLambdaToDisplay(value: number, unit: FactorizedLambdaUnit): number {
   if (unit === 'FIT') return value * FACTORIZED_TO_FIT
   return value * 1e-6
 }
 
-function displayToFactorizedLambda(value: number, unit: FactorizedLambdaUnit): number {
+export function displayToFactorizedLambda(value: number, unit: FactorizedLambdaUnit): number {
   if (unit === 'FIT') return value / FACTORIZED_TO_FIT
   return value / 1e-6
 }
 
-function developedLambdaToDisplay(value: number, unit: DevelopedLambdaUnit): number {
+export function developedLambdaToDisplay(value: number, unit: DevelopedLambdaUnit): number {
   return unit === 'PER_HOUR' ? value * FIT_TO_PER_HOUR : value
 }
 
-function displayToDevelopedLambda(value: number, unit: DevelopedLambdaUnit): number {
+export function displayToDevelopedLambda(value: number, unit: DevelopedLambdaUnit): number {
   return unit === 'PER_HOUR' ? value / FIT_TO_PER_HOUR : value
 }
 
-function hoursToDisplay(value: number | null, unit: TimeDisplayUnit): string {
+export function hoursToDisplay(value: number | null, unit: TimeDisplayUnit): string {
   if (value === null || !Number.isFinite(value)) return ''
   const displayValue = unit === 'yr' ? value / HOURS_PER_YEAR : value
   return formatEditableNumber(displayValue)
 }
 
-function displayToHours(value: number, unit: TimeDisplayUnit): number {
+export function displayToHours(value: number, unit: TimeDisplayUnit): number {
   return unit === 'yr' ? value * HOURS_PER_YEAR : value
 }
 
-function parseNumericText(raw: string): number | null {
+export function parseNumericText(raw: string): number | null {
   const normalized = raw.trim().replace(',', '.')
   if (!normalized) return null
   const value = Number(normalized)
@@ -184,7 +168,7 @@ function inputToTags(raw: string): string[] {
 }
 
 // ─── Small reusable form widgets ──────────────────────────────────────────
-function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+export function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
   const { TEXT_DIM } = usePrismTheme()
   return (
     <div className="space-y-1">
@@ -194,7 +178,7 @@ function FieldRow({ label, children }: { label: string; children: React.ReactNod
   )
 }
 
-function StyledInput({ value, onChange, placeholder, type = 'text', step }: {
+export function StyledInput({ value, onChange, placeholder, type = 'text', step }: {
   value: string | number; onChange: (v: string) => void
   placeholder?: string; type?: string; step?: string
 }) {
@@ -209,7 +193,7 @@ function StyledInput({ value, onChange, placeholder, type = 'text', step }: {
   )
 }
 
-function ScientificInput({
+export function ScientificInput({
   value,
   onCommit,
   placeholder,
@@ -279,7 +263,7 @@ function ScientificInput({
   )
 }
 
-function StyledSelect({ value, onChange, options }: {
+export function StyledSelect({ value, onChange, options }: {
   value: string; onChange: (v: string) => void
   options: { value: string; label: string }[]
 }) {
@@ -295,7 +279,7 @@ function StyledSelect({ value, onChange, options }: {
   )
 }
 
-function CheckboxField({
+export function CheckboxField({
   label,
   description,
   checked,
@@ -331,7 +315,7 @@ function CheckboxField({
   )
 }
 
-function SliderField({ label, value, min, max, step = 0.01, format, onChange, color }: {
+export function SliderField({ label, value, min, max, step = 0.01, format, onChange, color }: {
   label: string; value: number; min: number; max: number; step?: number
   format: (v: number) => string; onChange: (v: number) => void; color?: string
 }) {
@@ -403,7 +387,7 @@ function SliderField({ label, value, min, max, step = 0.01, format, onChange, co
   )
 }
 
-function ComputedRow({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
+export function ComputedRow({ label, value, ok }: { label: string; value: string; ok?: boolean }) {
   const { BORDER, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM, semantic } = usePrismTheme()
   const c = ok === undefined ? TEXT : ok ? semantic.success : semantic.error
   return (
@@ -415,7 +399,7 @@ function ComputedRow({ label, value, ok }: { label: string; value: string; ok?: 
   )
 }
 
-function SectionTitle({ children }: { children: React.ReactNode }) {
+export function SectionTitle({ children }: { children: React.ReactNode }) {
   const { SHADOW_SOFT, TEAL } = usePrismTheme()
   return (
     <div className="mb-2 mt-1 flex items-center gap-2">
@@ -499,8 +483,7 @@ export function ComponentParamsPanel({
     commit(prev => ({ ...prev, advanced: { ...prev.advanced, ...patch } }))
 
   // Computed live metrics
-  const derived   = factorizedToDeveloped(local.factorized)
-  const effective = local.paramMode === 'factorized' ? derived : local.developed
+  const effective = getEffectiveDeveloped(local)
   const sff = calcComponentSFF(effective)
   const dc  = calcComponentDC(effective)
   const componentPFD = calcComponentPFDValue(local)

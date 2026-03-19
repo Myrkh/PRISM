@@ -29,9 +29,10 @@ import type {
   FactorizedParams, DevelopedParams,
   Architecture, SILLevel, Project,
   ComponentCalcResult, SubsystemCalcResult, SIFCalcResult,
-  PFDChartPoint,
+  PFDChartPoint, SubElement,
 } from '@/core/types'
 import { hydrateSIF } from '@/core/models/hydrate'
+import { normalizeSubComponent, type NormalizedSubElement } from '@/core/models/subComponents'
 
 const FIT = 1e-9
 const HOURS_PER_YEAR = 8760
@@ -120,11 +121,30 @@ export function developedToFactorized(
 }
 
 /** Get effective developed params for a component, respecting param mode */
-export function getEffectiveDeveloped(component: SIFComponent): DevelopedParams | undefined {
-  if (component.paramMode === 'factorized' && component.factorized) {
-    return factorizedToDeveloped(component.factorized)
+function sumDevelopedParams(base: DevelopedParams, extra: DevelopedParams): DevelopedParams {
+  return {
+    lambda_DU: base.lambda_DU + extra.lambda_DU,
+    lambda_DD: base.lambda_DD + extra.lambda_DD,
+    lambda_SU: base.lambda_SU + extra.lambda_SU,
+    lambda_SD: base.lambda_SD + extra.lambda_SD,
   }
-  return component.developed
+}
+
+function developedFromComponentLike(
+  component: Pick<SIFComponent, 'paramMode' | 'factorized' | 'developed'> | Pick<NormalizedSubElement, 'paramMode' | 'factorized' | 'developed'>
+): DevelopedParams {
+  return component.paramMode === 'developed'
+    ? component.developed
+    : factorizedToDeveloped(component.factorized)
+}
+
+export function getEffectiveDeveloped(component: SIFComponent): DevelopedParams | undefined {
+  const base = developedFromComponentLike(component)
+
+  return (component.subComponents ?? []).reduce(
+    (acc, subComponent) => sumDevelopedParams(acc, developedFromComponentLike(normalizeSubComponent(component, subComponent))),
+    base,
+  )
 }
 
 // ─── Component metrics ────────────────────────────────────────────────────
@@ -179,10 +199,13 @@ function standardToEngine(projectStandard?: Project['standard']): EngineStandard
   }
 }
 
-function inferDeterminedCharacter(component: SIFComponent): EngineDeterminedCharacter {
+function inferDeterminedCharacter(
+  component: Pick<SIFComponent, 'determinedCharacter' | 'instrumentCategory'>,
+  subsystemType: SIFComponent['subsystemType']
+): EngineDeterminedCharacter {
   if (component.determinedCharacter) return component.determinedCharacter
 
-  switch (component.subsystemType) {
+  switch (subsystemType) {
     case 'actuator':
       return 'TYPE_A'
     case 'logic':
@@ -209,7 +232,28 @@ function mapSubsystemTypeToEngine(
   }
 }
 
-function toEngineComponent(component: SIFComponent): EngineComponentParams {
+type EngineComponentLike = Pick<
+  SIFComponent,
+  | 'id'
+  | 'tagName'
+  | 'description'
+  | 'instrumentCategory'
+  | 'instrumentType'
+  | 'manufacturer'
+  | 'dataSource'
+  | 'determinedCharacter'
+  | 'paramMode'
+  | 'factorized'
+  | 'developed'
+  | 'test'
+  | 'advanced'
+>
+
+function toEngineLeafComponent(
+  component: EngineComponentLike,
+  subsystemType: SIFComponent['subsystemType'],
+  parentComponentId?: string
+): EngineComponentParams {
   const failureRate = component.paramMode === 'factorized'
     ? {
         mode: 'FACTORISED' as const,
@@ -240,19 +284,20 @@ function toEngineComponent(component: SIFComponent): EngineComponentParams {
       : undefined
 
   const partialStrokeEnabled =
-    component.subsystemType === 'actuator' &&
+    subsystemType === 'actuator' &&
     (component.test.testType === 'partial' || component.advanced.partialTest.enabled)
 
   return {
     id: component.id,
     tag: component.tagName,
-    description: component.description,
-    type: mapSubsystemTypeToEngine(component.subsystemType),
+    parentComponentId,
+    description: component.description ?? '',
+    type: mapSubsystemTypeToEngine(subsystemType),
     category: component.instrumentCategory,
     instrumentType: component.instrumentType,
     manufacturer: component.manufacturer,
     dataSource: component.dataSource,
-    determinedCharacter: inferDeterminedCharacter(component),
+    determinedCharacter: inferDeterminedCharacter(component, subsystemType),
     failureRate,
     MTTR: component.advanced.MTTR ?? 0,
     test: {
@@ -281,17 +326,48 @@ function toEngineComponent(component: SIFComponent): EngineComponentParams {
   }
 }
 
-export function calcComponentPFDValue(component: SIFComponent): number {
-  const engineComponent = toEngineComponent(component)
+function expandComponentPackage(component: SIFComponent): EngineComponentParams[] {
+  return [
+    toEngineLeafComponent(component, component.subsystemType),
+    ...(component.subComponents ?? []).map(subComponent =>
+      toEngineLeafComponent(normalizeSubComponent(component, subComponent), component.subsystemType, component.id),
+    ),
+  ]
+}
+
+function combineSeriesProbabilities(values: number[]): number {
+  const simpleSum = values.reduce((sum, value) => sum + value, 0)
+  if (simpleSum > 0.05) {
+    return 1 - values.reduce((product, value) => product * (1 - value), 1)
+  }
+  return simpleSum
+}
+
+export function calcSubComponentPFDValue(parent: SIFComponent, subComponent: SubElement): number {
+  const engineComponent = toEngineLeafComponent(
+    normalizeSubComponent(parent, subComponent),
+    parent.subsystemType,
+    parent.id,
+  )
   return engineComponent.partialStroke?.enabled
     ? computeComponentPFD_withPST(engineComponent)
     : computeComponentPFD(engineComponent)
 }
 
+export function calcComponentPFDValue(component: SIFComponent): number {
+  const pfds = expandComponentPackage(component).map(engineComponent =>
+    engineComponent.partialStroke?.enabled
+      ? computeComponentPFD_withPST(engineComponent)
+      : computeComponentPFD(engineComponent),
+  )
+
+  return combineSeriesProbabilities(pfds)
+}
+
 function toEngineChannel(channel: SIFSubsystem['channels'][number]): EngineChannelDef {
   return {
     id: channel.id,
-    components: channel.components.map(toEngineComponent),
+    components: channel.components.flatMap(expandComponentPackage),
   }
 }
 

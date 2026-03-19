@@ -56,14 +56,14 @@ function SurfaceCard({
   className?: string
   style?: React.CSSProperties
 }) {
-  const { BORDER, CARD_BG, SHADOW_PANEL } = usePrismTheme()
+  const { BORDER, CARD_BG, SHADOW_CARD } = usePrismTheme()
   return (
     <div
-      className={`rounded-xl border ${className}`.trim()}
+      className={`rounded-2xl border ${className}`.trim()}
       style={{
         borderColor: BORDER,
         background: CARD_BG,
-        boxShadow: SHADOW_PANEL,
+        boxShadow: SHADOW_CARD,
         ...style,
       }}
     >
@@ -104,7 +104,7 @@ function InlineMetric({
 }) {
   const { BORDER, SHADOW_SOFT, SURFACE, TEXT_DIM } = usePrismTheme()
   return (
-    <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
+    <div className="rounded-xl border px-3.5 py-3" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
       <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{label}</p>
       <p className="mt-1 text-sm font-semibold font-mono" style={{ color: tone }}>{value}</p>
     </div>
@@ -130,7 +130,7 @@ function SignalCard({
 }) {
   const { TEXT, TEXT_DIM } = usePrismTheme()
   return (
-    <SurfaceCard className="p-4">
+    <SurfaceCard className="p-5">
       <SectionHeader icon={icon}>{eyebrow}</SectionHeader>
       <p className="text-base font-semibold tracking-tight" style={{ color: TEXT }}>{title}</p>
       <p className="mt-2 text-2xl font-semibold font-mono tracking-tight" style={{ color: tone }}>{value}</p>
@@ -237,7 +237,7 @@ export function OverviewTab({
   onSelectTab,
   onCloseRevision,
 }: Props) {
-  const { BORDER, SHADOW_CARD, SHADOW_SOFT, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM, R } = usePrismTheme()
+  const { BORDER, CARD_BG, SHADOW_CARD, SHADOW_SOFT, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM, R } = usePrismTheme()
   const operationalHealth = getOverviewOperationalHealthMeta(TEXT_DIM)[overviewMetrics.operationalHealth]
   const decision = getDecisionState(sif, result, compliance, overviewMetrics)
   const priorityActions = overviewMetrics.actions.filter(action => action.id !== 'stable-overview')
@@ -468,13 +468,13 @@ export function OverviewTab({
             {priorityActions.slice(0, 4).map((action, index) => (
               <div
                 key={action.id}
-                className="rounded-xl border p-4"
-                style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}
+                className="rounded-2xl border p-4.5"
+                style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_CARD }}
               >
                 <div className="flex items-start gap-3">
                   <div
-                    className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-[11px] font-bold"
-                    style={{ borderColor: BORDER, background: `${TEAL}10`, color: TEAL_DIM, boxShadow: SHADOW_SOFT }}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl border text-[11px] font-bold"
+                    style={{ borderColor: `${TEAL}26`, background: `${TEAL}10`, color: TEAL_DIM, boxShadow: SHADOW_SOFT }}
                   >
                     {index + 1}
                   </div>
