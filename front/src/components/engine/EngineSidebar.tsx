@@ -12,6 +12,8 @@ import {
   sidebarPressUp,
 } from '@/components/layout/SidebarPrimitives'
 import { useEngineNavigation, type EngineSection } from './EngineNavigation'
+import { getEngineStrings } from '@/i18n/engine'
+import { useLocaleStrings } from '@/i18n/useLocale'
 
 const SECTION_META: Record<EngineSection, { Icon: typeof Cpu; tone: string }> = {
   runs: { Icon: Cpu, tone: '#0F9CA6' },
@@ -95,6 +97,7 @@ function EngineSidebarButton({
 type BackendHealthState = 'checking' | 'healthy' | 'offline'
 
 export function EngineSidebar() {
+  const strings = useLocaleStrings(getEngineStrings)
   const projects = useAppStore(s => s.projects)
   const { activeSection, setActiveSection, sections } = useEngineNavigation()
   const { BORDER, PAGE_BG, TEXT, TEXT_DIM, TEAL, semantic } = usePrismTheme()
@@ -135,12 +138,18 @@ export function EngineSidebar() {
     }
   }, [])
 
+  const healthLabel = backendHealth === 'healthy'
+    ? strings.sidebar.health.healthy
+    : backendHealth === 'offline'
+      ? strings.sidebar.health.offline
+      : strings.sidebar.health.checking
+
   return (
     <SidebarBody className="pb-4">
       <div className="mb-3 px-2">
-        <SidebarSectionTitle className="mb-0 px-0">Engine</SidebarSectionTitle>
+        <SidebarSectionTitle className="mb-0 px-0">{strings.sidebar.title}</SidebarSectionTitle>
         <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-          Utilise le backend seulement quand il apporte une vraie valeur de calcul ou de preuve.
+          {strings.sidebar.description}
         </p>
       </div>
 
@@ -166,7 +175,7 @@ export function EngineSidebar() {
               opacity: backendHealth === 'checking' ? 0.8 : 1,
             }}
           />
-          <span style={{ color: TEXT }}>Backend {backendHealth === 'healthy' ? 'healthy' : backendHealth === 'offline' ? 'offline' : 'checking'}</span>
+          <span style={{ color: TEXT }}>{healthLabel}</span>
           {backendVersion && backendHealth === 'healthy' && (
             <span style={{ color: TEXT_DIM }}>v{backendVersion}</span>
           )}
@@ -174,12 +183,12 @@ export function EngineSidebar() {
       </div>
 
       <div className="mt-5 border-t pt-4" style={{ borderColor: `${BORDER}33` }}>
-        <SidebarSectionTitle>Lecture rapide</SidebarSectionTitle>
+        <SidebarSectionTitle>{strings.sidebar.quickReadTitle}</SidebarSectionTitle>
         <div className="space-y-2 px-2 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
           <div className="rounded-md border px-3 py-2" style={{ borderColor: `${BORDER}70`, background: PAGE_BG, color: TEXT }}>
-            {allSifs.length} SIF visibles dans le périmètre moteur
+            {strings.sidebar.totalSifs(allSifs.length)}
           </div>
-          <p>{driftCandidates} SIF ne tiennent pas encore la cible SIL et méritent un calcul backend en priorité.</p>
+          <p>{strings.sidebar.belowTarget(driftCandidates)}</p>
         </div>
       </div>
     </SidebarBody>

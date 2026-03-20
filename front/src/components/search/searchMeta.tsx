@@ -17,62 +17,72 @@ import {
   Wrench,
 } from 'lucide-react'
 import type { SearchItemScope, SearchResultKind, SearchScopeId } from '@/features/search/searchIndex'
+import { getSearchStrings } from '@/i18n/search'
+import type { AppLocale } from '@/i18n/types'
 
-export const SEARCH_SCOPE_META: Record<SearchScopeId, {
+export function getSearchScopeMeta(locale: AppLocale): Record<SearchScopeId, {
   label: string
   hint: string
   Icon: ElementType
-}> = {
-  all: {
-    label: 'Tout',
-    hint: 'Tous les objets indexés',
-    Icon: Search,
-  },
-  projects: {
-    label: 'Projets',
-    hint: 'Portefeuille et accès rapide',
-    Icon: FolderOpen,
-  },
-  sifs: {
-    label: 'SIF',
-    hint: 'Fonctions et vues cockpit',
-    Icon: ShieldCheck,
-  },
-  components: {
-    label: 'Composants',
-    hint: 'Parents, sous-composants et occurrences',
-    Icon: Wrench,
-  },
-  library: {
-    label: 'Bibliothèque',
-    hint: 'Templates maîtres et standards validés',
-    Icon: BookOpen,
-  },
-  assumptions: {
-    label: 'Hypothèses',
-    hint: 'Registre de contexte et de preuve',
-    Icon: ClipboardCheck,
-  },
-  actions: {
-    label: 'Actions',
-    hint: 'Priorités cockpit et conformité',
-    Icon: Sparkles,
-  },
-  proof: {
-    label: 'Proof test',
-    hint: 'Procédures, campagnes et événements',
-    Icon: FlaskConical,
-  },
-  revisions: {
-    label: 'Révisions',
-    hint: 'Historique et publication',
-    Icon: GitBranch,
-  },
-  reports: {
-    label: 'Rapports',
-    hint: 'Packages et PDFs publiés',
-    Icon: FileText,
-  },
+}> {
+  const strings = getSearchStrings(locale)
+
+  return {
+    all: {
+      label: strings.scopeMeta.all.label,
+      hint: strings.scopeMeta.all.hint,
+      Icon: Search,
+    },
+    projects: {
+      label: strings.scopeMeta.projects.label,
+      hint: strings.scopeMeta.projects.hint,
+      Icon: FolderOpen,
+    },
+    sifs: {
+      label: strings.scopeMeta.sifs.label,
+      hint: strings.scopeMeta.sifs.hint,
+      Icon: ShieldCheck,
+    },
+    components: {
+      label: strings.scopeMeta.components.label,
+      hint: strings.scopeMeta.components.hint,
+      Icon: Wrench,
+    },
+    library: {
+      label: strings.scopeMeta.library.label,
+      hint: strings.scopeMeta.library.hint,
+      Icon: BookOpen,
+    },
+    assumptions: {
+      label: strings.scopeMeta.assumptions.label,
+      hint: strings.scopeMeta.assumptions.hint,
+      Icon: ClipboardCheck,
+    },
+    actions: {
+      label: strings.scopeMeta.actions.label,
+      hint: strings.scopeMeta.actions.hint,
+      Icon: Sparkles,
+    },
+    proof: {
+      label: strings.scopeMeta.proof.label,
+      hint: strings.scopeMeta.proof.hint,
+      Icon: FlaskConical,
+    },
+    revisions: {
+      label: strings.scopeMeta.revisions.label,
+      hint: strings.scopeMeta.revisions.hint,
+      Icon: GitBranch,
+    },
+    reports: {
+      label: strings.scopeMeta.reports.label,
+      hint: strings.scopeMeta.reports.hint,
+      Icon: FileText,
+    },
+  }
+}
+
+export function getSearchResultKindLabel(locale: AppLocale, kind: SearchResultKind): string {
+  return getSearchStrings(locale).resultKindLabels[kind]
 }
 
 export function getSearchScopeTone(scope: SearchItemScope) {

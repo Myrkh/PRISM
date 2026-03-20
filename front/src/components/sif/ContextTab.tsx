@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   Save, AlertTriangle, Shield, Users,
   Hash,
@@ -10,6 +10,8 @@ import type { OverviewMetrics } from '@/components/sif/overviewMetrics'
 import type { SIFTab } from '@/store/types'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import { getSifContextStrings } from '@/i18n/sifContext'
+import { useLocaleStrings } from '@/i18n/useLocale'
 
 type ContextDraft = Pick<
   SIF,
@@ -65,9 +67,7 @@ function buildDraft(sif: SIF): ContextDraft {
   }
 }
 
-// ── Design primitives ─────────────────────────────────────────────────────
-
-function SectionHeader({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+function SectionHeader({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   const { BORDER, SHADOW_SOFT, TEAL } = usePrismTheme()
   return (
     <div className="flex items-center gap-2 pb-2 mb-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
@@ -82,7 +82,7 @@ function SectionHeader({ icon, children }: { icon: React.ReactNode; children: Re
   )
 }
 
-function FieldLabel({ children }: { children: React.ReactNode }) {
+function FieldLabel({ children }: { children: ReactNode }) {
   const { TEXT_DIM } = usePrismTheme()
   return (
     <label className="block text-[9px] font-bold uppercase tracking-[0.12em] mb-1" style={{ color: TEXT_DIM }}>
@@ -124,7 +124,7 @@ function FTextarea({ value, onChange, placeholder, rows = 3 }: {
   )
 }
 
-function Card({ children }: { children: React.ReactNode }) {
+function Card({ children }: { children: ReactNode }) {
   const { BORDER, CARD_BG, SHADOW_PANEL } = usePrismTheme()
   return (
     <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
@@ -155,9 +155,8 @@ function SILSelector({ value, onChange }: { value: SILLevel; onChange: (v: SILLe
   )
 }
 
-// ── Main component ────────────────────────────────────────────────────────
-
-export function ContextTab({ projectId, sif, compliance, overviewMetrics, onSelectTab }: Props) {
+export function ContextTab({ projectId, sif }: Props) {
+  const strings = useLocaleStrings(getSifContextStrings)
   const { BORDER, CARD_BG, SHADOW_CARD, SHADOW_PANEL, SURFACE, TEAL, TEAL_DIM, TEXT_DIM } = usePrismTheme()
   const updateSIF = useAppStore(s => s.updateSIF)
   const updateHAZOPTrace = useAppStore(s => s.updateHAZOPTrace)
@@ -175,85 +174,96 @@ export function ContextTab({ projectId, sif, compliance, overviewMetrics, onSele
     setDraft(prev => ({ ...prev, [key]: value }))
 
   const handleSave = async () => {
-    setIsSaving(true); setSaveError(null)
+    setIsSaving(true)
+    setSaveError(null)
     try {
       await updateSIF(projectId, sif.id, {
-        title: draft.title, description: draft.description,
-        pid: draft.pid, location: draft.location, processTag: draft.processTag,
+        title: draft.title,
+        description: draft.description,
+        pid: draft.pid,
+        location: draft.location,
+        processTag: draft.processTag,
         hazardousEvent: draft.hazardousEvent,
         demandRate: Number(draft.demandRate),
         targetSIL: Number(draft.targetSIL) as SIF['targetSIL'],
         rrfRequired: Number(draft.rrfRequired),
-        madeBy: draft.madeBy, verifiedBy: draft.verifiedBy,
-        approvedBy: draft.approvedBy, date: draft.date,
+        madeBy: draft.madeBy,
+        verifiedBy: draft.verifiedBy,
+        approvedBy: draft.approvedBy,
+        date: draft.date,
       })
       updateHAZOPTrace(projectId, sif.id, {
-        hazopNode: draft.hazopNode, scenarioId: draft.scenarioId,
-        deviationCause: draft.deviationCause, initiatingEvent: draft.initiatingEvent,
-        lopaRef: draft.lopaRef, tmel: Number(draft.tmel) || 0,
-        iplList: draft.iplList, riskMatrix: draft.riskMatrix,
-        hazopDate: draft.hazopDate, lopaDate: draft.lopaDate,
+        hazopNode: draft.hazopNode,
+        scenarioId: draft.scenarioId,
+        deviationCause: draft.deviationCause,
+        initiatingEvent: draft.initiatingEvent,
+        lopaRef: draft.lopaRef,
+        tmel: Number(draft.tmel) || 0,
+        iplList: draft.iplList,
+        riskMatrix: draft.riskMatrix,
+        hazopDate: draft.hazopDate,
+        lopaDate: draft.lopaDate,
         hazopFacilitator: draft.hazopFacilitator,
       })
     } catch (error) {
-      setSaveError(error instanceof Error ? error.message : 'Impossible d\'enregistrer.')
-    } finally { setIsSaving(false) }
+      setSaveError(error instanceof Error ? error.message : strings.save.fallbackError)
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   return (
     <div className="flex min-h-full flex-col gap-5">
-
-      {/* Row 1: Identification + SRS */}
       <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
         <Card>
-          <SectionHeader icon={<Hash size={12} />}>Identification</SectionHeader>
+          <SectionHeader icon={<Hash size={12} />}>{strings.sections.identification}</SectionHeader>
           <div className="grid gap-3 md:grid-cols-2">
             <div>
-              <FieldLabel>SIF No</FieldLabel>
+              <FieldLabel>{strings.fields.sifNumber}</FieldLabel>
               <FInput value={sif.sifNumber} readOnly />
             </div>
             <div>
-              <FieldLabel>Titre</FieldLabel>
-              <FInput value={draft.title} onChange={v => upd('title', v)} placeholder="ESD haute pression V-101" />
+              <FieldLabel>{strings.fields.title}</FieldLabel>
+              <FInput value={draft.title} onChange={v => upd('title', v)} placeholder={strings.placeholders.title} />
             </div>
             <div>
-              <FieldLabel>P&amp;ID / Zone</FieldLabel>
-              <FInput value={draft.pid} onChange={v => upd('pid', v)} placeholder="P&ID-001-A" />
+              <FieldLabel>{strings.fields.pidZone}</FieldLabel>
+              <FInput value={draft.pid} onChange={v => upd('pid', v)} placeholder={strings.placeholders.pidZone} />
             </div>
             <div>
-              <FieldLabel>Localisation</FieldLabel>
-              <FInput value={draft.location} onChange={v => upd('location', v)} placeholder="Unité 100 – Zone ATEX" />
+              <FieldLabel>{strings.fields.location}</FieldLabel>
+              <FInput value={draft.location} onChange={v => upd('location', v)} placeholder={strings.placeholders.location} />
             </div>
             <div>
-              <FieldLabel>Process tag</FieldLabel>
-              <FInput value={draft.processTag} onChange={v => upd('processTag', v)} placeholder="PT-101" />
+              <FieldLabel>{strings.fields.processTag}</FieldLabel>
+              <FInput value={draft.processTag} onChange={v => upd('processTag', v)} placeholder={strings.placeholders.processTag} />
             </div>
             <div className="md:col-span-2">
-              <FieldLabel>Description fonctionnelle</FieldLabel>
-              <FTextarea value={draft.description} onChange={v => upd('description', v)} placeholder="Isoler l'alimentation gaz en cas de haute pression…" rows={3} />
+              <FieldLabel>{strings.fields.functionalDescription}</FieldLabel>
+              <FTextarea value={draft.description} onChange={v => upd('description', v)} placeholder={strings.placeholders.functionalDescription} rows={3} />
             </div>
           </div>
         </Card>
 
         <Card>
-          <SectionHeader icon={<Shield size={12} />}>Exigences SRS</SectionHeader>
+          <SectionHeader icon={<Shield size={12} />}>{strings.sections.srs}</SectionHeader>
           <div className="space-y-4">
             <div>
-              <FieldLabel>SIL cible</FieldLabel>
+              <FieldLabel>{strings.fields.targetSil}</FieldLabel>
               <SILSelector value={draft.targetSIL} onChange={v => upd('targetSIL', v)} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <FieldLabel>Demand rate [yr⁻¹]</FieldLabel>
+                <FieldLabel>{strings.fields.demandRate}</FieldLabel>
                 <FInput type="number" step="0.01" value={draft.demandRate} onChange={v => upd('demandRate', Number(v) || 0)} />
               </div>
               <div>
-                <FieldLabel>RRF requis</FieldLabel>
+                <FieldLabel>{strings.fields.requiredRrf}</FieldLabel>
                 <FInput type="number" step="1" value={draft.rrfRequired} onChange={v => upd('rrfRequired', Number(v) || 0)} />
               </div>
             </div>
             <div className="rounded-lg border p-3 flex items-center justify-between" style={{ borderColor: `${TEAL}25`, background: `${TEAL}06` }}>
-              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>PFD max admissible</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>{strings.fields.maxAdmissiblePfd}</span>
               <span className="text-sm font-mono font-bold" style={{ color: TEAL_DIM }}>
                 {draft.rrfRequired > 0 ? (1 / draft.rrfRequired).toExponential(1) : '—'}
               </span>
@@ -262,60 +272,59 @@ export function ContextTab({ projectId, sif, compliance, overviewMetrics, onSele
         </Card>
       </div>
 
-      {/* Row 2: HAZOP/LOPA */}
       <Card>
-        <SectionHeader icon={<AlertTriangle size={12} />}>HAZOP / LOPA — Traçabilité du scénario</SectionHeader>
+        <SectionHeader icon={<AlertTriangle size={12} />}>{strings.sections.hazop}</SectionHeader>
         <div className="grid gap-4 xl:grid-cols-2">
           <div className="space-y-3">
             <div>
-              <FieldLabel>Événement dangereux</FieldLabel>
-              <FTextarea value={draft.hazardousEvent} onChange={v => upd('hazardousEvent', v)} placeholder="Surpression V-101 → rupture…" rows={3} />
+              <FieldLabel>{strings.fields.hazardousEvent}</FieldLabel>
+              <FTextarea value={draft.hazardousEvent} onChange={v => upd('hazardousEvent', v)} placeholder={strings.placeholders.hazardousEvent} rows={3} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <FieldLabel>HAZOP node</FieldLabel>
-                <FInput value={draft.hazopNode} onChange={v => upd('hazopNode', v)} placeholder="Node 3" />
+                <FieldLabel>{strings.fields.hazopNode}</FieldLabel>
+                <FInput value={draft.hazopNode} onChange={v => upd('hazopNode', v)} placeholder={strings.placeholders.hazopNode} />
               </div>
               <div>
-                <FieldLabel>Scenario ID</FieldLabel>
-                <FInput value={draft.scenarioId} onChange={v => upd('scenarioId', v)} placeholder="SC-003" />
+                <FieldLabel>{strings.fields.scenarioId}</FieldLabel>
+                <FInput value={draft.scenarioId} onChange={v => upd('scenarioId', v)} placeholder={strings.placeholders.scenarioId} />
               </div>
             </div>
             <div>
-              <FieldLabel>Événement initiateur</FieldLabel>
-              <FTextarea value={draft.initiatingEvent} onChange={v => upd('initiatingEvent', v)} placeholder="Défaillance régulateur PCV-101…" rows={2} />
+              <FieldLabel>{strings.fields.initiatingEvent}</FieldLabel>
+              <FTextarea value={draft.initiatingEvent} onChange={v => upd('initiatingEvent', v)} placeholder={strings.placeholders.initiatingEvent} rows={2} />
             </div>
             <div>
-              <FieldLabel>Déviation / Cause</FieldLabel>
-              <FTextarea value={draft.deviationCause} onChange={v => upd('deviationCause', v)} placeholder="Haute pression – blocage vanne…" rows={2} />
+              <FieldLabel>{strings.fields.deviationCause}</FieldLabel>
+              <FTextarea value={draft.deviationCause} onChange={v => upd('deviationCause', v)} placeholder={strings.placeholders.deviationCause} rows={2} />
             </div>
           </div>
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <FieldLabel>LOPA Ref.</FieldLabel>
-                <FInput value={draft.lopaRef} onChange={v => upd('lopaRef', v)} placeholder="LOPA-001" />
+                <FieldLabel>{strings.fields.lopaRef}</FieldLabel>
+                <FInput value={draft.lopaRef} onChange={v => upd('lopaRef', v)} placeholder={strings.placeholders.lopaRef} />
               </div>
               <div>
-                <FieldLabel>Risk matrix</FieldLabel>
-                <FInput value={draft.riskMatrix} onChange={v => upd('riskMatrix', v)} placeholder="C4-L3" />
+                <FieldLabel>{strings.fields.riskMatrix}</FieldLabel>
+                <FInput value={draft.riskMatrix} onChange={v => upd('riskMatrix', v)} placeholder={strings.placeholders.riskMatrix} />
               </div>
             </div>
             <div>
-              <FieldLabel>TMEL [yr⁻¹]</FieldLabel>
+              <FieldLabel>{strings.fields.tmel}</FieldLabel>
               <FInput type="number" step="0.000001" value={draft.tmel} onChange={v => upd('tmel', Number(v) || 0)} />
             </div>
             <div>
-              <FieldLabel>IPLs indépendantes</FieldLabel>
-              <FTextarea value={draft.iplList} onChange={v => upd('iplList', v)} placeholder="PSV-101 (RRF 10), BPCS alarm…" rows={3} />
+              <FieldLabel>{strings.fields.independentIpls}</FieldLabel>
+              <FTextarea value={draft.iplList} onChange={v => upd('iplList', v)} placeholder={strings.placeholders.independentIpls} rows={3} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <FieldLabel>Facilitateur HAZOP</FieldLabel>
+                <FieldLabel>{strings.fields.hazopFacilitator}</FieldLabel>
                 <FInput value={draft.hazopFacilitator} onChange={v => upd('hazopFacilitator', v)} />
               </div>
               <div>
-                <FieldLabel>Date HAZOP</FieldLabel>
+                <FieldLabel>{strings.fields.hazopDate}</FieldLabel>
                 <FInput type="date" value={draft.hazopDate} onChange={v => upd('hazopDate', v)} />
               </div>
             </div>
@@ -323,30 +332,28 @@ export function ContextTab({ projectId, sif, compliance, overviewMetrics, onSele
         </div>
       </Card>
 
-      {/* Row 3: Signataires */}
       <Card>
-        <SectionHeader icon={<Users size={12} />}>Signataires — Traçabilité documentaire</SectionHeader>
+        <SectionHeader icon={<Users size={12} />}>{strings.sections.signatories}</SectionHeader>
         <div className="grid gap-3 md:grid-cols-4">
           <div>
-            <FieldLabel>Établi par</FieldLabel>
+            <FieldLabel>{strings.fields.preparedBy}</FieldLabel>
             <FInput value={draft.madeBy} onChange={v => upd('madeBy', v)} />
           </div>
           <div>
-            <FieldLabel>Vérifié par</FieldLabel>
+            <FieldLabel>{strings.fields.verifiedBy}</FieldLabel>
             <FInput value={draft.verifiedBy} onChange={v => upd('verifiedBy', v)} />
           </div>
           <div>
-            <FieldLabel>Approuvé par</FieldLabel>
+            <FieldLabel>{strings.fields.approvedBy}</FieldLabel>
             <FInput value={draft.approvedBy} onChange={v => upd('approvedBy', v)} />
           </div>
           <div>
-            <FieldLabel>Date document</FieldLabel>
+            <FieldLabel>{strings.fields.documentDate}</FieldLabel>
             <FInput type="date" value={draft.date} onChange={v => upd('date', v)} />
           </div>
         </div>
       </Card>
 
-      {/* Floating save bar */}
       <div
         className="sticky bottom-0 flex items-center justify-between gap-3 rounded-xl border px-4 py-2.5"
         style={{
@@ -360,7 +367,7 @@ export function ContextTab({ projectId, sif, compliance, overviewMetrics, onSele
               <AlertTriangle size={11} />{saveError}
             </p>
           : <p className="text-[11px]" style={{ color: isDirty ? TEAL_DIM : TEXT_DIM }}>
-              {isDirty ? 'Modifications non enregistrées' : 'Contexte à jour'}
+              {isDirty ? strings.save.dirty : strings.save.saved}
             </p>
         }
         <button type="button" onClick={handleSave} disabled={!isDirty || isSaving}
@@ -370,7 +377,7 @@ export function ContextTab({ projectId, sif, compliance, overviewMetrics, onSele
             : { background: SURFACE, color: TEXT_DIM, boxShadow: SHADOW_CARD }
           }>
           <Save size={12} />
-          {isSaving ? 'Enregistrement…' : 'Enregistrer'}
+          {isSaving ? strings.save.saving : strings.save.save}
         </button>
       </div>
     </div>

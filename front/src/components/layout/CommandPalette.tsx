@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { useLocaleStrings } from '@/i18n/useLocale'
+import { getShellStrings } from '@/i18n/shell'
 import { useAppStore, type SIFTab } from '@/store/appStore'
 import { normalizeSIFTab } from '@/store/types'
 import {
@@ -41,6 +43,7 @@ export function CommandPalette({
   onOpenLibrary: () => void
 }) {
   const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const strings = useLocaleStrings(getShellStrings)
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const [selectedIndex, setSelectedIndex] = useState(-1)
@@ -107,11 +110,11 @@ export function CommandPalette({
   const goToTab = (tab: SIFTab) => run(() => setTab(tab))
 
   const currentViewGroup: CommandGroup | null = currentSif && currentProject ? {
-    heading: `${currentSif.sifNumber} — ${currentSif.title || 'Untitled'}`,
+    heading: strings.commandPalette.groups.currentView(currentSif.sifNumber, currentSif.title),
     items: [
       {
         id: 'goto-overview',
-        label: 'Go to Cockpit',
+        label: strings.commandPalette.labels.goCockpit,
         keywords: 'go cockpit dashboard overview accueil tableau de bord history historique revisions snapshots compare',
         Icon: LayoutDashboard,
         onSelect: () => goToTab('cockpit'),
@@ -120,7 +123,7 @@ export function CommandPalette({
       },
       {
         id: 'goto-context',
-        label: 'Go to Context',
+        label: strings.commandPalette.labels.goContext,
         keywords: 'go context contexte hazop lopa',
         Icon: ClipboardCheck,
         onSelect: () => goToTab('context'),
@@ -129,7 +132,7 @@ export function CommandPalette({
       },
       {
         id: 'goto-architecture',
-        label: 'Go to Architecture',
+        label: strings.commandPalette.labels.goArchitecture,
         keywords: 'go architecture loop editor éditeur boucle',
         Icon: Network,
         onSelect: () => goToTab('architecture'),
@@ -138,7 +141,7 @@ export function CommandPalette({
       },
       {
         id: 'goto-analysis',
-        label: 'Go to Verification',
+        label: strings.commandPalette.labels.goVerification,
         keywords: 'go verification calculations analysis calculs analyse conformité',
         Icon: BarChart3,
         onSelect: () => goToTab('verification'),
@@ -147,7 +150,7 @@ export function CommandPalette({
       },
       {
         id: 'goto-prooftest',
-        label: 'Go to Exploitation',
+        label: strings.commandPalette.labels.goExploitation,
         keywords: 'go exploitation proof test test de preuve',
         Icon: FlaskConical,
         onSelect: () => goToTab('exploitation'),
@@ -156,7 +159,7 @@ export function CommandPalette({
       },
       {
         id: 'goto-report',
-        label: 'Go to Report Package',
+        label: strings.commandPalette.labels.goReport,
         keywords: 'go report package reports rapport rapports publication',
         Icon: FileText,
         onSelect: () => goToTab('report'),
@@ -165,7 +168,7 @@ export function CommandPalette({
       },
       {
         id: 'edit-current-sif',
-        label: 'Edit this SIF',
+        label: strings.commandPalette.labels.editCurrentSif,
         keywords: 'edit current sif modifier cette sif',
         Icon: Pencil,
         onSelect: () => run(() => openEditSIF(currentSif.id)),
@@ -174,7 +177,7 @@ export function CommandPalette({
       },
       {
         id: 'edit-current-project',
-        label: 'Edit current project',
+        label: strings.commandPalette.labels.editCurrentProject,
         keywords: 'edit current project modifier projet courant',
         Icon: Pencil,
         onSelect: () => run(() => openEditProject(currentProject.id)),
@@ -186,11 +189,11 @@ export function CommandPalette({
   } : null
 
   const createGroup: CommandGroup = {
-    heading: 'Create',
+    heading: strings.commandPalette.groups.create,
     items: [
       {
         id: 'new-project',
-        label: 'New project',
+        label: strings.commandPalette.labels.newProject,
         keywords: 'create new project créer nouveau projet',
         Icon: FolderPlus,
         onSelect: () => run(openNewProject),
@@ -200,8 +203,8 @@ export function CommandPalette({
       {
         id: 'new-sif',
         label: currentProject
-          ? `New SIF in ${currentProject.name}`
-          : 'New SIF',
+          ? strings.commandPalette.labels.newSifInProject(currentProject.name)
+          : strings.commandPalette.labels.newSif,
         keywords: 'create new sif créer nouvelle sif',
         Icon: FilePlus,
         onSelect: () => run(() => openNewSIF(currentProjectId ?? undefined)),
@@ -212,7 +215,7 @@ export function CommandPalette({
   }
 
   const projectsGroup: CommandGroup = {
-    heading: 'Projects',
+    heading: strings.commandPalette.groups.projects,
     items: projects.map(project => ({
       id: `project-${project.id}`,
       label: project.name,
@@ -233,7 +236,7 @@ export function CommandPalette({
   }
 
   const sifsGroup: CommandGroup = {
-    heading: 'SIFs',
+    heading: strings.commandPalette.groups.sifs,
     items: projects.flatMap(project =>
       project.sifs.map(sif => ({
         id: `sif-${sif.id}`,
@@ -249,11 +252,11 @@ export function CommandPalette({
   }
 
   const generalGroup: CommandGroup = {
-    heading: 'General',
+    heading: strings.commandPalette.groups.general,
     items: [
       {
         id: 'home-dashboard',
-        label: 'Home dashboard',
+        label: strings.commandPalette.labels.home,
         keywords: 'home dashboard accueil projets',
         Icon: Home,
         onSelect: () => run(() => navigate({ type: 'projects' })),
@@ -262,27 +265,27 @@ export function CommandPalette({
       },
       {
         id: 'search-workspace',
-        label: 'Recherche globale',
+        label: strings.commandPalette.labels.globalSearch,
         keywords: 'search recherche globale palette composants hypotheses revisions rapports',
         Icon: Search,
         onSelect: () => run(onOpenSearch),
         isActive: view.type === 'search',
-        meta: search.trim() ? `Continuer la recherche pour « ${search.trim()} »` : 'Explorer tout le contenu indexé',
+        meta: search.trim() ? strings.commandPalette.meta.continueSearch(search.trim()) : strings.commandPalette.meta.exploreSearch,
         level: 0,
       },
       {
         id: 'library-workspace',
-        label: 'Bibliothèque maître',
+        label: strings.commandPalette.labels.masterLibrary,
         keywords: 'library bibliothèque catalogue composants templates standards lambda_db',
         Icon: BookOpen,
         onSelect: () => run(onOpenLibrary),
         isActive: view.type === 'library',
-        meta: 'Gérer les standards, templates projet et références personnelles',
+        meta: strings.commandPalette.meta.library,
         level: 0,
       },
       {
         id: 'toggle-theme',
-        label: isDark ? 'Switch to light mode' : 'Switch to dark mode',
+        label: isDark ? strings.commandPalette.labels.switchToLight : strings.commandPalette.labels.switchToDark,
         keywords: 'theme dark light mode thème sombre clair',
         Icon: isDark ? Sun : Moon,
         onSelect: () => run(toggleTheme),
@@ -291,7 +294,7 @@ export function CommandPalette({
       },
       {
         id: 'audit-log',
-        label: 'Audit Log',
+        label: strings.commandPalette.labels.auditLog,
         keywords: 'audit log historique timeline',
         Icon: History,
         onSelect: () => run(() => navigate({ type: 'audit-log' })),
@@ -300,7 +303,7 @@ export function CommandPalette({
       },
       {
         id: 'engine',
-        label: 'Engine',
+        label: strings.commandPalette.labels.engine,
         keywords: 'engine compute solver markov monte carlo python backend quant',
         Icon: Cpu,
         onSelect: () => run(() => navigate({ type: 'engine' })),
@@ -309,7 +312,7 @@ export function CommandPalette({
       },
       {
         id: 'docs',
-        label: 'Aide & documentation',
+        label: strings.commandPalette.labels.docs,
         keywords: 'docs documentation aide help manuel guide moteur calcul architecture verification exploitation rapport',
         Icon: BookOpenText,
         onSelect: () => run(onOpenDocs),
@@ -318,7 +321,7 @@ export function CommandPalette({
       },
       {
         id: 'settings',
-        label: 'Settings',
+        label: strings.commandPalette.labels.settings,
         keywords: 'settings paramètres',
         Icon: Settings,
         onSelect: () => run(onOpenSettings),
@@ -336,7 +339,7 @@ export function CommandPalette({
 
   const searchResultsGroup: CommandGroup | null = search.trim()
     ? {
-        heading: 'Search results',
+        heading: strings.commandPalette.groups.searchResults,
         items: filterSearchResults(searchIndex, search, { limit: 10 }).map(result => ({
           id: `search-${result.id}`,
           label: result.title,
@@ -453,7 +456,7 @@ export function CommandPalette({
             ref={inputRef}
             value={search}
             onChange={event => setSearch(event.target.value)}
-            placeholder="Search for an action, SIF, or project..."
+            placeholder={strings.commandPalette.placeholder}
             className="flex-1 h-12 bg-transparent text-sm outline-none"
             style={{ color: TEXT }}
           />
@@ -471,7 +474,7 @@ export function CommandPalette({
         <div className="flex-1 overflow-y-auto py-2" role="listbox" aria-label="Quick Actions">
           {groups.length === 0 && (
             <div className="py-12 text-center text-sm" style={{ color: TEXT_DIM }}>
-              No results for "{search}"
+              {strings.commandPalette.noResults(search)}
             </div>
           )}
 
@@ -536,7 +539,7 @@ export function CommandPalette({
                       className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0"
                       style={{ background: `${TEAL}20`, color: TEAL_DIM, border: `1px solid ${TEAL}40` }}
                     >
-                      Active
+                      {strings.commandPalette.labels.active}
                     </span>
                   )}
 
@@ -553,13 +556,13 @@ export function CommandPalette({
 
         <div className="flex items-center gap-4 px-4 py-2.5 shrink-0 border-t" style={{ borderColor: BORDER }}>
           <span className="text-[10px]" style={{ color: TEXT_DIM }}>
-            <kbd className="font-mono px-1 rounded" style={{ border: `1px solid ${BORDER}` }}>↑↓</kbd> navigate
+            <kbd className="font-mono px-1 rounded" style={{ border: `1px solid ${BORDER}` }}>↑↓</kbd> {strings.commandPalette.labels.navigate}
           </span>
           <span className="text-[10px]" style={{ color: TEXT_DIM }}>
-            <kbd className="font-mono px-1 rounded" style={{ border: `1px solid ${BORDER}` }}>↵</kbd> select
+            <kbd className="font-mono px-1 rounded" style={{ border: `1px solid ${BORDER}` }}>↵</kbd> {strings.commandPalette.labels.select}
           </span>
           <span className="text-[10px]" style={{ color: TEXT_DIM }}>
-            <kbd className="font-mono px-1 rounded" style={{ border: `1px solid ${BORDER}` }}>esc</kbd> close
+            <kbd className="font-mono px-1 rounded" style={{ border: `1px solid ${BORDER}` }}>esc</kbd> {strings.commandPalette.labels.close}
           </span>
         </div>
       </div>
@@ -583,7 +586,7 @@ export function CommandPalette({
         }}
       >
         <Search size={13} />
-        Quick Actions
+        {strings.commandPalette.buttonLabel}
         <span
           className="rounded px-1.5 py-0.5 text-[9px] font-mono font-bold"
           style={{ background: CARD_BG, border: `1px solid ${BORDER}`, color: TEXT_DIM }}

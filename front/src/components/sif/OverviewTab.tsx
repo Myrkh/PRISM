@@ -1,4 +1,7 @@
+import { type ReactNode } from 'react'
 import { ArrowRight, CheckCircle2, FileWarning, GitBranch, Lock, ShieldAlert, ShieldCheck, TimerReset } from 'lucide-react'
+import { getSifOverviewStrings, type SifOverviewStrings } from '@/i18n/sifOverview'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import { Button } from '@/components/ui/button'
 import { SILBadge } from '@/components/shared/SILBadge'
 import { formatPFD } from '@/core/math/pfdCalc'
@@ -21,7 +24,7 @@ interface Props {
   onCloseRevision: () => void
 }
 
-function SectionKicker({ children }: { children: React.ReactNode }) {
+function SectionKicker({ children }: { children: ReactNode }) {
   const { TEXT_DIM } = usePrismTheme()
   return (
     <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
@@ -30,7 +33,7 @@ function SectionKicker({ children }: { children: React.ReactNode }) {
   )
 }
 
-function SectionHeader({ icon, children }: { icon: React.ReactNode; children: React.ReactNode }) {
+function SectionHeader({ icon, children }: { icon: ReactNode; children: ReactNode }) {
   const { BORDER, SHADOW_SOFT, TEAL } = usePrismTheme()
   return (
     <div className="mb-3 flex items-center gap-2 border-b pb-2" style={{ borderColor: BORDER }}>
@@ -52,7 +55,7 @@ function SurfaceCard({
   className = '',
   style,
 }: {
-  children: React.ReactNode
+  children: ReactNode
   className?: string
   style?: React.CSSProperties
 }) {
@@ -78,7 +81,7 @@ function StatusPill({
   background,
   borderColor,
 }: {
-  children: React.ReactNode
+  children: ReactNode
   color: string
   background: string
   borderColor: string
@@ -121,12 +124,12 @@ function SignalCard({
   children,
 }: {
   eyebrow: string
-  icon: React.ReactNode
+  icon: ReactNode
   title: string
   value: string
   detail: string
   tone: string
-  children: React.ReactNode
+  children: ReactNode
 }) {
   const { TEXT, TEXT_DIM } = usePrismTheme()
   return (
@@ -156,6 +159,7 @@ function getDecisionState(
   result: SIFCalcResult,
   compliance: ComplianceResult,
   overviewMetrics: OverviewMetrics,
+  strings: SifOverviewStrings,
 ): DecisionState {
   const technicalFindings = compliance.technicalFindings.length
   const governanceGaps = [
@@ -168,10 +172,10 @@ function getDecisionState(
 
   if (!result.meetsTarget || technicalFindings > 0) {
     return {
-      label: 'Action technique requise',
+      label: strings.overview.decision.technicalActionRequired,
       summary: !result.meetsTarget
-        ? `La justification actuelle ne tient pas encore le SIL ${sif.targetSIL} visé.`
-        : `${technicalFindings} point${technicalFindings > 1 ? 's' : ''} technique${technicalFindings > 1 ? 's restent' : ' reste'} à fermer avant clôture.`,
+        ? strings.overview.decision.technicalSummaryBelowTarget(sif.targetSIL)
+        : strings.overview.decision.technicalSummaryFindings(technicalFindings),
       color: semantic.error,
       background: `${semantic.error}12`,
       border: `${semantic.error}3A`,
@@ -181,14 +185,14 @@ function getDecisionState(
 
   if (overviewMetrics.isOverdue || overviewMetrics.openFaults > 0 || overviewMetrics.bypassHours > 0) {
     const exposureBits = [
-      overviewMetrics.isOverdue ? 'proof test en retard' : null,
-      overviewMetrics.openFaults > 0 ? `${overviewMetrics.openFaults} défaut${overviewMetrics.openFaults > 1 ? 's' : ''} ouvert${overviewMetrics.openFaults > 1 ? 's' : ''}` : null,
-      overviewMetrics.bypassHours > 0 ? `${overviewMetrics.bypassHours.toFixed(1)} h de bypass / inhibit` : null,
-    ].filter(Boolean)
+      overviewMetrics.isOverdue ? strings.overview.decision.exposureBits.overdueProofTest : null,
+      overviewMetrics.openFaults > 0 ? strings.overview.decision.exposureBits.openFaults(overviewMetrics.openFaults) : null,
+      overviewMetrics.bypassHours > 0 ? strings.overview.decision.exposureBits.bypassHours(overviewMetrics.bypassHours.toFixed(1)) : null,
+    ].filter(Boolean).join(', ')
 
     return {
-      label: 'Exposition exploitation à traiter',
-      summary: `Le calcul tient, mais l'exploitation demande une action sur ${exposureBits.join(', ')}.`,
+      label: strings.overview.decision.operationalExposure,
+      summary: strings.overview.decision.operationalExposureSummary(exposureBits),
       color: semantic.warning,
       background: `${semantic.warning}12`,
       border: `${semantic.warning}38`,
@@ -198,8 +202,8 @@ function getDecisionState(
 
   if (governanceGaps > 0) {
     return {
-      label: 'Dossier à consolider',
-      summary: `${governanceGaps} signal${governanceGaps > 1 ? 'aux' : ''} de gouvernance reste${governanceGaps > 1 ? 'nt' : ''} à fermer avant publication défendable.`,
+      label: strings.overview.decision.dossierToConsolidate,
+      summary: strings.overview.decision.dossierToConsolidateSummary(governanceGaps),
       color: colors.tealDim,
       background: `${colors.teal}10`,
       border: `${colors.teal}35`,
@@ -209,8 +213,8 @@ function getDecisionState(
 
   if (sif.revisionLockedAt) {
     return {
-      label: 'Révision publiée',
-      summary: 'La base est gelée. Le cockpit pilote maintenant le suivi exploitation et la préparation de la prochaine révision.',
+      label: strings.overview.decision.revisionPublished,
+      summary: strings.overview.decision.revisionPublishedSummary,
       color: semantic.success,
       background: `${semantic.success}10`,
       border: `${semantic.success}32`,
@@ -219,8 +223,8 @@ function getDecisionState(
   }
 
   return {
-    label: 'Prêt pour clôture',
-    summary: 'Calcul, exploitation et gouvernance sont alignés. La révision peut être clôturée sans signal faible ouvert.',
+    label: strings.overview.decision.readyForClosure,
+    summary: strings.overview.decision.readyForClosureSummary,
     color: semantic.success,
     background: `${semantic.success}10`,
     border: `${semantic.success}32`,
@@ -237,9 +241,11 @@ export function OverviewTab({
   onSelectTab,
   onCloseRevision,
 }: Props) {
+  const strings = useLocaleStrings(getSifOverviewStrings)
   const { BORDER, CARD_BG, SHADOW_CARD, SHADOW_SOFT, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM, R } = usePrismTheme()
-  const operationalHealth = getOverviewOperationalHealthMeta(TEXT_DIM)[overviewMetrics.operationalHealth]
-  const decision = getDecisionState(sif, result, compliance, overviewMetrics)
+  const formatDate = (value: string | Date, options?: Intl.DateTimeFormatOptions) => new Date(value).toLocaleDateString(strings.localeTag, options)
+  const operationalHealth = getOverviewOperationalHealthMeta(TEXT_DIM, strings)[overviewMetrics.operationalHealth]
+  const decision = getDecisionState(sif, result, compliance, overviewMetrics, strings)
   const priorityActions = overviewMetrics.actions.filter(action => action.id !== 'stable-overview')
   const governanceReady = overviewMetrics.tracePct === 100
     && overviewMetrics.metadataPct === 100
@@ -247,24 +253,24 @@ export function OverviewTab({
     && overviewMetrics.pendingAssumptions === 0
     && overviewMetrics.evidenceCompleteCount === overviewMetrics.evidenceTotalCount
 
-  const governanceTitle = governanceReady ? 'Dossier cohérent' : 'Dossier incomplet'
+  const governanceTitle = governanceReady ? strings.overview.signalCards.governanceReady : strings.overview.signalCards.governanceIncomplete
   const operationsValue = overviewMetrics.nextDue
-    ? overviewMetrics.nextDue.toLocaleDateString()
-    : (sif.proofTestProcedure ? 'À planifier' : 'Procédure absente')
+    ? formatDate(overviewMetrics.nextDue)
+    : (sif.proofTestProcedure ? strings.overview.operations.toSchedule : strings.overview.operations.missingProcedure)
   const operationsDetail = overviewMetrics.isOverdue
-    ? 'Le proof test dépasse la date prévue.'
+    ? strings.overview.operations.overdueDetail
     : overviewMetrics.lastCampaign
-      ? `Dernière campagne le ${new Date(overviewMetrics.lastCampaign.date).toLocaleDateString()}.`
-      : 'Aucune campagne exécutée n’est encore liée à cette SIF.'
+      ? strings.overview.operations.lastCampaignOn(formatDate(overviewMetrics.lastCampaign.date))
+      : strings.overview.operations.noCampaignYet
   const leadAction = priorityActions[0]
 
   return (
     <div className="space-y-5">
       <div className="grid gap-5 xl:grid-cols-[1.2fr_0.8fr]">
         <SurfaceCard className="p-4">
-          <SectionHeader icon={<decision.Icon size={12} />}>Décision</SectionHeader>
+          <SectionHeader icon={<decision.Icon size={12} />}>{strings.overview.sections.decision}</SectionHeader>
           <p className="text-lg font-semibold tracking-tight" style={{ color: TEXT }}>
-            {sif.sifNumber} · {sif.title || 'Safety Instrumented Function'}
+            {sif.sifNumber} · {sif.title || strings.overview.defaultTitle}
           </p>
           <p className="mt-2 text-sm leading-6" style={{ color: TEXT_DIM }}>
             {decision.summary}
@@ -277,57 +283,57 @@ export function OverviewTab({
               {decision.label}
             </StatusPill>
             <StatusPill color={TEAL_DIM} background={`${TEAL}10`} borderColor={`${TEAL}35`}>
-              SIL cible {sif.targetSIL}
+              {strings.overview.pills.targetSil(sif.targetSIL)}
             </StatusPill>
             <StatusPill
               color={sif.revisionLockedAt ? semantic.success : TEXT}
               background={sif.revisionLockedAt ? `${semantic.success}10` : `${TEXT_DIM}14`}
               borderColor={sif.revisionLockedAt ? `${semantic.success}32` : `${TEXT_DIM}28`}
             >
-              {sif.revisionLockedAt ? `Rév. ${sif.revision} publiée` : `Rév. ${sif.revision} en travail`}
+              {sif.revisionLockedAt
+                ? strings.overview.pills.revisionPublished(sif.revision)
+                : strings.overview.pills.revisionWorking(sif.revision)}
             </StatusPill>
           </div>
 
           <div className="mt-4 rounded-lg border px-3 py-3" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
-            <SectionKicker>Événement dangereux</SectionKicker>
+            <SectionKicker>{strings.overview.sections.dangerousEvent}</SectionKicker>
             <p className="mt-2 text-sm leading-6" style={{ color: TEXT }}>
-              {sif.hazardousEvent || 'Événement dangereux non documenté.'}
+              {sif.hazardousEvent || strings.overview.dangerousEventMissing}
             </p>
           </div>
 
           <div className="mt-4 grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
-            <InlineMetric label="SIL obtenu" value={`SIL ${result.SIL}`} tone={result.meetsTarget ? semantic.success : semantic.error} />
-            <InlineMetric label="Checks" value={`${compliance.passedChecks}/${compliance.totalChecks}`} tone={TEXT} />
-            <InlineMetric label="Trace" value={`${overviewMetrics.tracePct}%`} tone={overviewMetrics.tracePct === 100 ? semantic.success : TEAL_DIM} />
-            <InlineMetric label="Approbations" value={`${overviewMetrics.approvalFilledCount}/3`} tone={overviewMetrics.approvalFilledCount === 3 ? semantic.success : TEAL_DIM} />
+            <InlineMetric label={strings.overview.inlineMetrics.achievedSil} value={`SIL ${result.SIL}`} tone={result.meetsTarget ? semantic.success : semantic.error} />
+            <InlineMetric label={strings.overview.inlineMetrics.checks} value={`${compliance.passedChecks}/${compliance.totalChecks}`} tone={TEXT} />
+            <InlineMetric label={strings.overview.inlineMetrics.trace} value={`${overviewMetrics.tracePct}%`} tone={overviewMetrics.tracePct === 100 ? semantic.success : TEAL_DIM} />
+            <InlineMetric label={strings.overview.inlineMetrics.approvals} value={`${overviewMetrics.approvalFilledCount}/3`} tone={overviewMetrics.approvalFilledCount === 3 ? semantic.success : TEAL_DIM} />
           </div>
         </SurfaceCard>
 
         <SurfaceCard className="p-4">
-          <SectionHeader icon={<Lock size={12} />}>Révision et suite</SectionHeader>
+          <SectionHeader icon={<Lock size={12} />}>{strings.overview.sections.revisionNext}</SectionHeader>
           <p className="text-base font-semibold tracking-tight" style={{ color: TEXT }}>
-            {sif.processTag || sif.location || 'Scope à préciser'}
+            {sif.processTag || sif.location || strings.overview.scopeToSpecify}
           </p>
           <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-            {sif.location || 'Localisation non renseignée'} · {sif.date || 'Date non renseignée'}
+            {sif.location || strings.overview.locationMissing} · {sif.date || strings.overview.dateMissing}
           </p>
 
           <div className="mt-4 grid gap-2">
-            <InlineMetric label="PFDavg" value={formatPFD(result.PFD_avg)} tone={result.meetsTarget ? semantic.success : semantic.error} />
-            <InlineMetric label="RRF requis" value={String(sif.rrfRequired)} tone={TEAL_DIM} />
-            <InlineMetric label="Findings" value={`${compliance.technicalFindings.length}`} tone={compliance.technicalFindings.length === 0 ? semantic.success : semantic.warning} />
-            <InlineMetric label="Preuves" value={`${overviewMetrics.evidenceCompleteCount}/${overviewMetrics.evidenceTotalCount}`} tone={TEXT} />
+            <InlineMetric label={strings.overview.inlineMetrics.pfdavg} value={formatPFD(result.PFD_avg)} tone={result.meetsTarget ? semantic.success : semantic.error} />
+            <InlineMetric label={strings.overview.inlineMetrics.requiredRrf} value={String(sif.rrfRequired)} tone={TEAL_DIM} />
+            <InlineMetric label={strings.overview.inlineMetrics.findings} value={`${compliance.technicalFindings.length}`} tone={compliance.technicalFindings.length === 0 ? semantic.success : semantic.warning} />
+            <InlineMetric label={strings.overview.inlineMetrics.evidence} value={`${overviewMetrics.evidenceCompleteCount}/${overviewMetrics.evidenceTotalCount}`} tone={TEXT} />
           </div>
 
           <div className="mt-4 rounded-lg border px-3 py-3" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
-            <SectionKicker>Cap suivant</SectionKicker>
+            <SectionKicker>{strings.overview.nextStep}</SectionKicker>
             <p className="mt-2 text-sm font-semibold" style={{ color: TEXT }}>
-              {leadAction ? leadAction.title : 'Rien de bloquant à traiter'}
+              {leadAction ? leadAction.title : strings.overview.noBlockingTitle}
             </p>
             <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-              {leadAction
-                ? leadAction.hint
-                : 'Le cockpit est stable. Tu peux préparer le rapport ou clôturer la révision si la fenêtre de publication est la bonne.'}
+              {leadAction ? leadAction.hint : strings.overview.noBlockingHint}
             </p>
           </div>
 
@@ -338,7 +344,7 @@ export function OverviewTab({
               className="inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-xs font-semibold"
               style={{ borderColor: `${TEAL}55`, background: `${TEAL}12`, color: TEAL_DIM, boxShadow: SHADOW_SOFT }}
             >
-              {leadAction ? getOverviewActionCta(leadAction.tab) : 'Ouvrir le rapport'}
+              {leadAction ? getOverviewActionCta(leadAction.tab, strings) : strings.overview.primaryCtaReport}
               <ArrowRight size={12} />
             </button>
 
@@ -352,7 +358,7 @@ export function OverviewTab({
                 style={{ borderRadius: R, background: SURFACE, borderColor: BORDER, color: TEXT, boxShadow: SHADOW_CARD }}
               >
                 <Lock size={12} />
-                {isPublishingRevision ? 'Publication…' : `Clôturer rév. ${sif.revision}`}
+                {isPublishingRevision ? strings.overview.publishing : strings.overview.closeRevision(sif.revision)}
               </Button>
             )}
           </div>
@@ -360,9 +366,9 @@ export function OverviewTab({
       </div>
 
       <SurfaceCard className="p-5">
-        <SectionHeader icon={<GitBranch size={12} />}>Historique des révisions</SectionHeader>
+        <SectionHeader icon={<GitBranch size={12} />}>{strings.overview.sections.revisionHistory}</SectionHeader>
         <p className="text-sm leading-relaxed" style={{ color: TEXT_DIM }}>
-          Les publications, comparaisons et artefacts figés vivent désormais dans le cockpit, au plus près de la décision de révision.
+          {strings.overview.revisionHistoryDescription}
         </p>
         <div className="mt-4">
           <SIFRevisionHistoryLedger sif={sif} />
@@ -371,27 +377,27 @@ export function OverviewTab({
 
       <div className="grid gap-3 xl:grid-cols-3">
         <SignalCard
-          eyebrow="Intégrité"
+          eyebrow={strings.overview.signalCards.integrityEyebrow}
           icon={<CheckCircle2 size={12} />}
-          title={result.meetsTarget ? 'SIL tenu' : 'Sous la cible'}
+          title={result.meetsTarget ? strings.overview.signalCards.integrityHeld : strings.overview.signalCards.integrityBelowTarget}
           value={formatPFD(result.PFD_avg)}
-          detail={`PFDavg actuel. Cible: SIL ${sif.targetSIL} / obtenu: SIL ${result.SIL}.`}
+          detail={strings.overview.signalCards.integrityDetail(sif.targetSIL, result.SIL)}
           tone={result.meetsTarget ? semantic.success : semantic.error}
         >
           <InlineMetric
-            label="Findings"
+            label={strings.overview.inlineMetrics.findings}
             value={`${compliance.technicalFindings.length}`}
             tone={compliance.technicalFindings.length === 0 ? semantic.success : semantic.warning}
           />
           <InlineMetric
-            label="Checks"
+            label={strings.overview.inlineMetrics.checks}
             value={`${compliance.passedChecks}/${compliance.totalChecks}`}
             tone={TEXT}
           />
         </SignalCard>
 
         <SignalCard
-          eyebrow="Exploitation"
+          eyebrow={strings.overview.signalCards.operationsEyebrow}
           icon={<TimerReset size={12} />}
           title={operationalHealth.label}
           value={operationsValue}
@@ -399,32 +405,36 @@ export function OverviewTab({
           tone={overviewMetrics.isOverdue ? semantic.error : operationalHealth.color}
         >
           <InlineMetric
-            label="Défauts ouverts"
+            label={strings.overview.inlineMetrics.openFaults}
             value={`${overviewMetrics.openFaults}`}
             tone={overviewMetrics.openFaults === 0 ? semantic.success : semantic.warning}
           />
           <InlineMetric
-            label="Bypass / inhibit"
+            label={strings.overview.inlineMetrics.bypassInhibit}
             value={`${overviewMetrics.bypassHours.toFixed(1)} h`}
             tone={overviewMetrics.bypassHours === 0 ? semantic.success : TEXT}
           />
         </SignalCard>
 
         <SignalCard
-          eyebrow="Gouvernance"
+          eyebrow={strings.overview.signalCards.governanceEyebrow}
           icon={<ShieldCheck size={12} />}
           title={governanceTitle}
-          value={`${overviewMetrics.tracePct}% trace`}
-          detail={`Approbations ${overviewMetrics.approvalFilledCount}/3 · preuves ${overviewMetrics.evidenceCompleteCount}/${overviewMetrics.evidenceTotalCount}.`}
+          value={strings.overview.signalCards.governanceTrace(overviewMetrics.tracePct)}
+          detail={strings.overview.signalCards.governanceDetail(
+            overviewMetrics.approvalFilledCount,
+            overviewMetrics.evidenceCompleteCount,
+            overviewMetrics.evidenceTotalCount,
+          )}
           tone={governanceReady ? semantic.success : TEAL_DIM}
         >
           <InlineMetric
-            label="Métadonnées"
+            label={strings.overview.inlineMetrics.metadata}
             value={`${overviewMetrics.metadataPct}%`}
             tone={overviewMetrics.metadataPct === 100 ? semantic.success : TEXT}
           />
           <InlineMetric
-            label="Hypothèses en revue"
+            label={strings.overview.inlineMetrics.assumptionsUnderReview}
             value={`${overviewMetrics.pendingAssumptions}`}
             tone={overviewMetrics.pendingAssumptions === 0 ? semantic.success : semantic.warning}
           />
@@ -432,9 +442,9 @@ export function OverviewTab({
       </div>
 
       <SurfaceCard className="p-5">
-        <SectionHeader icon={<FileWarning size={12} />}>Actions prioritaires</SectionHeader>
+        <SectionHeader icon={<FileWarning size={12} />}>{strings.overview.sections.priorityActions}</SectionHeader>
         <p className="text-sm leading-relaxed" style={{ color: TEXT_DIM }}>
-          Le cockpit ne garde ici que les actions qui changent la décision ou la défendabilité du dossier.
+          {strings.overview.priorityActionsDescription}
         </p>
 
         {priorityActions.length === 0 ? (
@@ -446,10 +456,10 @@ export function OverviewTab({
               <CheckCircle2 size={16} style={{ color: semantic.success, flexShrink: 0, marginTop: 2 }} />
               <div className="min-w-0">
                 <p className="text-sm font-semibold" style={{ color: semantic.success }}>
-                  Aucun point prioritaire ouvert
+                  {strings.overview.noPriorityTitle}
                 </p>
                 <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-                  Le cockpit est stable. Tu peux basculer vers le rapport ou clôturer la révision si c’est la bonne fenêtre de publication.
+                  {strings.overview.noPriorityDescription}
                 </p>
                 <button
                   type="button"
@@ -457,7 +467,7 @@ export function OverviewTab({
                   className="mt-3 inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-semibold"
                   style={{ borderColor: `${TEAL}55`, background: `${TEAL}12`, color: TEAL_DIM, boxShadow: SHADOW_SOFT }}
                 >
-                  Ouvrir le rapport
+                  {strings.overview.primaryCtaReport}
                   <ArrowRight size={12} />
                 </button>
               </div>
@@ -490,7 +500,7 @@ export function OverviewTab({
                   className="mt-4 inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-xs font-semibold"
                   style={{ borderColor: `${TEAL}55`, background: `${TEAL}12`, color: TEAL_DIM, boxShadow: SHADOW_SOFT }}
                 >
-                  {getOverviewActionCta(action.tab)}
+                  {getOverviewActionCta(action.tab, strings)}
                   <ArrowRight size={12} />
                 </button>
               </div>
@@ -503,11 +513,9 @@ export function OverviewTab({
             <div className="flex items-start gap-2">
               <CheckCircle2 size={14} style={{ color: result.meetsTarget ? semantic.success : semantic.warning, flexShrink: 0, marginTop: 2 }} />
               <div>
-                <p className="text-xs font-semibold" style={{ color: TEXT }}>Intégrité calculée</p>
+                <p className="text-xs font-semibold" style={{ color: TEXT }}>{strings.overview.statusCards.integrityCalculated}</p>
                 <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-                  {result.meetsTarget
-                    ? 'Le calcul tient la cible demandée.'
-                    : 'Le calcul reste sous la cible demandée.'}
+                  {result.meetsTarget ? strings.overview.statusCards.integrityHeld : strings.overview.statusCards.integrityBelow}
                 </p>
               </div>
             </div>
@@ -517,7 +525,7 @@ export function OverviewTab({
             <div className="flex items-start gap-2">
               <TimerReset size={14} style={{ color: operationalHealth.color, flexShrink: 0, marginTop: 2 }} />
               <div>
-                <p className="text-xs font-semibold" style={{ color: TEXT }}>Fenêtre exploitation</p>
+                <p className="text-xs font-semibold" style={{ color: TEXT }}>{strings.overview.statusCards.operationsWindow}</p>
                 <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
                   {operationsDetail}
                 </p>
@@ -529,11 +537,9 @@ export function OverviewTab({
             <div className="flex items-start gap-2">
               <ShieldCheck size={14} style={{ color: governanceReady ? semantic.success : TEAL_DIM, flexShrink: 0, marginTop: 2 }} />
               <div>
-                <p className="text-xs font-semibold" style={{ color: TEXT }}>Défendabilité dossier</p>
+                <p className="text-xs font-semibold" style={{ color: TEXT }}>{strings.overview.statusCards.dossierDefensibility}</p>
                 <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-                  {governanceReady
-                    ? 'Le dossier est cohérent pour audit et rapport.'
-                    : 'Le calcul peut être bon, mais le dossier reste à consolider.'}
+                  {governanceReady ? strings.overview.statusCards.dossierReady : strings.overview.statusCards.dossierIncomplete}
                 </p>
               </div>
             </div>

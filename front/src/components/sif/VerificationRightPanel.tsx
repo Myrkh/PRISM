@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   ArrowRight,
   CheckCircle2,
+  Download,
   Lightbulb,
   LineChart,
   Plus,
@@ -31,6 +32,7 @@ import { useAppStore } from '@/store/appStore'
 import type { SIFTab } from '@/store/types'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import { AssumptionsPDFExport } from '@/components/report/AssumptionsPDFExport'
 
 type PanelTab = 'summary' | 'graph' | 'assumptions'
 
@@ -404,10 +406,12 @@ export function VerificationRightPanel({
   const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const selectedRightPanelTab = useAppStore(s => s.rightPanelTabs.verification)
   const setRightPanelTab = useAppStore(s => s.setRightPanelTab)
+  const project = useAppStore(s => s.projects.find(projectItem => projectItem.id === sif.projectId) ?? null)
   const [activeTab, setActiveTab] = useState<PanelTab>('summary')
   const [assumptionDrafts, setAssumptionDrafts] = useState<SIFAssumption[]>(() => normalizeSIFAssumptions(sif.assumptions))
   const [assumptionsDirty, setAssumptionsDirty] = useState(false)
   const [assumptionsSaving, setAssumptionsSaving] = useState(false)
+  const [assumptionsPdfOpen, setAssumptionsPdfOpen] = useState(false)
   const [assumptionsError, setAssumptionsError] = useState<string | null>(null)
 
   const openGaps = Math.max(0, compliance.totalChecks - compliance.passedChecks)
@@ -482,8 +486,20 @@ export function VerificationRightPanel({
     }
   }
 
+
+  const openAssumptionsPdf = () => {
+    if (!project) {
+      setAssumptionsError('Projet introuvable pour l export PDF des hypotheses.')
+      return
+    }
+
+    setAssumptionsError(null)
+    setAssumptionsPdfOpen(true)
+  }
+
   return (
-    <RightPanelShell
+    <>
+      <RightPanelShell
       items={PANEL_TABS}
       active={activeTab}
       onSelect={nextTab => {
@@ -731,6 +747,15 @@ export function VerificationRightPanel({
                   </button>
                   <button
                     type="button"
+                    onClick={openAssumptionsPdf}
+                    className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors"
+                    style={{ borderColor: `${TEAL}44`, color: TEAL, background: CARD_BG }}
+                  >
+                    <Download size={12} />
+                    Apercu PDF
+                  </button>
+                  <button
+                    type="button"
                     onClick={resetAssumptions}
                     disabled={!assumptionsDirty || assumptionsSaving}
                     className="inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold transition-colors disabled:opacity-50"
@@ -750,6 +775,10 @@ export function VerificationRightPanel({
                     {assumptionsSaving ? 'Saving...' : 'Save assumptions'}
                   </button>
                 </div>
+
+                <p className="mt-2 text-[10px] leading-relaxed" style={{ color: TEXT_DIM }}>
+                  L apercu PDF reprend le brouillon visible du registre, meme avant sauvegarde en base.
+                </p>
 
                 {assumptionsError && (
                   <div
@@ -853,5 +882,14 @@ export function VerificationRightPanel({
         </div>
       </RightPanelBody>
     </RightPanelShell>
+    {assumptionsPdfOpen && project && (
+      <AssumptionsPDFExport
+        project={project}
+        sif={sif}
+        assumptions={normalizeSIFAssumptions(assumptionDrafts)}
+        onClose={() => setAssumptionsPdfOpen(false)}
+      />
+    )}
+  </>
   )
 }

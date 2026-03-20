@@ -5,7 +5,6 @@ import {
   useLibraryNavigation,
   type LibraryCollectionScope,
   type LibrarySourceScope,
-  type LibrarySubsystemScope,
 } from '@/components/library/LibraryNavigation'
 import {
   SidebarBody,
@@ -15,30 +14,9 @@ import {
   sidebarPressDown,
   sidebarPressUp,
 } from '@/components/layout/SidebarPrimitives'
+import { getLibraryStrings } from '@/i18n/library'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import { usePrismTheme } from '@/styles/usePrismTheme'
-
-const LIBRARY_SOURCE_META: Record<LibrarySourceScope, { label: string; hint: string; tone: string }> = {
-  all: {
-    label: 'Tout le catalogue',
-    hint: 'Standards, projets et bibliothèque personnelle',
-    tone: '#0F766E',
-  },
-  builtin: {
-    label: 'Standards validés',
-    hint: 'Catalogue lambda_db et base validée',
-    tone: '#0F766E',
-  },
-  project: {
-    label: 'Templates projet',
-    hint: 'Composants propres à un ou plusieurs projets',
-    tone: '#F59E0B',
-  },
-  user: {
-    label: 'Bibliothèque personnelle',
-    hint: 'Mes templates réutilisables et imports privés',
-    tone: '#0284C7',
-  },
-}
 
 type FilterButtonProps = {
   label: string
@@ -131,12 +109,6 @@ function getLibraryCollectionTone(scope: LibraryCollectionScope) {
   return '#0F766E'
 }
 
-function getLibraryCollectionHint(scope: LibraryCollectionScope) {
-  if (scope === 'project') return 'Bibliothèque projet'
-  if (scope === 'user') return 'Bibliothèque personnelle'
-  return 'Bibliothèque mixte projet + perso'
-}
-
 export function LibrarySidebar() {
   const {
     deferredQuery,
@@ -156,6 +128,7 @@ export function LibrarySidebar() {
     setLibraryFilter,
     clearFilters,
   } = useLibraryNavigation()
+  const strings = useLocaleStrings(getLibraryStrings)
   const { BORDER, PAGE_BG, SHADOW_SOFT, TEXT, TEXT_DIM } = usePrismTheme()
 
   const hasActiveFilters = sourceScope !== 'all' || subsystemScope !== 'all' || Boolean(projectFilter) || Boolean(libraryFilter)
@@ -166,11 +139,9 @@ export function LibrarySidebar() {
     <SidebarBody className="pb-4">
       <div className="mb-3 flex items-start justify-between gap-3 px-2">
         <div>
-          <SidebarSectionTitle className="mb-0 px-0">Bibliothèque maître</SidebarSectionTitle>
+          <SidebarSectionTitle className="mb-0 px-0">{strings.sidebar.title}</SidebarSectionTitle>
           <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-            {deferredQuery
-              ? `${totalVisible} résultat${totalVisible > 1 ? 's' : ''} pour « ${deferredQuery} »`
-              : `${totalIndexed} templates disponibles dans le catalogue global`}
+            {strings.sidebar.summary(deferredQuery, totalVisible, totalIndexed)}
           </p>
         </div>
         {hasActiveFilters && (
@@ -205,38 +176,41 @@ export function LibrarySidebar() {
             onPointerCancel={event => sidebarPressUp(event.currentTarget, 'none')}
           >
             <FilterX size={11} />
-            Reset
+            {strings.sidebar.reset}
           </button>
         )}
       </div>
 
       <div className="space-y-5">
         <div>
-          <SidebarSectionTitle>Origine</SidebarSectionTitle>
+          <SidebarSectionTitle>{strings.sidebar.originTitle}</SidebarSectionTitle>
           <div className="space-y-1">
-            {(Object.entries(LIBRARY_SOURCE_META) as [LibrarySourceScope, typeof LIBRARY_SOURCE_META[LibrarySourceScope]][]).map(([scopeId, meta]) => (
-              <FilterButton
-                key={scopeId}
-                label={meta.label}
-                hint={meta.hint}
-                count={sourceCounts[scopeId]}
-                active={sourceScope === scopeId}
-                tone={meta.tone}
-                onClick={() => setSourceScope(scopeId)}
-              />
-            ))}
+            {(Object.entries(strings.sourceMeta) as [LibrarySourceScope, { label: string; hint: string }][]).map(([scopeId, meta]) => {
+              const tone = scopeId === 'project' ? '#F59E0B' : scopeId === 'user' ? '#0284C7' : '#0F766E'
+              return (
+                <FilterButton
+                  key={scopeId}
+                  label={meta.label}
+                  hint={meta.hint}
+                  count={sourceCounts[scopeId]}
+                  active={sourceScope === scopeId}
+                  tone={tone}
+                  onClick={() => setSourceScope(scopeId)}
+                />
+              )
+            })}
           </div>
         </div>
 
         <div className="border-t pt-4" style={{ borderColor: `${BORDER}33` }}>
-          <SidebarSectionTitle>Familles</SidebarSectionTitle>
+          <SidebarSectionTitle>{strings.sidebar.familiesTitle}</SidebarSectionTitle>
           <div className="space-y-1">
             <FilterButton
-              label="Toutes les familles"
-              hint="Capteurs, logique et actionneurs"
+              label={strings.sidebar.allFamiliesLabel}
+              hint={strings.sidebar.allFamiliesHint}
               count={subsystemCounts.all}
               active={subsystemScope === 'all'}
-              tone={LIBRARY_SOURCE_META.all.tone}
+              tone="#0F766E"
               onClick={() => setSubsystemScope('all')}
             />
             {(['sensor', 'logic', 'actuator'] as const).map(type => {
@@ -246,10 +220,10 @@ export function LibrarySidebar() {
                   key={type}
                   label={meta.label}
                   hint={type === 'sensor'
-                    ? 'Transmetteurs, capteurs et switches'
+                    ? strings.subsystemHints.sensor
                     : type === 'logic'
-                      ? 'Automates, solveurs et relais'
-                      : 'Vannes, positionneurs et packages finaux'}
+                      ? strings.subsystemHints.logic
+                      : strings.subsystemHints.actuator}
                   count={subsystemCounts[type]}
                   active={subsystemScope === type}
                   tone={meta.color}
@@ -262,21 +236,21 @@ export function LibrarySidebar() {
         </div>
 
         <div className="border-t pt-4" style={{ borderColor: `${BORDER}33` }}>
-          <SidebarSectionTitle>Bibliothèques</SidebarSectionTitle>
+          <SidebarSectionTitle>{strings.sidebar.namedLibrariesTitle}</SidebarSectionTitle>
           <div className="space-y-1">
             <FilterButton
-              label="Toutes les bibliothèques"
-              hint="Bibliothèques nommées perso et projet"
+              label={strings.sidebar.allLibrariesLabel}
+              hint={strings.sidebar.allLibrariesHint}
               count={namedLibraryTotal}
               active={!libraryFilter}
-              tone={LIBRARY_SOURCE_META.user.tone}
+              tone="#0284C7"
               onClick={() => setLibraryFilter(null)}
             />
             {libraryFilters.map(library => (
               <FilterButton
                 key={library.id}
                 label={library.label}
-                hint={getLibraryCollectionHint(library.scope)}
+                hint={strings.sidebar.collectionHint[library.scope]}
                 count={library.count}
                 active={libraryFilter === library.id}
                 tone={getLibraryCollectionTone(library.scope)}
@@ -286,20 +260,20 @@ export function LibrarySidebar() {
           </div>
           {libraryFilters.length === 0 && (
             <p className="px-2 pt-2 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-              Aucune bibliothèque nommée pour les filtres actifs. Créez-en une depuis le panneau droit pour séparer vos références client, site ou standard interne.
+              {strings.sidebar.noNamedLibraries}
             </p>
           )}
         </div>
 
         <div className="border-t pt-4" style={{ borderColor: `${BORDER}33` }}>
-          <SidebarSectionTitle>Projets</SidebarSectionTitle>
+          <SidebarSectionTitle>{strings.sidebar.projectsTitle}</SidebarSectionTitle>
           <div className="space-y-1">
             <FilterButton
-              label="Tous les projets"
-              hint="Les standards et la bibliothèque perso restent visibles"
+              label={strings.sidebar.allProjectsLabel}
+              hint={strings.sidebar.allProjectsHint}
               count={visibleProjectTotal}
               active={!projectFilter}
-              tone={LIBRARY_SOURCE_META.project.tone}
+              tone="#F59E0B"
               onClick={() => setProjectFilter(null)}
             />
             {projectFilters.map(project => (
@@ -308,7 +282,7 @@ export function LibrarySidebar() {
                 label={project.label}
                 count={project.count}
                 active={projectFilter === project.id}
-                tone={LIBRARY_SOURCE_META.project.tone}
+                tone="#F59E0B"
                 onClick={() => setProjectFilter(project.id)}
               />
             ))}
@@ -316,19 +290,15 @@ export function LibrarySidebar() {
         </div>
 
         <div className="border-t pt-4" style={{ borderColor: `${BORDER}33` }}>
-          <SidebarSectionTitle>Usage</SidebarSectionTitle>
+          <SidebarSectionTitle>{strings.sidebar.usageTitle}</SidebarSectionTitle>
           <div className="space-y-2 px-2 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
             <div className="flex items-start gap-2">
               <BookOpen size={13} className="mt-[2px] shrink-0" />
-              <p>
-                La bibliothèque maître sert à gérer les standards, les templates projet et les références personnelles.
-              </p>
+              <p>{strings.sidebar.usagePrimary}</p>
             </div>
             <div className="flex items-start gap-2">
               <Search size={13} className="mt-[2px] shrink-0" />
-              <p>
-                Recherche par type, fabricant, référence, bibliothèque nommée ou source pour retrouver rapidement un composant réutilisable.
-              </p>
+              <p>{strings.sidebar.usageSecondary}</p>
             </div>
           </div>
         </div>

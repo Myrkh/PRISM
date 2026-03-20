@@ -1,6 +1,6 @@
 import { FilterX, Search } from 'lucide-react'
 import { useSearchNavigation } from '@/components/search/SearchNavigation'
-import { SEARCH_SCOPE_META, SEARCH_SCOPE_ORDER, getSearchScopeTone } from '@/components/search/searchMeta'
+import { SEARCH_SCOPE_ORDER, getSearchScopeMeta, getSearchScopeTone } from '@/components/search/searchMeta'
 import {
   SidebarBody,
   SidebarSectionTitle,
@@ -9,6 +9,8 @@ import {
   sidebarPressDown,
   sidebarPressUp,
 } from '@/components/layout/SidebarPrimitives'
+import { getSearchStrings } from '@/i18n/search'
+import { useAppLocale, useLocaleStrings } from '@/i18n/useLocale'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
 type FilterButtonProps = {
@@ -35,9 +37,9 @@ function FilterButton({ label, hint, count, active, tone, onClick }: FilterButto
         color: active ? TEXT : TEXT_DIM,
         transform: 'translateY(0) scale(1)',
       }}
-      onMouseEnter={e => {
+      onMouseEnter={event => {
         if (!active) {
-          sidebarHoverIn(e.currentTarget, {
+          sidebarHoverIn(event.currentTarget, {
             background: PAGE_BG,
             borderColor: `${BORDER}D0`,
             boxShadow: SHADOW_SOFT,
@@ -45,20 +47,20 @@ function FilterButton({ label, hint, count, active, tone, onClick }: FilterButto
           })
         }
       }}
-      onMouseLeave={e => {
+      onMouseLeave={event => {
         if (!active) {
-          sidebarHoverOut(e.currentTarget, {
+          sidebarHoverOut(event.currentTarget, {
             background: 'transparent',
             borderColor: 'transparent',
             boxShadow: 'none',
             color: TEXT_DIM,
           })
         }
-        sidebarPressUp(e.currentTarget, active ? SHADOW_CARD : 'none')
+        sidebarPressUp(event.currentTarget, active ? SHADOW_CARD : 'none')
       }}
-      onPointerDown={e => sidebarPressDown(e.currentTarget, SHADOW_SOFT)}
-      onPointerUp={e => sidebarPressUp(e.currentTarget, active ? SHADOW_CARD : SHADOW_SOFT)}
-      onPointerCancel={e => sidebarPressUp(e.currentTarget, active ? SHADOW_CARD : 'none')}
+      onPointerDown={event => sidebarPressDown(event.currentTarget, SHADOW_SOFT)}
+      onPointerUp={event => sidebarPressUp(event.currentTarget, active ? SHADOW_CARD : SHADOW_SOFT)}
+      onPointerCancel={event => sidebarPressUp(event.currentTarget, active ? SHADOW_CARD : 'none')}
     >
       <div
         className="pointer-events-none absolute left-0 top-1 bottom-1 w-0.5 rounded-full transition-[opacity,transform] duration-150 ease-out"
@@ -104,6 +106,9 @@ export function SearchSidebar() {
     setProjectFilter,
     clearFilters,
   } = useSearchNavigation()
+  const locale = useAppLocale()
+  const strings = useLocaleStrings(getSearchStrings)
+  const scopeMeta = getSearchScopeMeta(locale)
   const { BORDER, PAGE_BG, SHADOW_SOFT, TEXT, TEXT_DIM } = usePrismTheme()
 
   const hasActiveFilters = scope !== 'all' || Boolean(projectFilter)
@@ -113,11 +118,9 @@ export function SearchSidebar() {
     <SidebarBody className="pb-4">
       <div className="mb-3 flex items-start justify-between gap-3 px-2">
         <div>
-          <SidebarSectionTitle className="mb-0 px-0">Recherche globale</SidebarSectionTitle>
+          <SidebarSectionTitle className="mb-0 px-0">{strings.sidebar.title}</SidebarSectionTitle>
           <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-            {deferredQuery
-              ? `${totalVisible} résultat${totalVisible > 1 ? 's' : ''} pour « ${deferredQuery} »`
-              : `${totalIndexed} objets indexés dans l’espace de travail`}
+            {strings.sidebar.summary(deferredQuery, totalVisible, totalIndexed)}
           </p>
         </div>
         {hasActiveFilters && (
@@ -132,45 +135,45 @@ export function SearchSidebar() {
               boxShadow: 'none',
               transform: 'translateY(0) scale(1)',
             }}
-            onMouseEnter={e => sidebarHoverIn(e.currentTarget, {
+            onMouseEnter={event => sidebarHoverIn(event.currentTarget, {
               background: `${BORDER}12`,
               borderColor: `${BORDER}D8`,
               boxShadow: SHADOW_SOFT,
               color: TEXT,
             })}
-            onMouseLeave={e => {
-              sidebarHoverOut(e.currentTarget, {
+            onMouseLeave={event => {
+              sidebarHoverOut(event.currentTarget, {
                 background: PAGE_BG,
                 borderColor: `${BORDER}C8`,
                 boxShadow: 'none',
                 color: TEXT_DIM,
               })
-              sidebarPressUp(e.currentTarget, 'none')
+              sidebarPressUp(event.currentTarget, 'none')
             }}
-            onPointerDown={e => sidebarPressDown(e.currentTarget, SHADOW_SOFT)}
-            onPointerUp={e => sidebarPressUp(e.currentTarget, SHADOW_SOFT)}
-            onPointerCancel={e => sidebarPressUp(e.currentTarget, 'none')}
+            onPointerDown={event => sidebarPressDown(event.currentTarget, SHADOW_SOFT)}
+            onPointerUp={event => sidebarPressUp(event.currentTarget, SHADOW_SOFT)}
+            onPointerCancel={event => sidebarPressUp(event.currentTarget, 'none')}
           >
             <FilterX size={11} />
-            Reset
+            {strings.sidebar.reset}
           </button>
         )}
       </div>
 
       <div className="space-y-5">
         <div>
-          <SidebarSectionTitle>Portée</SidebarSectionTitle>
+          <SidebarSectionTitle>{strings.sidebar.scopeTitle}</SidebarSectionTitle>
           <div className="space-y-1">
             <FilterButton
-              label={SEARCH_SCOPE_META.all.label}
-              hint={SEARCH_SCOPE_META.all.hint}
+              label={scopeMeta.all.label}
+              hint={scopeMeta.all.hint}
               count={Object.values(scopeCounts).reduce((sum, value) => sum + value, 0)}
               active={scope === 'all'}
               tone={getSearchScopeTone('sifs')}
               onClick={() => setScope('all')}
             />
             {SEARCH_SCOPE_ORDER.map(scopeId => {
-              const meta = SEARCH_SCOPE_META[scopeId]
+              const meta = scopeMeta[scopeId]
               return (
                 <FilterButton
                   key={scopeId}
@@ -186,17 +189,17 @@ export function SearchSidebar() {
           </div>
           {missingRevisionCount > 0 && (
             <p className="mt-3 px-2 text-[10px] leading-relaxed" style={{ color: TEXT_DIM }}>
-              L’historique de {missingRevisionCount} SIF se charge en arrière-plan pour enrichir la recherche.
+              {strings.sidebar.backgroundLoading(missingRevisionCount)}
             </p>
           )}
         </div>
 
         <div className="border-t pt-4" style={{ borderColor: `${BORDER}33` }}>
-          <SidebarSectionTitle>Projets</SidebarSectionTitle>
+          <SidebarSectionTitle>{strings.sidebar.projectsTitle}</SidebarSectionTitle>
           <div className="space-y-1">
             <FilterButton
-              label="Tous les projets"
-              hint="Recherche transverse sans restriction"
+              label={strings.sidebar.allProjectsLabel}
+              hint={strings.sidebar.allProjectsHint}
               count={visibleProjectTotal}
               active={!projectFilter}
               tone={getSearchScopeTone('projects')}
@@ -216,12 +219,10 @@ export function SearchSidebar() {
         </div>
 
         <div className="border-t pt-4" style={{ borderColor: `${BORDER}33` }}>
-          <SidebarSectionTitle>Usage</SidebarSectionTitle>
+          <SidebarSectionTitle>{strings.sidebar.usageTitle}</SidebarSectionTitle>
           <div className="flex items-start gap-2 px-2 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
             <Search size={13} className="mt-[2px] shrink-0" />
-            <p>
-              Tape un tag instrument, une SIF, un template de bibliothèque, une hypothèse, une campagne ou une révision. Chaque résultat ouvre directement la bonne vue.
-            </p>
+            <p>{strings.sidebar.usageBody}</p>
           </div>
         </div>
       </div>

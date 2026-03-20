@@ -1,3 +1,5 @@
+import { getSifOverviewStrings } from '@/i18n/sifOverview'
+import type { AppLocale } from '@/i18n/types'
 import type { SIF, SIFCalcResult, TestCampaign } from '@/core/types'
 import type { SIFTab } from '@/store/types'
 import type { ComplianceResult } from './complianceCalc'
@@ -43,7 +45,9 @@ export function getOverviewMetrics(
   sif: SIF,
   result: SIFCalcResult,
   compliance: ComplianceResult,
+  locale: AppLocale = 'fr',
 ): OverviewMetrics {
+  const strings = getSifOverviewStrings(locale)
   const recentCampaigns = [...(sif.testCampaigns ?? [])].sort((a, b) => b.date.localeCompare(a.date))
   const lastCampaign = recentCampaigns[0] ?? null
   const periodicityMs = (sif.proofTestProcedure?.periodicityMonths ?? 12) * 30.44 * 24 * 3_600_000
@@ -99,22 +103,22 @@ export function getOverviewMetrics(
   if (!sif.proofTestProcedure) {
     pushAction(actions, {
       id: 'proof-procedure',
-      title: 'Documenter la procédure de proof test',
-      hint: 'Aucune procédure n’est encore rattachée à cette SIF.',
+      title: strings.metrics.actions.proofProcedureTitle,
+      hint: strings.metrics.actions.proofProcedureHint,
       tab: 'exploitation',
     })
   } else if (!recentCampaigns.length) {
     pushAction(actions, {
       id: 'proof-evidence',
-      title: 'Enregistrer une campagne de proof test',
-      hint: 'Une procédure existe, mais aucune campagne exécutée n’est reliée comme preuve.',
+      title: strings.metrics.actions.proofEvidenceTitle,
+      hint: strings.metrics.actions.proofEvidenceHint,
       tab: 'exploitation',
     })
   } else if (isOverdue && nextDue) {
     pushAction(actions, {
       id: 'proof-overdue',
-      title: 'La campagne de proof test est en retard',
-      hint: `L’échéance prévue était le ${nextDue.toLocaleDateString()}.`,
+      title: strings.metrics.actions.proofOverdueTitle,
+      hint: strings.metrics.actions.proofOverdueHint(nextDue.toLocaleDateString(strings.localeTag)),
       tab: 'exploitation',
     })
   }
@@ -122,8 +126,8 @@ export function getOverviewMetrics(
   if (openFaults > 0 || bypassHours > 0) {
     pushAction(actions, {
       id: 'operational-exposure',
-      title: 'Revoir l’exposition en exploitation',
-      hint: `${openFaults} défaut${openFaults > 1 ? 's' : ''} ouvert${openFaults > 1 ? 's' : ''} et ${bypassHours.toFixed(1)} h de bypass / inhibit.`,
+      title: strings.metrics.actions.operationalExposureTitle,
+      hint: strings.metrics.actions.operationalExposureHint(openFaults, bypassHours.toFixed(1)),
       tab: 'exploitation',
     })
   }
@@ -131,8 +135,8 @@ export function getOverviewMetrics(
   if (!result.meetsTarget || compliance.technicalFindings.length > 0) {
     pushAction(actions, {
       id: 'technical-findings',
-      title: 'Traiter les écarts techniques',
-      hint: `${compliance.technicalFindings.length} écart${compliance.technicalFindings.length > 1 ? 's' : ''} de conformité demande${compliance.technicalFindings.length > 1 ? 'nt' : ''} une revue.`,
+      title: strings.metrics.actions.technicalFindingsTitle,
+      hint: strings.metrics.actions.technicalFindingsHint(compliance.technicalFindings.length),
       tab: 'verification',
     })
   }
@@ -140,8 +144,8 @@ export function getOverviewMetrics(
   if (pendingAssumptions > 0) {
     pushAction(actions, {
       id: 'assumptions',
-      title: 'Revoir le registre d’hypothèses',
-      hint: `${pendingAssumptions} hypothèse${pendingAssumptions > 1 ? 's' : ''} reste${pendingAssumptions > 1 ? 'nt' : ''} à valider.`,
+      title: strings.metrics.actions.assumptionsTitle,
+      hint: strings.metrics.actions.assumptionsHint(pendingAssumptions),
       tab: 'verification',
     })
   }
@@ -149,8 +153,8 @@ export function getOverviewMetrics(
   if (tracePct < 100) {
     pushAction(actions, {
       id: 'hazop-trace',
-      title: 'Compléter la traçabilité HAZOP / LOPA',
-      hint: `${traceCompletedCount}/${traceFieldCount} champs de traçabilité sont renseignés.`,
+      title: strings.metrics.actions.hazopTraceTitle,
+      hint: strings.metrics.actions.hazopTraceHint(traceCompletedCount, traceFieldCount),
       tab: 'context',
     })
   }
@@ -158,8 +162,8 @@ export function getOverviewMetrics(
   if (metadataPct < 100) {
     pushAction(actions, {
       id: 'context-fields',
-      title: 'Compléter le socle de contexte',
-      hint: `${metadataPct}% des métadonnées de base requises pour l’audit sont renseignées.`,
+      title: strings.metrics.actions.contextFieldsTitle,
+      hint: strings.metrics.actions.contextFieldsHint(metadataPct),
       tab: 'context',
     })
   }
@@ -167,8 +171,8 @@ export function getOverviewMetrics(
   if (!actions.length) {
     actions.push({
       id: 'stable-overview',
-      title: 'Cockpit stabilisé',
-      hint: 'Calcul, exploitation et gouvernance semblent alignés.',
+      title: strings.metrics.actions.stableTitle,
+      hint: strings.metrics.actions.stableHint,
       tab: 'report',
     })
   }

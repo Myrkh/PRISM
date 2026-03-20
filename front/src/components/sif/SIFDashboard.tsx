@@ -24,6 +24,7 @@ import { computeCompliance } from '@/components/sif/complianceCalc'
 import { getOverviewMetrics } from '@/components/sif/overviewMetrics'
 import { calcSIF } from '@/core/math/pfdCalc'
 import { normalizeSIFTab } from '@/store/types'
+import { useAppLocale } from '@/i18n/useLocale'
 
 interface Props { projectId: string; sifId: string }
 
@@ -35,6 +36,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
   const startNextRevision = useAppStore(s => s.startNextRevision)
   const updateSIF = useAppStore(s => s.updateSIF)
   const { setRightPanelOverride } = useLayout()
+  const locale = useAppLocale()
   const project = useAppStore(s => s.projects.find(p => p.id === projectId))
   const sif = project?.sifs.find(s => s.id === sifId)
 
@@ -76,8 +78,8 @@ export function SIFDashboard({ projectId, sifId }: Props) {
     [result, sif],
   )
   const overviewMetrics = useMemo(
-    () => (sif && result && compliance ? getOverviewMetrics(sif, result, compliance) : null),
-    [compliance, result, sif],
+    () => (sif && result && compliance ? getOverviewMetrics(sif, result, compliance, locale) : null),
+    [compliance, locale, result, sif],
   )
 
   useEffect(() => {

@@ -10,14 +10,16 @@ import {
   Settings, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
+import { useLocaleStrings } from '@/i18n/useLocale'
+import { getShellStrings } from '@/i18n/shell'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { RailDivider, RailIconButton } from '@/components/layout/RailPrimitives'
 
 const GLOBAL_TOOLS = [
-  { id: 'search' as const, Icon: Search, label: 'Recherche globale' },
-  { id: 'library' as const, Icon: BookOpen, label: 'Bibliothèque maître' },
-  { id: 'audit-log' as const, Icon: History, label: "Journal d'audit" },
-  { id: 'engine' as const, Icon: Cpu, label: 'Moteur de calcul' },
+  { id: 'search' as const, Icon: Search, labelKey: 'search' as const },
+  { id: 'library' as const, Icon: BookOpen, labelKey: 'library' as const },
+  { id: 'audit-log' as const, Icon: History, labelKey: 'audit' as const },
+  { id: 'engine' as const, Icon: Cpu, labelKey: 'engine' as const },
 ] as const
 
 type GlobalToolId = typeof GLOBAL_TOOLS[number]['id']
@@ -42,6 +44,7 @@ export function IconRail({
   showPanelToggles = true,
 }: IconRailProps) {
   const { BORDER, RAIL_BG, SHADOW_TAB, isDark } = usePrismTheme()
+  const strings = useLocaleStrings(getShellStrings)
   const navigate = useAppStore(state => state.navigate)
   const view = useAppStore(state => state.view)
 
@@ -66,14 +69,14 @@ export function IconRail({
         <>
           <RailIconButton
             Icon={leftOpen ? PanelLeftClose : PanelLeftOpen}
-            label={leftOpen ? 'Réduire le panneau' : 'Afficher le panneau'}
+            label={leftOpen ? strings.iconRail.leftCollapse : strings.iconRail.leftExpand}
             onClick={onToggleLeft}
             active={leftOpen}
           />
           {showRightToggle && (
             <RailIconButton
               Icon={rightOpen ? PanelRightClose : PanelRightOpen}
-              label={rightOpen ? 'Réduire les propriétés' : 'Afficher les propriétés'}
+              label={rightOpen ? strings.iconRail.rightCollapse : strings.iconRail.rightExpand}
               onClick={onToggleRight}
               active={rightOpen}
             />
@@ -85,18 +88,18 @@ export function IconRail({
 
       <RailIconButton
         Icon={Home}
-        label="Accueil — Projets"
+        label={strings.iconRail.home}
         onClick={() => navigate({ type: 'projects' })}
         active={showHome}
       />
 
       <RailDivider />
 
-      {GLOBAL_TOOLS.map(({ id, Icon, label }) => (
+      {GLOBAL_TOOLS.map(({ id, Icon, labelKey }) => (
         <RailIconButton
           key={id}
           Icon={Icon}
-          label={label}
+          label={strings.iconRail[labelKey]}
           onClick={() => navigate({ type: id })}
           active={activeGlobalToolId === id}
         />
@@ -106,13 +109,13 @@ export function IconRail({
       <RailDivider />
       <RailIconButton
         Icon={BookOpenText}
-        label="Aide et documentation"
+        label={strings.iconRail.docs}
         onClick={() => navigate({ type: 'docs' })}
         active={showDocs}
       />
       <RailIconButton
         Icon={Settings}
-        label="Paramètres"
+        label={strings.iconRail.settings}
         onClick={() => navigate({ type: 'settings', section: 'general' })}
         active={showSettings}
       />

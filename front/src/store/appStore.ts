@@ -40,6 +40,7 @@ import {
 } from '@/core/models/analysisSettings'
 import {
   DEFAULT_APP_PREFERENCES,
+  applyAppPreferencesToDocument,
   loadAppPreferences,
   resolveAppPreferences,
   saveAppPreferences,
@@ -309,6 +310,7 @@ export const useAppStore = create<AppState>()(
           theme: get().preferences.theme === 'dark' ? 'light' : 'dark',
         })
         saveAppPreferences(nextPreferences)
+        applyAppPreferencesToDocument(nextPreferences)
         set(s => {
           s.preferences = nextPreferences
           s.isDark = nextPreferences.theme === 'dark'
@@ -320,6 +322,7 @@ export const useAppStore = create<AppState>()(
           theme: isDark ? 'dark' : 'light',
         })
         saveAppPreferences(nextPreferences)
+        applyAppPreferencesToDocument(nextPreferences)
         set(s => {
           s.preferences = nextPreferences
           s.isDark = nextPreferences.theme === 'dark'
@@ -331,6 +334,7 @@ export const useAppStore = create<AppState>()(
           ...patch,
         })
         saveAppPreferences(nextPreferences)
+        applyAppPreferencesToDocument(nextPreferences)
         set(s => {
           s.preferences = nextPreferences
           s.isDark = nextPreferences.theme === 'dark'
@@ -339,6 +343,7 @@ export const useAppStore = create<AppState>()(
       resetAppPreferences: () => {
         const nextPreferences = DEFAULT_APP_PREFERENCES
         saveAppPreferences(nextPreferences)
+        applyAppPreferencesToDocument(nextPreferences)
         set(s => {
           s.preferences = nextPreferences
           s.isDark = nextPreferences.theme === 'dark'

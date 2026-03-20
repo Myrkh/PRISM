@@ -1,7 +1,9 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react'
 import type { EngineRun } from '@/core/types'
 import { dbFetchEngineRuns } from '@/lib/engineRuns'
-import { AUDIT_SCOPE_ORDER, AUDIT_SCOPE_META, type AuditScope } from '@/components/audit/auditModel'
+import { AUDIT_SCOPE_ORDER, type AuditScope } from '@/components/audit/auditModel'
+import { getAuditStrings } from '@/i18n/audit'
+import { useLocaleStrings } from '@/i18n/useLocale'
 
 type AuditNavigationContextValue = {
   activeScope: AuditScope
@@ -17,6 +19,7 @@ type AuditNavigationContextValue = {
 const AuditNavigationContext = createContext<AuditNavigationContextValue | null>(null)
 
 export function AuditNavigationProvider({ children }: { children: ReactNode }) {
+  const strings = useLocaleStrings(getAuditStrings)
   const [activeScope, setActiveScope] = useState<AuditScope>('all')
   const [projectFilter, setProjectFilter] = useState<string | null>(null)
   const [engineRuns, setEngineRuns] = useState<EngineRun[]>([])
@@ -56,12 +59,12 @@ export function AuditNavigationProvider({ children }: { children: ReactNode }) {
     },
     scopes: AUDIT_SCOPE_ORDER.map(scope => ({
       id: scope,
-      label: AUDIT_SCOPE_META[scope].label,
-      hint: AUDIT_SCOPE_META[scope].hint,
+      label: strings.scopes[scope].label,
+      hint: strings.scopes[scope].hint,
     })),
     engineRuns,
     engineRunsLoading,
-  }), [activeScope, engineRuns, engineRunsLoading, projectFilter])
+  }), [activeScope, engineRuns, engineRunsLoading, projectFilter, strings])
 
   return (
     <AuditNavigationContext.Provider value={value}>

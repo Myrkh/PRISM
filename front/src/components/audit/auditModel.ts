@@ -1,5 +1,6 @@
 import type { EngineRun, Project } from '@/core/types'
 import type { SIFTab } from '@/store/types'
+import type { AuditModelStrings } from '@/i18n/audit'
 
 export type AuditLevel = 'info' | 'warning'
 export type AuditKind = 'governance' | 'proof-tests' | 'operations' | 'engine'
@@ -32,50 +33,22 @@ export const AUDIT_SCOPE_ORDER: AuditScope[] = [
   'engine',
 ]
 
-export const AUDIT_SCOPE_META: Record<AuditScope, { label: string; hint: string; tone: string }> = {
-  all: {
-    label: 'Tous les événements',
-    hint: 'Vue complète du journal de traçabilité',
-    tone: '#0F9CA6',
-  },
-  warnings: {
-    label: 'Warnings',
-    hint: 'Evénements qui demandent une lecture prioritaire',
-    tone: '#D97706',
-  },
-  governance: {
-    label: 'Gouvernance',
-    hint: 'Création, mise à jour et statut des dossiers',
-    tone: '#2563EB',
-  },
-  'proof-tests': {
-    label: 'Proof tests',
-    hint: 'Campagnes et verdicts d’exploitation',
-    tone: '#0E9F6E',
-  },
-  operations: {
-    label: 'Opérations',
-    hint: 'Incidents et événements observés sur le terrain',
-    tone: '#7C3AED',
-  },
-  engine: {
-    label: 'Engine runs',
-    hint: 'Runs backend et compare TS / Python',
-    tone: '#0F766E',
-  },
+export const AUDIT_SCOPE_TONES: Record<AuditScope, string> = {
+  all: '#0F9CA6',
+  warnings: '#D97706',
+  governance: '#2563EB',
+  'proof-tests': '#0E9F6E',
+  operations: '#7C3AED',
+  engine: '#0F766E',
 }
 
-export const AUDIT_KIND_LABELS: Record<AuditKind, string> = {
-  governance: 'Gouvernance',
-  'proof-tests': 'Proof test',
-  operations: 'Opérations',
-  engine: 'Engine',
-}
-
-export function formatAuditWhen(ts: string): string {
+export function formatAuditWhen(ts: string, localeTag = 'fr-FR'): string {
   const date = new Date(ts)
   if (Number.isNaN(date.getTime())) return ts
-  return date.toLocaleString()
+  return new Intl.DateTimeFormat(localeTag, {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(date)
 }
 
 export function matchesAuditScope(entry: AuditEntry, scope: AuditScope): boolean {
@@ -88,42 +61,42 @@ function getEngineRunTimestamp(run: EngineRun): string | null {
   return run.finishedAt ?? run.startedAt ?? run.createdAt ?? run.updatedAt ?? null
 }
 
-function formatEngineRunAction(run: EngineRun): string {
+function formatEngineRunAction(run: EngineRun, strings: AuditModelStrings): string {
   if (run.triggerKind === 'compare') {
-    if (run.status === 'error') return 'Compare TS / Python échoué'
-    if (run.status === 'done') return 'Compare TS / Python terminé'
-    return 'Compare TS / Python lancé'
+    if (run.status === 'error') return strings.engine.compareFailed
+    if (run.status === 'done') return strings.engine.compareDone
+    return strings.engine.compareLaunched
   }
 
   if (run.triggerKind === 'batch') {
-    if (run.status === 'error') return 'Batch run backend échoué'
-    if (run.status === 'done') return 'Batch run backend terminé'
-    return 'Batch run backend lancé'
+    if (run.status === 'error') return strings.engine.batchFailed
+    if (run.status === 'done') return strings.engine.batchDone
+    return strings.engine.batchLaunched
   }
 
-  if (run.status === 'error') return 'Run backend échoué'
-  if (run.status === 'done') return 'Run backend terminé'
-  return 'Run backend lancé'
+  if (run.status === 'error') return strings.engine.runFailed
+  if (run.status === 'done') return strings.engine.runDone
+  return strings.engine.runLaunched
 }
 
-function formatEngineRunDetails(run: EngineRun): string {
+function formatEngineRunDetails(run: EngineRun, strings: AuditModelStrings): string {
   if (run.status === 'error') {
-    return run.errorMessage || 'Le backend a renvoyé une erreur pendant le calcul.'
+    return run.errorMessage || strings.engine.defaultError
   }
 
   const resultSummary = run.resultSummary ?? {}
   const details: string[] = []
 
-  if (run.requestedMode) details.push(`Mode ${run.requestedMode}`)
-  if (typeof resultSummary.silAchieved === 'number') details.push(`SIL ${resultSummary.silAchieved}`)
-  if (typeof run.warningCount === 'number' && run.warningCount > 0) details.push(`${run.warningCount} warning${run.warningCount > 1 ? 's' : ''}`)
-  if (typeof run.runtimeMs === 'number' && Number.isFinite(run.runtimeMs)) details.push(`${run.runtimeMs.toFixed(1)} ms`)
-  if (run.backendVersion) details.push(`v${run.backendVersion}`)
+  if (run.requestedMode) details.push(strings.engine.mode(run.requestedMode))
+  if (typeof resultSummary.silAchieved === 'number') details.push(strings.engine.sil(resultSummary.silAchieved))
+  if (typeof run.warningCount === 'number' && run.warningCount > 0) details.push(strings.engine.warnings(run.warningCount))
+  if (typeof run.runtimeMs === 'number' && Number.isFinite(run.runtimeMs)) details.push(strings.engine.runtime(run.runtimeMs.toFixed(1)))
+  if (run.backendVersion) details.push(strings.engine.version(run.backendVersion))
 
-  return details.join(' · ') || 'Run backend enregistré.'
+  return details.join(' · ') || strings.engine.recordedRun
 }
 
-function buildEngineRunAuditEntries(projects: Project[], engineRuns: EngineRun[]): AuditEntry[] {
+function buildEngineRunAuditEntries(projects: Project[], engineRuns: EngineRun[], strings: AuditModelStrings): AuditEntry[] {
   return engineRuns.flatMap(run => {
     const timestamp = getEngineRunTimestamp(run)
     if (!timestamp) return []
@@ -132,7 +105,7 @@ function buildEngineRunAuditEntries(projects: Project[], engineRuns: EngineRun[]
     const sif = project?.sifs.find(entry => entry.id === run.sifId)
     const resultSummary = run.resultSummary ?? {}
     const projectName = project?.name
-      ?? (typeof resultSummary.projectName === 'string' && resultSummary.projectName.trim().length > 0 ? resultSummary.projectName : 'Projet inconnu')
+      ?? (typeof resultSummary.projectName === 'string' && resultSummary.projectName.trim().length > 0 ? resultSummary.projectName : strings.actors.unknownProject)
     const sifNumber = sif?.sifNumber
       ?? (typeof resultSummary.sifNumber === 'string' && resultSummary.sifNumber.trim().length > 0 ? resultSummary.sifNumber : undefined)
 
@@ -143,20 +116,20 @@ function buildEngineRunAuditEntries(projects: Project[], engineRuns: EngineRun[]
       level,
       kind: 'engine',
       timestamp,
-      action: formatEngineRunAction(run),
-      details: formatEngineRunDetails(run),
-      actor: 'System',
+      action: formatEngineRunAction(run, strings),
+      details: formatEngineRunDetails(run, strings),
+      actor: strings.actors.system,
       projectName,
       projectId: run.projectId,
       sifNumber,
       sifId: run.sifId,
       targetView: 'engine',
-      linkedViewLabel: 'Engine · Historique',
+      linkedViewLabel: strings.linkedViews.engineHistory,
     }]
   })
 }
 
-export function buildAuditEntries(projects: Project[], engineRuns: EngineRun[] = []): AuditEntry[] {
+export function buildAuditEntries(projects: Project[], engineRuns: EngineRun[] = [], strings: AuditModelStrings): AuditEntry[] {
   const entries: AuditEntry[] = []
 
   projects.forEach(project => {
@@ -165,13 +138,13 @@ export function buildAuditEntries(projects: Project[], engineRuns: EngineRun[] =
       level: 'info',
       kind: 'governance',
       timestamp: project.createdAt,
-      action: 'Projet créé',
-      details: `Le projet "${project.name}" a été initialisé.`,
-      actor: 'System',
+      action: strings.projectCreated.action,
+      details: strings.projectCreated.details(project.name),
+      actor: strings.actors.system,
       projectName: project.name,
       projectId: project.id,
       targetView: 'sif',
-      linkedViewLabel: 'Projet / dossier',
+      linkedViewLabel: strings.linkedViews.project,
     })
 
     if (project.updatedAt && project.updatedAt !== project.createdAt) {
@@ -180,13 +153,13 @@ export function buildAuditEntries(projects: Project[], engineRuns: EngineRun[] =
         level: 'info',
         kind: 'governance',
         timestamp: project.updatedAt,
-        action: 'Projet mis à jour',
-        details: `Les métadonnées du projet "${project.name}" ont été modifiées.`,
-        actor: 'System',
+        action: strings.projectUpdated.action,
+        details: strings.projectUpdated.details(project.name),
+        actor: strings.actors.system,
         projectName: project.name,
         projectId: project.id,
         targetView: 'sif',
-        linkedViewLabel: 'Projet / dossier',
+        linkedViewLabel: strings.linkedViews.project,
       })
     }
 
@@ -197,16 +170,16 @@ export function buildAuditEntries(projects: Project[], engineRuns: EngineRun[] =
           level: 'info',
           kind: 'governance',
           timestamp: sif.date,
-          action: 'Enregistrement SIF mis à jour',
-          details: 'La date du dossier SIF a été confirmée ou ajustée.',
-          actor: sif.madeBy || 'System',
+          action: strings.sifDate.action,
+          details: strings.sifDate.details,
+          actor: sif.madeBy || strings.actors.system,
           projectName: project.name,
           projectId: project.id,
           sifNumber: sif.sifNumber,
           sifId: sif.id,
           actionTab: 'cockpit',
           targetView: 'sif',
-          linkedViewLabel: 'Cockpit',
+          linkedViewLabel: strings.linkedViews.cockpit,
         })
       }
 
@@ -216,16 +189,16 @@ export function buildAuditEntries(projects: Project[], engineRuns: EngineRun[] =
           level: 'info',
           kind: 'governance',
           timestamp: project.updatedAt,
-          action: `Statut SIF: ${sif.status}`,
-          details: `Transition du dossier vers ${sif.status}.`,
-          actor: sif.verifiedBy || sif.approvedBy || 'System',
+          action: strings.sifStatus.action(sif.status),
+          details: strings.sifStatus.details(sif.status),
+          actor: sif.verifiedBy || sif.approvedBy || strings.actors.system,
           projectName: project.name,
           projectId: project.id,
           sifNumber: sif.sifNumber,
           sifId: sif.id,
           actionTab: 'cockpit',
           targetView: 'sif',
-          linkedViewLabel: 'Cockpit',
+          linkedViewLabel: strings.linkedViews.cockpit,
         })
       }
 
@@ -235,16 +208,16 @@ export function buildAuditEntries(projects: Project[], engineRuns: EngineRun[] =
           level: campaign.verdict === 'fail' || campaign.verdict === 'conditional' ? 'warning' : 'info',
           kind: 'proof-tests',
           timestamp: campaign.date,
-          action: `Campagne de proof test (${campaign.verdict})`,
-          details: campaign.notes || 'Campagne enregistrée.',
-          actor: campaign.conductedBy || campaign.reviewedBy || 'System',
+          action: strings.campaign.action(campaign.verdict),
+          details: campaign.notes || strings.campaign.defaultDetails,
+          actor: campaign.conductedBy || campaign.reviewedBy || strings.actors.system,
           projectName: project.name,
           projectId: project.id,
           sifNumber: sif.sifNumber,
           sifId: sif.id,
           actionTab: 'exploitation',
           targetView: 'sif',
-          linkedViewLabel: 'Exploitation',
+          linkedViewLabel: strings.linkedViews.exploitation,
         })
       })
 
@@ -255,22 +228,22 @@ export function buildAuditEntries(projects: Project[], engineRuns: EngineRun[] =
           level: warning ? 'warning' : 'info',
           kind: 'operations',
           timestamp: event.date,
-          action: `Evénement terrain: ${event.type}`,
-          details: event.description || 'Evénement opérationnel enregistré.',
-          actor: 'System',
+          action: strings.event.action(event.type),
+          details: event.description || strings.event.defaultDetails,
+          actor: strings.actors.system,
           projectName: project.name,
           projectId: project.id,
           sifNumber: sif.sifNumber,
           sifId: sif.id,
           actionTab: 'exploitation',
           targetView: 'sif',
-          linkedViewLabel: 'Exploitation',
+          linkedViewLabel: strings.linkedViews.exploitation,
         })
       })
     })
   })
 
-  entries.push(...buildEngineRunAuditEntries(projects, engineRuns))
+  entries.push(...buildEngineRunAuditEntries(projects, engineRuns, strings))
 
   return entries.sort((left, right) => new Date(right.timestamp).getTime() - new Date(left.timestamp).getTime())
 }

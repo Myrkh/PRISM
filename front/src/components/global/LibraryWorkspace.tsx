@@ -18,24 +18,14 @@ import {
   type ComponentTemplateImportDecision,
   type ComponentTemplateImportPreview,
 } from '@/features/library'
+import { getLibraryStrings } from '@/i18n/library'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import { useAppStore } from '@/store/appStore'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
-const SOURCE_SCOPE_LABELS = {
-  all: 'Catalogue complet',
-  builtin: 'Standards validés',
-  project: 'Templates projet',
-  user: 'Bibliothèque personnelle',
-} as const
-
-const SUBSYSTEM_HINTS = {
-  sensor: 'Transmetteurs, capteurs et switches utilisés dans les chaînes instrumentées.',
-  logic: 'Solveurs logiques, automates de sécurité et relais associés.',
-  actuator: 'Éléments finaux, vannes, positionneurs et accessoires de coupure.',
-} as const
-
 export function LibraryWorkspace() {
+
   const {
     query,
     deferredQuery,
@@ -62,6 +52,7 @@ export function LibraryWorkspace() {
     startCreate,
     setQuery,
   } = useLibraryNavigation()
+  const strings = useLocaleStrings(getLibraryStrings)
   const { setRightPanelOpen } = useLayout()
   const { profile } = useAppStore(state => ({ profile: state.profile }))
   const projects = useAppStore(state => state.projects)
@@ -82,6 +73,8 @@ export function LibraryWorkspace() {
     [projectFilter, projects],
   )
   const selectedLibraryLabel = libraryFilter ?? null
+  const sourceScopeLabels = strings.sourceScopeLabels
+  const subsystemHints = strings.subsystemHints
 
   const visibleSubsystems = subsystemScope === 'all'
     ? (['sensor', 'logic', 'actuator'] as const)
@@ -95,9 +88,7 @@ export function LibraryWorkspace() {
   const existingImportTemplates = importScope === 'project'
     ? allProjectTemplates.filter(template => template.projectId === projectFilter)
     : userTemplates
-  const importTargetLabel = projectLabel
-    ? `Import vers ${projectLabel}${selectedLibraryLabel ? ` · ${selectedLibraryLabel}` : ''}`
-    : `Import vers ma bibliothèque${selectedLibraryLabel ? ` · ${selectedLibraryLabel}` : ''}`
+  const importTargetLabel = strings.importTarget(projectLabel, selectedLibraryLabel)
 
   const resetFeedback = () => {
     setStatusMessage(null)
@@ -176,7 +167,7 @@ export function LibraryWorkspace() {
     })
 
     if (payload.length === 0) {
-      setStatusMessage('Aucune entrée sélectionnée pour import.')
+      setStatusMessage(strings.status.noSelection)
       closeImportPreview()
       return
     }
@@ -187,7 +178,7 @@ export function LibraryWorkspace() {
     try {
       const imported = await importTemplates(payload)
       setStatusMessage(
-        `${imported.length} template(s) importé(s) · ${summary.create} créé(s) · ${summary.update} mis à jour.`
+        strings.status.imported(imported.length, summary.create, summary.update)
       )
       setImportPreview(null)
       setImportDecisions({})
@@ -217,7 +208,7 @@ export function LibraryWorkspace() {
     anchor.click()
     document.body.removeChild(anchor)
     URL.revokeObjectURL(url)
-    setStatusMessage(`${exportableTemplates.length} template(s) exporté(s).`)
+    setStatusMessage(strings.status.exported(exportableTemplates.length))
   }
 
 
@@ -234,14 +225,14 @@ export function LibraryWorkspace() {
     anchor.click()
     document.body.removeChild(anchor)
     URL.revokeObjectURL(url)
-    setStatusMessage('Modèle JSON téléchargé.')
+    setStatusMessage(strings.status.importModelDownloaded)
   }
 
   const handleArchive = async (id: string) => {
     resetFeedback()
     try {
       await archiveTemplate(id)
-      setStatusMessage('Template archivé.')
+      setStatusMessage(strings.status.archived)
     } catch (err: unknown) {
       setSyncError(err instanceof Error ? err.message : String(err))
     }
@@ -251,7 +242,7 @@ export function LibraryWorkspace() {
     resetFeedback()
     try {
       await deleteTemplate(id)
-      setStatusMessage('Template supprimé.')
+      setStatusMessage(strings.status.deleted)
     } catch (err: unknown) {
       setSyncError(err instanceof Error ? err.message : String(err))
     }
@@ -310,21 +301,21 @@ export function LibraryWorkspace() {
             <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
               <div>
                 <p className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: TEAL_DIM }}>
-                  Bibliothèque maître
+                  {strings.header.eyebrow}
                 </p>
                 <h1 className="mt-2 text-[28px] font-semibold tracking-tight" style={{ color: TEXT }}>
-                  Gérer les composants réutilisables du produit
+                  {strings.header.title}
                 </h1>
                 <p className="mt-2 max-w-[820px] text-[14px] leading-[1.8]" style={{ color: TEXT_DIM }}>
-                  Une seule source pour les standards validés, les templates liés aux projets et la bibliothèque personnelle. La vue Architecture continue d’utiliser le même catalogue, mais ici l’objectif est la gestion transverse.
+                  {strings.header.description}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 text-[11px]">
                 <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEAL, borderColor: `${TEAL}28`, background: `${TEAL}10` }}>
-                  {deferredQuery ? `${totalVisible} résultats filtrés` : `${totalIndexed} templates disponibles`}
+                  {deferredQuery ? strings.header.filteredCount(totalVisible) : strings.header.availableCount(totalIndexed)}
                 </span>
                 <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEXT_DIM, borderColor: `${BORDER}70`, background: PAGE_BG }}>
-                  {SOURCE_SCOPE_LABELS[sourceScope]}
+                  {sourceScopeLabels[sourceScope]}
                 </span>
                 {projectLabel && (
                   <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEXT_DIM, borderColor: `${BORDER}70`, background: PAGE_BG }}>
@@ -347,7 +338,7 @@ export function LibraryWorkspace() {
                 <Input
                   value={query}
                   onChange={event => setQuery(event.target.value)}
-                  placeholder="Ex. Rosemount, switch niveau, Safety PLC, SOV, positionneur..."
+                  placeholder={strings.searchPlaceholder}
                   className="h-12 rounded-xl pl-10 pr-11 text-[14px]"
                 />
                 {query && (
@@ -372,10 +363,10 @@ export function LibraryWorkspace() {
                       onClick={() => openCreateInspector(type)}
                       className="prism-action inline-flex h-11 items-center gap-2 rounded-xl border px-3 text-[12px] font-semibold"
                       style={{ borderColor: `${meta.color}24`, color: meta.color, background: `${meta.color}10` }}
-                      title={`Créer un template ${meta.label.toLowerCase()}`}
+                      title={strings.ctas.createTitle(meta.label)}
                     >
                       <meta.Icon size={14} />
-                      {type === 'sensor' ? 'Nouveau capteur' : type === 'logic' ? 'Nouvelle logique' : 'Nouvel actionneur'}
+                      {type === 'sensor' ? strings.ctas.newSensor : type === 'logic' ? strings.ctas.newLogic : strings.ctas.newActuator}
                     </button>
                   )
                 })}
@@ -387,17 +378,17 @@ export function LibraryWorkspace() {
                   title={importTargetLabel}
                 >
                   <Upload size={14} />
-                  Importer
+                  {strings.ctas.import}
                 </button>
                 <button
                   type="button"
                   onClick={handleDownloadImportModel}
                   className="prism-action inline-flex h-11 items-center gap-2 rounded-xl border px-3 text-[12px] font-semibold"
                   style={{ borderColor: `${BORDER}80`, color: TEXT_DIM, background: PAGE_BG }}
-                  title="Télécharger un JSON modèle compatible import"
+                  title={strings.ctas.importModelTitle}
                 >
                   <Download size={14} />
-                  Modèle JSON
+                  {strings.ctas.importModel}
                 </button>
                 <button
                   type="button"
@@ -405,20 +396,20 @@ export function LibraryWorkspace() {
                   disabled={exportableTemplates.length === 0}
                   className="prism-action inline-flex h-11 items-center gap-2 rounded-xl border px-3 text-[12px] font-semibold disabled:cursor-not-allowed disabled:opacity-40"
                   style={{ borderColor: `${BORDER}80`, color: TEXT_DIM, background: PAGE_BG }}
-                  title="Exporter les templates visibles"
+                  title={strings.ctas.exportTitle}
                 >
                   <Download size={14} />
-                  Exporter
+                  {strings.ctas.export}
                 </button>
                 <button
                   type="button"
                   onClick={() => void fetchTemplates()}
                   className="prism-action inline-flex h-11 items-center gap-2 rounded-xl border px-3 text-[12px] font-semibold"
                   style={{ borderColor: `${BORDER}80`, color: TEXT_DIM, background: PAGE_BG }}
-                  title="Recharger la bibliothèque"
+                  title={strings.ctas.reloadTitle}
                 >
                   <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                  Recharger
+                  {strings.ctas.reload}
                 </button>
               </div>
             </div>
@@ -428,13 +419,13 @@ export function LibraryWorkspace() {
                 {importTargetLabel}
               </span>
               <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEXT_DIM, borderColor: `${BORDER}70`, background: PAGE_BG }}>
-                {builtinTemplates.length} standards validés
+                {strings.chips.validatedStandards(builtinTemplates.length)}
               </span>
               <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEXT_DIM, borderColor: `${BORDER}70`, background: PAGE_BG }}>
-                {allProjectTemplates.length} templates projet
+                {strings.chips.projectTemplates(allProjectTemplates.length)}
               </span>
               <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEXT_DIM, borderColor: `${BORDER}70`, background: PAGE_BG }}>
-                {userTemplates.length} templates personnels
+                {strings.chips.personalTemplates(userTemplates.length)}
               </span>
             </div>
           </div>
@@ -487,21 +478,21 @@ export function LibraryWorkspace() {
                       </span>
                       <div>
                         <p className="text-sm font-semibold" style={{ color: TEXT }}>{meta.label}</p>
-                        <p className="text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>{SUBSYSTEM_HINTS[type]}</p>
+                        <p className="text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>{subsystemHints[type]}</p>
                       </div>
                     </div>
                   </div>
                   <div className="shrink-0 text-right">
-                    <p className="text-[11px] font-semibold" style={{ color: TEXT }}>{items.length} template{items.length > 1 ? 's' : ''}</p>
+                    <p className="text-[11px] font-semibold" style={{ color: TEXT }}>{strings.family.templateCount(items.length)}</p>
                     <p className="mt-1 text-[10px]" style={{ color: TEXT_DIM }}>
-                      {type === 'sensor' ? 'Partie capteurs' : type === 'logic' ? 'Partie logique' : 'Partie actionneurs'}
+                      {strings.family.partLabel[type]}
                     </p>
                   </div>
                 </div>
 
                 {items.length === 0 ? (
                   <div className="px-5 py-8 text-center text-[12px]" style={{ color: TEXT_DIM }}>
-                    Aucun template ne correspond aux filtres actifs pour cette famille.
+                    {strings.family.empty}
                   </div>
                 ) : (
                   <>
@@ -529,7 +520,7 @@ export function LibraryWorkspace() {
                           className="prism-action flex w-full items-center justify-between px-4 py-3 text-left transition-colors"
                           style={{ color: meta.color }}
                         >
-                          <span className="text-[11px] font-semibold">Charger plus</span>
+                          <span className="text-[11px] font-semibold">{strings.family.showMore}</span>
                           <span className="text-[10px] font-mono" style={{ color: TEXT_DIM }}>+{remainingCount}</span>
                         </button>
                       </div>
@@ -543,7 +534,7 @@ export function LibraryWorkspace() {
                           className="prism-action flex w-full items-center justify-between px-4 py-3 text-left transition-colors"
                           style={{ color: TEXT_DIM }}
                         >
-                          <span className="text-[11px] font-semibold">Voir moins</span>
+                          <span className="text-[11px] font-semibold">{strings.family.showLess}</span>
                           <span className="text-[10px] font-mono">{INITIAL_LIBRARY_VISIBLE_COUNT[type]}</span>
                         </button>
                       </div>

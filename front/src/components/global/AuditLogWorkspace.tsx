@@ -3,8 +3,8 @@ import { AlertTriangle, ArrowUpRight, FileClock, History, Info, Search, X } from
 import {
   type AuditEntry,
   type AuditKind,
-  AUDIT_KIND_LABELS,
-  AUDIT_SCOPE_META,
+  type AuditScope,
+  AUDIT_SCOPE_TONES,
   buildAuditEntries,
   formatAuditWhen,
   matchesAuditScope,
@@ -24,10 +24,8 @@ import { Input } from '@/components/ui/input'
 import { useAppStore } from '@/store/appStore'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
-
-const AUDIT_RIGHT_TABS = [
-  { id: 'event' as const, label: 'Evénement', Icon: FileClock },
-]
+import { getAuditStrings } from '@/i18n/audit'
+import { useLocaleStrings } from '@/i18n/useLocale'
 
 const AUDIT_KIND_TONES: Record<AuditKind, string> = {
   governance: '#2563EB',
@@ -36,20 +34,16 @@ const AUDIT_KIND_TONES: Record<AuditKind, string> = {
   engine: '#0F766E',
 }
 
-const AUDIT_TAB_LABELS: Record<string, string> = {
-  cockpit: 'Cockpit',
-  context: 'Contexte',
-  architecture: 'Architecture',
-  verification: 'Vérification',
-  exploitation: 'Exploitation',
-  history: 'Historique',
-  report: 'Rapport',
-}
-
-function AuditLevelBadge({ level }: { level: AuditEntry['level'] }) {
+function AuditLevelBadge({
+  level,
+  labels,
+}: {
+  level: AuditEntry['level']
+  labels: { warning: string; info: string }
+}) {
   return level === 'warning' ? (
     <InspectorStatusBadge
-      label="Warning"
+      label={labels.warning}
       color={semantic.warningDim}
       background={`${semantic.warning}16`}
       borderColor={`${semantic.warning}30`}
@@ -57,7 +51,7 @@ function AuditLevelBadge({ level }: { level: AuditEntry['level'] }) {
     />
   ) : (
     <InspectorStatusBadge
-      label="Info"
+      label={labels.info}
       color={semantic.info}
       background={`${semantic.info}14`}
       borderColor={`${semantic.info}28`}
@@ -66,11 +60,17 @@ function AuditLevelBadge({ level }: { level: AuditEntry['level'] }) {
   )
 }
 
-function AuditKindBadge({ kind }: { kind: AuditKind }) {
+function AuditKindBadge({
+  kind,
+  label,
+}: {
+  kind: AuditKind
+  label: string
+}) {
   const tone = AUDIT_KIND_TONES[kind]
   return (
     <InspectorStatusBadge
-      label={AUDIT_KIND_LABELS[kind]}
+      label={label}
       color={tone}
       background={`${tone}12`}
       borderColor={`${tone}24`}
@@ -84,14 +84,16 @@ function AuditSearchToolbar({
   resultCount,
   totalCount,
   projectLabel,
-  scopeLabel,
+  scope,
+  strings,
 }: {
   query: string
   onChange: (value: string) => void
   resultCount: number
   totalCount: number
   projectLabel: string | null
-  scopeLabel: string | null
+  scope: AuditScope | null
+  strings: ReturnType<typeof getAuditStrings>
 }) {
   const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
   const hasQuery = query.trim().length > 0
@@ -110,7 +112,7 @@ function AuditSearchToolbar({
               type="search"
               value={query}
               onChange={event => onChange(event.target.value)}
-              placeholder="Rechercher un projet, une SIF, une action ou un détail..."
+              placeholder={strings.search.placeholder}
               className="h-10 rounded-lg pl-9 pr-9 text-sm"
             />
             {hasQuery ? (
@@ -133,22 +135,22 @@ function AuditSearchToolbar({
                 {projectLabel}
               </span>
             ) : null}
-            {scopeLabel ? (
+            {scope ? (
               <span
                 className="inline-flex items-center rounded-full border px-2.5 py-1"
                 style={{
-                  color: AUDIT_SCOPE_META[scopeLabel as keyof typeof AUDIT_SCOPE_META]?.tone ?? TEXT,
+                  color: AUDIT_SCOPE_TONES[scope] ?? TEXT,
                   borderColor: `${BORDER}80`,
                   background: PAGE_BG,
                 }}
               >
-                {AUDIT_SCOPE_META[scopeLabel as keyof typeof AUDIT_SCOPE_META]?.label ?? scopeLabel}
+                {strings.scopes[scope].label}
               </span>
             ) : null}
           </div>
         </div>
         <p className="text-[11px]" style={{ color: TEXT_DIM }}>
-          {hasQuery ? `${resultCount} résultats sur ${totalCount}` : `${totalCount} événements visibles`}
+          {hasQuery ? strings.search.filtered(resultCount, totalCount) : strings.search.visibleTotal(totalCount)}
         </p>
       </div>
     </div>
@@ -158,21 +160,26 @@ function AuditSearchToolbar({
 function AuditRightPanel({
   selected,
   onOpenSelected,
+  strings,
 }: {
   selected: AuditEntry | null
   onOpenSelected: () => void
+  strings: ReturnType<typeof getAuditStrings>
 }) {
   const { TEXT, TEXT_DIM } = usePrismTheme()
+  const tabs = useMemo(() => [
+    { id: 'event' as const, label: strings.rightPanel.eventTab, Icon: FileClock },
+  ], [strings.rightPanel.eventTab])
 
   return (
-    <RightPanelShell items={AUDIT_RIGHT_TABS} active="event" onSelect={() => {}}>
+    <RightPanelShell items={tabs} active="event" onSelect={() => {}}>
       <RightPanelBody compact className="space-y-4">
-        <InspectorSection title="Sélection">
+        <InspectorSection title={strings.rightPanel.selectionTitle}>
           {selected ? (
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
-                <AuditLevelBadge level={selected.level} />
-                <AuditKindBadge kind={selected.kind} />
+                <AuditLevelBadge level={selected.level} labels={strings.badges} />
+                <AuditKindBadge kind={selected.kind} label={strings.kinds[selected.kind]} />
               </div>
               <div>
                 <p className="text-sm font-semibold" style={{ color: TEXT }}>{selected.action}</p>
@@ -181,28 +188,28 @@ function AuditRightPanel({
             </div>
           ) : (
             <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-              Sélectionne un événement dans le journal pour inspecter son contexte et ouvrir la vue liée.
+              {strings.rightPanel.selectionEmpty}
             </p>
           )}
         </InspectorSection>
 
-        <InspectorSection title="Contexte">
+        <InspectorSection title={strings.rightPanel.contextTitle}>
           {selected ? (
             <InspectorSurface className="space-y-0">
-              <InspectorReferenceRow label="Date" value={formatAuditWhen(selected.timestamp)} />
-              <InspectorReferenceRow label="Projet" value={selected.projectName} />
-              {selected.sifNumber ? <InspectorReferenceRow label="SIF" value={selected.sifNumber} /> : null}
-              <InspectorReferenceRow label="Acteur" value={selected.actor || 'System'} />
-              {selected.linkedViewLabel ? <InspectorReferenceRow label="Vue liée" value={selected.linkedViewLabel} /> : null}
+              <InspectorReferenceRow label={strings.rightPanel.contextDate} value={formatAuditWhen(selected.timestamp, strings.localeTag)} />
+              <InspectorReferenceRow label={strings.rightPanel.contextProject} value={selected.projectName} />
+              {selected.sifNumber ? <InspectorReferenceRow label={strings.rightPanel.contextSif} value={selected.sifNumber} /> : null}
+              <InspectorReferenceRow label={strings.rightPanel.contextActor} value={selected.actor || strings.row.actorFallback} />
+              {selected.linkedViewLabel ? <InspectorReferenceRow label={strings.rightPanel.contextLinkedView} value={selected.linkedViewLabel} /> : null}
             </InspectorSurface>
           ) : (
             <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-              Le contexte projet et la vue liée apparaîtront ici dès qu’une ligne sera sélectionnée.
+              {strings.rightPanel.contextEmpty}
             </p>
           )}
         </InspectorSection>
 
-        <InspectorSection title="Action">
+        <InspectorSection title={strings.rightPanel.actionTitle}>
           {selected?.targetView === 'engine' ? (
             <InspectorActionButton
               onClick={onOpenSelected}
@@ -210,7 +217,7 @@ function AuditRightPanel({
               background="linear-gradient(135deg, #0F766E, #0B5D57)"
               borderColor="rgba(15,118,110,0.4)"
             >
-              <span>Ouvrir Engine</span>
+              <span>{strings.rightPanel.openEngine}</span>
               <ArrowUpRight size={13} />
             </InspectorActionButton>
           ) : selected?.sifId ? (
@@ -220,12 +227,12 @@ function AuditRightPanel({
               background="linear-gradient(135deg, #009BA4, #007A82)"
               borderColor="rgba(0,155,164,0.4)"
             >
-              <span>Ouvrir la SIF liée</span>
+              <span>{strings.rightPanel.openSif}</span>
               <ArrowUpRight size={13} />
             </InspectorActionButton>
           ) : (
             <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-              Cet événement ne pointe pas vers une vue navigable précise.
+              {strings.rightPanel.actionEmpty}
             </p>
           )}
         </InspectorSection>
@@ -238,10 +245,12 @@ function AuditRow({
   entry,
   active,
   onClick,
+  strings,
 }: {
   entry: AuditEntry
   active: boolean
   onClick: () => void
+  strings: ReturnType<typeof getAuditStrings>
 }) {
   const { BORDER, PAGE_BG, SHADOW_CARD, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
   const levelTone = entry.level === 'warning' ? semantic.warning : semantic.info
@@ -281,16 +290,16 @@ function AuditRow({
       />
 
       <div className="space-y-2">
-        <AuditLevelBadge level={entry.level} />
-        <AuditKindBadge kind={entry.kind} />
+        <AuditLevelBadge level={entry.level} labels={strings.badges} />
+        <AuditKindBadge kind={entry.kind} label={strings.kinds[entry.kind]} />
       </div>
 
       <div className="min-w-0">
         <p className="text-[12px] font-semibold" style={{ color: TEXT }}>
-          {formatAuditWhen(entry.timestamp)}
+          {formatAuditWhen(entry.timestamp, strings.localeTag)}
         </p>
         <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-          {entry.actor || 'System'}
+          {entry.actor || strings.row.actorFallback}
         </p>
       </div>
 
@@ -309,7 +318,7 @@ function AuditRow({
           {entry.sifNumber ? ` · ${entry.sifNumber}` : ''}
         </p>
         <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-          {entry.linkedViewLabel ?? 'Contexte projet uniquement'}
+          {entry.linkedViewLabel ?? strings.row.linkedViewFallback}
         </p>
       </div>
     </button>
@@ -317,6 +326,7 @@ function AuditRow({
 }
 
 export function AuditLogWorkspace() {
+  const strings = useLocaleStrings(getAuditStrings)
   const projects = useAppStore(state => state.projects)
   const navigate = useAppStore(state => state.navigate)
   const { setRightPanelOverride } = useLayout()
@@ -326,7 +336,7 @@ export function AuditLogWorkspace() {
   const [query, setQuery] = useState('')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const entries = useMemo(() => buildAuditEntries(projects, engineRuns), [engineRuns, projects])
+  const entries = useMemo(() => buildAuditEntries(projects, engineRuns, strings.model), [engineRuns, projects, strings])
   const projectLabel = useMemo(
     () => projectFilter ? projects.find(project => project.id === projectFilter)?.name ?? null : null,
     [projectFilter, projects],
@@ -352,11 +362,11 @@ export function AuditLogWorkspace() {
         entry.projectName,
         entry.sifNumber ?? '',
         entry.actor,
-        AUDIT_KIND_LABELS[entry.kind],
+        strings.kinds[entry.kind],
       ].join(' ').toLowerCase()
       return haystack.includes(trimmed)
     })
-  }, [query, scopeEntries])
+  }, [query, scopeEntries, strings])
 
   useEffect(() => {
     if (!filteredEntries.length) {
@@ -391,10 +401,11 @@ export function AuditLogWorkspace() {
       <AuditRightPanel
         selected={selected}
         onOpenSelected={openSelected}
+        strings={strings}
       />,
     )
     return () => setRightPanelOverride(null)
-  }, [openSelected, selected, setRightPanelOverride])
+  }, [openSelected, selected, setRightPanelOverride, strings])
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
@@ -415,15 +426,15 @@ export function AuditLogWorkspace() {
                   </span>
                   <div>
                     <p className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: TEAL_DIM }}>
-                      Traçabilité active
+                      {strings.header.eyebrow}
                     </p>
                     <h1 className="mt-1 text-[24px] font-semibold tracking-tight leading-none" style={{ color: TEXT }}>
-                      Audit Log
+                      {strings.header.title}
                     </h1>
                   </div>
                 </div>
                 <p className="mt-3 max-w-[820px] text-[14px] leading-[1.8]" style={{ color: TEXT_DIM }}>
-                  Lecture transversale des événements utiles du workspace: gouvernance des dossiers, proof tests, événements d’exploitation et runs Engine. Le panneau droit donne le contexte exact de la ligne sélectionnée.
+                  {strings.header.description}
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 text-[11px]">
@@ -431,13 +442,13 @@ export function AuditLogWorkspace() {
                   className="inline-flex items-center rounded-full border px-2.5 py-1"
                   style={{ color: TEAL, borderColor: `${TEAL}28`, background: `${TEAL}10` }}
                 >
-                  {filteredEntries.length} visibles
+                  {strings.header.visible(filteredEntries.length)}
                 </span>
                 <span
                   className="inline-flex items-center rounded-full border px-2.5 py-1"
                   style={{ color: warningCount > 0 ? semantic.warningDim : TEXT_DIM, borderColor: `${BORDER}70`, background: PAGE_BG }}
                 >
-                  {warningCount} warning{warningCount > 1 ? 's' : ''} dans le périmètre
+                  {strings.header.warnings(warningCount)}
                 </span>
               </div>
             </div>
@@ -449,7 +460,8 @@ export function AuditLogWorkspace() {
             resultCount={filteredEntries.length}
             totalCount={scopeEntries.length}
             projectLabel={projectLabel}
-            scopeLabel={activeScope !== 'all' ? activeScope : null}
+            scope={activeScope !== 'all' ? activeScope : null}
+            strings={strings}
           />
 
           {filteredEntries.length === 0 ? (
@@ -461,11 +473,11 @@ export function AuditLogWorkspace() {
                 <History size={20} />
               </span>
               <div className="text-center">
-                <p className="text-sm font-semibold" style={{ color: TEXT }}>Aucun événement visible</p>
+                <p className="text-sm font-semibold" style={{ color: TEXT }}>{strings.empty.title}</p>
                 <p className="mt-1 max-w-[520px] text-[13px] leading-relaxed" style={{ color: TEXT_DIM }}>
                   {engineRunsLoading
-                    ? 'Le journal charge encore les runs Engine. Réessaie dans un instant.'
-                    : 'Ajuste la portée dans le panneau gauche ou efface la recherche pour revenir au journal complet.'}
+                    ? strings.empty.loadingDescription
+                    : strings.empty.resetDescription}
                 </p>
               </div>
             </div>
@@ -480,10 +492,10 @@ export function AuditLogWorkspace() {
                   color: TEXT_DIM,
                 }}
               >
-                <span>Niveau</span>
-                <span>Date</span>
-                <span>Evénement</span>
-                <span>Contexte</span>
+                <span>{strings.table.level}</span>
+                <span>{strings.table.date}</span>
+                <span>{strings.table.event}</span>
+                <span>{strings.table.context}</span>
               </div>
 
               <div>
@@ -493,6 +505,7 @@ export function AuditLogWorkspace() {
                     entry={entry}
                     active={entry.id === selectedId}
                     onClick={() => setSelectedId(entry.id)}
+                    strings={strings}
                   />
                 ))}
               </div>

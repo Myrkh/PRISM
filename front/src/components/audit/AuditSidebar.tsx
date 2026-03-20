@@ -1,7 +1,7 @@
 import { useMemo } from 'react'
 import { FilterX, Search } from 'lucide-react'
 import {
-  AUDIT_SCOPE_META,
+  AUDIT_SCOPE_TONES,
   buildAuditEntries,
   matchesAuditScope,
 } from '@/components/audit/auditModel'
@@ -16,6 +16,8 @@ import {
 } from '@/components/layout/SidebarPrimitives'
 import { useAppStore } from '@/store/appStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import { getAuditStrings } from '@/i18n/audit'
+import { useLocaleStrings } from '@/i18n/useLocale'
 
 type FilterButtonProps = {
   label: string
@@ -97,11 +99,12 @@ function FilterButton({ label, hint, count, active, tone, onClick }: FilterButto
 }
 
 export function AuditSidebar() {
+  const strings = useLocaleStrings(getAuditStrings)
   const projects = useAppStore(state => state.projects)
   const { activeScope, setActiveScope, projectFilter, setProjectFilter, clearFilters, scopes, engineRuns, engineRunsLoading } = useAuditNavigation()
   const { BORDER, PAGE_BG, SHADOW_SOFT, TEXT, TEXT_DIM } = usePrismTheme()
 
-  const entries = useMemo(() => buildAuditEntries(projects, engineRuns), [engineRuns, projects])
+  const entries = useMemo(() => buildAuditEntries(projects, engineRuns, strings.model), [engineRuns, projects, strings])
   const hasActiveFilters = activeScope !== 'all' || Boolean(projectFilter)
   const filteredByScope = entries.filter(entry => matchesAuditScope(entry, activeScope))
   const warningCount = filteredByScope.filter(entry => entry.level === 'warning').length
@@ -120,13 +123,13 @@ export function AuditSidebar() {
     <SidebarBody className="pb-4">
       <div className="mb-3 flex items-start justify-between gap-3 px-2">
         <div>
-          <SidebarSectionTitle className="mb-0 px-0">Journal d'audit</SidebarSectionTitle>
+          <SidebarSectionTitle className="mb-0 px-0">{strings.sidebar.title}</SidebarSectionTitle>
           <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
             {engineRunsLoading
-              ? 'Synchronisation des runs Engine en cours…'
+              ? strings.sidebar.summaryLoading
               : projectFilter
-                ? `${filteredByScope.length} événement${filteredByScope.length > 1 ? 's' : ''} dans le projet filtré`
-                : `${entries.length} événements reconstruits depuis les dossiers actifs et les runs backend`}
+                ? strings.sidebar.summaryProjectFiltered(filteredByScope.length)
+                : strings.sidebar.summaryDefault(entries.length)}
           </p>
         </div>
         {hasActiveFilters && (
@@ -161,14 +164,14 @@ export function AuditSidebar() {
             onPointerCancel={event => sidebarPressUp(event.currentTarget, 'none')}
           >
             <FilterX size={11} />
-            Reset
+            {strings.sidebar.reset}
           </button>
         )}
       </div>
 
       <div className="space-y-5">
         <div>
-          <SidebarSectionTitle>Portée</SidebarSectionTitle>
+          <SidebarSectionTitle>{strings.sidebar.scopeTitle}</SidebarSectionTitle>
           <div className="space-y-1">
             {scopes.map(scope => (
               <FilterButton
@@ -177,7 +180,7 @@ export function AuditSidebar() {
                 hint={scope.hint}
                 count={entries.filter(entry => matchesAuditScope(entry, scope.id)).length}
                 active={activeScope === scope.id}
-                tone={AUDIT_SCOPE_META[scope.id].tone}
+                tone={AUDIT_SCOPE_TONES[scope.id]}
                 onClick={() => setActiveScope(scope.id)}
               />
             ))}
@@ -185,14 +188,14 @@ export function AuditSidebar() {
         </div>
 
         <div className="border-t pt-4" style={{ borderColor: `${BORDER}33` }}>
-          <SidebarSectionTitle>Projets</SidebarSectionTitle>
+          <SidebarSectionTitle>{strings.sidebar.projectsTitle}</SidebarSectionTitle>
           <div className="space-y-1">
             <FilterButton
-              label="Tous les projets"
-              hint="Lecture transverse sans restriction"
+              label={strings.sidebar.allProjectsLabel}
+              hint={strings.sidebar.allProjectsHint}
               count={filteredByScope.length}
               active={!projectFilter}
-              tone={AUDIT_SCOPE_META.all.tone}
+              tone={AUDIT_SCOPE_TONES.all}
               onClick={() => setProjectFilter(null)}
             />
             {projectCounts.map(project => (
@@ -201,7 +204,7 @@ export function AuditSidebar() {
                 label={project.label}
                 count={project.count}
                 active={projectFilter === project.id}
-                tone={AUDIT_SCOPE_META.all.tone}
+                tone={AUDIT_SCOPE_TONES.all}
                 onClick={() => setProjectFilter(project.id)}
               />
             ))}
@@ -209,16 +212,14 @@ export function AuditSidebar() {
         </div>
 
         <div className="border-t pt-4" style={{ borderColor: `${BORDER}33` }}>
-          <SidebarSectionTitle>Lecture rapide</SidebarSectionTitle>
+          <SidebarSectionTitle>{strings.sidebar.quickReadTitle}</SidebarSectionTitle>
           <div className="space-y-2 px-2 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
             <div className="rounded-md border px-3 py-2" style={{ borderColor: `${BORDER}70`, background: PAGE_BG, color: TEXT }}>
-              {warningCount} événement{warningCount > 1 ? 's' : ''} warning dans le périmètre courant
+              {strings.sidebar.warningsSummary(warningCount)}
             </div>
             <div className="flex items-start gap-2">
               <Search size={13} className="mt-[2px] shrink-0" />
-              <p>
-                Utilise la recherche du panneau central pour retrouver un projet, une SIF, une action ou un run Engine.
-              </p>
+              <p>{strings.sidebar.usage}</p>
             </div>
           </div>
         </div>

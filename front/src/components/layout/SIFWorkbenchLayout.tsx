@@ -22,6 +22,12 @@ import { normalizeSIFTab, type CanonicalSIFTab } from '@/store/types'
 import { calcSIF, formatPFD, formatPct } from '@/core/math/pfdCalc'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import {
+  WORKSPACE_LEFT_PANEL_WIDTH_MAX,
+  WORKSPACE_LEFT_PANEL_WIDTH_MIN,
+  WORKSPACE_RIGHT_PANEL_WIDTH_MAX,
+  WORKSPACE_RIGHT_PANEL_WIDTH_MIN,
+} from '@/core/models/appPreferences'
 
 import { IconRail } from '@/components/layout/IconRail'
 import { ProjectTree } from '@/components/layout/ProjectTree'
@@ -52,14 +58,13 @@ const LayoutContext = createContext<{
 export const useLayout = () => useContext(LayoutContext)
 
 
-const DEFAULT_RIGHT_PANEL_WIDTH = 300
-const LARGE_SCREEN_RIGHT_PANEL_WIDTH = 400
-const MIN_RIGHT_PANEL_WIDTH     = 220
-const MAX_RIGHT_PANEL_WIDTH     = 720
+const MIN_LEFT_PANEL_WIDTH = WORKSPACE_LEFT_PANEL_WIDTH_MIN
+const MAX_LEFT_PANEL_WIDTH = WORKSPACE_LEFT_PANEL_WIDTH_MAX
+const MIN_RIGHT_PANEL_WIDTH = WORKSPACE_RIGHT_PANEL_WIDTH_MIN
+const MAX_RIGHT_PANEL_WIDTH = WORKSPACE_RIGHT_PANEL_WIDTH_MAX
 
-function getDefaultRightPanelWidth(viewportWidth?: number) {
-  if (typeof viewportWidth !== 'number') return DEFAULT_RIGHT_PANEL_WIDTH
-  return viewportWidth >= 1440 ? LARGE_SCREEN_RIGHT_PANEL_WIDTH : DEFAULT_RIGHT_PANEL_WIDTH
+function clampPanelWidth(value: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, value))
 }
 
 // ─── Right panel — Properties inspector ──────────────────────────────────
@@ -216,20 +221,24 @@ interface Props {
 
 export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelContent }: Props) {
   const { BORDER, PAGE_BG, PANEL_BG, SHADOW_DOCK, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
-  const view     = useAppStore(s => s.view)
-  const setTab   = useAppStore(s => s.setTab)
+  const view = useAppStore(s => s.view)
+  const setTab = useAppStore(s => s.setTab)
   const projects = useAppStore(s => s.projects)
+  const preferences = useAppStore(s => s.preferences)
+  const updateAppPreferences = useAppStore(s => s.updateAppPreferences)
 
   const project = projectId ? projects.find(p => p.id === projectId) : undefined
   const sif     = project && sifId ? project.sifs.find(s => s.id === sifId) : undefined
 
-  const [leftOpen,  setLeftOpen]  = useState(true)
+  const [leftOpen, setLeftOpen] = useState(true)
   const [rightOpen, setRightOpen] = useState(true)
   const [rightPanelOverride, setRightPanelOverride] = useState<ReactNode | null>(null)
-  const [rightPanelWidth, setRightPanelWidth] = useState(() => getDefaultRightPanelWidth(typeof window !== 'undefined' ? window.innerWidth : undefined))
+  const [rightPanelWidth, setRightPanelWidth] = useState(() => clampPanelWidth(preferences.workspaceRightPanelWidth, MIN_RIGHT_PANEL_WIDTH, MAX_RIGHT_PANEL_WIDTH))
   const [isResizingRightPanel, setIsResizingRightPanel] = useState(false)
-  const rightPanelResizeStartX     = useRef<number | null>(null)
-  const rightPanelResizeStartWidth = useRef(getDefaultRightPanelWidth(typeof window !== 'undefined' ? window.innerWidth : undefined))
+  const rightPanelResizeStartX = useRef<number | null>(null)
+  const rightPanelResizeStartWidth = useRef(clampPanelWidth(preferences.workspaceRightPanelWidth, MIN_RIGHT_PANEL_WIDTH, MAX_RIGHT_PANEL_WIDTH))
+  const rightPanelWidthRef = useRef(clampPanelWidth(preferences.workspaceRightPanelWidth, MIN_RIGHT_PANEL_WIDTH, MAX_RIGHT_PANEL_WIDTH))
+  const leftPanelWidth = clampPanelWidth(preferences.workspaceLeftPanelWidth, MIN_LEFT_PANEL_WIDTH, MAX_LEFT_PANEL_WIDTH)
 
   const activeTab: CanonicalSIFTab = view.type === 'sif-dashboard' ? normalizeSIFTab(view.tab) : 'cockpit'
   const visibleTab: CanonicalSIFTab = activeTab === 'history' ? 'cockpit' : activeTab
@@ -252,12 +261,15 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
     if (showGlobal || showLibrary) setRightOpen(true)
   }, [showGlobal, showLibrary])
 
-  // Reset right panel size on view change
   useEffect(() => {
-    setRightPanelWidth(getDefaultRightPanelWidth(typeof window !== 'undefined' ? window.innerWidth : undefined))
-    setIsResizingRightPanel(false)
-    rightPanelResizeStartX.current = null
-  }, [visibleTab, view.type, projectId, sifId])
+    const nextWidth = clampPanelWidth(preferences.workspaceRightPanelWidth, MIN_RIGHT_PANEL_WIDTH, MAX_RIGHT_PANEL_WIDTH)
+    setRightPanelWidth(nextWidth)
+    rightPanelWidthRef.current = nextWidth
+  }, [preferences.workspaceRightPanelWidth])
+
+  useEffect(() => {
+    rightPanelWidthRef.current = rightPanelWidth
+  }, [rightPanelWidth])
 
   useEffect(() => {
     if (!rightOpen) {
@@ -279,6 +291,10 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
     const onStop = () => {
       setIsResizingRightPanel(false)
       rightPanelResizeStartX.current = null
+      const nextWidth = clampPanelWidth(rightPanelWidthRef.current, MIN_RIGHT_PANEL_WIDTH, MAX_RIGHT_PANEL_WIDTH)
+      if (nextWidth !== preferences.workspaceRightPanelWidth) {
+        updateAppPreferences({ workspaceRightPanelWidth: nextWidth })
+      }
     }
     document.body.style.cursor     = 'col-resize'
     document.body.style.userSelect = 'none'
@@ -292,7 +308,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
       window.removeEventListener('pointerup',   onStop)
       window.removeEventListener('pointercancel', onStop)
     }
-  }, [isResizingRightPanel])
+  }, [isResizingRightPanel, preferences.workspaceRightPanelWidth, updateAppPreferences])
 
   const startResize = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!rightOpen) return
@@ -323,7 +339,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
               <div
                 className="flex shrink-0 flex-col border-r overflow-hidden"
                 style={{
-                  width:       leftOpen && !showSettings ? 240 : 0,
+                  width:       leftOpen && !showSettings ? leftPanelWidth : 0,
                   opacity:     leftOpen && !showSettings ? 1 : 0,
                   borderColor: showSettings ? 'transparent' : BORDER,
                   background:  PANEL_BG,
@@ -417,7 +433,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                 <div
                   className="flex shrink-0 flex-col border-r overflow-hidden"
                   style={{
-                    width:       leftOpen ? 240 : 0,
+                    width:       leftOpen ? leftPanelWidth : 0,
                     opacity:     leftOpen ? 1 : 0,
                     borderColor: BORDER,
                     background:  PANEL_BG,

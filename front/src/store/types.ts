@@ -18,9 +18,9 @@ import type {
 import type { AppPreferences } from '@/core/models/appPreferences'
 
 // ─── Navigation ───────────────────────────────────────────────────────────
-export type SettingsSection = 'general' | 'engine'
+export type SettingsSection = 'general' | 'workspace' | 'engine'
 
-export const SETTINGS_SECTIONS: readonly SettingsSection[] = ['general', 'engine']
+export const SETTINGS_SECTIONS: readonly SettingsSection[] = ['general', 'workspace', 'engine']
 
 export type CanonicalSIFTab =
   | 'cockpit'
