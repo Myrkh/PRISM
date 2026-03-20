@@ -15,6 +15,7 @@ import { cn } from '@/lib/utils'
 import { normalizeSIFTab } from '@/store/types'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { StatusIcon } from '@/shared/StatusIcon'
+import { SidebarBody, SidebarSectionTitle, sidebarHoverIn, sidebarHoverOut, sidebarPressDown, sidebarPressUp } from '@/components/layout/SidebarPrimitives'
 
 interface Props {
   projectId: string
@@ -22,7 +23,7 @@ interface Props {
 }
 
 export function ProjectTree({ projectId, sifId }: Props) {
-  const { BORDER, PAGE_BG, PANEL_BG, SHADOW_CARD, SHADOW_SOFT, SURFACE, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
+  const { BORDER, PAGE_BG, SHADOW_CARD, SHADOW_SOFT, SURFACE, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
   const navigate = useAppStore(s => s.navigate)
   const view = useAppStore(s => s.view)
   const projects = useAppStore(s => s.projects)
@@ -75,52 +76,6 @@ export function ProjectTree({ projectId, sifId }: Props) {
     [pinnedSIFIds, sifLookup],
   )
 
-  const pressDown = (target: HTMLElement, shadow: string) => {
-    target.style.transform = 'translateY(1px) scale(0.994)'
-    target.style.boxShadow = shadow
-  }
-
-  const pressUp = (target: HTMLElement, shadow: string) => {
-    target.style.transform = 'translateY(0) scale(1)'
-    target.style.boxShadow = shadow
-  }
-
-  const hoverIn = (target: HTMLElement, {
-    background,
-    borderColor,
-    boxShadow,
-    color,
-  }: {
-    background: string
-    borderColor: string
-    boxShadow: string
-    color?: string
-  }) => {
-    target.style.backgroundColor = background
-    target.style.borderColor = borderColor
-    target.style.boxShadow = boxShadow
-    target.style.transform = 'translateY(-0.5px) scale(1)'
-    if (color) target.style.color = color
-  }
-
-  const hoverOut = (target: HTMLElement, {
-    background,
-    borderColor,
-    boxShadow,
-    color,
-  }: {
-    background: string
-    borderColor: string
-    boxShadow: string
-    color?: string
-  }) => {
-    target.style.backgroundColor = background
-    target.style.borderColor = borderColor
-    target.style.boxShadow = boxShadow
-    target.style.transform = 'translateY(0) scale(1)'
-    if (color) target.style.color = color
-  }
-
   // ─── SIF row sub-component ───────────────────────────────────────────────
   const SIFRow = ({
     proj, s, showProject = false, inTree = false,
@@ -157,7 +112,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
             }}
             onMouseEnter={e => {
               if (!cur) {
-                hoverIn(e.currentTarget, {
+                sidebarHoverIn(e.currentTarget, {
                   background: PAGE_BG,
                   borderColor: `${BORDER}D0`,
                   boxShadow: SHADOW_SOFT,
@@ -167,18 +122,18 @@ export function ProjectTree({ projectId, sifId }: Props) {
             }}
             onMouseLeave={e => {
               if (!cur) {
-                hoverOut(e.currentTarget, {
+                sidebarHoverOut(e.currentTarget, {
                   background: 'transparent',
                   borderColor: 'transparent',
                   boxShadow: 'none',
                   color: TEXT_DIM,
                 })
               }
-              pressUp(e.currentTarget, cur ? SHADOW_CARD : 'none')
+              sidebarPressUp(e.currentTarget, cur ? SHADOW_CARD : 'none')
             }}
-            onPointerDown={e => pressDown(e.currentTarget, SHADOW_SOFT)}
-            onPointerUp={e => pressUp(e.currentTarget, cur ? SHADOW_CARD : SHADOW_SOFT)}
-            onPointerCancel={e => pressUp(e.currentTarget, cur ? SHADOW_CARD : 'none')}
+            onPointerDown={e => sidebarPressDown(e.currentTarget, SHADOW_SOFT)}
+            onPointerUp={e => sidebarPressUp(e.currentTarget, cur ? SHADOW_CARD : SHADOW_SOFT)}
+            onPointerCancel={e => sidebarPressUp(e.currentTarget, cur ? SHADOW_CARD : 'none')}
           >
             <div
               className="pointer-events-none absolute left-0 top-1 bottom-1 w-0.5 rounded-full transition-[opacity,transform] duration-150 ease-out"
@@ -216,7 +171,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
             className="rounded p-1 transition-[background-color,color,box-shadow,transform] duration-150 ease-out"
             style={{ color: isPinned ? TEAL : TEXT_DIM, boxShadow: isPinned ? SHADOW_SOFT : 'none', transform: 'translateY(0) scale(1)' }}
             onMouseEnter={e => {
-              hoverIn(e.currentTarget, {
+              sidebarHoverIn(e.currentTarget, {
                 background: PAGE_BG,
                 borderColor: 'transparent',
                 boxShadow: SHADOW_SOFT,
@@ -224,7 +179,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
               })
             }}
             onMouseLeave={e => {
-              hoverOut(e.currentTarget, {
+              sidebarHoverOut(e.currentTarget, {
                 background: 'transparent',
                 borderColor: 'transparent',
                 boxShadow: isPinned ? SHADOW_SOFT : 'none',
@@ -276,7 +231,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
                 }}
                 onMouseEnter={e => {
                   if (!item.active) {
-                    hoverIn(e.currentTarget, {
+                    sidebarHoverIn(e.currentTarget, {
                       background: PAGE_BG,
                       borderColor: `${BORDER}D0`,
                       boxShadow: SHADOW_SOFT,
@@ -286,18 +241,18 @@ export function ProjectTree({ projectId, sifId }: Props) {
                 }}
                 onMouseLeave={e => {
                   if (!item.active) {
-                    hoverOut(e.currentTarget, {
+                    sidebarHoverOut(e.currentTarget, {
                       background: 'transparent',
                       borderColor: 'transparent',
                       boxShadow: 'none',
                       color: TEXT_DIM,
                     })
                   }
-                  pressUp(e.currentTarget, item.active ? SHADOW_SOFT : 'none')
+                  sidebarPressUp(e.currentTarget, item.active ? SHADOW_SOFT : 'none')
                 }}
-                onPointerDown={e => pressDown(e.currentTarget, SHADOW_SOFT)}
-                onPointerUp={e => pressUp(e.currentTarget, item.active ? SHADOW_SOFT : SHADOW_SOFT)}
-                onPointerCancel={e => pressUp(e.currentTarget, item.active ? SHADOW_SOFT : 'none')}
+                onPointerDown={e => sidebarPressDown(e.currentTarget, SHADOW_SOFT)}
+                onPointerUp={e => sidebarPressUp(e.currentTarget, item.active ? SHADOW_SOFT : SHADOW_SOFT)}
+                onPointerCancel={e => sidebarPressUp(e.currentTarget, item.active ? SHADOW_SOFT : 'none')}
               >
                 <div
                   className="pointer-events-none absolute left-0 top-1 bottom-1 w-0.5 rounded-full transition-[opacity,transform] duration-150 ease-out"
@@ -330,15 +285,8 @@ export function ProjectTree({ projectId, sifId }: Props) {
 
   // ─── Render ──────────────────────────────────────────────────────────────
   return (
-    <div
-      className="flex-1 overflow-y-auto px-2 py-3 text-[13px]"
-      style={{
-        color: TEXT,
-        background: PANEL_BG,
-        boxShadow: `${SHADOW_SOFT}, inset -1px 0 0 ${isDark ? 'rgba(255,255,255,0.055)' : 'rgba(255,255,255,0.78)'}, inset 0 1px 0 ${isDark ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.88)'}, inset 0 -1px 0 ${isDark ? 'rgba(0,0,0,0.24)' : 'rgba(15,23,42,0.05)'}`,
-      }}
-    >
-      <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Pinned SIFs</p>
+    <SidebarBody>
+      <SidebarSectionTitle>Pinned SIFs</SidebarSectionTitle>
       <div className="mb-3 space-y-0.5">
         {pinnedItems.length === 0 ? (
           <div className="px-2 py-1 text-xs italic" style={{ color: TEXT_DIM }}>Pin frequently used SIFs for quick access.</div>
@@ -349,7 +297,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
         )}
       </div>
 
-      <p className="mb-2 px-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Projects</p>
+      <SidebarSectionTitle>Projects</SidebarSectionTitle>
       <div className="space-y-2">
         {sortedProjects.map((proj, index) => {
           const projOpen = openProjects.has(`p-${proj.id}`)
@@ -372,7 +320,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
                 }}
                 onMouseEnter={e => {
                   if (!projectActive) {
-                    hoverIn(e.currentTarget, {
+                    sidebarHoverIn(e.currentTarget, {
                       background: PAGE_BG,
                       borderColor: `${BORDER}D0`,
                       boxShadow: SHADOW_SOFT,
@@ -382,18 +330,18 @@ export function ProjectTree({ projectId, sifId }: Props) {
                 }}
                 onMouseLeave={e => {
                   if (!projectActive) {
-                    hoverOut(e.currentTarget, {
+                    sidebarHoverOut(e.currentTarget, {
                       background: 'transparent',
                       borderColor: 'transparent',
                       boxShadow: 'none',
                       color: TEXT_DIM,
                     })
                   }
-                  pressUp(e.currentTarget, projectActive ? SHADOW_CARD : 'none')
+                  sidebarPressUp(e.currentTarget, projectActive ? SHADOW_CARD : 'none')
                 }}
-                onPointerDown={e => pressDown(e.currentTarget, SHADOW_SOFT)}
-                onPointerUp={e => pressUp(e.currentTarget, projectActive ? SHADOW_CARD : SHADOW_SOFT)}
-                onPointerCancel={e => pressUp(e.currentTarget, projectActive ? SHADOW_CARD : 'none')}>
+                onPointerDown={e => sidebarPressDown(e.currentTarget, SHADOW_SOFT)}
+                onPointerUp={e => sidebarPressUp(e.currentTarget, projectActive ? SHADOW_CARD : SHADOW_SOFT)}
+                onPointerCancel={e => sidebarPressUp(e.currentTarget, projectActive ? SHADOW_CARD : 'none')}>
                 <div
                   className="pointer-events-none absolute left-0 top-1 bottom-1 w-0.5 rounded-full transition-[opacity,transform] duration-150 ease-out"
                   style={{
@@ -456,7 +404,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
                         transform: 'translateY(0) scale(1)',
                       }}
                       onMouseEnter={e => {
-                        hoverIn(e.currentTarget, {
+                        sidebarHoverIn(e.currentTarget, {
                           background: PAGE_BG,
                           borderColor: `${BORDER}D0`,
                           boxShadow: SHADOW_SOFT,
@@ -464,16 +412,16 @@ export function ProjectTree({ projectId, sifId }: Props) {
                         })
                       }}
                       onMouseLeave={e => {
-                        hoverOut(e.currentTarget, {
+                        sidebarHoverOut(e.currentTarget, {
                           background: isDark ? 'rgba(255,255,255,0.015)' : 'transparent',
                           borderColor: isDark ? `${BORDER}66` : 'transparent',
                           boxShadow: 'none',
                           color: TEXT_DIM,
                         })
                       }}
-                      onPointerDown={e => pressDown(e.currentTarget, SHADOW_SOFT)}
-                      onPointerUp={e => pressUp(e.currentTarget, SHADOW_SOFT)}
-                      onPointerCancel={e => pressUp(e.currentTarget, 'none')}
+                      onPointerDown={e => sidebarPressDown(e.currentTarget, SHADOW_SOFT)}
+                      onPointerUp={e => sidebarPressUp(e.currentTarget, SHADOW_SOFT)}
+                      onPointerCancel={e => sidebarPressUp(e.currentTarget, 'none')}
                       title={`Nouvelle SIF dans ${proj.name}`}
                     >
                       <Plus size={11} className="shrink-0" />
@@ -486,6 +434,6 @@ export function ProjectTree({ projectId, sifId }: Props) {
           )
         })}
       </div>
-    </div>
+    </SidebarBody>
   )
 }

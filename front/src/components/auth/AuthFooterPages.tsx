@@ -971,54 +971,82 @@ export function getAuthFooterPageLabel(page: AuthFooterPageId): string {
 
 export function AuthFooterPagePanel({ page, onClose, onNavigate }: FooterPagePanelProps) {
   return (
+    // Viewport-level overlay — does NOT live inside the auth card
     <div
-      className="absolute inset-0 z-20 flex flex-col overflow-hidden rounded-[inherit] border"
+      className="fixed inset-0 z-50 flex flex-col"
       style={{
         background: `
-          radial-gradient(900px 400px at 0% 0%, ${withAlpha(colors.teal, '12')} 0%, transparent 60%),
-          linear-gradient(180deg, ${withAlpha(dark.panel, 'FE')} 0%, ${withAlpha(dark.page, 'FE')} 100%)
+          radial-gradient(900px 400px at 0% 0%, ${withAlpha(colors.teal, '10')} 0%, transparent 60%),
+          linear-gradient(180deg, ${dark.panel} 0%, ${dark.page} 100%)
         `,
-        borderColor: withAlpha(dark.border, 'E6'),
-        backdropFilter: 'blur(10px)',
       }}
     >
+      {/* ── Top bar ─────────────────────────────────────────────────── */}
       <div
-        className="border-b px-5 py-4 md:px-6"
-        style={{ borderColor: withAlpha(dark.border, 'CC'), background: withAlpha(dark.panel, 'F0') }}
+        className="shrink-0 border-b"
+        style={{ borderColor: withAlpha(dark.border, 'CC'), background: withAlpha(dark.panel, 'F8') }}
       >
-        <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
-          <div className="flex items-center gap-3">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              onClick={onClose}
-              className="gap-2 rounded-lg"
-              style={{
-                borderColor: withAlpha(dark.border, 'CC'),
-                background: withAlpha(dark.card2, 'CC'),
-                color: dark.text,
-              }}
-            >
-              <ArrowLeft size={13} />
-              Back to sign in
-            </Button>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-[0.24em]" style={{ color: colors.tealDim }}>
-                PRISM footer
-              </p>
-              <p className="mt-1 text-xs" style={{ color: dark.textDim }}>
-                {getAuthFooterPageLabel(page)}
-              </p>
-            </div>
-          </div>
+        {/* Row 1: back button + current page label */}
+        <div className="flex items-center gap-4 px-5 py-3 md:px-8">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={onClose}
+            className="gap-2 rounded-lg shrink-0"
+            style={{
+              borderColor: withAlpha(dark.border, 'CC'),
+              background: withAlpha(dark.card2, 'CC'),
+              color: dark.text,
+            }}
+          >
+            <ArrowLeft size={13} />
+            Back to sign in
+          </Button>
 
-          <PageSwitcher current={page} onNavigate={onNavigate} />
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="text-[10px] font-bold uppercase tracking-[0.24em] shrink-0" style={{ color: colors.tealDim }}>
+              PRISM
+            </p>
+            <span style={{ color: withAlpha(dark.textDim, '40') }}>·</span>
+            <p className="text-xs truncate" style={{ color: dark.textDim }}>
+              {getAuthFooterPageLabel(page)}
+            </p>
+          </div>
+        </div>
+
+        {/* Row 2: tab switcher */}
+        <div
+          className="flex items-center gap-1.5 overflow-x-auto px-5 pb-3 md:px-8"
+          style={{ scrollbarWidth: 'none' }}
+        >
+          {([...AUTH_FOOTER_PRIMARY_LINKS, ...AUTH_FOOTER_LEGAL_LINKS] as AuthFooterPageId[]).map(p => {
+            const meta = PAGE_META[p]
+            const active = p === page
+            return (
+              <button
+                key={p}
+                type="button"
+                onClick={() => onNavigate(p)}
+                className="shrink-0 rounded-full border px-3.5 py-1.5 text-[11px] font-semibold transition-colors"
+                style={{
+                  color: active ? dark.text : dark.textDim,
+                  background: active ? withAlpha(meta.accent, '18') : withAlpha(dark.card2, 'B3'),
+                  borderColor: active ? withAlpha(meta.accent, '40') : withAlpha(dark.border, 'C0'),
+                }}
+              >
+                {meta.label}
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto px-5 py-5 md:px-6 md:py-6">
-        {renderPage(page)}
+      {/* ── Page content ────────────────────────────────────────────── */}
+      <div className="flex-1 overflow-y-auto">
+        <div className="mx-auto w-full max-w-5xl px-5 py-6 md:px-8 md:py-8">
+          {renderPage(page)}
+        </div>
       </div>
     </div>
   )

@@ -25,6 +25,10 @@ import { usePrismTheme } from '@/styles/usePrismTheme'
 
 import { IconRail } from '@/components/layout/IconRail'
 import { ProjectTree } from '@/components/layout/ProjectTree'
+import { DocsSidebar } from '@/components/docs/DocsSidebar'
+import { SearchSidebar } from '@/components/search/SearchSidebar'
+import { LibrarySidebar } from '@/components/library/LibrarySidebar'
+import { LibraryInspector } from '@/components/library/LibraryInspector'
 import { HomeScreen } from '@/components/layout/HomeScreen'
 import { SIFWorkbenchBar, EditorContent } from '@/components/layout/EditorTabBar'
 import { RightPanelShell } from '@/components/layout/RightPanelShell'
@@ -35,9 +39,11 @@ export { IntercalaireTabBar, IntercalaireCard } from '@/components/layout/Interc
 // ─── Layout context (right panel override) ───────────────────────────────
 const LayoutContext = createContext<{
   setRightPanelOverride: (panel: ReactNode | null) => void
+  setRightPanelOpen: (open: boolean) => void
   isRightPanelOpen: boolean
 }>({
   setRightPanelOverride: () => {},
+  setRightPanelOpen: () => {},
   isRightPanelOpen: true,
 })
 
@@ -228,6 +234,10 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
   const visibleTab: CanonicalSIFTab = activeTab === 'history' ? 'cockpit' : activeTab
 
   const showSettings  = view.type === 'settings'
+  const showDocs      = view.type === 'docs'
+  const showSearch    = view.type === 'search'
+  const showLibrary   = view.type === 'library'
+  const showStandalone = showSettings
   const showReview    = view.type === 'review-queue'
   const showAudit     = view.type === 'audit-log'
   const showHistory   = view.type === 'sif-history'
@@ -235,12 +245,12 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
   const showHazop     = view.type === 'hazop'
   const showGlobal    = showReview || showAudit || showHistory || showEngine || showHazop
   const showDashboard = view.type === 'sif-dashboard' && !!project && !!sif
-  const showHome      = !showSettings && !showDashboard && !showGlobal
+  const showHome      = !showSettings && !showDocs && !showSearch && !showLibrary && !showDashboard && !showGlobal
 
   // Auto-open right panel for global views
   useEffect(() => {
-    if (showGlobal) setRightOpen(true)
-  }, [showGlobal])
+    if (showGlobal || showLibrary) setRightOpen(true)
+  }, [showGlobal, showLibrary])
 
   // Reset right panel size on view change
   useEffect(() => {
@@ -294,7 +304,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
 
 
   return (
-    <LayoutContext.Provider value={{ setRightPanelOverride, isRightPanelOpen: rightOpen }}>
+    <LayoutContext.Provider value={{ setRightPanelOverride, setRightPanelOpen: setRightOpen, isRightPanelOpen: rightOpen }}>
       <div className="flex h-[calc(100vh-48px)] min-h-0 overflow-hidden" style={{ background: PAGE_BG }}>
         {/* ── Activity Bar ── */}
         <IconRail
@@ -302,7 +312,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
           rightOpen={rightOpen}
           onToggleLeft={() => setLeftOpen(v => !v)}
           onToggleRight={() => setRightOpen(v => !v)}
-          showRightToggle={showDashboard || showGlobal}
+          showRightToggle={showDashboard || showGlobal || showLibrary}
         />
 
         {/* ── Main area ── */}
@@ -321,7 +331,13 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                 }}
               >
                 {leftOpen && !showSettings && (
-                  <ProjectTree projectId={projectId ?? ''} sifId={sifId ?? ''} />
+                  showDocs
+                    ? <DocsSidebar />
+                    : showSearch
+                      ? <SearchSidebar />
+                      : showLibrary
+                        ? <LibrarySidebar />
+                        : <ProjectTree projectId={projectId ?? ''} sifId={sifId ?? ''} />
                 )}
               </div>
 
@@ -331,6 +347,35 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
               {/* Settings — full width, no panels */}
               {showSettings && (
                 <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{children}</div>
+              )}
+
+              {/* Docs — shell with left outline, no right panel */}
+              {showDocs && (
+                <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{children}</div>
+              )}
+
+              {showSearch && (
+                <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{children}</div>
+              )}
+
+              {showLibrary && (
+                <div className="flex flex-1 min-h-0 overflow-hidden">
+                  <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">{children}</div>
+                  {rightOpen && (
+                    <div
+                      className="relative min-h-0 shrink-0 overflow-hidden"
+                      style={{
+                        width: rightPanelWidth,
+                        background: PANEL_BG,
+                        borderLeft: `1px solid ${BORDER}`,
+                        boxShadow: SHADOW_DOCK,
+                      }}
+                    >
+                      <ResizeDivider isResizing={isResizingRightPanel} onPointerDown={startResize} />
+                      <LibraryInspector />
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* Global tools — editor + right panel */}

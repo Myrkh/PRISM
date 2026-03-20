@@ -32,6 +32,9 @@ const VIEW_LABELS: Record<string, string> = {
   'sif-history':  'SIF History',
   'engine':       'Engine',
   'hazop':        'HAZOP / LOPA',
+  'search':       'Recherche globale',
+  'library':      'Bibliothèque maître',
+  'docs':         'Aide & documentation',
   'settings':     'Settings',
   'projects':     'Projects',
 }
@@ -151,7 +154,12 @@ export function AppHeader() {
 
       {/* Right Zone — Actions */}
       <div className="flex items-center gap-1.5 px-3">
-        <CommandPalette onOpenSettings={() => navigate({ type: 'settings', section: 'general' })} />
+        <CommandPalette
+          onOpenSettings={() => navigate({ type: 'settings', section: 'general' })}
+          onOpenDocs={() => navigate({ type: 'docs' })}
+          onOpenSearch={() => navigate({ type: 'search' })}
+          onOpenLibrary={() => navigate({ type: 'library' })}
+        />
 
         <div className="relative" ref={userMenuRef}>
           <Button

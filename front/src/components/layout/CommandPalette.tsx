@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useAppStore, type SIFTab } from '@/store/appStore'
 import { normalizeSIFTab } from '@/store/types'
@@ -6,8 +6,10 @@ import {
   Search, Settings, Moon, Sun, FolderPlus, FilePlus,
   LayoutDashboard, Network, BarChart3, Shield, FlaskConical,
   ChevronRight, FileText, Home, Pencil, ListChecks, History,
-  ClipboardCheck, Cpu,
+  ClipboardCheck, Cpu, BookOpen, BookOpenText,
 } from 'lucide-react'
+import { getSearchResultIcon } from '@/components/search/searchMeta'
+import { buildSearchIndex, filterSearchResults, openSearchResult } from '@/features/search/searchIndex'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
 type CommandItem = {
@@ -26,7 +28,17 @@ type CommandGroup = {
   items: CommandItem[]
 }
 
-export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void }) {
+export function CommandPalette({
+  onOpenSettings,
+  onOpenDocs,
+  onOpenSearch,
+  onOpenLibrary,
+}: {
+  onOpenSettings: () => void
+  onOpenDocs: () => void
+  onOpenSearch: () => void
+  onOpenLibrary: () => void
+}) {
   const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
@@ -35,6 +47,7 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
   const itemRefs = useRef<Array<HTMLButtonElement | null>>([])
 
   const projects = useAppStore(s => s.projects)
+  const revisions = useAppStore(s => s.revisions)
   const view = useAppStore(s => s.view)
   const navigate = useAppStore(s => s.navigate)
   const setTab = useAppStore(s => s.setTab)
@@ -44,6 +57,7 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
   const openNewSIF = useAppStore(s => s.openNewSIF)
   const openEditProject = useAppStore(s => s.openEditProject)
   const openEditSIF = useAppStore(s => s.openEditSIF)
+  const selectComponent = useAppStore(s => s.selectComponent)
 
   const currentProjectId = view.type === 'sif-dashboard' ? view.projectId : null
   const currentSifId = view.type === 'sif-dashboard' ? view.sifId : null
@@ -245,6 +259,26 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
         level: 0,
       },
       {
+        id: 'search-workspace',
+        label: 'Recherche globale',
+        keywords: 'search recherche globale palette composants hypotheses revisions rapports',
+        Icon: Search,
+        onSelect: () => run(onOpenSearch),
+        isActive: view.type === 'search',
+        meta: search.trim() ? `Continuer la recherche pour « ${search.trim()} »` : 'Explorer tout le contenu indexé',
+        level: 0,
+      },
+      {
+        id: 'library-workspace',
+        label: 'Bibliothèque maître',
+        keywords: 'library bibliothèque catalogue composants templates standards lambda_db',
+        Icon: BookOpen,
+        onSelect: () => run(onOpenLibrary),
+        isActive: view.type === 'library',
+        meta: 'Gérer les standards, templates projet et références personnelles',
+        level: 0,
+      },
+      {
         id: 'toggle-theme',
         label: isDark ? 'Switch to light mode' : 'Switch to dark mode',
         keywords: 'theme dark light mode thème sombre clair',
@@ -281,6 +315,15 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
         level: 0,
       },
       {
+        id: 'docs',
+        label: 'Aide & documentation',
+        keywords: 'docs documentation aide help manuel guide moteur calcul architecture verification exploitation rapport',
+        Icon: BookOpenText,
+        onSelect: () => run(onOpenDocs),
+        isActive: view.type === 'docs',
+        level: 0,
+      },
+      {
         id: 'settings',
         label: 'Settings',
         keywords: 'settings paramètres',
@@ -291,6 +334,24 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
       },
     ],
   }
+
+  const searchIndex = useMemo(() => buildSearchIndex(projects, revisions), [projects, revisions])
+
+  const searchResultsGroup: CommandGroup | null = search.trim()
+    ? {
+        heading: 'Search results',
+        items: filterSearchResults(searchIndex, search, { limit: 10 }).map(result => ({
+          id: `search-${result.id}`,
+          label: result.title,
+          keywords: `${result.keywords} ${result.context} ${result.subtitle}`,
+          Icon: getSearchResultIcon(result.kind),
+          onSelect: () => run(() => openSearchResult(result, { navigate, selectComponent })),
+          isActive: false,
+          meta: result.context,
+          level: 0,
+        })),
+      }
+    : null
 
   const filterItems = (items: CommandItem[]) => {
     if (!search.trim()) return items
@@ -303,6 +364,7 @@ export function CommandPalette({ onOpenSettings }: { onOpenSettings: () => void 
   }
 
   const groups: CommandGroup[] = [
+    ...(searchResultsGroup ? [searchResultsGroup] : []),
     ...(currentViewGroup ? [currentViewGroup] : []),
     createGroup,
     projectsGroup,

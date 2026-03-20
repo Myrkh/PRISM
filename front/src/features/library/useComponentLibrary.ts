@@ -3,7 +3,7 @@ import { BUILTIN_COMPONENT_TEMPLATES } from './builtinCatalog'
 import { fetchLambdaDbComponentTemplates } from '@/lib/componentLibraryApi'
 import { useAppStore } from '@/store/appStore'
 
-export function useComponentLibrary(projectId: string) {
+export function useComponentLibrary(projectId?: string | null) {
   const authUserId = useAppStore(state => state.authUser?.id ?? null)
   const templates = useAppStore(state => state.componentTemplates)
   const loading = useAppStore(state => state.componentTemplatesLoading)
@@ -36,9 +36,16 @@ export function useComponentLibrary(projectId: string) {
     }
   }, [])
 
+  const allProjectTemplates = useMemo(
+    () => templates.filter(template => !template.isArchived && template.scope === 'project'),
+    [templates],
+  )
+
   const projectTemplates = useMemo(
-    () => templates.filter(template => !template.isArchived && template.scope === 'project' && template.projectId === projectId),
-    [projectId, templates],
+    () => projectId
+      ? allProjectTemplates.filter(template => template.projectId === projectId)
+      : [],
+    [allProjectTemplates, projectId],
   )
 
   const userTemplates = useMemo(
@@ -48,6 +55,7 @@ export function useComponentLibrary(projectId: string) {
 
   return {
     builtinTemplates,
+    allProjectTemplates,
     projectTemplates,
     userTemplates,
     loading,

@@ -1,3 +1,4 @@
+import { DEFAULT_COMPONENT } from '@/core/models/defaults'
 import { hydrateComponentSnapshot } from '@/core/models/hydrate'
 import type {
   ComponentTemplate,
@@ -85,6 +86,229 @@ function normalizeImportedTemplate(rawTemplate: unknown): Omit<ComponentTemplate
     templateVersion: typeof source?.templateVersion === 'number' ? source.templateVersion : 1,
     componentSnapshot,
   }
+}
+
+
+
+type StarterComponentPatch = Omit<Partial<SIFComponent>, 'factorized' | 'developed' | 'test' | 'advanced'> & {
+  factorized?: Partial<SIFComponent['factorized']>
+  developed?: Partial<SIFComponent['developed']>
+  test?: Partial<SIFComponent['test']>
+  advanced?: Omit<Partial<SIFComponent['advanced']>, 'partialTest'> & {
+    partialTest?: Partial<SIFComponent['advanced']['partialTest']>
+  }
+}
+
+export const COMPONENT_TEMPLATE_IMPORT_MODEL_FILENAME = 'prism-component-templates.import-template.json'
+
+function createStarterComponentSnapshot(
+  subsystemType: SubsystemType,
+  tagName: string,
+  patch: StarterComponentPatch = {},
+) {
+  const base = DEFAULT_COMPONENT(subsystemType, tagName)
+  const advancedPatch = patch.advanced ?? {}
+  const partialTestPatch = advancedPatch.partialTest ?? {}
+
+  const merged: SIFComponent = {
+    ...base,
+    ...patch,
+    factorized: {
+      ...base.factorized,
+      ...(patch.factorized ?? {}),
+    },
+    developed: {
+      ...base.developed,
+      ...(patch.developed ?? {}),
+    },
+    test: {
+      ...base.test,
+      ...(patch.test ?? {}),
+    },
+    advanced: {
+      ...base.advanced,
+      ...advancedPatch,
+      partialTest: {
+        ...base.advanced.partialTest,
+        ...partialTestPatch,
+      },
+    },
+  }
+
+  const { id: _ignoredId, ...snapshot } = merged
+  return snapshot
+}
+
+function createStarterTemplates() {
+  return [
+    {
+      name: 'Pressure transmitter — client starter',
+      description: 'Exemple de capteur prêt à compléter pour une bibliothèque client.',
+      subsystemType: 'sensor' as const,
+      sourceReference: 'FMEDA PT-2026 / certificate ref to replace',
+      tags: ['client-template', 'sensor', 'pressure', 'high-level'],
+      reviewStatus: 'draft' as const,
+      componentSnapshot: createStarterComponentSnapshot('sensor', 'LIB-S-PT-001', {
+        instrumentCategory: 'transmitter',
+        instrumentType: 'Pressure transmitter',
+        manufacturer: 'Acme Instruments',
+        dataSource: 'FMEDA',
+        description: 'High level pressure transmitter starter for client library.',
+        factorized: {
+          lambda: 1.8,
+          lambdaDRatio: 0.42,
+          DCd: 0.92,
+          DCs: 1.0,
+        },
+        test: {
+          testType: 'stopped',
+          T1: 1,
+          T1Unit: 'yr',
+          T0: 1,
+          T0Unit: 'yr',
+        },
+        advanced: {
+          MTTR: 24,
+          gamma: 0,
+          lambdaStar: 0,
+          lambdaStarEqualToLambda: false,
+          testDuration: 0,
+          sigma: 1,
+          omega1: 0,
+          omega2: 0.01,
+          proofTestCoverage: 0.95,
+          lifetime: 15,
+          DCalarmedOnly: 0.1,
+          partialTest: {
+            enabled: false,
+            duration: 0,
+            detectedFaultsPct: 0.5,
+            numberOfTests: 1,
+          },
+        },
+      }),
+    },
+    {
+      name: 'Safety PLC — client starter',
+      description: 'Exemple de solveur logique réutilisable dans une bibliothèque projet ou client.',
+      subsystemType: 'logic' as const,
+      sourceReference: 'Safety PLC FMEDA / manufacturer manual to replace',
+      tags: ['client-template', 'logic', 'plc', 'sis'],
+      reviewStatus: 'draft' as const,
+      componentSnapshot: createStarterComponentSnapshot('logic', 'LIB-L-SIS-001', {
+        instrumentCategory: 'controller',
+        instrumentType: 'Safety PLC',
+        manufacturer: 'Acme Automation',
+        dataSource: 'Manufacturer',
+        description: 'Safety logic solver starter for client library.',
+        factorized: {
+          lambda: 2.4,
+          lambdaDRatio: 0.35,
+          DCd: 0.96,
+          DCs: 1.0,
+        },
+        test: {
+          testType: 'online',
+          T1: 1,
+          T1Unit: 'yr',
+          T0: 1,
+          T0Unit: 'yr',
+        },
+        advanced: {
+          MTTR: 12,
+          gamma: 0,
+          lambdaStar: 0,
+          lambdaStarEqualToLambda: false,
+          testDuration: 0,
+          sigma: 1,
+          omega1: 0,
+          omega2: 0.005,
+          proofTestCoverage: 0.98,
+          lifetime: 15,
+          DCalarmedOnly: 0.0,
+          partialTest: {
+            enabled: false,
+            duration: 0,
+            detectedFaultsPct: 0.5,
+            numberOfTests: 1,
+          },
+        },
+      }),
+    },
+    {
+      name: 'On-off valve package — client starter',
+      description: 'Exemple d’actionneur final avec paramètres de test et de diagnostic à relire.',
+      subsystemType: 'actuator' as const,
+      sourceReference: 'Valve package FMEDA / proof test note to replace',
+      tags: ['client-template', 'actuator', 'valve', 'final-element'],
+      reviewStatus: 'draft' as const,
+      componentSnapshot: createStarterComponentSnapshot('actuator', 'LIB-A-XV-001', {
+        instrumentCategory: 'valve',
+        instrumentType: 'On-off valve',
+        manufacturer: 'Acme Valves',
+        dataSource: 'FMEDA',
+        description: 'Final element starter for client library.',
+        factorized: {
+          lambda: 3.2,
+          lambdaDRatio: 0.62,
+          DCd: 0.6,
+          DCs: 1.0,
+        },
+        test: {
+          testType: 'partial',
+          T1: 1,
+          T1Unit: 'yr',
+          T0: 1,
+          T0Unit: 'yr',
+        },
+        advanced: {
+          MTTR: 48,
+          gamma: 0,
+          lambdaStar: 0,
+          lambdaStarEqualToLambda: false,
+          testDuration: 0,
+          sigma: 1,
+          omega1: 0,
+          omega2: 0.02,
+          proofTestCoverage: 0.9,
+          lifetime: 12,
+          DCalarmedOnly: 0.2,
+          partialTest: {
+            enabled: true,
+            duration: 0,
+            detectedFaultsPct: 0.6,
+            numberOfTests: 4,
+          },
+        },
+      }),
+    },
+  ]
+}
+
+export const COMPONENT_TEMPLATE_IMPORT_DOC_EXAMPLE = JSON.stringify(
+  {
+    format: COMPONENT_TEMPLATE_EXPORT_FORMAT,
+    version: COMPONENT_TEMPLATE_SCHEMA_VERSION,
+    exportedAt: '2026-03-20T00:00:00.000Z',
+    exportedByProfileId: null,
+    projectId: null,
+    templates: [createStarterTemplates()[0]],
+  },
+  null,
+  2,
+)
+
+export function buildComponentTemplateImportStarter(): string {
+  const payload = {
+    format: COMPONENT_TEMPLATE_EXPORT_FORMAT,
+    version: COMPONENT_TEMPLATE_SCHEMA_VERSION,
+    exportedAt: new Date().toISOString(),
+    exportedByProfileId: null,
+    projectId: null,
+    templates: createStarterTemplates(),
+  }
+
+  return JSON.stringify(payload, null, 2)
 }
 
 export function instantiateComponentTemplate(template: ComponentTemplate, tagName: string): SIFComponent {
@@ -203,7 +427,7 @@ export function serializeComponentTemplates(
   profileId: string | null,
   projectId: string | null,
 ): string {
-  const payload: ComponentTemplateExportEnvelope = {
+  const payload = {
     format: COMPONENT_TEMPLATE_EXPORT_FORMAT,
     version: COMPONENT_TEMPLATE_SCHEMA_VERSION,
     exportedAt: new Date().toISOString(),

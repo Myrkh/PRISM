@@ -5,7 +5,7 @@
  * Les vues globales restent accessibles directement dans le rail.
  */
 import {
-  Home,
+  Home, Search, BookOpen, BookOpenText,
   ListChecks, History, Cpu,
   Settings, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
 } from 'lucide-react'
@@ -13,35 +13,41 @@ import { useAppStore } from '@/store/appStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { RailDivider, RailIconButton } from '@/components/layout/RailPrimitives'
 
-// ─── Outils globaux ───────────────────────────────────────────────────────
 const GLOBAL_TOOLS = [
-  { id: 'review-queue' as const, Icon: ListChecks,  label: 'Review Queue'    },
-  { id: 'audit-log'   as const, Icon: History,      label: "Journal d'audit" },
-  { id: 'engine'      as const, Icon: Cpu,          label: 'Moteur de calcul'},
+  { id: 'search' as const, Icon: Search, label: 'Recherche globale' },
+  { id: 'library' as const, Icon: BookOpen, label: 'Bibliothèque maître' },
+  { id: 'review-queue' as const, Icon: ListChecks, label: 'Review Queue' },
+  { id: 'audit-log' as const, Icon: History, label: "Journal d'audit" },
+  { id: 'engine' as const, Icon: Cpu, label: 'Moteur de calcul' },
 ] as const
 
 type GlobalToolId = typeof GLOBAL_TOOLS[number]['id']
 
-const GLOBAL_TOOL_IDS = new Set<string>(GLOBAL_TOOLS.map(t => t.id))
+const GLOBAL_TOOL_IDS = new Set<string>(GLOBAL_TOOLS.map(tool => tool.id))
 
-// ─── IconRail ─────────────────────────────────────────────────────────────
 interface IconRailProps {
-  leftOpen:        boolean
-  rightOpen:       boolean
-  onToggleLeft:    () => void
-  onToggleRight:   () => void
+  leftOpen: boolean
+  rightOpen: boolean
+  onToggleLeft: () => void
+  onToggleRight: () => void
   showRightToggle: boolean
   showPanelToggles?: boolean
 }
 
 export function IconRail({
-  leftOpen, rightOpen, onToggleLeft, onToggleRight, showRightToggle, showPanelToggles = true,
+  leftOpen,
+  rightOpen,
+  onToggleLeft,
+  onToggleRight,
+  showRightToggle,
+  showPanelToggles = true,
 }: IconRailProps) {
-  const { BORDER, RAIL_BG, SHADOW_SOFT, SHADOW_TAB, isDark } = usePrismTheme()
-  const navigate = useAppStore(s => s.navigate)
-  const view     = useAppStore(s => s.view)
+  const { BORDER, RAIL_BG, SHADOW_TAB, isDark } = usePrismTheme()
+  const navigate = useAppStore(state => state.navigate)
+  const view = useAppStore(state => state.view)
 
-  const showHome     = view.type === 'projects'
+  const showHome = view.type === 'projects'
+  const showDocs = view.type === 'docs'
   const showSettings = view.type === 'settings'
   const activeGlobalToolId: GlobalToolId | null = GLOBAL_TOOL_IDS.has(view.type)
     ? (view.type as GlobalToolId)
@@ -49,7 +55,7 @@ export function IconRail({
 
   return (
     <div
-      className="flex shrink-0 flex-col items-center gap-0.5 py-2 border-r"
+      className="flex shrink-0 flex-col items-center gap-0.5 border-r py-2"
       style={{
         width: 48,
         background: RAIL_BG,
@@ -59,7 +65,6 @@ export function IconRail({
     >
       {showPanelToggles && (
         <>
-          {/* ── Toggles panneaux ── */}
           <RailIconButton
             Icon={leftOpen ? PanelLeftClose : PanelLeftOpen}
             label={leftOpen ? 'Réduire le panneau' : 'Afficher le panneau'}
@@ -79,7 +84,6 @@ export function IconRail({
         </>
       )}
 
-      {/* ── Navigation ── */}
       <RailIconButton
         Icon={Home}
         label="Accueil — Projets"
@@ -89,7 +93,6 @@ export function IconRail({
 
       <RailDivider />
 
-      {/* ── Outils globaux ── */}
       {GLOBAL_TOOLS.map(({ id, Icon, label }) => (
         <RailIconButton
           key={id}
@@ -100,9 +103,14 @@ export function IconRail({
         />
       ))}
 
-      {/* ── Bas : settings ── */}
       <div className="flex-1" />
       <RailDivider />
+      <RailIconButton
+        Icon={BookOpenText}
+        label="Aide et documentation"
+        onClick={() => navigate({ type: 'docs' })}
+        active={showDocs}
+      />
       <RailIconButton
         Icon={Settings}
         label="Paramètres"

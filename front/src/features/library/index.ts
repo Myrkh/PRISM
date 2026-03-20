@@ -4,6 +4,7 @@ export {
   COMPONENT_TEMPLATE_EXPORT_FORMAT,
   COMPONENT_TEMPLATE_SCHEMA_VERSION,
   createBuiltinComponentTemplate,
+  buildComponentTemplateImportStarter,
   instantiateComponentTemplate,
   buildLibraryDragPayload,
   parseLibraryDragPayload,

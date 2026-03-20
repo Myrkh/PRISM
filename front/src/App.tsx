@@ -27,6 +27,12 @@ import { AuditLogWorkspace } from '@/components/global/AuditLogWorkspace'
 import { SIFHistoryWorkspace } from '@/components/global/SIFHistoryWorkspace'
 import { EngineWorkspace } from '@/components/global/EngineWorkspace'
 import { HazopWorkspace } from '@/components/global/HazopWorkspace'
+import { DocsWorkspace } from '@/components/global/DocsWorkspace'
+import { SearchWorkspace } from '@/components/global/SearchWorkspace'
+import { LibraryWorkspace } from '@/components/global/LibraryWorkspace'
+import { DocsNavigationProvider } from '@/components/docs/DocsNavigation'
+import { SearchNavigationProvider } from '@/components/search/SearchNavigation'
+import { LibraryNavigationProvider } from '@/components/library/LibraryNavigation'
 import { fetchAllProjects } from '@/lib/db'
 
 // ─── Hash routing ─────────────────────────────────────────────────────────
@@ -35,7 +41,10 @@ function viewToHash(view: AppView): string {
   if (view.type === 'sif-dashboard') {
     return `#/project/${view.projectId}/sif/${view.sifId}/${view.tab}`
   }
+  if (view.type === 'search') return '#/search'
+  if (view.type === 'library') return '#/library'
   if (view.type === 'settings') return `#/settings/${view.section}`
+  if (view.type === 'docs') return '#/docs'
   if (view.type === 'review-queue') return '#/review'
   if (view.type === 'audit-log') return '#/audit'
   if (view.type === 'sif-history') return '#/history'
@@ -59,6 +68,9 @@ function hashToView(hash: string): AppView | null {
       section: section && SETTINGS_SECTIONS.includes(section) ? section : 'general',
     }
   }
+  if (path === '/search') return { type: 'search' }
+  if (path === '/library') return { type: 'library' }
+  if (path === '/docs') return { type: 'docs' }
   if (path === '/review') return { type: 'review-queue' }
   if (path === '/audit') return { type: 'audit-log' }
   if (path === '/history') return { type: 'sif-history' }
@@ -216,6 +228,47 @@ export default function App() {
   if (loading) return <LoadingScreen />
   if (loadError) return <ErrorScreen error={loadError} onRetry={loadData} />
 
+  const shellProjectId = view.type === 'sif-dashboard' ? view.projectId : ''
+  const shellSifId = view.type === 'sif-dashboard' ? view.sifId : ''
+  const shellContent = (
+    <>
+      {view.type === 'search' && (
+        <SearchWorkspace />
+      )}
+      {view.type === 'library' && (
+        <LibraryWorkspace />
+      )}
+      {view.type === 'settings' && (
+        <SettingsWorkspace
+          section={view.section}
+          onSectionChange={(section) => navigate({ type: 'settings', section })}
+          onExit={() => navigate(lastNonSettingsViewRef.current ?? { type: 'projects' })}
+        />
+      )}
+      {view.type === 'docs' && (
+        <DocsWorkspace />
+      )}
+      {view.type === 'review-queue' && (
+        <ReviewQueueWorkspace />
+      )}
+      {view.type === 'audit-log' && (
+        <AuditLogWorkspace />
+      )}
+      {view.type === 'sif-history' && (
+        <SIFHistoryWorkspace />
+      )}
+      {view.type === 'engine' && (
+        <EngineWorkspace />
+      )}
+      {view.type === 'hazop' && (
+        <HazopWorkspace />
+      )}
+      {view.type === 'sif-dashboard' && (
+        <SIFDashboard projectId={view.projectId} sifId={view.sifId} />
+      )}
+    </>
+  )
+
   return (
     <div className="h-screen overflow-hidden bg-background text-foreground antialiased">
       <AppHeader />
@@ -248,36 +301,29 @@ export default function App() {
       )}
 
       {/* Shell universel */}
-      <SIFWorkbenchLayout
-        projectId={view.type === 'sif-dashboard' ? view.projectId : ''}
-        sifId={view.type === 'sif-dashboard' ? view.sifId : ''}
-      >
-        {view.type === 'settings' && (
-          <SettingsWorkspace
-            section={view.section}
-            onSectionChange={(section) => navigate({ type: 'settings', section })}
-            onExit={() => navigate(lastNonSettingsViewRef.current ?? { type: 'projects' })}
-          />
-        )}
-        {view.type === 'review-queue' && (
-          <ReviewQueueWorkspace />
-        )}
-        {view.type === 'audit-log' && (
-          <AuditLogWorkspace />
-        )}
-        {view.type === 'sif-history' && (
-          <SIFHistoryWorkspace />
-        )}
-        {view.type === 'engine' && (
-          <EngineWorkspace />
-        )}
-        {view.type === 'hazop' && (
-          <HazopWorkspace />
-        )}
-        {view.type === 'sif-dashboard' && (
-          <SIFDashboard projectId={view.projectId} sifId={view.sifId} />
-        )}
-      </SIFWorkbenchLayout>
+      {view.type === 'docs' ? (
+        <DocsNavigationProvider>
+          <SIFWorkbenchLayout projectId={shellProjectId} sifId={shellSifId}>
+            {shellContent}
+          </SIFWorkbenchLayout>
+        </DocsNavigationProvider>
+      ) : view.type === 'search' ? (
+        <SearchNavigationProvider>
+          <SIFWorkbenchLayout projectId={shellProjectId} sifId={shellSifId}>
+            {shellContent}
+          </SIFWorkbenchLayout>
+        </SearchNavigationProvider>
+      ) : view.type === 'library' ? (
+        <LibraryNavigationProvider>
+          <SIFWorkbenchLayout projectId={shellProjectId} sifId={shellSifId}>
+            {shellContent}
+          </SIFWorkbenchLayout>
+        </LibraryNavigationProvider>
+      ) : (
+        <SIFWorkbenchLayout projectId={shellProjectId} sifId={shellSifId}>
+          {shellContent}
+        </SIFWorkbenchLayout>
+      )}
 
       {/* Modales à la racine — disponibles depuis toutes les vues */}
       <ProjectModal />

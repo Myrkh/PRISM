@@ -99,6 +99,8 @@ function withAlpha(hex: string, alpha: string): string {
   return `${hex}${alpha}`
 }
 
+// ─── Password input ───────────────────────────────────────────────────────────
+
 function PasswordInput({
   value,
   onChange,
@@ -115,10 +117,7 @@ function PasswordInput({
         onChange={event => onChange(event.target.value)}
         required
         className="w-full rounded-lg border border-transparent px-4 py-3 pr-10 text-sm transition-shadow"
-        style={{
-          background: dark.card2,
-          color: dark.text,
-        }}
+        style={{ background: dark.card2, color: dark.text }}
       />
       <button
         type="button"
@@ -131,6 +130,8 @@ function PasswordInput({
     </div>
   )
 }
+
+// ─── Forgot password modal ────────────────────────────────────────────────────
 
 function ForgotPasswordModal({ loading, onClose, onSubmit }: ForgotPasswordModalProps) {
   const [email, setEmail] = useState('')
@@ -229,6 +230,92 @@ function ForgotPasswordModal({ loading, onClose, onSubmit }: ForgotPasswordModal
   )
 }
 
+// ─── Feature showcase (right carousel panel) ──────────────────────────────────
+
+function FeatureShowcase({ carouselIndex, onDotClick }: { carouselIndex: number; onDotClick: (i: number) => void }) {
+  return (
+    <div
+      className="relative flex h-full flex-col items-center justify-between overflow-hidden p-8 md:p-10 xl:p-12"
+      style={{ background: dark.card2 }}
+    >
+      {/* Background gradient */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background: `
+            radial-gradient(ellipse 70% 40% at 50% 20%, ${withAlpha(colors.teal, '1A')} 0%, transparent 70%),
+            linear-gradient(180deg, ${dark.card2} 0%, ${dark.panel} 100%)
+          `,
+        }}
+      />
+
+      {/* Center content */}
+      <div className="relative z-10 flex flex-1 flex-col items-center justify-center text-center w-full">
+        {/* Icon */}
+        <div className="relative mb-8 h-24 w-24 shrink-0">
+          {CAROUSEL_SLIDES.map((slide, slideIndex) => {
+            const SlideIcon = slide.icon
+            return (
+              <div
+                key={slide.title}
+                className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ease-in-out ${
+                  slideIndex === carouselIndex ? 'scale-100 opacity-100' : 'scale-90 opacity-0'
+                }`}
+              >
+                <div
+                  className="flex h-24 w-24 items-center justify-center rounded-3xl"
+                  style={{
+                    background: withAlpha(slide.accent, '14'),
+                    boxShadow: slideIndex === carouselIndex ? `0 0 40px ${withAlpha(slide.accent, '33')}` : 'none',
+                  }}
+                >
+                  <SlideIcon className="h-12 w-12" strokeWidth={1.2} style={{ color: slide.accent }} />
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Text */}
+        <div className="w-full" style={{ minHeight: 132 }}>
+          {CAROUSEL_SLIDES.map((slide, slideIndex) => (
+            <div
+              key={slide.title}
+              style={{ display: slideIndex === carouselIndex ? 'block' : 'none' }}
+            >
+              <h2 className="mb-3 px-2 text-2xl font-bold leading-snug" style={{ color: dark.text }}>
+                {slide.title}
+              </h2>
+              <p className="px-4 text-sm leading-relaxed" style={{ color: withAlpha(dark.text, '80') }}>
+                {slide.description}
+              </p>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Dots */}
+      <div className="relative z-10 flex shrink-0 justify-center gap-2 pt-6">
+        {CAROUSEL_SLIDES.map((slide, slideIndex) => (
+          <button
+            key={slide.title}
+            type="button"
+            onClick={() => onDotClick(slideIndex)}
+            className="rounded-full transition-all duration-300"
+            style={{
+              width: slideIndex === carouselIndex ? 24 : 8,
+              height: 8,
+              background: slideIndex === carouselIndex ? colors.teal : withAlpha(dark.text, '33'),
+            }}
+          />
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// ─── Main auth screen ─────────────────────────────────────────────────────────
+
 export function AuthScreen() {
   const authLoading = useAppStore(s => s.authLoading)
   const authError = useAppStore(s => s.authError)
@@ -266,14 +353,11 @@ export function AuthScreen() {
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
     if (authLoading) return
-
     resetMessages()
-
     if (mode === 'signup' && password !== confirmPassword) {
       setAuthError('Passwords do not match.')
       return
     }
-
     try {
       if (mode === 'login') {
         await signInWithPassword(email.trim(), password)
@@ -305,84 +389,9 @@ export function AuthScreen() {
     }
   }
 
-  const renderFeatureShowcase = () => (
-    <div
-      className="relative flex h-full flex-col items-center justify-between overflow-hidden p-8 md:p-10 xl:p-12"
-      style={{ background: dark.card2 }}
-    >
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: `
-            radial-gradient(ellipse 70% 40% at 50% 20%, ${withAlpha(colors.teal, '1A')} 0%, transparent 70%),
-            linear-gradient(180deg, ${dark.card2} 0%, ${dark.panel} 100%)
-          `,
-        }}
-      />
-
-      <div className="relative z-10 flex flex-1 flex-col items-center justify-center text-center">
-        <div className="relative mb-8 h-24 w-24 shrink-0">
-          {CAROUSEL_SLIDES.map((slide, slideIndex) => {
-            const SlideIcon = slide.icon
-            return (
-              <div
-                key={slide.title}
-                className={`absolute inset-0 flex items-center justify-center transition-all duration-500 ease-in-out ${
-                  slideIndex === carouselIndex ? 'scale-100 opacity-100' : 'scale-90 opacity-0'
-                }`}
-              >
-                <div
-                  className="flex h-24 w-24 items-center justify-center rounded-3xl"
-                  style={{
-                    background: withAlpha(slide.accent, '14'),
-                    boxShadow: slideIndex === carouselIndex ? `0 0 40px ${withAlpha(slide.accent, '33')}` : 'none',
-                  }}
-                >
-                  <SlideIcon className="h-12 w-12" strokeWidth={1.2} style={{ color: slide.accent }} />
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        <div className="w-full" style={{ minHeight: 132 }}>
-          {CAROUSEL_SLIDES.map((slide, slideIndex) => (
-            <div
-              key={slide.title}
-              className={`transition-opacity duration-500 ${slideIndex === carouselIndex ? 'opacity-100' : 'absolute opacity-0'}`}
-              style={{ display: slideIndex === carouselIndex ? 'block' : 'none' }}
-            >
-              <h2 className="mb-3 px-2 text-2xl font-bold leading-snug" style={{ color: dark.text }}>
-                {slide.title}
-              </h2>
-              <p className="px-4 text-sm leading-relaxed" style={{ color: withAlpha(dark.text, '80') }}>
-                {slide.description}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="relative z-10 flex shrink-0 justify-center gap-2 pt-6">
-        {CAROUSEL_SLIDES.map((slide, slideIndex) => (
-          <button
-            key={slide.title}
-            type="button"
-            onClick={() => setCarouselIndex(slideIndex)}
-            className="rounded-full transition-all duration-300"
-            style={{
-              width: slideIndex === carouselIndex ? 24 : 8,
-              height: 8,
-              background: slideIndex === carouselIndex ? colors.teal : withAlpha(dark.text, '33'),
-            }}
-          />
-        ))}
-      </div>
-    </div>
-  )
-
   return (
     <>
+      {/* Forgot password modal (viewport-level) */}
       {showForgotPassword && (
         <ForgotPasswordModal
           onClose={() => setShowForgotPassword(false)}
@@ -390,8 +399,19 @@ export function AuthScreen() {
           loading={authLoading}
         />
       )}
+
+      {/* Footer page overlay (viewport-level) */}
+      {activeFooterPage && (
+        <AuthFooterPagePanel
+          page={activeFooterPage}
+          onClose={() => setActiveFooterPage(null)}
+          onNavigate={setActiveFooterPage}
+        />
+      )}
+
+      {/* Full-screen split layout */}
       <div
-        className="grid md:grid-cols-2 min-h-screen place-items-center overflow-auto p-4"
+        className="flex min-h-screen"
         style={{
           background: `
             radial-gradient(900px 520px at 12% 8%, ${withAlpha(colors.teal, '12')} 0%, transparent 58%),
@@ -400,15 +420,16 @@ export function AuthScreen() {
           `,
         }}
       >
+        {/* ── Left: auth panel ───────────────────────────────────────────── */}
         <div
-          className="grid h-[740px] w-full max-w-5xl grid-cols-2 overflow-hidden rounded-2xl border shadow-2xl"
-          style={{ background: dark.panel, borderColor: dark.border }}
+          className="relative flex w-full flex-col md:w-1/2"
+          style={{ background: dark.panel, borderRight: `1px solid ${withAlpha(dark.border, 'CC')}` }}
         >
-          <div
-            className="relative flex flex-col justify-between overflow-y-auto p-8 md:p-11"
-            style={{ background: dark.panel }}
-          >
-            <div>
+          {/* Scrollable inner — vertically centered, bounded width */}
+          <div className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-6 py-12 md:px-10 xl:px-14">
+            <div className="w-full max-w-[400px]">
+
+              {/* Brand */}
               <div className="mb-9 flex items-center gap-3">
                 <div
                   className="flex h-10 w-10 items-center justify-center rounded-xl border"
@@ -432,15 +453,17 @@ export function AuthScreen() {
                 </div>
               </div>
 
-              <h2 className="mb-5 mt-5 text-2xl font-bold" style={{ color: dark.text }}>
-                {mode === 'login' ? 'Welcome' : 'Join PRISM'}
+              {/* Heading */}
+              <h2 className="mb-2 text-2xl font-bold" style={{ color: dark.text }}>
+                {mode === 'login' ? 'Welcome back' : 'Join PRISM'}
               </h2>
-              <p className="mb-7 text-sm" style={{ color: dark.textDim }}>
+              <p className="mb-7 text-sm leading-relaxed" style={{ color: dark.textDim }}>
                 {mode === 'login'
                   ? 'Sign in to access your projects, SIF dashboards, revision history, and proof test evidence.'
                   : 'Create an account to start using authenticated engineering workflows in PRISM.'}
               </p>
 
+              {/* Form */}
               <form onSubmit={handleSubmit}>
                 <div className="mb-3 space-y-3">
                   {mode === 'signup' && (
@@ -491,7 +514,7 @@ export function AuthScreen() {
                     onChange={setPassword}
                     placeholder="Password"
                     showPassword={showPassword}
-                    toggleShowPassword={() => setShowPassword(value => !value)}
+                    toggleShowPassword={() => setShowPassword(v => !v)}
                   />
 
                   {mode === 'signup' && (
@@ -500,7 +523,7 @@ export function AuthScreen() {
                       onChange={setConfirmPassword}
                       placeholder="Confirm password"
                       showPassword={showPassword}
-                      toggleShowPassword={() => setShowPassword(value => !value)}
+                      toggleShowPassword={() => setShowPassword(v => !v)}
                     />
                   )}
                 </div>
@@ -553,6 +576,7 @@ export function AuthScreen() {
                 </button>
               </form>
 
+              {/* OAuth */}
               <div className="mt-5">
                 <div className="flex items-center gap-3">
                   <div className="h-px flex-1" style={{ background: withAlpha(dark.text, '14') }} />
@@ -572,7 +596,7 @@ export function AuthScreen() {
                     onClick={() => { void handleOAuth('google') }}
                   >
                     {authLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Chrome className="mr-2 h-4 w-4" />}
-                    Continue with Google
+                    Google
                   </Button>
                   <Button
                     type="button"
@@ -583,11 +607,12 @@ export function AuthScreen() {
                     onClick={() => { void handleOAuth('github') }}
                   >
                     {authLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Github className="mr-2 h-4 w-4" />}
-                    Continue with GitHub
+                    GitHub
                   </Button>
                 </div>
               </div>
 
+              {/* Switch mode */}
               <p className="mt-5 text-center text-xs" style={{ color: dark.textDim }}>
                 {mode === 'login' ? 'No account yet?' : 'Already have an account?'}{' '}
                 <button
@@ -603,50 +628,32 @@ export function AuthScreen() {
                 </button>
               </p>
             </div>
+          </div>
 
-            <div className="mt-8 space-y-1.5 text-center text-[11px]" style={{ color: withAlpha(dark.textDim, 'CC') }}>
-              <p className="space-x-3">
-                {AUTH_FOOTER_PRIMARY_LINKS.map((page, index) => (
-                  <span key={page}>
-                    <button
-                      type="button"
-                      className="transition-colors hover:text-white"
-                      onClick={() => setActiveFooterPage(page)}
-                    >
-                      {getAuthFooterPageLabel(page)}
-                    </button>
-                    {index < AUTH_FOOTER_PRIMARY_LINKS.length - 1 && <span className="ml-3" style={{ color: withAlpha(dark.text, '18') }}>·</span>}
-                  </span>
-                ))}
-              </p>
-              <p className="space-x-2">
-                {AUTH_FOOTER_LEGAL_LINKS.map((page, index) => (
-                  <span key={page}>
-                    <button
-                      type="button"
-                      className="transition-colors hover:text-white"
-                      onClick={() => setActiveFooterPage(page)}
-                    >
-                      {getAuthFooterPageLabel(page)}
-                    </button>
-                    {index < AUTH_FOOTER_LEGAL_LINKS.length - 1 && <span className="ml-2" style={{ color: withAlpha(dark.text, '18') }}>·</span>}
-                  </span>
-                ))}
-              </p>
+          {/* Footer links — pinned at bottom of left panel */}
+          <div
+            className="shrink-0 border-t px-6 py-4 md:px-10"
+            style={{ borderColor: withAlpha(dark.border, 'CC') }}
+          >
+            <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+              {[...AUTH_FOOTER_PRIMARY_LINKS, ...AUTH_FOOTER_LEGAL_LINKS].map(page => (
+                <button
+                  key={page}
+                  type="button"
+                  className="text-[11px] transition-colors hover:text-white"
+                  style={{ color: withAlpha(dark.textDim, 'CC') }}
+                  onClick={() => setActiveFooterPage(page)}
+                >
+                  {getAuthFooterPageLabel(page)}
+                </button>
+              ))}
             </div>
-
-            {activeFooterPage && (
-              <AuthFooterPagePanel
-                page={activeFooterPage}
-                onClose={() => setActiveFooterPage(null)}
-                onNavigate={setActiveFooterPage}
-              />
-            )}
           </div>
+        </div>
 
-          <div>
-            {renderFeatureShowcase()}
-          </div>
+        {/* ── Right: carousel — hidden on mobile ────────────────────────── */}
+        <div className="hidden md:flex md:w-1/2 md:flex-col md:sticky md:top-0 md:h-screen">
+          <FeatureShowcase carouselIndex={carouselIndex} onDotClick={setCarouselIndex} />
         </div>
       </div>
     </>
