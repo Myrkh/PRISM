@@ -27,7 +27,6 @@ const TAB_LABELS: Record<string, string> = {
 }
 
 const VIEW_LABELS: Record<string, string> = {
-  'review-queue': 'Review Queue',
   'audit-log':    'Audit Log',
   'sif-history':  'SIF History',
   'engine':       'Engine',

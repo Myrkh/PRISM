@@ -201,9 +201,9 @@ export function LibraryTemplateCard({
         <meta.Icon size={11} className="shrink-0" style={{ color: meta.color }} />
         <div className="min-w-0 flex-1">
           <p className="truncate text-[11px] font-medium" style={{ color: TEXT }}>{template.name}</p>
-          {(template.manufacturer || template.instrumentType) && (
+          {(template.libraryName || template.manufacturer || template.instrumentType) && (
             <p className="truncate text-[9px]" style={{ color: TEXT_DIM }}>
-              {[template.instrumentType, template.manufacturer].filter(Boolean).join(' · ')}
+              {[template.libraryName, template.instrumentType, template.manufacturer].filter(Boolean).join(' · ')}
             </p>
           )}
         </div>
@@ -285,11 +285,18 @@ export function LibraryTemplateCard({
                   {[template.manufacturer, template.dataSource].filter(Boolean).join(' · ') || 'Bibliothèque standard'}
                 </p>
               </div>
-              {template.sourceReference ? (
-                <span className="rounded px-1.5 py-0.5 text-[8px] font-semibold" style={{ background: `${meta.color}12`, color: meta.color }}>
-                  {template.sourceReference}
-                </span>
-              ) : null}
+              <div className="flex flex-wrap items-center justify-end gap-1.5">
+                {template.libraryName ? (
+                  <span className="rounded px-1.5 py-0.5 text-[8px] font-semibold" style={{ background: `${meta.color}12`, color: meta.color }}>
+                    {template.libraryName}
+                  </span>
+                ) : null}
+                {template.sourceReference ? (
+                  <span className="rounded px-1.5 py-0.5 text-[8px] font-semibold" style={{ background: `${meta.color}12`, color: meta.color }}>
+                    {template.sourceReference}
+                  </span>
+                ) : null}
+              </div>
             </div>
 
             <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(112px, 1fr))' }}>

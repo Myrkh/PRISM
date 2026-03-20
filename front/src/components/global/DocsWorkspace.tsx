@@ -262,7 +262,7 @@ function VisualCard({
   visual: DocVisual
   variant?: 'framed' | 'clean'
 }) {
-  const { BORDER, PAGE_BG, SHADOW_SOFT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, PAGE_BG, SHADOW_PANEL, TEXT_DIM } = usePrismTheme()
   const fit = visual.fit ?? 'cover'
   const maxHeight = visual.maxHeight ?? (variant === 'clean' ? 560 : 360)
   const usesContain = fit === 'contain'
@@ -270,11 +270,11 @@ function VisualCard({
   return (
     <figure>
       <div
-        className={variant === 'clean' ? 'overflow-hidden rounded-[22px]' : 'overflow-hidden rounded-[22px] border'}
+        className={variant === 'clean' ? 'overflow-hidden rounded-xl' : 'overflow-hidden rounded-xl border'}
         style={
           variant === 'clean'
             ? undefined
-            : { borderColor: `${BORDER}44`, background: PAGE_BG, boxShadow: SHADOW_SOFT }
+            : { borderColor: BORDER, background: PAGE_BG, boxShadow: SHADOW_PANEL }
         }
       >
         <div
@@ -327,7 +327,7 @@ function ChapterBlock({
   first: boolean
   register: (id: string, node: HTMLElement | null) => void
 }) {
-  const { BORDER, PAGE_BG, SHADOW_SOFT, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, PAGE_BG, SHADOW_PANEL, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const visualLayout = block.visual?.layout ?? 'aside'
   const showSplitVisual = Boolean(block.visual && visualLayout === 'split')
   const showStackedVisual = Boolean(block.visual && visualLayout === 'stacked')
@@ -344,8 +344,8 @@ function ChapterBlock({
       style={{ scrollMarginTop: 24 }}
     >
       <div
-        className="rounded-[22px] border px-5 py-5 md:px-6 md:py-6"
-        style={{ borderColor: `${BORDER}36`, background: PAGE_BG, boxShadow: SHADOW_SOFT }}
+        className="rounded-xl border px-5 py-5 md:px-6 md:py-6"
+        style={{ borderColor: BORDER, background: PAGE_BG, boxShadow: SHADOW_PANEL }}
       >
         <div
           className={
@@ -599,14 +599,14 @@ function GroupDocument({
   registerSection: (id: string, node: HTMLElement | null) => void
   registerBlock: (id: string, node: HTMLElement | null) => void
 }) {
-  const { BORDER, CARD_BG, SHADOW_CARD, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, SHADOW_PANEL, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const sectionCount = group.chapters.reduce((s, ch) => s + ch.blocks.length, 0)
 
   return (
     <section className="space-y-3">
       <div
-        className="px-5 py-5 rounded-2xl border"
-        style={{ borderColor: `${BORDER}50`, background: CARD_BG }}
+        className="rounded-xl border px-5 py-5"
+        style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}
       >
         <div className="flex flex-col gap-1 lg:flex-row lg:items-baseline lg:justify-between mb-4">
           <div>
@@ -638,11 +638,11 @@ function GroupDocument({
         {group.chapters.map((chapter, index) => (
           <div
             key={chapter.id}
-            className="overflow-hidden rounded-2xl border"
+            className="overflow-hidden rounded-xl border"
             style={{
               borderColor: activeChapter === chapter.id ? `${TEAL}26` : `${BORDER}50`,
               background: CARD_BG,
-              boxShadow: SHADOW_CARD,
+              boxShadow: SHADOW_PANEL,
             }}
           >
             <ChapterArticle
@@ -664,7 +664,7 @@ function GroupDocument({
 // ─── Root ──────────────────────────────────────────────────────────────────────
 
 export function DocsWorkspace() {
-  const { BORDER, CARD_BG, SHADOW_CARD, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, SHADOW_PANEL, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const {
     activeChapter,
     activeBlock,
@@ -733,8 +733,8 @@ export function DocsWorkspace() {
 
         {/* ── Hero ──────────────────────────────────────────────────── */}
         <header
-          className="rounded-2xl border overflow-hidden"
-          style={{ borderColor: `${BORDER}50`, background: CARD_BG, boxShadow: SHADOW_CARD }}
+          className="overflow-hidden rounded-xl border"
+          style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}
         >
           {/* Top strip */}
           <div

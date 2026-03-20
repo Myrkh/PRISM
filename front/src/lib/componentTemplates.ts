@@ -1,6 +1,11 @@
 import { hydrateComponentSnapshot } from '@/core/models/hydrate'
 import type { ComponentTemplate, ComponentTemplateUpsertInput, SubsystemType } from '@/core/types'
-import { COMPONENT_TEMPLATE_SCHEMA_VERSION } from '@/features/library/templateUtils'
+import {
+  buildPersistedTemplateTags,
+  COMPONENT_TEMPLATE_SCHEMA_VERSION,
+  extractTemplateLibraryName,
+  stripTemplateLibraryMetaTags,
+} from '@/features/library/templateUtils'
 import { supabase } from './supabase'
 
 type TemplateRow = Record<string, unknown>
@@ -21,6 +26,8 @@ function rowToComponentTemplate(row: TemplateRow): ComponentTemplate {
     subsystemType,
     typeof row.name === 'string' ? row.name : 'Component template',
   )
+  const persistedTags = Array.isArray(row.tags) ? row.tags.filter((tag): tag is string => typeof tag === 'string') : []
+  const libraryName = extractTemplateLibraryName(persistedTags)
 
   return {
     id: String(row.id),
@@ -28,6 +35,7 @@ function rowToComponentTemplate(row: TemplateRow): ComponentTemplate {
     projectId: typeof row.project_id === 'string' ? row.project_id : null,
     scope: row.scope === 'project' ? 'project' : row.scope === 'public' ? 'public' : row.scope === 'shared' ? 'shared' : 'user',
     origin: 'database',
+    libraryName,
     name: typeof row.name === 'string' ? row.name : componentSnapshot.instrumentType,
     description: typeof row.description === 'string' ? row.description : '',
     subsystemType,
@@ -36,7 +44,7 @@ function rowToComponentTemplate(row: TemplateRow): ComponentTemplate {
     manufacturer: typeof row.manufacturer === 'string' ? row.manufacturer : componentSnapshot.manufacturer,
     dataSource: typeof row.data_source === 'string' ? row.data_source : componentSnapshot.dataSource,
     sourceReference: typeof row.source_reference === 'string' ? row.source_reference : null,
-    tags: Array.isArray(row.tags) ? row.tags.filter((tag): tag is string => typeof tag === 'string') : [],
+    tags: stripTemplateLibraryMetaTags(persistedTags),
     reviewStatus: row.review_status === 'approved'
       ? 'approved'
       : row.review_status === 'review'
@@ -80,7 +88,7 @@ function inputToRow(input: ComponentTemplateUpsertInput, ownerProfileId: string)
     manufacturer: componentSnapshot.manufacturer,
     data_source: componentSnapshot.dataSource,
     source_reference: input.sourceReference?.trim() || null,
-    tags: (input.tags ?? []).map(tag => tag.trim()).filter(Boolean),
+    tags: buildPersistedTemplateTags((input.tags ?? []).map(tag => tag.trim()).filter(Boolean), input.libraryName),
     review_status: input.reviewStatus ?? 'draft',
     import_batch_id: input.importBatchId ?? null,
     template_schema_version: input.templateSchemaVersion ?? COMPONENT_TEMPLATE_SCHEMA_VERSION,

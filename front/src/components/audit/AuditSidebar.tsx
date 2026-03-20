@@ -1,6 +1,11 @@
+import { useMemo } from 'react'
 import { FilterX, Search } from 'lucide-react'
-import { useSearchNavigation } from '@/components/search/SearchNavigation'
-import { SEARCH_SCOPE_META, SEARCH_SCOPE_ORDER, getSearchScopeTone } from '@/components/search/searchMeta'
+import {
+  AUDIT_SCOPE_META,
+  buildAuditEntries,
+  matchesAuditScope,
+} from '@/components/audit/auditModel'
+import { useAuditNavigation } from '@/components/audit/AuditNavigation'
 import {
   SidebarBody,
   SidebarSectionTitle,
@@ -9,6 +14,7 @@ import {
   sidebarPressDown,
   sidebarPressUp,
 } from '@/components/layout/SidebarPrimitives'
+import { useAppStore } from '@/store/appStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
 type FilterButtonProps = {
@@ -35,9 +41,9 @@ function FilterButton({ label, hint, count, active, tone, onClick }: FilterButto
         color: active ? TEXT : TEXT_DIM,
         transform: 'translateY(0) scale(1)',
       }}
-      onMouseEnter={e => {
+      onMouseEnter={event => {
         if (!active) {
-          sidebarHoverIn(e.currentTarget, {
+          sidebarHoverIn(event.currentTarget, {
             background: PAGE_BG,
             borderColor: `${BORDER}D0`,
             boxShadow: SHADOW_SOFT,
@@ -45,20 +51,20 @@ function FilterButton({ label, hint, count, active, tone, onClick }: FilterButto
           })
         }
       }}
-      onMouseLeave={e => {
+      onMouseLeave={event => {
         if (!active) {
-          sidebarHoverOut(e.currentTarget, {
+          sidebarHoverOut(event.currentTarget, {
             background: 'transparent',
             borderColor: 'transparent',
             boxShadow: 'none',
             color: TEXT_DIM,
           })
         }
-        sidebarPressUp(e.currentTarget, active ? SHADOW_CARD : 'none')
+        sidebarPressUp(event.currentTarget, active ? SHADOW_CARD : 'none')
       }}
-      onPointerDown={e => sidebarPressDown(e.currentTarget, SHADOW_SOFT)}
-      onPointerUp={e => sidebarPressUp(e.currentTarget, active ? SHADOW_CARD : SHADOW_SOFT)}
-      onPointerCancel={e => sidebarPressUp(e.currentTarget, active ? SHADOW_CARD : 'none')}
+      onPointerDown={event => sidebarPressDown(event.currentTarget, SHADOW_SOFT)}
+      onPointerUp={event => sidebarPressUp(event.currentTarget, active ? SHADOW_CARD : SHADOW_SOFT)}
+      onPointerCancel={event => sidebarPressUp(event.currentTarget, active ? SHADOW_CARD : 'none')}
     >
       <div
         className="pointer-events-none absolute left-0 top-1 bottom-1 w-0.5 rounded-full transition-[opacity,transform] duration-150 ease-out"
@@ -70,11 +76,11 @@ function FilterButton({ label, hint, count, active, tone, onClick }: FilterButto
       />
       <div className="min-w-0 flex-1 pl-1">
         <p className="truncate text-sm font-semibold">{label}</p>
-        {hint && (
+        {hint ? (
           <p className="truncate text-[10px] leading-relaxed" style={{ color: TEXT_DIM }}>
             {hint}
           </p>
-        )}
+        ) : null}
       </div>
       <span
         className="inline-flex shrink-0 items-center justify-center rounded-full border px-1.5 py-0.5 text-[9px] font-bold font-mono"
@@ -90,34 +96,37 @@ function FilterButton({ label, hint, count, active, tone, onClick }: FilterButto
   )
 }
 
-export function SearchSidebar() {
-  const {
-    deferredQuery,
-    scope,
-    projectFilter,
-    scopeCounts,
-    projectFilters,
-    totalIndexed,
-    totalVisible,
-    missingRevisionCount,
-    setScope,
-    setProjectFilter,
-    clearFilters,
-  } = useSearchNavigation()
+export function AuditSidebar() {
+  const projects = useAppStore(state => state.projects)
+  const { activeScope, setActiveScope, projectFilter, setProjectFilter, clearFilters, scopes, engineRuns, engineRunsLoading } = useAuditNavigation()
   const { BORDER, PAGE_BG, SHADOW_SOFT, TEXT, TEXT_DIM } = usePrismTheme()
 
-  const hasActiveFilters = scope !== 'all' || Boolean(projectFilter)
-  const visibleProjectTotal = projectFilters.reduce((sum, project) => sum + project.count, 0)
+  const entries = useMemo(() => buildAuditEntries(projects, engineRuns), [engineRuns, projects])
+  const hasActiveFilters = activeScope !== 'all' || Boolean(projectFilter)
+  const filteredByScope = entries.filter(entry => matchesAuditScope(entry, activeScope))
+  const warningCount = filteredByScope.filter(entry => entry.level === 'warning').length
+
+  const projectCounts = useMemo(() => (
+    projects
+      .map(project => ({
+        id: project.id,
+        label: project.name,
+        count: entries.filter(entry => entry.projectId === project.id && matchesAuditScope(entry, activeScope)).length,
+      }))
+      .filter(project => project.count > 0)
+  ), [activeScope, entries, projects])
 
   return (
     <SidebarBody className="pb-4">
       <div className="mb-3 flex items-start justify-between gap-3 px-2">
         <div>
-          <SidebarSectionTitle className="mb-0 px-0">Recherche globale</SidebarSectionTitle>
+          <SidebarSectionTitle className="mb-0 px-0">Journal d'audit</SidebarSectionTitle>
           <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-            {deferredQuery
-              ? `${totalVisible} résultat${totalVisible > 1 ? 's' : ''} pour « ${deferredQuery} »`
-              : `${totalIndexed} objets indexés dans l’espace de travail`}
+            {engineRunsLoading
+              ? 'Synchronisation des runs Engine en cours…'
+              : projectFilter
+                ? `${filteredByScope.length} événement${filteredByScope.length > 1 ? 's' : ''} dans le projet filtré`
+                : `${entries.length} événements reconstruits depuis les dossiers actifs et les runs backend`}
           </p>
         </div>
         {hasActiveFilters && (
@@ -132,24 +141,24 @@ export function SearchSidebar() {
               boxShadow: 'none',
               transform: 'translateY(0) scale(1)',
             }}
-            onMouseEnter={e => sidebarHoverIn(e.currentTarget, {
+            onMouseEnter={event => sidebarHoverIn(event.currentTarget, {
               background: `${BORDER}12`,
               borderColor: `${BORDER}D8`,
               boxShadow: SHADOW_SOFT,
               color: TEXT,
             })}
-            onMouseLeave={e => {
-              sidebarHoverOut(e.currentTarget, {
+            onMouseLeave={event => {
+              sidebarHoverOut(event.currentTarget, {
                 background: PAGE_BG,
                 borderColor: `${BORDER}C8`,
                 boxShadow: 'none',
                 color: TEXT_DIM,
               })
-              sidebarPressUp(e.currentTarget, 'none')
+              sidebarPressUp(event.currentTarget, 'none')
             }}
-            onPointerDown={e => sidebarPressDown(e.currentTarget, SHADOW_SOFT)}
-            onPointerUp={e => sidebarPressUp(e.currentTarget, SHADOW_SOFT)}
-            onPointerCancel={e => sidebarPressUp(e.currentTarget, 'none')}
+            onPointerDown={event => sidebarPressDown(event.currentTarget, SHADOW_SOFT)}
+            onPointerUp={event => sidebarPressUp(event.currentTarget, SHADOW_SOFT)}
+            onPointerCancel={event => sidebarPressUp(event.currentTarget, 'none')}
           >
             <FilterX size={11} />
             Reset
@@ -161,34 +170,18 @@ export function SearchSidebar() {
         <div>
           <SidebarSectionTitle>Portée</SidebarSectionTitle>
           <div className="space-y-1">
-            <FilterButton
-              label={SEARCH_SCOPE_META.all.label}
-              hint={SEARCH_SCOPE_META.all.hint}
-              count={Object.values(scopeCounts).reduce((sum, value) => sum + value, 0)}
-              active={scope === 'all'}
-              tone={getSearchScopeTone('sifs')}
-              onClick={() => setScope('all')}
-            />
-            {SEARCH_SCOPE_ORDER.map(scopeId => {
-              const meta = SEARCH_SCOPE_META[scopeId]
-              return (
-                <FilterButton
-                  key={scopeId}
-                  label={meta.label}
-                  hint={meta.hint}
-                  count={scopeCounts[scopeId]}
-                  active={scope === scopeId}
-                  tone={getSearchScopeTone(scopeId)}
-                  onClick={() => setScope(scopeId)}
-                />
-              )
-            })}
+            {scopes.map(scope => (
+              <FilterButton
+                key={scope.id}
+                label={scope.label}
+                hint={scope.hint}
+                count={entries.filter(entry => matchesAuditScope(entry, scope.id)).length}
+                active={activeScope === scope.id}
+                tone={AUDIT_SCOPE_META[scope.id].tone}
+                onClick={() => setActiveScope(scope.id)}
+              />
+            ))}
           </div>
-          {missingRevisionCount > 0 && (
-            <p className="mt-3 px-2 text-[10px] leading-relaxed" style={{ color: TEXT_DIM }}>
-              L’historique de {missingRevisionCount} SIF se charge en arrière-plan pour enrichir la recherche.
-            </p>
-          )}
         </div>
 
         <div className="border-t pt-4" style={{ borderColor: `${BORDER}33` }}>
@@ -196,19 +189,19 @@ export function SearchSidebar() {
           <div className="space-y-1">
             <FilterButton
               label="Tous les projets"
-              hint="Recherche transverse sans restriction"
-              count={visibleProjectTotal}
+              hint="Lecture transverse sans restriction"
+              count={filteredByScope.length}
               active={!projectFilter}
-              tone={getSearchScopeTone('projects')}
+              tone={AUDIT_SCOPE_META.all.tone}
               onClick={() => setProjectFilter(null)}
             />
-            {projectFilters.map(project => (
+            {projectCounts.map(project => (
               <FilterButton
                 key={project.id}
                 label={project.label}
                 count={project.count}
                 active={projectFilter === project.id}
-                tone={getSearchScopeTone('projects')}
+                tone={AUDIT_SCOPE_META.all.tone}
                 onClick={() => setProjectFilter(project.id)}
               />
             ))}
@@ -216,12 +209,17 @@ export function SearchSidebar() {
         </div>
 
         <div className="border-t pt-4" style={{ borderColor: `${BORDER}33` }}>
-          <SidebarSectionTitle>Usage</SidebarSectionTitle>
-          <div className="flex items-start gap-2 px-2 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-            <Search size={13} className="mt-[2px] shrink-0" />
-            <p>
-              Tape un tag instrument, une SIF, un template de bibliothèque, une hypothèse, une campagne ou une révision. Chaque résultat ouvre directement la bonne vue.
-            </p>
+          <SidebarSectionTitle>Lecture rapide</SidebarSectionTitle>
+          <div className="space-y-2 px-2 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
+            <div className="rounded-md border px-3 py-2" style={{ borderColor: `${BORDER}70`, background: PAGE_BG, color: TEXT }}>
+              {warningCount} événement{warningCount > 1 ? 's' : ''} warning dans le périmètre courant
+            </div>
+            <div className="flex items-start gap-2">
+              <Search size={13} className="mt-[2px] shrink-0" />
+              <p>
+                Utilise la recherche du panneau central pour retrouver un projet, une SIF, une action ou un run Engine.
+              </p>
+            </div>
           </div>
         </div>
       </div>

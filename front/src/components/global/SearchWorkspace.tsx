@@ -15,6 +15,7 @@ const TAB_LABELS: Record<string, string> = {
   exploitation: 'Exploitation',
   history: 'Historique',
   report: 'Rapport',
+  library: 'Bibliothèque',
 }
 
 const RESULT_KIND_LABELS: Record<SearchResult['kind'], string> = {
@@ -22,6 +23,7 @@ const RESULT_KIND_LABELS: Record<SearchResult['kind'], string> = {
   sif: 'SIF',
   component: 'Composant',
   subcomponent: 'Sous-composant',
+  template: 'Template',
   assumption: 'Hypothèse',
   action: 'Action',
   procedure: 'Procédure',
@@ -111,15 +113,15 @@ function ResultGroupSection({
   group: SearchResultGroup
   preview: boolean
 }) {
-  const { BORDER, CARD_BG, PAGE_BG, SHADOW_CARD, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, SHADOW_PANEL, TEXT, TEXT_DIM } = usePrismTheme()
   const scopeMeta = SEARCH_SCOPE_META[group.scope]
   const tone = getSearchScopeTone(group.scope)
   const Icon = scopeMeta.Icon
 
   return (
     <section
-      className="overflow-hidden rounded-2xl border"
-      style={{ borderColor: `${BORDER}50`, background: CARD_BG, boxShadow: SHADOW_CARD }}
+      className="overflow-hidden rounded-xl border"
+      style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}
     >
       <div className="flex items-start justify-between gap-4 border-b px-5 py-4" style={{ borderColor: `${BORDER}35` }}>
         <div className="min-w-0">
@@ -171,7 +173,7 @@ export function SearchWorkspace() {
     missingRevisionCount,
     setQuery,
   } = useSearchNavigation()
-  const { BORDER, CARD_BG, PAGE_BG, SHADOW_CARD, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, SHADOW_PANEL, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const inputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
@@ -191,8 +193,8 @@ export function SearchWorkspace() {
     <div className="flex-1 min-h-0 overflow-y-auto">
       <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-5 px-6 py-6">
         <section
-          className="overflow-hidden rounded-2xl border"
-          style={{ borderColor: `${BORDER}50`, background: CARD_BG, boxShadow: SHADOW_CARD }}
+          className="overflow-hidden rounded-xl border"
+          style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}
         >
           <div className="border-b px-6 py-4" style={{ borderColor: `${BORDER}35` }}>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
@@ -204,7 +206,7 @@ export function SearchWorkspace() {
                   Retrouver n’importe quel objet utile du dossier
                 </h1>
                 <p className="mt-2 max-w-[780px] text-[14px] leading-[1.8]" style={{ color: TEXT_DIM }}>
-                  Projet, SIF, composant, hypothèse, action, proof test, révision ou rapport. Chaque résultat ouvre directement la bonne vue du produit.
+                  Projet, SIF, composant, template de bibliothèque, hypothèse, action, proof test, révision ou rapport. Chaque résultat ouvre directement la bonne vue du produit.
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 text-[11px]">
@@ -272,12 +274,12 @@ export function SearchWorkspace() {
 
         {displayGroups.length === 0 ? (
           <section
-            className="rounded-2xl border px-6 py-7"
-            style={{ borderColor: `${BORDER}50`, background: CARD_BG, boxShadow: SHADOW_CARD }}
+            className="rounded-xl border px-6 py-7"
+            style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}
           >
             <p className="text-sm font-semibold" style={{ color: TEXT }}>Aucun résultat</p>
             <p className="mt-2 max-w-[720px] text-[13px] leading-relaxed" style={{ color: TEXT_DIM }}>
-              Essaie un tag instrument, un identifiant de SIF, un fabricant, une hypothèse, un type de campagne ou une révision. La recherche couvre aussi les sous-composants et les actions calculées du cockpit.
+              Essaie un tag instrument, un identifiant de SIF, un fabricant, une hypothèse, un type de campagne, une révision ou un template de bibliothèque. La recherche couvre aussi les sous-composants et les actions calculées du cockpit.
             </p>
           </section>
         ) : (

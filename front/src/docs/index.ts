@@ -1,4 +1,3 @@
-
 import type { ElementType } from 'react'
 import {
   BookOpenText,
@@ -22,6 +21,8 @@ import { libraryChapter } from '@/docs/chapters/front/library.chapter'
 import { verificationChapter } from '@/docs/chapters/front/verification.chapter'
 import { exploitationChapter } from '@/docs/chapters/front/exploitation.chapter'
 import { reportChapter } from '@/docs/chapters/front/report.chapter'
+import { auditLogChapter } from '@/docs/chapters/front/auditLog.chapter'
+import { engineWorkspaceChapter } from '@/docs/chapters/front/engineWorkspace.chapter'
 import { engineOverviewChapter } from '@/docs/chapters/engine/overview.chapter'
 import { engineRuntimeChapter } from '@/docs/chapters/engine/runtime.chapter'
 import { engineContractChapter } from '@/docs/chapters/engine/contract.chapter'
@@ -65,6 +66,8 @@ const CHAPTERS = [
   verificationChapter,
   exploitationChapter,
   reportChapter,
+  auditLogChapter,
+  engineWorkspaceChapter,
   engineOverviewChapter,
   engineRuntimeChapter,
   engineContractChapter,

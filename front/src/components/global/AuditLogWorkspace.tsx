@@ -1,283 +1,383 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
-import { AlertTriangle, Clock3, FileClock, History, Info, Search, SlidersHorizontal } from 'lucide-react'
-import { useAppStore, type SIFTab } from '@/store/appStore'
-import { IntercalaireCard, IntercalaireTabBar, useLayout } from '@/components/layout/SIFWorkbenchLayout'
-import { cn } from '@/lib/utils'
+import { AlertTriangle, ArrowUpRight, FileClock, History, Info, Search, X } from 'lucide-react'
+import {
+  type AuditEntry,
+  type AuditKind,
+  AUDIT_KIND_LABELS,
+  AUDIT_SCOPE_META,
+  buildAuditEntries,
+  formatAuditWhen,
+  matchesAuditScope,
+} from '@/components/audit/auditModel'
+import { useAuditNavigation } from '@/components/audit/AuditNavigation'
+import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
+import {
+  InspectorActionButton,
+  InspectorReferenceRow,
+  InspectorSection,
+  InspectorStatusBadge,
+  InspectorSurface,
+  RightPanelBody,
+  RightPanelShell,
+} from '@/components/layout/RightPanelShell'
+import { Input } from '@/components/ui/input'
+import { useAppStore } from '@/store/appStore'
+import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
-type AuditLevel = 'info' | 'warning'
-
-interface AuditEntry {
-  id: string
-  level: AuditLevel
-  timestamp: string
-  action: string
-  details: string
-  actor: string
-  projectName: string
-  projectId?: string
-  sifNumber?: string
-  sifId?: string
-  actionTab?: SIFTab
-}
-
-function formatWhen(ts: string): string {
-  const d = new Date(ts)
-  if (Number.isNaN(d.getTime())) return ts
-  return d.toLocaleString()
-}
-
 const AUDIT_RIGHT_TABS = [
-  { id: 'filters' as const, label: 'Filters', Icon: SlidersHorizontal },
-  { id: 'details' as const, label: 'Details', Icon: FileClock },
+  { id: 'event' as const, label: 'Evénement', Icon: FileClock },
 ]
 
-function AuditLogRightPanel({
+const AUDIT_KIND_TONES: Record<AuditKind, string> = {
+  governance: '#2563EB',
+  'proof-tests': '#0E9F6E',
+  operations: '#7C3AED',
+  engine: '#0F766E',
+}
+
+const AUDIT_TAB_LABELS: Record<string, string> = {
+  cockpit: 'Cockpit',
+  context: 'Contexte',
+  architecture: 'Architecture',
+  verification: 'Vérification',
+  exploitation: 'Exploitation',
+  history: 'Historique',
+  report: 'Rapport',
+}
+
+function AuditLevelBadge({ level }: { level: AuditEntry['level'] }) {
+  return level === 'warning' ? (
+    <InspectorStatusBadge
+      label="Warning"
+      color={semantic.warningDim}
+      background={`${semantic.warning}16`}
+      borderColor={`${semantic.warning}30`}
+      icon={<AlertTriangle size={11} />}
+    />
+  ) : (
+    <InspectorStatusBadge
+      label="Info"
+      color={semantic.info}
+      background={`${semantic.info}14`}
+      borderColor={`${semantic.info}28`}
+      icon={<Info size={11} />}
+    />
+  )
+}
+
+function AuditKindBadge({ kind }: { kind: AuditKind }) {
+  const tone = AUDIT_KIND_TONES[kind]
+  return (
+    <InspectorStatusBadge
+      label={AUDIT_KIND_LABELS[kind]}
+      color={tone}
+      background={`${tone}12`}
+      borderColor={`${tone}24`}
+    />
+  )
+}
+
+function AuditSearchToolbar({
   query,
-  levelFilter,
-  total,
-  filtered,
-  warningCount,
-  selected,
-  setQuery,
-  setLevelFilter,
-  onOpenSelected,
+  onChange,
+  resultCount,
+  totalCount,
+  projectLabel,
+  scopeLabel,
 }: {
   query: string
-  levelFilter: 'all' | AuditLevel
-  total: number
-  filtered: number
-  warningCount: number
-  selected: AuditEntry | null
-  setQuery: (next: string) => void
-  setLevelFilter: (next: 'all' | AuditLevel) => void
-  onOpenSelected: () => void
+  onChange: (value: string) => void
+  resultCount: number
+  totalCount: number
+  projectLabel: string | null
+  scopeLabel: string | null
 }) {
-  const { BORDER, CARD_BG, PANEL_BG, PAGE_BG, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
-  const [activeTab, setActiveTab] = useState<'filters' | 'details'>('filters')
-  const activeIdx = AUDIT_RIGHT_TABS.findIndex(t => t.id === activeTab)
+  const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
+  const hasQuery = query.trim().length > 0
 
   return (
-    <div className="flex h-full flex-col overflow-hidden border-l" style={{ borderColor: BORDER, background: PANEL_BG }}>
-      <div className="px-3 pt-3 shrink-0">
-        <IntercalaireTabBar tabs={AUDIT_RIGHT_TABS} active={activeTab} onSelect={setActiveTab} cardBg={CARD_BG} />
-      </div>
-
-      <div className="px-3 pb-3 flex-1 overflow-y-auto">
-        <IntercalaireCard tabCount={AUDIT_RIGHT_TABS.length} activeIdx={activeIdx} className="p-3 space-y-3">
-          {activeTab === 'filters' && (
-            <>
-              <div>
-                <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Audit Log</p>
-                <p className="text-xs mt-1" style={{ color: TEXT }}>{filtered}/{total} events</p>
-              </div>
-              <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Search</label>
-              <div className="flex h-8 items-center gap-2 rounded-lg border px-2" style={{ borderColor: BORDER, background: SURFACE }}>
-                <Search size={13} style={{ color: TEXT_DIM }} />
-                <input
-                  value={query}
-                  onChange={e => setQuery(e.target.value)}
-                  placeholder="project, sif, action..."
-                  className="w-full bg-transparent text-xs outline-none"
-                  style={{ color: TEXT }}
-                />
-              </div>
-
-              <label className="text-[10px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Level</label>
-              <select
-                value={levelFilter}
-                onChange={e => setLevelFilter(e.target.value as 'all' | AuditLevel)}
-                className="h-8 w-full rounded-lg border px-2 text-xs outline-none"
-                style={{ borderColor: BORDER, background: SURFACE, color: TEXT }}
+    <div className="border-y px-5 py-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div className="flex w-full flex-col gap-3 lg:max-w-[760px] lg:flex-row lg:items-center">
+          <div className="relative w-full lg:max-w-[560px]">
+            <Search
+              size={14}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2"
+              style={{ color: TEXT_DIM }}
+            />
+            <Input
+              type="search"
+              value={query}
+              onChange={event => onChange(event.target.value)}
+              placeholder="Rechercher un projet, une SIF, une action ou un détail..."
+              className="h-10 rounded-lg pl-9 pr-9 text-sm"
+            />
+            {hasQuery ? (
+              <button
+                type="button"
+                onClick={() => onChange('')}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-xs"
+                style={{ color: TEXT_DIM }}
               >
-                <option value="all">All levels</option>
-                <option value="warning">Warnings</option>
-                <option value="info">Info</option>
-              </select>
-
-              <div className="rounded-lg border px-2 py-2 text-xs" style={{ borderColor: BORDER, background: SURFACE, color: TEXT_DIM }}>
-                Warning events: <span style={{ color: '#F59E0B' }}>{warningCount}</span>
-              </div>
-            </>
-          )}
-
-          {activeTab === 'details' && (
-            <>
-              <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Selected Event</p>
-              {selected ? (
-                <div className="space-y-3 rounded-xl border p-3" style={{ borderColor: BORDER, background: CARD_BG }}>
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: TEXT }}>{selected.action}</p>
-                    <p className="text-xs" style={{ color: TEXT_DIM }}>{formatWhen(selected.timestamp)}</p>
-                  </div>
-                  <div className="rounded border px-2 py-2" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                    <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>Scope</p>
-                    <p className="text-xs mt-1" style={{ color: TEXT }}>
-                      {selected.projectName}{selected.sifNumber ? ` · ${selected.sifNumber}` : ''}
-                    </p>
-                    <p className="text-xs mt-1" style={{ color: TEXT_DIM }}>{selected.details}</p>
-                  </div>
-                  <div className="text-[11px]" style={{ color: TEXT_DIM }}>
-                    Actor: <span style={{ color: TEXT }}>{selected.actor || 'System'}</span>
-                  </div>
-                  {!!selected.sifId && (
-                    <button
-                      type="button"
-                      onClick={onOpenSelected}
-                      className="w-full rounded-lg px-3 py-2 text-xs font-bold"
-                      style={{ background: 'linear-gradient(135deg, #009BA4, #007A82)', color: '#fff' }}
-                    >
-                      Open related SIF
-                    </button>
-                  )}
-                </div>
-              ) : (
-                <div className="rounded-xl border px-3 py-4 text-xs" style={{ borderColor: BORDER, color: TEXT_DIM, background: CARD_BG }}>
-                  Select an event for details.
-                </div>
-              )}
-            </>
-          )}
-        </IntercalaireCard>
+                <X size={14} />
+              </button>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap items-center gap-2 text-[11px]">
+            {projectLabel ? (
+              <span
+                className="inline-flex items-center rounded-full border px-2.5 py-1"
+                style={{ color: TEXT, borderColor: `${BORDER}80`, background: PAGE_BG }}
+              >
+                {projectLabel}
+              </span>
+            ) : null}
+            {scopeLabel ? (
+              <span
+                className="inline-flex items-center rounded-full border px-2.5 py-1"
+                style={{
+                  color: AUDIT_SCOPE_META[scopeLabel as keyof typeof AUDIT_SCOPE_META]?.tone ?? TEXT,
+                  borderColor: `${BORDER}80`,
+                  background: PAGE_BG,
+                }}
+              >
+                {AUDIT_SCOPE_META[scopeLabel as keyof typeof AUDIT_SCOPE_META]?.label ?? scopeLabel}
+              </span>
+            ) : null}
+          </div>
+        </div>
+        <p className="text-[11px]" style={{ color: TEXT_DIM }}>
+          {hasQuery ? `${resultCount} résultats sur ${totalCount}` : `${totalCount} événements visibles`}
+        </p>
       </div>
     </div>
   )
 }
 
+function AuditRightPanel({
+  selected,
+  onOpenSelected,
+}: {
+  selected: AuditEntry | null
+  onOpenSelected: () => void
+}) {
+  const { TEXT, TEXT_DIM } = usePrismTheme()
+
+  return (
+    <RightPanelShell items={AUDIT_RIGHT_TABS} active="event" onSelect={() => {}}>
+      <RightPanelBody compact className="space-y-4">
+        <InspectorSection title="Sélection">
+          {selected ? (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <AuditLevelBadge level={selected.level} />
+                <AuditKindBadge kind={selected.kind} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold" style={{ color: TEXT }}>{selected.action}</p>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{selected.details}</p>
+              </div>
+            </div>
+          ) : (
+            <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+              Sélectionne un événement dans le journal pour inspecter son contexte et ouvrir la vue liée.
+            </p>
+          )}
+        </InspectorSection>
+
+        <InspectorSection title="Contexte">
+          {selected ? (
+            <InspectorSurface className="space-y-0">
+              <InspectorReferenceRow label="Date" value={formatAuditWhen(selected.timestamp)} />
+              <InspectorReferenceRow label="Projet" value={selected.projectName} />
+              {selected.sifNumber ? <InspectorReferenceRow label="SIF" value={selected.sifNumber} /> : null}
+              <InspectorReferenceRow label="Acteur" value={selected.actor || 'System'} />
+              {selected.linkedViewLabel ? <InspectorReferenceRow label="Vue liée" value={selected.linkedViewLabel} /> : null}
+            </InspectorSurface>
+          ) : (
+            <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+              Le contexte projet et la vue liée apparaîtront ici dès qu’une ligne sera sélectionnée.
+            </p>
+          )}
+        </InspectorSection>
+
+        <InspectorSection title="Action">
+          {selected?.targetView === 'engine' ? (
+            <InspectorActionButton
+              onClick={onOpenSelected}
+              color="#FFFFFF"
+              background="linear-gradient(135deg, #0F766E, #0B5D57)"
+              borderColor="rgba(15,118,110,0.4)"
+            >
+              <span>Ouvrir Engine</span>
+              <ArrowUpRight size={13} />
+            </InspectorActionButton>
+          ) : selected?.sifId ? (
+            <InspectorActionButton
+              onClick={onOpenSelected}
+              color="#FFFFFF"
+              background="linear-gradient(135deg, #009BA4, #007A82)"
+              borderColor="rgba(0,155,164,0.4)"
+            >
+              <span>Ouvrir la SIF liée</span>
+              <ArrowUpRight size={13} />
+            </InspectorActionButton>
+          ) : (
+            <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+              Cet événement ne pointe pas vers une vue navigable précise.
+            </p>
+          )}
+        </InspectorSection>
+      </RightPanelBody>
+    </RightPanelShell>
+  )
+}
+
+function AuditRow({
+  entry,
+  active,
+  onClick,
+}: {
+  entry: AuditEntry
+  active: boolean
+  onClick: () => void
+}) {
+  const { BORDER, PAGE_BG, SHADOW_CARD, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
+  const levelTone = entry.level === 'warning' ? semantic.warning : semantic.info
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="group relative grid w-full gap-4 px-5 py-4 text-left transition-[background-color,border-color,box-shadow,transform] duration-150 ease-out"
+      style={{
+        gridTemplateColumns: '136px 184px minmax(0,1.65fr) minmax(0,1fr)',
+        borderBottom: `1px solid ${BORDER}35`,
+        background: active ? SURFACE : 'transparent',
+        boxShadow: active ? SHADOW_CARD : 'none',
+        transform: 'translateY(0)',
+      }}
+      onMouseEnter={event => {
+        if (!active) {
+          event.currentTarget.style.background = PAGE_BG
+          event.currentTarget.style.boxShadow = SHADOW_SOFT
+          event.currentTarget.style.transform = 'translateY(-0.5px)'
+        }
+      }}
+      onMouseLeave={event => {
+        event.currentTarget.style.background = active ? SURFACE : 'transparent'
+        event.currentTarget.style.boxShadow = active ? SHADOW_CARD : 'none'
+        event.currentTarget.style.transform = 'translateY(0)'
+      }}
+    >
+      <span
+        className="pointer-events-none absolute left-0 top-2 bottom-2 w-0.5 rounded-full transition-[opacity,transform] duration-150 ease-out"
+        style={{
+          background: levelTone,
+          opacity: active ? 1 : 0,
+          transform: `translateX(${active ? '0px' : '-1px'}) scaleY(${active ? 1 : 0.64})`,
+        }}
+      />
+
+      <div className="space-y-2">
+        <AuditLevelBadge level={entry.level} />
+        <AuditKindBadge kind={entry.kind} />
+      </div>
+
+      <div className="min-w-0">
+        <p className="text-[12px] font-semibold" style={{ color: TEXT }}>
+          {formatAuditWhen(entry.timestamp)}
+        </p>
+        <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
+          {entry.actor || 'System'}
+        </p>
+      </div>
+
+      <div className="min-w-0">
+        <p className="truncate text-sm font-semibold" style={{ color: TEXT }}>
+          {entry.action}
+        </p>
+        <p className="mt-1 text-[12px] leading-relaxed" style={{ color: TEXT_DIM }}>
+          {entry.details}
+        </p>
+      </div>
+
+      <div className="min-w-0">
+        <p className="truncate text-[12px] font-semibold" style={{ color: TEXT }}>
+          {entry.projectName}
+          {entry.sifNumber ? ` · ${entry.sifNumber}` : ''}
+        </p>
+        <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
+          {entry.linkedViewLabel ?? 'Contexte projet uniquement'}
+        </p>
+      </div>
+    </button>
+  )
+}
+
 export function AuditLogWorkspace() {
-  const projects = useAppStore(s => s.projects)
-  const navigate = useAppStore(s => s.navigate)
+  const projects = useAppStore(state => state.projects)
+  const navigate = useAppStore(state => state.navigate)
   const { setRightPanelOverride } = useLayout()
-  const { BORDER, CARD_BG, PANEL_BG, PAGE_BG, SURFACE, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
+  const { activeScope, projectFilter, engineRuns, engineRunsLoading } = useAuditNavigation()
+  const { BORDER, CARD_BG, PAGE_BG, SHADOW_PANEL, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
 
   const [query, setQuery] = useState('')
-  const [levelFilter, setLevelFilter] = useState<'all' | AuditLevel>('all')
   const [selectedId, setSelectedId] = useState<string | null>(null)
 
-  const entries = useMemo<AuditEntry[]>(() => {
-    const list: AuditEntry[] = []
+  const entries = useMemo(() => buildAuditEntries(projects, engineRuns), [engineRuns, projects])
+  const projectLabel = useMemo(
+    () => projectFilter ? projects.find(project => project.id === projectFilter)?.name ?? null : null,
+    [projectFilter, projects],
+  )
 
-    projects.forEach(project => {
-      list.push({
-        id: `project-created-${project.id}`,
-        level: 'info',
-        timestamp: project.createdAt,
-        action: 'Project created',
-        details: `Project "${project.name}" initialized.`,
-        actor: 'System',
-        projectName: project.name,
-        projectId: project.id,
-      })
+  const projectScopedEntries = useMemo(
+    () => projectFilter ? entries.filter(entry => entry.projectId === projectFilter) : entries,
+    [entries, projectFilter],
+  )
 
-      if (project.updatedAt && project.updatedAt !== project.createdAt) {
-        list.push({
-          id: `project-updated-${project.id}-${project.updatedAt}`,
-          level: 'info',
-          timestamp: project.updatedAt,
-          action: 'Project updated',
-          details: `Project "${project.name}" metadata updated.`,
-          actor: 'System',
-          projectName: project.name,
-          projectId: project.id,
-        })
-      }
-
-      project.sifs.forEach(sif => {
-        if (sif.date) {
-          list.push({
-            id: `sif-date-${project.id}-${sif.id}-${sif.date}`,
-            level: 'info',
-            timestamp: sif.date,
-            action: 'SIF record updated',
-            details: 'SIF record date changed/confirmed.',
-            actor: sif.madeBy || 'System',
-            projectName: project.name,
-            projectId: project.id,
-            sifNumber: sif.sifNumber,
-            sifId: sif.id,
-            actionTab: 'cockpit',
-          })
-        }
-
-        if (sif.status !== 'draft') {
-          list.push({
-            id: `sif-status-${project.id}-${sif.id}-${sif.status}`,
-            level: 'info',
-            timestamp: project.updatedAt,
-            action: `SIF status: ${sif.status}`,
-            details: `Status transition to ${sif.status}.`,
-            actor: sif.verifiedBy || sif.approvedBy || 'System',
-            projectName: project.name,
-            projectId: project.id,
-            sifNumber: sif.sifNumber,
-            sifId: sif.id,
-            actionTab: 'cockpit',
-          })
-        }
-
-        ;(sif.testCampaigns ?? []).forEach(campaign => {
-          list.push({
-            id: `campaign-${project.id}-${sif.id}-${campaign.id}`,
-            level: campaign.verdict === 'fail' || campaign.verdict === 'conditional' ? 'warning' : 'info',
-            timestamp: campaign.date,
-            action: `Proof test campaign (${campaign.verdict})`,
-            details: campaign.notes || 'Campaign recorded.',
-            actor: campaign.conductedBy || campaign.reviewedBy || 'System',
-            projectName: project.name,
-            projectId: project.id,
-            sifNumber: sif.sifNumber,
-            sifId: sif.id,
-            actionTab: 'exploitation',
-          })
-        })
-
-        ;(sif.operationalEvents ?? []).forEach(event => {
-          const warning = event.impact === 'negative' || event.type === 'fault_detected'
-          list.push({
-            id: `event-${project.id}-${sif.id}-${event.id}`,
-            level: warning ? 'warning' : 'info',
-            timestamp: event.date,
-            action: `Operational event: ${event.type}`,
-            details: event.description || 'Field operational event.',
-            actor: 'System',
-            projectName: project.name,
-            projectId: project.id,
-            sifNumber: sif.sifNumber,
-            sifId: sif.id,
-            actionTab: 'exploitation',
-          })
-        })
-      })
-    })
-
-    return list.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-  }, [projects])
+  const scopeEntries = useMemo(
+    () => projectScopedEntries.filter(entry => matchesAuditScope(entry, activeScope)),
+    [activeScope, projectScopedEntries],
+  )
 
   const filteredEntries = useMemo(() => {
-    const q = query.trim().toLowerCase()
-    return entries.filter(entry => {
-      if (levelFilter !== 'all' && entry.level !== levelFilter) return false
-      if (!q) return true
-      const haystack = `${entry.action} ${entry.details} ${entry.projectName} ${entry.sifNumber ?? ''}`.toLowerCase()
-      return haystack.includes(q)
+    const trimmed = query.trim().toLowerCase()
+    if (!trimmed) return scopeEntries
+    return scopeEntries.filter(entry => {
+      const haystack = [
+        entry.action,
+        entry.details,
+        entry.projectName,
+        entry.sifNumber ?? '',
+        entry.actor,
+        AUDIT_KIND_LABELS[entry.kind],
+      ].join(' ').toLowerCase()
+      return haystack.includes(trimmed)
     })
-  }, [entries, levelFilter, query])
+  }, [query, scopeEntries])
 
   useEffect(() => {
     if (!filteredEntries.length) {
       setSelectedId(null)
       return
     }
-    if (!selectedId || !filteredEntries.some(e => e.id === selectedId)) {
+    if (!selectedId || !filteredEntries.some(entry => entry.id === selectedId)) {
       setSelectedId(filteredEntries[0].id)
     }
   }, [filteredEntries, selectedId])
 
-  const selected = filteredEntries.find(e => e.id === selectedId) ?? null
-  const warningCount = entries.filter(e => e.level === 'warning').length
+  const selected = filteredEntries.find(entry => entry.id === selectedId) ?? null
+  const warningCount = scopeEntries.filter(entry => entry.level === 'warning').length
 
   const openSelected = useCallback(() => {
-    if (!selected?.projectId || !selected?.sifId) return
+    if (!selected) return
+    if (selected.targetView === 'engine') {
+      navigate({ type: 'engine' })
+      return
+    }
+    if (!selected.projectId || !selected.sifId) return
     navigate({
       type: 'sif-dashboard',
       projectId: selected.projectId,
@@ -288,113 +388,117 @@ export function AuditLogWorkspace() {
 
   useEffect(() => {
     setRightPanelOverride(
-      <AuditLogRightPanel
-        query={query}
-        levelFilter={levelFilter}
-        total={entries.length}
-        filtered={filteredEntries.length}
-        warningCount={warningCount}
+      <AuditRightPanel
         selected={selected}
-        setQuery={setQuery}
-        setLevelFilter={setLevelFilter}
         onOpenSelected={openSelected}
       />,
     )
     return () => setRightPanelOverride(null)
-  }, [entries.length, filteredEntries.length, levelFilter, openSelected, query, selected, setRightPanelOverride, warningCount])
+  }, [openSelected, selected, setRightPanelOverride])
 
   return (
-    <div className="flex flex-1 min-h-0 flex-col overflow-hidden" style={{ background: PAGE_BG }}>
-      <div className="flex items-center justify-between px-6 py-4 border-b shrink-0" style={{ borderColor: BORDER, background: PANEL_BG }}>
-        <div className="flex items-center gap-3">
-          <div className="flex h-8 w-8 items-center justify-center rounded-lg" style={{ background: `${TEAL}20`, border: `1px solid ${TEAL}30` }}>
-            <History size={15} style={{ color: TEAL }} />
+    <div className="flex-1 min-h-0 overflow-y-auto">
+      <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-5 px-6 py-6">
+        <section
+          className="overflow-hidden rounded-xl border"
+          style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}
+        >
+          <div className="border-b px-5 py-4" style={{ borderColor: `${BORDER}35` }}>
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+              <div>
+                <div className="flex items-start gap-3">
+                  <span
+                    className="mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border"
+                    style={{ color: TEAL, borderColor: `${TEAL}25`, background: `${TEAL}10` }}
+                  >
+                    <History size={16} />
+                  </span>
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: TEAL_DIM }}>
+                      Traçabilité active
+                    </p>
+                    <h1 className="mt-1 text-[24px] font-semibold tracking-tight leading-none" style={{ color: TEXT }}>
+                      Audit Log
+                    </h1>
+                  </div>
+                </div>
+                <p className="mt-3 max-w-[820px] text-[14px] leading-[1.8]" style={{ color: TEXT_DIM }}>
+                  Lecture transversale des événements utiles du workspace: gouvernance des dossiers, proof tests, événements d’exploitation et runs Engine. Le panneau droit donne le contexte exact de la ligne sélectionnée.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2 text-[11px]">
+                <span
+                  className="inline-flex items-center rounded-full border px-2.5 py-1"
+                  style={{ color: TEAL, borderColor: `${TEAL}28`, background: `${TEAL}10` }}
+                >
+                  {filteredEntries.length} visibles
+                </span>
+                <span
+                  className="inline-flex items-center rounded-full border px-2.5 py-1"
+                  style={{ color: warningCount > 0 ? semantic.warningDim : TEXT_DIM, borderColor: `${BORDER}70`, background: PAGE_BG }}
+                >
+                  {warningCount} warning{warningCount > 1 ? 's' : ''} dans le périmètre
+                </span>
+              </div>
+            </div>
           </div>
-          <div>
-            <h1 className="text-sm font-black" style={{ color: TEXT }}>Audit Log</h1>
-            <p className="text-[10px]" style={{ color: TEXT_DIM }}>
-              {filteredEntries.length} event{filteredEntries.length !== 1 ? 's' : ''} filtré{filteredEntries.length !== 1 ? 's' : ''} · {entries.length} total
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3 rounded-xl border px-3 h-8 text-xs" style={{ borderColor: BORDER, background: CARD_BG, color: TEXT_DIM }}>
-          <span>Warnings: {warningCount}</span>
-          <span>·</span>
-          <span>Info: {entries.length - warningCount}</span>
-        </div>
-      </div>
-      <div className="flex-1 overflow-auto min-h-0">
-        {filteredEntries.length === 0 ? (
-          <div className="flex min-h-[220px] items-center justify-center rounded-xl border mx-6 my-4" style={{ borderColor: BORDER, background: CARD_BG }}>
-            <p className="text-sm" style={{ color: TEXT_DIM }}>No events match current filters.</p>
-          </div>
-        ) : (
-          <div className="mx-6 my-4 overflow-hidden rounded-2xl border" style={{ borderColor: BORDER, background: CARD_BG }}>
-            <table className="w-full">
-              <thead>
-                <tr className="border-b" style={{ borderColor: BORDER, background: SURFACE }}>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Level</th>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Timestamp</th>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Action</th>
-                  <th className="px-4 py-2.5 text-left text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Scope</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredEntries.map(entry => {
-                  const active = entry.id === selectedId
-                  const activeBg = isDark ? '#1E2A33' : `${TEAL}10`
-                  const hoverBg = isDark ? SURFACE : PAGE_BG
-                  return (
-                    <tr
-                      key={entry.id}
-                      className="cursor-pointer border-b last:border-b-0 transition-colors"
-                      style={{ borderColor: BORDER, background: active ? activeBg : 'transparent' }}
-                      onClick={() => setSelectedId(entry.id)}
-                      onMouseEnter={e => {
-                        if (!active) e.currentTarget.style.background = hoverBg
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.background = active ? activeBg : 'transparent'
-                      }}
-                    >
-                      <td className="px-4 py-3">
-                        <span
-                          className={cn(
-                            'inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold',
-                            entry.level === 'warning'
-                              ? 'border-amber-400/40 bg-amber-500/10 text-amber-300'
-                              : 'border-blue-400/40 bg-blue-500/10 text-blue-300',
-                          )}
-                        >
-                          {entry.level === 'warning' ? <AlertTriangle size={11} /> : <Info size={11} />}
-                          {entry.level === 'warning' ? 'Warning' : 'Info'}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2 text-xs" style={{ color: TEXT_DIM }}>
-                          <Clock3 size={12} />
-                          {formatWhen(entry.timestamp)}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <p className="text-sm font-semibold" style={{ color: TEXT }}>{entry.action}</p>
-                        <p className="text-xs" style={{ color: TEXT_DIM }}>{entry.details}</p>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <FileClock size={12} style={{ color: TEXT_DIM }} />
-                          <p className="text-xs" style={{ color: TEXT_DIM }}>
-                            {entry.projectName}{entry.sifNumber ? ` · ${entry.sifNumber}` : ''}
-                          </p>
-                        </div>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
+
+          <AuditSearchToolbar
+            query={query}
+            onChange={setQuery}
+            resultCount={filteredEntries.length}
+            totalCount={scopeEntries.length}
+            projectLabel={projectLabel}
+            scopeLabel={activeScope !== 'all' ? activeScope : null}
+          />
+
+          {filteredEntries.length === 0 ? (
+            <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 px-6 py-12">
+              <span
+                className="inline-flex h-12 w-12 items-center justify-center rounded-xl border"
+                style={{ color: TEAL, borderColor: `${TEAL}24`, background: `${TEAL}0F` }}
+              >
+                <History size={20} />
+              </span>
+              <div className="text-center">
+                <p className="text-sm font-semibold" style={{ color: TEXT }}>Aucun événement visible</p>
+                <p className="mt-1 max-w-[520px] text-[13px] leading-relaxed" style={{ color: TEXT_DIM }}>
+                  {engineRunsLoading
+                    ? 'Le journal charge encore les runs Engine. Réessaie dans un instant.'
+                    : 'Ajuste la portée dans le panneau gauche ou efface la recherche pour revenir au journal complet.'}
+                </p>
+              </div>
+            </div>
+          ) : (
+            <div className="min-h-0">
+              <div
+                className="grid gap-4 border-b px-5 py-3 text-[10px] font-bold uppercase tracking-[0.14em]"
+                style={{
+                  gridTemplateColumns: '136px 184px minmax(0,1.65fr) minmax(0,1fr)',
+                  borderColor: `${BORDER}35`,
+                  background: PAGE_BG,
+                  color: TEXT_DIM,
+                }}
+              >
+                <span>Niveau</span>
+                <span>Date</span>
+                <span>Evénement</span>
+                <span>Contexte</span>
+              </div>
+
+              <div>
+                {filteredEntries.map(entry => (
+                  <AuditRow
+                    key={entry.id}
+                    entry={entry}
+                    active={entry.id === selectedId}
+                    onClick={() => setSelectedId(entry.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
+        </section>
       </div>
     </div>
   )

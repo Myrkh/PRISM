@@ -22,7 +22,6 @@ import { ProjectModal } from '@/components/projects/ProjectModal'
 import { ProjectAccessDialog } from '@/components/projects/ProjectAccessDialog'
 import { AuthScreen } from '@/components/auth/AuthScreen'
 import { SettingsWorkspace } from '@/components/settings/SettingsWorkspace'
-import { ReviewQueueWorkspace } from '@/components/global/ReviewQueueWorkspace'
 import { AuditLogWorkspace } from '@/components/global/AuditLogWorkspace'
 import { SIFHistoryWorkspace } from '@/components/global/SIFHistoryWorkspace'
 import { EngineWorkspace } from '@/components/global/EngineWorkspace'
@@ -33,6 +32,8 @@ import { LibraryWorkspace } from '@/components/global/LibraryWorkspace'
 import { DocsNavigationProvider } from '@/components/docs/DocsNavigation'
 import { SearchNavigationProvider } from '@/components/search/SearchNavigation'
 import { LibraryNavigationProvider } from '@/components/library/LibraryNavigation'
+import { AuditNavigationProvider } from '@/components/audit/AuditNavigation'
+import { EngineNavigationProvider } from '@/components/engine/EngineNavigation'
 import { fetchAllProjects } from '@/lib/db'
 
 // ─── Hash routing ─────────────────────────────────────────────────────────
@@ -42,10 +43,16 @@ function viewToHash(view: AppView): string {
     return `#/project/${view.projectId}/sif/${view.sifId}/${view.tab}`
   }
   if (view.type === 'search') return '#/search'
-  if (view.type === 'library') return '#/library'
+  if (view.type === 'library') {
+    const params = new URLSearchParams()
+    if (view.templateId) params.set('template', view.templateId)
+    if (view.origin) params.set('origin', view.origin)
+    if (view.libraryName) params.set('library', view.libraryName)
+    const query = params.toString()
+    return query ? `#/library?${query}` : '#/library'
+  }
   if (view.type === 'settings') return `#/settings/${view.section}`
   if (view.type === 'docs') return '#/docs'
-  if (view.type === 'review-queue') return '#/review'
   if (view.type === 'audit-log') return '#/audit'
   if (view.type === 'sif-history') return '#/history'
   if (view.type === 'engine') return '#/engine'
@@ -54,7 +61,8 @@ function viewToHash(view: AppView): string {
 }
 
 function hashToView(hash: string): AppView | null {
-  const path = hash.replace(/^#/, '') || '/'
+  const raw = hash.replace(/^#/, '') || '/'
+  const [path, queryString = ''] = raw.split('?')
   const m    = path.match(/^\/project\/([^/]+)\/sif\/([^/]+)\/([^/]+)$/)
   if (m) {
     const tab = normalizeSIFTab(m[3])
@@ -69,9 +77,23 @@ function hashToView(hash: string): AppView | null {
     }
   }
   if (path === '/search') return { type: 'search' }
-  if (path === '/library') return { type: 'library' }
+  if (path === '/library') {
+    const params = new URLSearchParams(queryString)
+    const templateId = params.get('template') || undefined
+    const originParam = params.get('origin')
+    const libraryName = params.get('library') || undefined
+    const origin = originParam === 'builtin' || originParam === 'project' || originParam === 'user'
+      ? originParam
+      : undefined
+    return {
+      type: 'library',
+      ...(templateId ? { templateId } : {}),
+      ...(origin ? { origin } : {}),
+      ...(libraryName ? { libraryName } : {}),
+    }
+  }
   if (path === '/docs') return { type: 'docs' }
-  if (path === '/review') return { type: 'review-queue' }
+  if (path === '/review') return { type: 'audit-log' }
   if (path === '/audit') return { type: 'audit-log' }
   if (path === '/history') return { type: 'sif-history' }
   if (path === '/engine') return { type: 'engine' }
@@ -248,9 +270,6 @@ export default function App() {
       {view.type === 'docs' && (
         <DocsWorkspace />
       )}
-      {view.type === 'review-queue' && (
-        <ReviewQueueWorkspace />
-      )}
       {view.type === 'audit-log' && (
         <AuditLogWorkspace />
       )}
@@ -319,6 +338,18 @@ export default function App() {
             {shellContent}
           </SIFWorkbenchLayout>
         </LibraryNavigationProvider>
+      ) : view.type === 'audit-log' ? (
+        <AuditNavigationProvider>
+          <SIFWorkbenchLayout projectId={shellProjectId} sifId={shellSifId}>
+            {shellContent}
+          </SIFWorkbenchLayout>
+        </AuditNavigationProvider>
+      ) : view.type === 'engine' ? (
+        <EngineNavigationProvider>
+          <SIFWorkbenchLayout projectId={shellProjectId} sifId={shellSifId}>
+            {shellContent}
+          </SIFWorkbenchLayout>
+        </EngineNavigationProvider>
       ) : (
         <SIFWorkbenchLayout projectId={shellProjectId} sifId={shellSifId}>
           {shellContent}

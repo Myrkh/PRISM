@@ -10,6 +10,7 @@ export interface ComponentTemplate {
   projectId: string | null
   scope: ComponentTemplateScope
   origin: ComponentTemplateOrigin
+  libraryName?: string | null
   name: string
   description: string
   subsystemType: SubsystemType
@@ -34,6 +35,7 @@ export interface ComponentTemplateUpsertInput {
   id?: string
   projectId?: string | null
   scope: Extract<ComponentTemplateScope, 'project' | 'user'>
+  libraryName?: string | null
   name: string
   description?: string
   sourceReference?: string | null

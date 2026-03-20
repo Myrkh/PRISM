@@ -2,16 +2,19 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App'
 import './index.css'
+import { loadAppPreferences } from '@/core/models/appPreferences'
 
-// Init dark mode from persisted store BEFORE first render — avoids flash
-try {
-  const stored = JSON.parse(localStorage.getItem('safeloop-store') || '{}')
-  if (stored?.state?.isDark) {
-    document.documentElement.classList.add('dark')
-  }
-} catch {}
+const bootPreferences = loadAppPreferences()
+if (bootPreferences.theme === 'dark') {
+  document.documentElement.classList.add('dark')
+}
 
-ReactDOM.createRoot(document.getElementById('root')!).render(
+const rootElement = document.getElementById('root')
+if (rootElement === null) {
+  throw new Error('Root element not found')
+}
+
+ReactDOM.createRoot(rootElement).render(
   <React.StrictMode>
     <App />
   </React.StrictMode>,

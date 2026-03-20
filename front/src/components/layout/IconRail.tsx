@@ -6,7 +6,7 @@
  */
 import {
   Home, Search, BookOpen, BookOpenText,
-  ListChecks, History, Cpu,
+  History, Cpu,
   Settings, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
@@ -16,7 +16,6 @@ import { RailDivider, RailIconButton } from '@/components/layout/RailPrimitives'
 const GLOBAL_TOOLS = [
   { id: 'search' as const, Icon: Search, label: 'Recherche globale' },
   { id: 'library' as const, Icon: BookOpen, label: 'Bibliothèque maître' },
-  { id: 'review-queue' as const, Icon: ListChecks, label: 'Review Queue' },
   { id: 'audit-log' as const, Icon: History, label: "Journal d'audit" },
   { id: 'engine' as const, Icon: Cpu, label: 'Moteur de calcul' },
 ] as const

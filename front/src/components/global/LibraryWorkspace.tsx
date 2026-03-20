@@ -8,12 +8,15 @@ import {
   LibraryTemplateCard,
 } from '@/components/library/LibraryTemplateCard'
 import { useLibraryNavigation, getLibraryEntryKey } from '@/components/library/LibraryNavigation'
+import { LibraryImportReviewDialog } from '@/components/library/LibraryImportReviewDialog'
 import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { Input } from '@/components/ui/input'
 import {
+  analyzeComponentTemplateImport,
   buildComponentTemplateImportStarter,
-  parseComponentTemplateImport,
   serializeComponentTemplates,
+  type ComponentTemplateImportDecision,
+  type ComponentTemplateImportPreview,
 } from '@/features/library'
 import { useAppStore } from '@/store/appStore'
 import { semantic } from '@/styles/tokens'
@@ -39,6 +42,7 @@ export function LibraryWorkspace() {
     sourceScope,
     subsystemScope,
     projectFilter,
+    libraryFilter,
     entries,
     groupedEntries,
     totalIndexed,
@@ -62,17 +66,22 @@ export function LibraryWorkspace() {
   const { profile } = useAppStore(state => ({ profile: state.profile }))
   const projects = useAppStore(state => state.projects)
   const setSyncError = useAppStore(state => state.setSyncError)
-  const { BORDER, CARD_BG, PAGE_BG, SHADOW_CARD, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, SHADOW_PANEL, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
   const [expandedTemplateId, setExpandedTemplateId] = useState<string | null>(null)
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [visibleCountByType, setVisibleCountByType] = useState(INITIAL_LIBRARY_VISIBLE_COUNT)
+  const [importPreview, setImportPreview] = useState<ComponentTemplateImportPreview | null>(null)
+  const [importDecisions, setImportDecisions] = useState<Record<string, ComponentTemplateImportDecision>>({})
+  const [importFileName, setImportFileName] = useState('')
+  const [importBusy, setImportBusy] = useState(false)
 
   const projectLabel = useMemo(
     () => projectFilter ? projects.find(project => project.id === projectFilter)?.name ?? null : null,
     [projectFilter, projects],
   )
+  const selectedLibraryLabel = libraryFilter ?? null
 
   const visibleSubsystems = subsystemScope === 'all'
     ? (['sensor', 'logic', 'actuator'] as const)
@@ -83,9 +92,12 @@ export function LibraryWorkspace() {
     .map(entry => entry.template)
 
   const importScope = projectFilter ? 'project' : 'user'
+  const existingImportTemplates = importScope === 'project'
+    ? allProjectTemplates.filter(template => template.projectId === projectFilter)
+    : userTemplates
   const importTargetLabel = projectLabel
-    ? `Import vers ${projectLabel}`
-    : 'Import vers ma bibliothèque'
+    ? `Import vers ${projectLabel}${selectedLibraryLabel ? ` · ${selectedLibraryLabel}` : ''}`
+    : `Import vers ma bibliothèque${selectedLibraryLabel ? ` · ${selectedLibraryLabel}` : ''}`
 
   const resetFeedback = () => {
     setStatusMessage(null)
@@ -101,12 +113,89 @@ export function LibraryWorkspace() {
 
     try {
       const text = await file.text()
-      const batchId = crypto.randomUUID()
-      const payload = parseComponentTemplateImport(text, importScope, projectFilter)
-      const imported = await importTemplates(payload.map(template => ({ ...template, importBatchId: batchId })))
-      setStatusMessage(`${imported.length} template(s) importé(s).`)
+      const preview = analyzeComponentTemplateImport(
+        text,
+        importScope,
+        projectFilter,
+        existingImportTemplates,
+        selectedLibraryLabel,
+      )
+      setImportPreview(preview)
+      setImportFileName(file.name)
+      setImportDecisions(Object.fromEntries(preview.entries.map(entry => [entry.id, entry.suggestedDecision])))
     } catch (err: unknown) {
       setSyncError(err instanceof Error ? err.message : String(err))
+    }
+  }
+
+  const closeImportPreview = () => {
+    if (importBusy) return
+    setImportPreview(null)
+    setImportDecisions({})
+    setImportFileName('')
+  }
+
+  const applySuggestedImportDecisions = () => {
+    if (!importPreview) return
+    setImportDecisions(Object.fromEntries(importPreview.entries.map(entry => [entry.id, entry.suggestedDecision])))
+  }
+
+  const applyBulkImportDecision = (decision: Extract<ComponentTemplateImportDecision, 'create' | 'update'>) => {
+    if (!importPreview) return
+    setImportDecisions(current => ({
+      ...current,
+      ...Object.fromEntries(importPreview.entries.map(entry => {
+        const nextDecision = entry.availableDecisions.includes(decision) ? decision : (entry.availableDecisions[0] ?? 'ignore')
+        return [entry.id, nextDecision]
+      })),
+    }))
+  }
+
+  const handleImportDecisionChange = (entryId: string, decision: ComponentTemplateImportDecision) => {
+    setImportDecisions(current => ({ ...current, [entryId]: decision }))
+  }
+
+  const confirmImportPreview = async () => {
+    if (!importPreview) return
+
+    const summary = importPreview.entries.reduce((acc, entry) => {
+      const decision = importDecisions[entry.id] ?? entry.suggestedDecision
+      if (!entry.template || decision === 'ignore') return acc
+      acc[decision] += 1
+      return acc
+    }, { create: 0, update: 0 })
+
+    const payload = importPreview.entries.flatMap(entry => {
+      const decision = importDecisions[entry.id] ?? entry.suggestedDecision
+      if (!entry.template || decision === 'ignore') return []
+      return [{
+        ...entry.template,
+        id: decision === 'update' ? (entry.duplicate?.id ?? entry.template.id) : undefined,
+        importBatchId: crypto.randomUUID(),
+      }]
+    })
+
+    if (payload.length === 0) {
+      setStatusMessage('Aucune entrée sélectionnée pour import.')
+      closeImportPreview()
+      return
+    }
+
+    resetFeedback()
+    setImportBusy(true)
+
+    try {
+      const imported = await importTemplates(payload)
+      setStatusMessage(
+        `${imported.length} template(s) importé(s) · ${summary.create} créé(s) · ${summary.update} mis à jour.`
+      )
+      setImportPreview(null)
+      setImportDecisions({})
+      setImportFileName('')
+    } catch (err: unknown) {
+      setSyncError(err instanceof Error ? err.message : String(err))
+    } finally {
+      setImportBusy(false)
     }
   }
 
@@ -214,8 +303,8 @@ export function LibraryWorkspace() {
 
       <div className="mx-auto flex w-full max-w-[1460px] flex-col gap-5 px-6 py-6">
         <section
-          className="overflow-hidden rounded-2xl border"
-          style={{ borderColor: `${BORDER}50`, background: CARD_BG, boxShadow: SHADOW_CARD }}
+          className="overflow-hidden rounded-xl border"
+          style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}
         >
           <div className="border-b px-6 py-4" style={{ borderColor: `${BORDER}35` }}>
             <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
@@ -240,6 +329,11 @@ export function LibraryWorkspace() {
                 {projectLabel && (
                   <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEXT_DIM, borderColor: `${BORDER}70`, background: PAGE_BG }}>
                     {projectLabel}
+                  </span>
+                )}
+                {selectedLibraryLabel && (
+                  <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEXT_DIM, borderColor: `${BORDER}70`, background: PAGE_BG }}>
+                    {selectedLibraryLabel}
                   </span>
                 )}
               </div>
@@ -379,8 +473,8 @@ export function LibraryWorkspace() {
             return (
               <section
                 key={type}
-                className="overflow-hidden rounded-2xl border"
-                style={{ borderColor: `${BORDER}50`, background: CARD_BG, boxShadow: SHADOW_CARD }}
+                className="overflow-hidden rounded-xl border"
+                style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}
               >
                 <div className="flex flex-col gap-3 border-b px-5 py-4 lg:flex-row lg:items-start lg:justify-between" style={{ borderColor: `${BORDER}35` }}>
                   <div className="min-w-0">
@@ -462,12 +556,26 @@ export function LibraryWorkspace() {
         </div>
 
         <section
-          className="overflow-hidden rounded-2xl border"
-          style={{ borderColor: `${BORDER}50`, background: CARD_BG, boxShadow: SHADOW_CARD }}
+          className="overflow-hidden rounded-xl border"
+          style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}
         >
           <LibraryOriginLegend />
         </section>
       </div>
+
+      {importPreview && (
+        <LibraryImportReviewDialog
+          fileName={importFileName}
+          preview={importPreview}
+          decisions={importDecisions}
+          busy={importBusy}
+          onDecisionChange={handleImportDecisionChange}
+          onApplySuggested={applySuggestedImportDecisions}
+          onBulkDecision={applyBulkImportDecision}
+          onClose={closeImportPreview}
+          onConfirm={() => void confirmImportPreview()}
+        />
+      )}
     </div>
   )
 }

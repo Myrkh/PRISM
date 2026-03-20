@@ -2,6 +2,7 @@ import type { ElementType } from 'react'
 import {
   AlertTriangle,
   BookCopy,
+  BookOpen,
   ClipboardCheck,
   FileClock,
   FileSearch,
@@ -42,6 +43,11 @@ export const SEARCH_SCOPE_META: Record<SearchScopeId, {
     hint: 'Parents, sous-composants et occurrences',
     Icon: Wrench,
   },
+  library: {
+    label: 'Bibliothèque',
+    hint: 'Templates maîtres et standards validés',
+    Icon: BookOpen,
+  },
   assumptions: {
     label: 'Hypothèses',
     hint: 'Registre de contexte et de preuve',
@@ -77,6 +83,8 @@ export function getSearchScopeTone(scope: SearchItemScope) {
       return '#49B8C3'
     case 'components':
       return '#D4A55F'
+    case 'library':
+      return '#5B8DEF'
     case 'assumptions':
       return '#5FA3F3'
     case 'actions':
@@ -96,6 +104,7 @@ export const SEARCH_SCOPE_ORDER: SearchItemScope[] = [
   'projects',
   'sifs',
   'components',
+  'library',
   'assumptions',
   'actions',
   'proof',
@@ -113,6 +122,8 @@ export function getSearchResultIcon(kind: SearchResultKind): ElementType {
       return Wrench
     case 'subcomponent':
       return BookCopy
+    case 'template':
+      return BookOpen
     case 'assumption':
       return ClipboardCheck
     case 'action':

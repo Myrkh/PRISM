@@ -5,6 +5,8 @@ export {
   COMPONENT_TEMPLATE_SCHEMA_VERSION,
   createBuiltinComponentTemplate,
   buildComponentTemplateImportStarter,
+  analyzeComponentTemplateImport,
+  getTemplateLibraryName,
   instantiateComponentTemplate,
   buildLibraryDragPayload,
   parseLibraryDragPayload,
@@ -12,5 +14,10 @@ export {
   parseComponentTemplateImport,
   getTemplateCategoryLabel,
   getPanelScopeLabel,
+  type ComponentTemplateImportDecision,
+  type ComponentTemplateImportDuplicate,
+  type ComponentTemplateImportIssue,
+  type ComponentTemplateImportPreview,
+  type ComponentTemplateImportPreviewEntry,
 } from './templateUtils'
 export { useComponentLibrary } from './useComponentLibrary'

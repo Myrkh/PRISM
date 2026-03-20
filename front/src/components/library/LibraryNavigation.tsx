@@ -8,21 +8,29 @@ import {
   type ReactNode,
 } from 'react'
 import type { ComponentTemplate, SubsystemType } from '@/core/types'
-import { useComponentLibrary } from '@/features/library'
+import { getTemplateLibraryName, useComponentLibrary } from '@/features/library'
 import { useAppStore } from '@/store/appStore'
 import type { LibraryOriginBadge } from './LibraryTemplateCard'
 
 export type LibrarySourceScope = 'all' | LibraryOriginBadge
 export type LibrarySubsystemScope = 'all' | SubsystemType
+export type LibraryCollectionScope = 'user' | 'project' | 'mixed'
 
 export type LibraryCatalogEntry = {
   template: ComponentTemplate
   origin: LibraryOriginBadge
 }
 
+export type LibraryNamedFilter = {
+  id: string
+  label: string
+  count: number
+  scope: LibraryCollectionScope
+}
+
 export type LibraryEditorState =
   | { kind: 'empty' }
-  | { kind: 'create'; subsystemType: SubsystemType }
+  | { kind: 'create'; subsystemType: SubsystemType; libraryName: string | null }
   | { kind: 'template'; entryKey: string }
 
 export type LibraryEditorMode = 'empty' | 'create' | 'edit' | 'clone'
@@ -39,11 +47,13 @@ type LibraryNavigationContextValue = {
   sourceScope: LibrarySourceScope
   subsystemScope: LibrarySubsystemScope
   projectFilter: string | null
+  libraryFilter: string | null
   entries: LibraryCatalogEntry[]
   groupedEntries: Record<SubsystemType, LibraryCatalogEntry[]>
   sourceCounts: Record<LibrarySourceScope, number>
   subsystemCounts: Record<LibrarySubsystemScope, number>
   projectFilters: LibraryProjectFilter[]
+  libraryFilters: LibraryNamedFilter[]
   totalIndexed: number
   totalVisible: number
   builtinTemplates: ComponentTemplate[]
@@ -61,13 +71,14 @@ type LibraryNavigationContextValue = {
   selectedEntryKey: string | null
   editorSelection: LibraryCatalogEntry | null
   openEntry: (entry: LibraryCatalogEntry) => void
-  startCreate: (subsystemType: SubsystemType) => void
+  startCreate: (subsystemType: SubsystemType, libraryName?: string | null) => void
   clearEditor: () => void
   focusSavedTemplate: (template: ComponentTemplate) => void
   setQuery: (value: string) => void
   setSourceScope: (value: LibrarySourceScope) => void
   setSubsystemScope: (value: LibrarySubsystemScope) => void
   setProjectFilter: (value: string | null) => void
+  setLibraryFilter: (value: string | null) => void
   clearFilters: () => void
 }
 
@@ -83,6 +94,12 @@ function sortEntries(entries: LibraryCatalogEntry[]) {
   return [...entries].sort((left, right) => {
     const originDiff = ORIGIN_PRIORITY[left.origin] - ORIGIN_PRIORITY[right.origin]
     if (originDiff !== 0) return originDiff
+
+    const leftLibrary = getTemplateLibraryName(left.template) ?? ''
+    const rightLibrary = getTemplateLibraryName(right.template) ?? ''
+    const libraryDiff = leftLibrary.localeCompare(rightLibrary, 'fr', { sensitivity: 'base' })
+    if (libraryDiff !== 0) return libraryDiff
+
     return left.template.name.localeCompare(right.template.name, 'fr', { sensitivity: 'base' })
   })
 }
@@ -96,6 +113,7 @@ function matchesQuery(entry: LibraryCatalogEntry, needle: string) {
   const template = entry.template
   const haystack = [
     template.name,
+    template.libraryName,
     template.description,
     template.instrumentType,
     template.instrumentCategory,
@@ -118,10 +136,12 @@ function filterEntries(
     sourceScope = 'all',
     subsystemScope = 'all',
     projectFilter = null,
+    libraryFilter = null,
   }: {
     sourceScope?: LibrarySourceScope
     subsystemScope?: LibrarySubsystemScope
     projectFilter?: string | null
+    libraryFilter?: string | null
   } = {},
 ) {
   const needle = query.trim().toLowerCase()
@@ -131,6 +151,7 @@ function filterEntries(
     if (sourceScope !== 'all' && entry.origin !== sourceScope) return false
     if (subsystemScope !== 'all' && entry.template.subsystemType !== subsystemScope) return false
     if (projectFilter && entry.origin === 'project' && entry.template.projectId !== projectFilter) return false
+    if (libraryFilter && getTemplateLibraryName(entry.template) !== libraryFilter) return false
     return true
   })
 }
@@ -155,6 +176,7 @@ function countBySubsystem(entries: LibraryCatalogEntry[]): Record<LibrarySubsyst
 
 export function LibraryNavigationProvider({ children }: { children: ReactNode }) {
   const projects = useAppStore(state => state.projects)
+  const view = useAppStore(state => state.view)
   const {
     builtinTemplates,
     allProjectTemplates,
@@ -172,6 +194,7 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
   const [sourceScope, setSourceScope] = useState<LibrarySourceScope>('all')
   const [subsystemScope, setSubsystemScope] = useState<LibrarySubsystemScope>('all')
   const [projectFilter, setProjectFilter] = useState<string | null>(null)
+  const [libraryFilter, setLibraryFilter] = useState<string | null>(null)
   const [editorState, setEditorState] = useState<LibraryEditorState>({ kind: 'empty' })
   const deferredQuery = useDeferredValue(query)
 
@@ -205,24 +228,52 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
     setEditorState({ kind: 'empty' })
   }, [editorState, entryIndex])
 
+  useEffect(() => {
+    if (view.type !== 'library') return
+    if (!view.templateId && !view.libraryName && !view.origin) return
+
+    if (view.origin) setSourceScope(view.origin)
+    if (view.libraryName) setLibraryFilter(view.libraryName)
+
+    if (!view.templateId) return
+
+    const entry = allEntries.find(candidate => (
+      candidate.template.id === view.templateId
+      && (!view.origin || candidate.origin === view.origin)
+    ))
+    if (!entry) return
+
+    if (entry.origin === 'project' && entry.template.projectId) {
+      setProjectFilter(entry.template.projectId)
+    }
+    const nextLibraryName = view.libraryName ?? getTemplateLibraryName(entry.template)
+    if (nextLibraryName) setLibraryFilter(nextLibraryName)
+    setEditorState({ kind: 'template', entryKey: getLibraryEntryKey(entry.origin, entry.template.id) })
+  }, [allEntries, view])
+
   const scopeUniverse = useMemo(
-    () => filterEntries(allEntries, deferredQuery, { subsystemScope, projectFilter }),
-    [allEntries, deferredQuery, projectFilter, subsystemScope],
+    () => filterEntries(allEntries, deferredQuery, { subsystemScope, projectFilter, libraryFilter }),
+    [allEntries, deferredQuery, libraryFilter, projectFilter, subsystemScope],
   )
 
   const subsystemUniverse = useMemo(
-    () => filterEntries(allEntries, deferredQuery, { sourceScope, projectFilter }),
-    [allEntries, deferredQuery, projectFilter, sourceScope],
+    () => filterEntries(allEntries, deferredQuery, { sourceScope, projectFilter, libraryFilter }),
+    [allEntries, deferredQuery, libraryFilter, projectFilter, sourceScope],
   )
 
   const projectUniverse = useMemo(
-    () => filterEntries(allEntries, deferredQuery, { sourceScope, subsystemScope }),
-    [allEntries, deferredQuery, sourceScope, subsystemScope],
+    () => filterEntries(allEntries, deferredQuery, { sourceScope, subsystemScope, libraryFilter }),
+    [allEntries, deferredQuery, libraryFilter, sourceScope, subsystemScope],
+  )
+
+  const libraryUniverse = useMemo(
+    () => filterEntries(allEntries, deferredQuery, { sourceScope, subsystemScope, projectFilter }),
+    [allEntries, deferredQuery, projectFilter, sourceScope, subsystemScope],
   )
 
   const entries = useMemo(
-    () => filterEntries(allEntries, deferredQuery, { sourceScope, subsystemScope, projectFilter }),
-    [allEntries, deferredQuery, projectFilter, sourceScope, subsystemScope],
+    () => filterEntries(allEntries, deferredQuery, { sourceScope, subsystemScope, projectFilter, libraryFilter }),
+    [allEntries, deferredQuery, libraryFilter, projectFilter, sourceScope, subsystemScope],
   )
 
   const groupedEntries = useMemo<Record<SubsystemType, LibraryCatalogEntry[]>>(() => ({
@@ -249,23 +300,60 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
         count: counts[project.id] ?? 0,
       }))
       .sort((left, right) => {
-        if (right.count !== left.count) return right.count - left.count
+        if (right.count != left.count) return right.count - left.count
         return left.label.localeCompare(right.label, 'fr', { sensitivity: 'base' })
       })
   }, [projectUniverse, projects])
+
+  const libraryFilters = useMemo<LibraryNamedFilter[]>(() => {
+    const counts = libraryUniverse.reduce<Record<string, { count: number; hasProject: boolean; hasUser: boolean }>>((acc, entry) => {
+      const libraryName = getTemplateLibraryName(entry.template)
+      if (!libraryName || entry.origin === 'builtin') return acc
+      const current = acc[libraryName] ?? { count: 0, hasProject: false, hasUser: false }
+      current.count += 1
+      if (entry.origin === 'project') current.hasProject = true
+      if (entry.origin === 'user') current.hasUser = true
+      acc[libraryName] = current
+      return acc
+    }, {})
+
+    return Object.entries(counts)
+      .map(([name, value]) => {
+        const scope: LibraryCollectionScope = value.hasProject && value.hasUser
+          ? 'mixed'
+          : value.hasProject
+            ? 'project'
+            : 'user'
+        return {
+          id: name,
+          label: name,
+          count: value.count,
+          scope,
+        }
+      })
+      .sort((left, right) => {
+        if (right.count != left.count) return right.count - left.count
+        return left.label.localeCompare(right.label, 'fr', { sensitivity: 'base' })
+      })
+  }, [libraryUniverse])
 
   const clearFilters = () => {
     setSourceScope('all')
     setSubsystemScope('all')
     setProjectFilter(null)
+    setLibraryFilter(null)
   }
 
   const openEntry = (entry: LibraryCatalogEntry) => {
     setEditorState({ kind: 'template', entryKey: getLibraryEntryKey(entry.origin, entry.template.id) })
   }
 
-  const startCreate = (nextSubsystemType: SubsystemType) => {
-    setEditorState({ kind: 'create', subsystemType: nextSubsystemType })
+  const startCreate = (nextSubsystemType: SubsystemType, nextLibraryName?: string | null) => {
+    setEditorState({
+      kind: 'create',
+      subsystemType: nextSubsystemType,
+      libraryName: nextLibraryName ?? libraryFilter ?? null,
+    })
   }
 
   const clearEditor = () => {
@@ -283,11 +371,13 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
     sourceScope,
     subsystemScope,
     projectFilter,
+    libraryFilter,
     entries,
     groupedEntries,
     sourceCounts,
     subsystemCounts,
     projectFilters,
+    libraryFilters,
     totalIndexed: allEntries.length,
     totalVisible: entries.length,
     builtinTemplates,
@@ -312,6 +402,7 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
     setSourceScope,
     setSubsystemScope,
     setProjectFilter,
+    setLibraryFilter,
     clearFilters,
   }), [
     allEntries.length,
@@ -331,12 +422,19 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
     focusSavedTemplate,
     groupedEntries,
     importTemplates,
+    libraryFilter,
+    libraryFilters,
     loading,
     openEntry,
     projectFilter,
     projectFilters,
     query,
     selectedEntryKey,
+    setLibraryFilter,
+    setProjectFilter,
+    setQuery,
+    setSourceScope,
+    setSubsystemScope,
     sourceCounts,
     sourceScope,
     startCreate,

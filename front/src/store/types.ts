@@ -15,19 +15,12 @@ import type {
   ProofTestProcedure, TestCampaign, OperationalEvent, HAZOPTrace,
   OAuthProviderName, PasswordSignUpResult, SIFRevision, UserProfile,
 } from '@/core/types'
+import type { AppPreferences } from '@/core/models/appPreferences'
 
 // ─── Navigation ───────────────────────────────────────────────────────────
-export type SettingsSection =
-  | 'general'
-  | 'calculation'
-  | 'validation'
-  | 'data'
-  | 'security'
-  | 'reports'
+export type SettingsSection = 'general' | 'engine'
 
-export const SETTINGS_SECTIONS: readonly SettingsSection[] = [
-  'general', 'calculation', 'validation', 'data', 'security', 'reports',
-]
+export const SETTINGS_SECTIONS: readonly SettingsSection[] = ['general', 'engine']
 
 export type CanonicalSIFTab =
   | 'cockpit'
@@ -126,10 +119,14 @@ export function normalizeSIFTab(tab: SIFTab | string | null | undefined): Canoni
 export type AppView =
   | { type: 'projects' }
   | { type: 'search' }
-  | { type: 'library' }
+  | {
+      type: 'library'
+      templateId?: string
+      origin?: 'builtin' | 'project' | 'user'
+      libraryName?: string | null
+    }
   | { type: 'settings'; section: SettingsSection }
   | { type: 'docs' }
-  | { type: 'review-queue' }
   | { type: 'audit-log' }
   | { type: 'sif-history' }
   | { type: 'engine' }
@@ -145,6 +142,7 @@ export interface AppState {
   projects: Project[]
   revisions: Record<string, SIFRevision[]>
   isDark: boolean
+  preferences: AppPreferences
   authSession: Session | null
   authUser: User | null
   profile: UserProfile | null
@@ -182,6 +180,8 @@ export interface AppState {
   setRightPanelTab: (section: RightPanelSection, tab: string | null) => void
   toggleTheme: () => void
   setTheme: (isDark: boolean) => void
+  updateAppPreferences: (patch: Partial<AppPreferences>) => void
+  resetAppPreferences: () => void
   initializeAuth: () => Promise<void>
   refreshProfile: () => Promise<void>
   signInWithOAuth: (provider: OAuthProviderName) => Promise<void>

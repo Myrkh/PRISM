@@ -31,7 +31,7 @@ const CREATE_OPTIONS: { type: SubsystemType; label: string; hint: string; Icon: 
 
 function EmptyLibraryInspector() {
   const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
-  const { projectFilter, projectFilters, startCreate } = useLibraryNavigation()
+  const { projectFilter, projectFilters, libraryFilter, startCreate } = useLibraryNavigation()
   const projectLabel = projectFilter
     ? projectFilters.find(project => project.id === projectFilter)?.label ?? null
     : null
@@ -53,8 +53,8 @@ function EmptyLibraryInspector() {
               style={{ borderColor: `${BORDER}90`, background: PAGE_BG, color: TEXT }}
             >
               {projectLabel
-                ? `Projet filtré : ${projectLabel}. Les nouveaux templates peuvent être enregistrés directement dans cette bibliothèque projet.`
-                : 'Aucun projet filtré. Les nouveaux templates seront créés dans My Library par défaut, avec possibilité de basculer vers Project.'}
+                ? `Projet filtré : ${projectLabel}. Les nouveaux templates peuvent être enregistrés directement dans cette bibliothèque projet${libraryFilter ? ` · ${libraryFilter}` : ''}.`
+                : `Aucun projet filtré. Les nouveaux templates seront créés dans My Library par défaut${libraryFilter ? ` · ${libraryFilter}` : ''}, avec possibilité de basculer vers Project.`}
             </div>
           </div>
         </InspectorBlock>
@@ -96,6 +96,7 @@ export function LibraryInspector() {
     editorState,
     editorSelection,
     projectFilter,
+    libraryFilter,
     clearEditor,
     focusSavedTemplate,
   } = useLibraryNavigation()
@@ -110,6 +111,7 @@ export function LibraryInspector() {
         mode="create"
         subsystemType={editorState.subsystemType}
         defaultProjectId={projectFilter}
+        defaultLibraryName={editorState.libraryName ?? libraryFilter ?? null}
         onSaved={focusSavedTemplate}
         onClose={clearEditor}
       />
@@ -127,6 +129,7 @@ export function LibraryInspector() {
       origin={editorSelection.origin}
       subsystemType={editorSelection.template.subsystemType}
       defaultProjectId={projectFilter}
+      defaultLibraryName={editorSelection.template.libraryName ?? libraryFilter ?? null}
       onSaved={focusSavedTemplate}
       onClose={clearEditor}
     />

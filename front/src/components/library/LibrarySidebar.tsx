@@ -1,11 +1,9 @@
 import type { ElementType } from 'react'
 import { BookOpen, FilterX, Search } from 'lucide-react'
-import {
-  INITIAL_LIBRARY_VISIBLE_COUNT,
-  LIBRARY_SUBSYSTEM_META,
-} from '@/components/library/LibraryTemplateCard'
+import { LIBRARY_SUBSYSTEM_META } from '@/components/library/LibraryTemplateCard'
 import {
   useLibraryNavigation,
+  type LibraryCollectionScope,
   type LibrarySourceScope,
   type LibrarySubsystemScope,
 } from '@/components/library/LibraryNavigation'
@@ -127,26 +125,42 @@ function FilterButton({ label, hint, count, active, tone, Icon, onClick }: Filte
   )
 }
 
+function getLibraryCollectionTone(scope: LibraryCollectionScope) {
+  if (scope === 'project') return '#F59E0B'
+  if (scope === 'user') return '#0284C7'
+  return '#0F766E'
+}
+
+function getLibraryCollectionHint(scope: LibraryCollectionScope) {
+  if (scope === 'project') return 'Bibliothèque projet'
+  if (scope === 'user') return 'Bibliothèque personnelle'
+  return 'Bibliothèque mixte projet + perso'
+}
+
 export function LibrarySidebar() {
   const {
     deferredQuery,
     sourceScope,
     subsystemScope,
     projectFilter,
+    libraryFilter,
     sourceCounts,
     subsystemCounts,
     projectFilters,
+    libraryFilters,
     totalIndexed,
     totalVisible,
     setSourceScope,
     setSubsystemScope,
     setProjectFilter,
+    setLibraryFilter,
     clearFilters,
   } = useLibraryNavigation()
   const { BORDER, PAGE_BG, SHADOW_SOFT, TEXT, TEXT_DIM } = usePrismTheme()
 
-  const hasActiveFilters = sourceScope !== 'all' || subsystemScope !== 'all' || Boolean(projectFilter)
+  const hasActiveFilters = sourceScope !== 'all' || subsystemScope !== 'all' || Boolean(projectFilter) || Boolean(libraryFilter)
   const visibleProjectTotal = projectFilters.reduce((sum, project) => sum + project.count, 0)
+  const namedLibraryTotal = libraryFilters.reduce((sum, library) => sum + library.count, 0)
 
   return (
     <SidebarBody className="pb-4">
@@ -248,6 +262,36 @@ export function LibrarySidebar() {
         </div>
 
         <div className="border-t pt-4" style={{ borderColor: `${BORDER}33` }}>
+          <SidebarSectionTitle>Bibliothèques</SidebarSectionTitle>
+          <div className="space-y-1">
+            <FilterButton
+              label="Toutes les bibliothèques"
+              hint="Bibliothèques nommées perso et projet"
+              count={namedLibraryTotal}
+              active={!libraryFilter}
+              tone={LIBRARY_SOURCE_META.user.tone}
+              onClick={() => setLibraryFilter(null)}
+            />
+            {libraryFilters.map(library => (
+              <FilterButton
+                key={library.id}
+                label={library.label}
+                hint={getLibraryCollectionHint(library.scope)}
+                count={library.count}
+                active={libraryFilter === library.id}
+                tone={getLibraryCollectionTone(library.scope)}
+                onClick={() => setLibraryFilter(library.id)}
+              />
+            ))}
+          </div>
+          {libraryFilters.length === 0 && (
+            <p className="px-2 pt-2 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
+              Aucune bibliothèque nommée pour les filtres actifs. Créez-en une depuis le panneau droit pour séparer vos références client, site ou standard interne.
+            </p>
+          )}
+        </div>
+
+        <div className="border-t pt-4" style={{ borderColor: `${BORDER}33` }}>
           <SidebarSectionTitle>Projets</SidebarSectionTitle>
           <div className="space-y-1">
             <FilterButton
@@ -283,7 +327,7 @@ export function LibrarySidebar() {
             <div className="flex items-start gap-2">
               <Search size={13} className="mt-[2px] shrink-0" />
               <p>
-                Recherche par type, fabricant, référence ou source pour retrouver rapidement un composant réutilisable.
+                Recherche par type, fabricant, référence, bibliothèque nommée ou source pour retrouver rapidement un composant réutilisable.
               </p>
             </div>
           </div>

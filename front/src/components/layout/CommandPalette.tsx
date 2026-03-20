@@ -5,10 +5,11 @@ import { normalizeSIFTab } from '@/store/types'
 import {
   Search, Settings, Moon, Sun, FolderPlus, FilePlus,
   LayoutDashboard, Network, BarChart3, Shield, FlaskConical,
-  ChevronRight, FileText, Home, Pencil, ListChecks, History,
+  ChevronRight, FileText, Home, Pencil, History,
   ClipboardCheck, Cpu, BookOpen, BookOpenText,
 } from 'lucide-react'
 import { getSearchResultIcon } from '@/components/search/searchMeta'
+import { useComponentLibrary } from '@/features/library'
 import { buildSearchIndex, filterSearchResults, openSearchResult } from '@/features/search/searchIndex'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
@@ -49,6 +50,7 @@ export function CommandPalette({
   const projects = useAppStore(s => s.projects)
   const revisions = useAppStore(s => s.revisions)
   const view = useAppStore(s => s.view)
+  const { builtinTemplates, allProjectTemplates, userTemplates } = useComponentLibrary(null)
   const navigate = useAppStore(s => s.navigate)
   const setTab = useAppStore(s => s.setTab)
   const isDark = useAppStore(s => s.isDark)
@@ -288,15 +290,6 @@ export function CommandPalette({
         level: 0,
       },
       {
-        id: 'review-queue',
-        label: 'Review Queue',
-        keywords: 'review queue backlog priorities priorités',
-        Icon: ListChecks,
-        onSelect: () => run(() => navigate({ type: 'review-queue' })),
-        isActive: view.type === 'review-queue',
-        level: 0,
-      },
-      {
         id: 'audit-log',
         label: 'Audit Log',
         keywords: 'audit log historique timeline',
@@ -335,7 +328,11 @@ export function CommandPalette({
     ],
   }
 
-  const searchIndex = useMemo(() => buildSearchIndex(projects, revisions), [projects, revisions])
+  const libraryTemplates = useMemo(() => (
+    [...builtinTemplates, ...allProjectTemplates, ...userTemplates]
+  ), [allProjectTemplates, builtinTemplates, userTemplates])
+
+  const searchIndex = useMemo(() => buildSearchIndex(projects, revisions, libraryTemplates), [libraryTemplates, projects, revisions])
 
   const searchResultsGroup: CommandGroup | null = search.trim()
     ? {

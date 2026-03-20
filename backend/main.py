@@ -48,6 +48,7 @@ if cors_origins:
 
 
 @app.get("/health")
+@app.get("/api/health", include_in_schema=False)
 def health() -> dict[str, str]:
     return {
         "status": "ok",

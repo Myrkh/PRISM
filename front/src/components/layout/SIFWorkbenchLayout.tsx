@@ -28,6 +28,8 @@ import { ProjectTree } from '@/components/layout/ProjectTree'
 import { DocsSidebar } from '@/components/docs/DocsSidebar'
 import { SearchSidebar } from '@/components/search/SearchSidebar'
 import { LibrarySidebar } from '@/components/library/LibrarySidebar'
+import { AuditSidebar } from '@/components/audit/AuditSidebar'
+import { EngineSidebar } from '@/components/engine/EngineSidebar'
 import { LibraryInspector } from '@/components/library/LibraryInspector'
 import { HomeScreen } from '@/components/layout/HomeScreen'
 import { SIFWorkbenchBar, EditorContent } from '@/components/layout/EditorTabBar'
@@ -136,10 +138,9 @@ function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) 
   )
 }
 
-function GlobalRightPanelPlaceholder({ mode }: { mode: 'review' | 'audit' | 'history' | 'engine' | 'hazop' }) {
+function GlobalRightPanelPlaceholder({ mode }: { mode: 'audit' | 'history' | 'engine' | 'hazop' }) {
   const { BORDER, CARD_BG, PANEL_BG, SHADOW_PANEL, TEXT_DIM } = usePrismTheme()
   const labels: Record<typeof mode, string> = {
-    review:  'Review Queue',
     audit:   'Audit Log',
     history: 'SIF History',
     engine:  'Engine',
@@ -238,12 +239,11 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
   const showSearch    = view.type === 'search'
   const showLibrary   = view.type === 'library'
   const showStandalone = showSettings
-  const showReview    = view.type === 'review-queue'
   const showAudit     = view.type === 'audit-log'
   const showHistory   = view.type === 'sif-history'
   const showEngine    = view.type === 'engine'
   const showHazop     = view.type === 'hazop'
-  const showGlobal    = showReview || showAudit || showHistory || showEngine || showHazop
+  const showGlobal    = showAudit || showHistory || showEngine || showHazop
   const showDashboard = view.type === 'sif-dashboard' && !!project && !!sif
   const showHome      = !showSettings && !showDocs && !showSearch && !showLibrary && !showDashboard && !showGlobal
 
@@ -337,7 +337,11 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                       ? <SearchSidebar />
                       : showLibrary
                         ? <LibrarySidebar />
-                        : <ProjectTree projectId={projectId ?? ''} sifId={sifId ?? ''} />
+                        : showAudit
+                          ? <AuditSidebar />
+                          : showEngine
+                            ? <EngineSidebar />
+                            : <ProjectTree projectId={projectId ?? ''} sifId={sifId ?? ''} />
                 )}
               </div>
 
@@ -395,7 +399,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                       <ResizeDivider isResizing={isResizingRightPanel} onPointerDown={startResize} />
                       {rightPanelOverride || (
                         <GlobalRightPanelPlaceholder
-                          mode={showReview ? 'review' : showAudit ? 'audit' : showHistory ? 'history' : showEngine ? 'engine' : 'hazop'}
+                          mode={showAudit ? 'audit' : showHistory ? 'history' : showEngine ? 'engine' : 'hazop'}
                         />
                       )}
                     </div>

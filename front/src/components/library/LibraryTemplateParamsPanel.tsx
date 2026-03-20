@@ -174,6 +174,7 @@ export function LibraryTemplateParamsPanel({
   origin,
   subsystemType,
   defaultProjectId,
+  defaultLibraryName,
   onSaved,
   onClose,
 }: {
@@ -182,6 +183,7 @@ export function LibraryTemplateParamsPanel({
   origin?: LibraryOriginBadge
   subsystemType: SubsystemType
   defaultProjectId: string | null
+  defaultLibraryName: string | null
   onSaved: (template: ComponentTemplate) => void
   onClose: () => void
 }) {
@@ -205,6 +207,7 @@ export function LibraryTemplateParamsPanel({
   const [templateName, setTemplateName] = useState(template?.name ?? template?.componentSnapshot.instrumentType ?? '')
   const [templateDescription, setTemplateDescription] = useState(template?.description ?? template?.componentSnapshot.description ?? '')
   const [templateTags, setTemplateTags] = useState(tagsToInput(template?.tags ?? []))
+  const [templateLibraryName, setTemplateLibraryName] = useState(template?.libraryName ?? defaultLibraryName ?? '')
   const [templateSourceReference, setTemplateSourceReference] = useState(template?.sourceReference ?? '')
   const [templateReviewStatus, setTemplateReviewStatus] = useState<NonNullable<ComponentTemplateUpsertInput['reviewStatus']>>(
     template?.reviewStatus === 'approved' || template?.reviewStatus === 'review' ? template.reviewStatus : 'draft',
@@ -230,6 +233,7 @@ export function LibraryTemplateParamsPanel({
       nextComponent.instrumentCategory,
       nextComponent.manufacturer,
     ].filter(Boolean)))
+    setTemplateLibraryName(template?.libraryName ?? defaultLibraryName ?? '')
     setTemplateSourceReference(template?.sourceReference ?? '')
     setTemplateReviewStatus(
       template?.reviewStatus === 'approved' || template?.reviewStatus === 'review'
@@ -239,7 +243,7 @@ export function LibraryTemplateParamsPanel({
     setSaveBusy(false)
     setSaveError(null)
     setSaveNotice(null)
-  }, [defaultProjectId, subsystemType, template, mode])
+  }, [defaultLibraryName, defaultProjectId, subsystemType, template, mode])
 
   useEffect(() => {
     if (templateScope === 'project' && projects.length === 0) {
@@ -306,6 +310,7 @@ export function LibraryTemplateParamsPanel({
         projectId: templateScope === 'project' ? templateProjectId : null,
         name: trimmedName,
         description: templateDescription.trim(),
+        libraryName: templateLibraryName.trim() || null,
         sourceReference: templateSourceReference.trim() || null,
         tags: inputToTags(templateTags),
         reviewStatus: templateReviewStatus,
@@ -313,7 +318,7 @@ export function LibraryTemplateParamsPanel({
       })
       setSaveNotice(mode === 'edit'
         ? 'Template mis à jour.'
-        : `Template enregistré dans ${templateScope === 'project' ? 'Project' : 'My Library'}.`)
+        : `Template enregistré dans ${templateScope === 'project' ? 'Project' : 'My Library'}${saved.libraryName ? ` · ${saved.libraryName}` : ''}.`)
       onSaved(saved)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
@@ -435,6 +440,9 @@ export function LibraryTemplateParamsPanel({
                   ) : (
                     <StyledInput value={selectedProjectName ?? 'Bibliothèque personnelle'} onChange={() => {}} />
                   )}
+                </FieldRow>
+                <FieldRow label="Bibliothèque nommée">
+                  <StyledInput value={templateLibraryName} onChange={setTemplateLibraryName} placeholder="Ex. Client TotalEnergies / Tank farm" />
                 </FieldRow>
                 <FieldRow label="Review status">
                   <StyledSelect

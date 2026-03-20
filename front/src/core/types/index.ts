@@ -76,6 +76,19 @@ export type {
   ComponentTemplateExportEnvelope,
 } from './library.types'
 
+// ─── Engine Runs & Batches ───────────────────────────────────────────────
+export type {
+  EngineRunTriggerKind,
+  EngineRunRequestedMode,
+  EngineRunStatus,
+  EngineRunBatchScope,
+  EngineRunBatchStatus,
+  EngineRunBatch,
+  EngineRun,
+  EngineRunBatchUpsertInput,
+  EngineRunUpsertInput,
+} from './engine-run.types'
+
 // ─── Project Access ───────────────────────────────────────────────────────
 export type {
   ProjectPermissionKey,

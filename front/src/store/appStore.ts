@@ -38,6 +38,12 @@ import {
   analysisSettingsToMissionTimeHours,
   loadSIFAnalysisSettings,
 } from '@/core/models/analysisSettings'
+import {
+  DEFAULT_APP_PREFERENCES,
+  loadAppPreferences,
+  resolveAppPreferences,
+  saveAppPreferences,
+} from '@/core/models/appPreferences'
 import { buildSILReportPdfBlob } from '@/components/report/silReportPdf'
 import { buildProofTestPdfBlob } from '@/components/prooftest/proofTestPdf'
 import {
@@ -228,6 +234,8 @@ async function resolveProfileFromAuthState(user: AppState['authUser']) {
   }
 }
 
+const INITIAL_APP_PREFERENCES = loadAppPreferences()
+
 // ─── Store ─────────────────────────────────────────────────────────────────
 export const useAppStore = create<AppState>()(
   devtools(
@@ -238,7 +246,8 @@ export const useAppStore = create<AppState>()(
       // ══════════════════════════════════════════════════════════════════════
       projects: [],
       revisions: {},
-      isDark: true,
+      isDark: INITIAL_APP_PREFERENCES.theme === 'dark',
+      preferences: INITIAL_APP_PREFERENCES,
       authSession: null,
       authUser: null,
       profile: null,
@@ -294,8 +303,47 @@ export const useAppStore = create<AppState>()(
         s.rightPanelTabs[section] = tab
       }),
 
-      toggleTheme: () => set(s => { s.isDark = !s.isDark }),
-      setTheme: isDark => set(s => { s.isDark = isDark }),
+      toggleTheme: () => {
+        const nextPreferences = resolveAppPreferences({
+          ...get().preferences,
+          theme: get().preferences.theme === 'dark' ? 'light' : 'dark',
+        })
+        saveAppPreferences(nextPreferences)
+        set(s => {
+          s.preferences = nextPreferences
+          s.isDark = nextPreferences.theme === 'dark'
+        })
+      },
+      setTheme: isDark => {
+        const nextPreferences = resolveAppPreferences({
+          ...get().preferences,
+          theme: isDark ? 'dark' : 'light',
+        })
+        saveAppPreferences(nextPreferences)
+        set(s => {
+          s.preferences = nextPreferences
+          s.isDark = nextPreferences.theme === 'dark'
+        })
+      },
+      updateAppPreferences: patch => {
+        const nextPreferences = resolveAppPreferences({
+          ...get().preferences,
+          ...patch,
+        })
+        saveAppPreferences(nextPreferences)
+        set(s => {
+          s.preferences = nextPreferences
+          s.isDark = nextPreferences.theme === 'dark'
+        })
+      },
+      resetAppPreferences: () => {
+        const nextPreferences = DEFAULT_APP_PREFERENCES
+        saveAppPreferences(nextPreferences)
+        set(s => {
+          s.preferences = nextPreferences
+          s.isDark = nextPreferences.theme === 'dark'
+        })
+      },
       initializeAuth: async () => {
         if (authInitPromise) return authInitPromise
 

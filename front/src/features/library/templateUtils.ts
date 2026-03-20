@@ -44,6 +44,39 @@ function normalizeTargetScope(value: LibraryPanelScope): Extract<ComponentTempla
   return value === 'project' ? 'project' : 'user'
 }
 
+const TEMPLATE_LIBRARY_TAG_PREFIX = 'library:'
+
+function normalizeLibraryName(value: unknown): string | null {
+  if (typeof value !== 'string') return null
+  const normalized = value.replace(/\s+/g, ' ').trim()
+  return normalized.length > 0 ? normalized : null
+}
+
+function isTemplateLibraryTag(tag: string) {
+  return tag.toLowerCase().startsWith(TEMPLATE_LIBRARY_TAG_PREFIX)
+}
+
+export function extractTemplateLibraryName(tags: string[]): string | null {
+  const match = tags.find(tag => typeof tag === 'string' && isTemplateLibraryTag(tag))
+  return normalizeLibraryName(match?.slice(TEMPLATE_LIBRARY_TAG_PREFIX.length))
+}
+
+export function stripTemplateLibraryMetaTags(tags: string[]): string[] {
+  return normalizeTags(tags).filter(tag => !isTemplateLibraryTag(tag))
+}
+
+export function buildPersistedTemplateTags(tags: string[], libraryName?: string | null): string[] {
+  const visibleTags = stripTemplateLibraryMetaTags(tags)
+  const normalizedLibraryName = normalizeLibraryName(libraryName)
+  return normalizedLibraryName
+    ? normalizeTags([`${TEMPLATE_LIBRARY_TAG_PREFIX}${normalizedLibraryName}`, ...visibleTags])
+    : visibleTags
+}
+
+export function getTemplateLibraryName(template: Pick<ComponentTemplate, 'tags'> & { libraryName?: string | null }): string | null {
+  return normalizeLibraryName(template.libraryName) ?? extractTemplateLibraryName(template.tags)
+}
+
 function buildTemplateFallbackTag(subsystemType: SubsystemType, name: string): string {
   const prefix = subsystemType === 'sensor' ? 'S' : subsystemType === 'logic' ? 'L' : 'A'
   const stem = name
@@ -72,13 +105,15 @@ function normalizeImportedTemplate(rawTemplate: unknown): Omit<ComponentTemplate
   )
 
   const reviewStatus = normalizeReviewStatus(source?.reviewStatus)
+  const rawTags = normalizeTags(source?.tags)
 
   return {
     id: typeof source?.id === 'string' && source.id ? source.id : undefined,
+    libraryName: normalizeLibraryName(source?.libraryName) ?? extractTemplateLibraryName(rawTags),
     name: fallbackName,
     description: asString(source?.description),
     sourceReference: typeof source?.sourceReference === 'string' ? source.sourceReference : null,
-    tags: normalizeTags(source?.tags),
+    tags: stripTemplateLibraryMetaTags(rawTags),
     reviewStatus: reviewStatus === 'archived' ? 'draft' : reviewStatus,
     templateSchemaVersion: typeof source?.templateSchemaVersion === 'number'
       ? source.templateSchemaVersion
@@ -148,6 +183,7 @@ function createStarterTemplates() {
       sourceReference: 'FMEDA PT-2026 / certificate ref to replace',
       tags: ['client-template', 'sensor', 'pressure', 'high-level'],
       reviewStatus: 'draft' as const,
+      libraryName: 'Client starter library',
       componentSnapshot: createStarterComponentSnapshot('sensor', 'LIB-S-PT-001', {
         instrumentCategory: 'transmitter',
         instrumentType: 'Pressure transmitter',
@@ -195,6 +231,7 @@ function createStarterTemplates() {
       sourceReference: 'Safety PLC FMEDA / manufacturer manual to replace',
       tags: ['client-template', 'logic', 'plc', 'sis'],
       reviewStatus: 'draft' as const,
+      libraryName: 'Client starter library',
       componentSnapshot: createStarterComponentSnapshot('logic', 'LIB-L-SIS-001', {
         instrumentCategory: 'controller',
         instrumentType: 'Safety PLC',
@@ -242,6 +279,7 @@ function createStarterTemplates() {
       sourceReference: 'Valve package FMEDA / proof test note to replace',
       tags: ['client-template', 'actuator', 'valve', 'final-element'],
       reviewStatus: 'draft' as const,
+      libraryName: 'Client starter library',
       componentSnapshot: createStarterComponentSnapshot('actuator', 'LIB-A-XV-001', {
         instrumentCategory: 'valve',
         instrumentType: 'On-off valve',
@@ -292,6 +330,7 @@ export const COMPONENT_TEMPLATE_IMPORT_DOC_EXAMPLE = JSON.stringify(
     exportedAt: '2026-03-20T00:00:00.000Z',
     exportedByProfileId: null,
     projectId: null,
+    libraryName: 'Client starter library',
     templates: [createStarterTemplates()[0]],
   },
   null,
@@ -305,6 +344,7 @@ export function buildComponentTemplateImportStarter(): string {
     exportedAt: new Date().toISOString(),
     exportedByProfileId: null,
     projectId: null,
+    libraryName: 'Client starter library',
     templates: createStarterTemplates(),
   }
 
@@ -347,6 +387,7 @@ export function createBuiltinComponentTemplate(seed: BuiltinComponentSeed): Comp
     name: seed.name,
     description: seed.description,
     subsystemType: seed.subsystemType,
+    libraryName: null,
     instrumentCategory: seed.instrumentCategory,
     instrumentType: seed.instrumentType,
     manufacturer: seed.manufacturer,
@@ -395,12 +436,13 @@ export function parseLibraryDragPayload(raw: string): ComponentTemplate | null {
       name: asString(template.name),
       description: asString(template.description),
       subsystemType,
+      libraryName: normalizeLibraryName(template.libraryName) ?? extractTemplateLibraryName(normalizeTags(template.tags)),
       instrumentCategory: asString(template.instrumentCategory) as ComponentTemplate['instrumentCategory'],
       instrumentType: asString(template.instrumentType),
       manufacturer: asString(template.manufacturer),
       dataSource: asString(template.dataSource),
       sourceReference: typeof template.sourceReference === 'string' ? template.sourceReference : null,
-      tags: normalizeTags(template.tags),
+      tags: stripTemplateLibraryMetaTags(normalizeTags(template.tags)),
       reviewStatus: normalizeReviewStatus(template.reviewStatus),
       importBatchId: typeof template.importBatchId === 'string' ? template.importBatchId : null,
       templateSchemaVersion: typeof template.templateSchemaVersion === 'number'
@@ -438,11 +480,211 @@ export function serializeComponentTemplates(
   return JSON.stringify(payload, null, 2)
 }
 
-export function parseComponentTemplateImport(
+export type ComponentTemplateImportIssueSeverity = 'error' | 'warning'
+export type ComponentTemplateImportDecision = 'create' | 'update' | 'ignore'
+export type ComponentTemplateImportDuplicateKind = 'id' | 'identity'
+
+export type ComponentTemplateImportIssue = {
+  severity: ComponentTemplateImportIssueSeverity
+  code: string
+  message: string
+}
+
+export type ComponentTemplateImportDuplicate = {
+  id: string
+  name: string
+  kind: ComponentTemplateImportDuplicateKind
+  scope: Extract<ComponentTemplateScope, 'project' | 'user'>
+  projectId: string | null
+  libraryName: string | null
+}
+
+export type ComponentTemplateImportPreviewEntry = {
+  id: string
+  index: number
+  sourceName: string
+  template: ComponentTemplateUpsertInput | null
+  issues: ComponentTemplateImportIssue[]
+  duplicate: ComponentTemplateImportDuplicate | null
+  suggestedDecision: ComponentTemplateImportDecision
+  availableDecisions: ComponentTemplateImportDecision[]
+}
+
+export type ComponentTemplateImportPreview = {
+  format: string | null
+  version: number | null
+  libraryName: string | null
+  entries: ComponentTemplateImportPreviewEntry[]
+  globalIssues: ComponentTemplateImportIssue[]
+}
+
+function normalizeIdentityFragment(value: unknown): string {
+  return asString(value)
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function buildImportIdentityKey(template: Pick<ComponentTemplateUpsertInput, 'scope' | 'projectId' | 'libraryName' | 'name' | 'componentSnapshot'>): string {
+  return [
+    template.scope,
+    template.projectId ?? '',
+    normalizeLibraryName(template.libraryName) ?? '',
+    template.componentSnapshot.subsystemType,
+    normalizeIdentityFragment(template.name),
+    normalizeIdentityFragment(template.componentSnapshot.instrumentType),
+    normalizeIdentityFragment(template.componentSnapshot.manufacturer),
+  ].join('|')
+}
+
+function buildExistingTemplateIdentityKey(template: Pick<ComponentTemplate, 'scope' | 'projectId' | 'libraryName' | 'tags' | 'name' | 'componentSnapshot'>): string {
+  return [
+    template.scope === 'project' ? 'project' : 'user',
+    template.scope === 'project' ? template.projectId ?? '' : '',
+    getTemplateLibraryName(template) ?? '',
+    template.componentSnapshot.subsystemType,
+    normalizeIdentityFragment(template.name),
+    normalizeIdentityFragment(template.componentSnapshot.instrumentType),
+    normalizeIdentityFragment(template.componentSnapshot.manufacturer),
+  ].join('|')
+}
+
+function findImportDuplicate(
+  template: ComponentTemplateUpsertInput,
+  existingTemplates: ComponentTemplate[],
+): ComponentTemplateImportDuplicate | null {
+  const scopeTemplates = existingTemplates.filter(existing => {
+    if (existing.scope !== template.scope) return false
+    if (template.scope === 'project') return existing.projectId === template.projectId
+    return true
+  })
+
+  const idMatch = template.id
+    ? scopeTemplates.find(existing => existing.id === template.id) ?? null
+    : null
+
+  if (idMatch) {
+    return {
+      id: idMatch.id,
+      name: idMatch.name,
+      kind: 'id',
+      scope: idMatch.scope === 'project' ? 'project' : 'user',
+      projectId: idMatch.projectId ?? null,
+      libraryName: getTemplateLibraryName(idMatch),
+    }
+  }
+
+  const identity = buildImportIdentityKey(template)
+  const identityMatch = scopeTemplates.find(existing => buildExistingTemplateIdentityKey(existing) === identity) ?? null
+  if (!identityMatch) return null
+
+  return {
+    id: identityMatch.id,
+    name: identityMatch.name,
+    kind: 'identity',
+    scope: identityMatch.scope === 'project' ? 'project' : 'user',
+    projectId: identityMatch.projectId ?? null,
+    libraryName: getTemplateLibraryName(identityMatch),
+  }
+}
+
+function buildPreviewIssues(
+  rawTemplate: unknown,
+  duplicate: ComponentTemplateImportDuplicate | null,
+  envelopeLibraryName: string | null,
+): ComponentTemplateImportIssue[] {
+  const issues: ComponentTemplateImportIssue[] = []
+  const source = asRecord(rawTemplate)
+  const rawSnapshot = source?.componentSnapshot ?? rawTemplate
+  const snapshotSource = asRecord(rawSnapshot)
+  const sourceName = asString(source?.name)
+  const instrumentType = asString(snapshotSource?.instrumentType)
+  const manufacturer = asString(snapshotSource?.manufacturer)
+  const dataSource = asString(snapshotSource?.dataSource)
+  const rawLibraryName = normalizeLibraryName(source?.libraryName) ?? extractTemplateLibraryName(normalizeTags(source?.tags))
+  const sourceSubsystemType = asString(source?.subsystemType)
+  const snapshotSubsystemType = asString(snapshotSource?.subsystemType)
+
+  if (!sourceName.trim()) {
+    issues.push({
+      severity: 'warning',
+      code: 'missing-name',
+      message: 'Nom absent dans le JSON; un libellé de secours sera utilisé.',
+    })
+  }
+
+  if (!instrumentType.trim()) {
+    issues.push({
+      severity: 'warning',
+      code: 'missing-instrument-type',
+      message: 'instrumentType absent; le template devra être revu avant usage.',
+    })
+  }
+
+  if (!manufacturer.trim()) {
+    issues.push({
+      severity: 'warning',
+      code: 'missing-manufacturer',
+      message: 'Manufacturer non renseigné dans le JSON importé.',
+    })
+  }
+
+  if (!dataSource.trim()) {
+    issues.push({
+      severity: 'warning',
+      code: 'missing-data-source',
+      message: 'Source de données absente; la traçabilité sera incomplète.',
+    })
+  }
+
+  if (!rawLibraryName && !envelopeLibraryName) {
+    issues.push({
+      severity: 'warning',
+      code: 'missing-library-name',
+      message: 'Aucune bibliothèque nommée fournie; le template sera importé hors collection nommée.',
+    })
+  }
+
+  if (
+    sourceSubsystemType.trim()
+    && snapshotSubsystemType.trim()
+    && sourceSubsystemType.trim() !== snapshotSubsystemType.trim()
+  ) {
+    issues.push({
+      severity: 'warning',
+      code: 'subsystem-mismatch',
+      message: 'Le subsystemType racine (' + sourceSubsystemType + ') diffère du componentSnapshot (' + snapshotSubsystemType + ').',
+    })
+  }
+
+  if (typeof source?.reviewStatus === 'string' && normalizeReviewStatus(source.reviewStatus) !== source.reviewStatus) {
+    issues.push({
+      severity: 'warning',
+      code: 'invalid-review-status',
+      message: 'reviewStatus invalide; la valeur sera normalisée à Draft.',
+    })
+  }
+
+  if (duplicate) {
+    issues.push({
+      severity: 'warning',
+      code: 'duplicate',
+      message: duplicate.kind === 'id'
+        ? 'Un template existant porte déjà cet identifiant (' + duplicate.name + ').'
+        : 'Un template similaire existe déjà dans la bibliothèque cible (' + duplicate.name + ').',
+    })
+  }
+
+  return issues
+}
+
+export function analyzeComponentTemplateImport(
   text: string,
   targetScope: LibraryPanelScope,
   projectId: string | null,
-): ComponentTemplateUpsertInput[] {
+  existingTemplates: ComponentTemplate[],
+  defaultLibraryName?: string | null,
+): ComponentTemplateImportPreview {
   const parsed = JSON.parse(text) as unknown
   const envelope = asRecord(parsed)
 
@@ -454,17 +696,90 @@ export function parseComponentTemplateImport(
 
   const normalizedScope = normalizeTargetScope(targetScope)
   const normalizedProjectId = normalizedScope === 'project' ? projectId : null
+  const envelopeLibraryName = normalizeLibraryName(envelope?.libraryName) ?? normalizeLibraryName(defaultLibraryName)
+  const globalIssues: ComponentTemplateImportIssue[] = []
 
   if (normalizedScope === 'project' && !normalizedProjectId) {
     throw new Error('Template import: project scope requires a projectId')
   }
 
-  return rawTemplates.map(rawTemplate => ({
-    ...normalizeImportedTemplate(rawTemplate),
-    scope: normalizedScope,
-    projectId: normalizedProjectId,
-    importBatchId: null,
-  }))
+  if (typeof envelope?.format === 'string' && envelope.format !== COMPONENT_TEMPLATE_EXPORT_FORMAT) {
+    globalIssues.push({
+      severity: 'warning',
+      code: 'unexpected-format',
+      message: 'Format ' + envelope.format + ' détecté; le JSON sera interprété au mieux par PRISM.',
+    })
+  }
+
+  if (typeof envelope?.version === 'number' && envelope.version > COMPONENT_TEMPLATE_SCHEMA_VERSION) {
+    globalIssues.push({
+      severity: 'warning',
+      code: 'newer-version',
+      message: 'Le JSON provient d’une version plus récente du schéma (' + envelope.version + ').',
+    })
+  }
+
+  const entries = rawTemplates.map((rawTemplate, index): ComponentTemplateImportPreviewEntry => {
+    const source = asRecord(rawTemplate)
+    const rawSnapshot = source?.componentSnapshot ?? rawTemplate
+    const snapshotSource = asRecord(rawSnapshot)
+    const sourceName = asString(source?.name)
+      || asString(snapshotSource?.instrumentType)
+      || ('Template ' + (index + 1))
+
+    try {
+      const normalized = normalizeImportedTemplate(rawTemplate)
+      const prepared: ComponentTemplateUpsertInput = {
+        ...normalized,
+        libraryName: normalized.libraryName ?? envelopeLibraryName,
+        scope: normalizedScope,
+        projectId: normalizedProjectId,
+        importBatchId: null,
+      }
+      const duplicate = findImportDuplicate(prepared, existingTemplates)
+      return {
+        id: 'import:' + index,
+        index,
+        sourceName,
+        template: prepared,
+        duplicate,
+        issues: buildPreviewIssues(rawTemplate, duplicate, envelopeLibraryName),
+        suggestedDecision: duplicate ? 'update' : 'create',
+        availableDecisions: duplicate ? ['update', 'create', 'ignore'] : ['create', 'ignore'],
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Template import: invalid entry'
+      return {
+        id: 'import:' + index,
+        index,
+        sourceName,
+        template: null,
+        duplicate: null,
+        issues: [{ severity: 'error', code: 'invalid-template', message }],
+        suggestedDecision: 'ignore',
+        availableDecisions: ['ignore'],
+      }
+    }
+  })
+
+  return {
+    format: typeof envelope?.format === 'string' ? envelope.format : null,
+    version: typeof envelope?.version === 'number' ? envelope.version : null,
+    libraryName: envelopeLibraryName,
+    entries,
+    globalIssues,
+  }
+}
+
+export function parseComponentTemplateImport(
+  text: string,
+  targetScope: LibraryPanelScope,
+  projectId: string | null,
+  defaultLibraryName?: string | null,
+): ComponentTemplateUpsertInput[] {
+  return analyzeComponentTemplateImport(text, targetScope, projectId, [], defaultLibraryName)
+    .entries
+    .flatMap(entry => (entry.template ? [entry.template] : []))
 }
 
 export function getTemplateCategoryLabel(template: Pick<ComponentTemplate, 'subsystemType' | 'instrumentCategory'>): string {

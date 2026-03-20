@@ -2,6 +2,7 @@ import { computeCompliance } from '@/components/sif/complianceCalc'
 import { getOverviewMetrics } from '@/components/sif/overviewMetrics'
 import { calcSIF } from '@/core/math/pfdCalc'
 import type {
+  ComponentTemplate,
   Project,
   SIF,
   SIFAssumption,
@@ -10,6 +11,7 @@ import type {
   SubElement,
   TestCampaign,
 } from '@/core/types'
+import { getTemplateLibraryName } from '@/features/library'
 import type { AppView, CanonicalSIFTab } from '@/store/types'
 
 export type SearchScopeId =
@@ -17,6 +19,7 @@ export type SearchScopeId =
   | 'projects'
   | 'sifs'
   | 'components'
+  | 'library'
   | 'assumptions'
   | 'actions'
   | 'proof'
@@ -30,6 +33,7 @@ export type SearchResultKind =
   | 'sif'
   | 'component'
   | 'subcomponent'
+  | 'template'
   | 'assumption'
   | 'action'
   | 'procedure'
@@ -50,8 +54,11 @@ export interface SearchResult {
   projectName: string
   sifId: string | null
   sifLabel: string
-  tab: CanonicalSIFTab
+  tab: CanonicalSIFTab | 'library'
   componentId?: string
+  templateId?: string
+  templateOrigin?: 'builtin' | 'project' | 'user' | null
+  libraryName?: string | null
   sortDate?: string | null
 }
 
@@ -64,6 +71,7 @@ const SEARCH_SCOPE_ORDER: SearchItemScope[] = [
   'projects',
   'sifs',
   'components',
+  'library',
   'assumptions',
   'actions',
   'proof',
@@ -97,6 +105,57 @@ function buildSubComponentTitle(subComponent: Pick<SubElement, 'tagName' | 'labe
     || subComponent.label?.trim()
     || subComponent.instrumentType.trim()
     || 'Sous-composant'
+}
+
+function getTemplateOrigin(template: ComponentTemplate): 'builtin' | 'project' | 'user' {
+  if (template.origin === 'builtin' || template.scope === 'public') return 'builtin'
+  return template.scope === 'project' ? 'project' : 'user'
+}
+
+function pushLibraryTemplateResult(
+  results: SearchResult[],
+  template: ComponentTemplate,
+  projectNameById: Map<string, string>,
+) {
+  const templateOrigin = getTemplateOrigin(template)
+  const libraryName = getTemplateLibraryName(template)
+  const projectName = template.projectId ? projectNameById.get(template.projectId) ?? 'Projet' : 'Bibliothèque maître'
+  const originLabel = templateOrigin === 'builtin'
+    ? 'Standards validés'
+    : templateOrigin === 'project'
+      ? 'Templates projet'
+      : 'Bibliothèque personnelle'
+
+  results.push({
+    id: 'template:' + templateOrigin + ':' + template.id,
+    scope: 'library',
+    kind: 'template',
+    title: template.name,
+    subtitle: [template.instrumentType, template.manufacturer || 'Fabricant non renseigné'].filter(Boolean).join(' · '),
+    context: ['Bibliothèque maître', originLabel, libraryName, templateOrigin === 'project' ? projectName : null].filter(Boolean).join(' · '),
+    keywords: [
+      template.name,
+      template.description,
+      template.instrumentType,
+      template.instrumentCategory,
+      template.manufacturer,
+      template.dataSource,
+      template.sourceReference,
+      template.componentSnapshot.tagName,
+      libraryName,
+      originLabel,
+      ...template.tags,
+    ].join(' '),
+    projectId: templateOrigin === 'project' ? template.projectId : null,
+    projectName,
+    sifId: null,
+    sifLabel: '',
+    tab: 'library',
+    templateId: template.id,
+    templateOrigin,
+    libraryName,
+    sortDate: template.updatedAt || template.createdAt || null,
+  })
 }
 
 function pushAssumptionResult(results: SearchResult[], project: Project, sif: SIF, assumption: SIFAssumption) {
@@ -506,8 +565,10 @@ function buildSearchResultsForSif(
 export function buildSearchIndex(
   projects: Project[],
   revisions: Record<string, SIFRevision[]>,
+  libraryTemplates: ComponentTemplate[] = [],
 ): SearchResult[] {
   const results: SearchResult[] = []
+  const projectNameById = new Map(projects.map(project => [project.id, project.name]))
 
   projects.forEach(project => {
     const firstSif = project.sifs[0]
@@ -538,6 +599,8 @@ export function buildSearchIndex(
 
     project.sifs.forEach(sif => buildSearchResultsForSif(results, project, sif, revisions))
   })
+
+  libraryTemplates.forEach(template => pushLibraryTemplateResult(results, template, projectNameById))
 
   return results.sort((left, right) => {
     const scopeDelta = (SEARCH_SCOPE_RANK.get(left.scope) ?? 99) - (SEARCH_SCOPE_RANK.get(right.scope) ?? 99)
@@ -638,6 +701,7 @@ export function getSearchScopeCounts(results: SearchResult[]): Record<SearchItem
     projects: 0,
     sifs: 0,
     components: 0,
+    library: 0,
     assumptions: 0,
     actions: 0,
     proof: 0,
@@ -669,9 +733,20 @@ export function openSearchResult(
     return
   }
 
+  if (result.templateId) {
+    selectComponent(null)
+    navigate({
+      type: 'library',
+      templateId: result.templateId,
+      origin: result.templateOrigin ?? undefined,
+      libraryName: result.libraryName ?? undefined,
+    })
+    return
+  }
+
   selectComponent(null)
 
-  if (result.projectId && result.sifId) {
+  if (result.projectId && result.sifId && result.tab !== 'library') {
     navigate({ type: 'sif-dashboard', projectId: result.projectId, sifId: result.sifId, tab: result.tab })
     return
   }
