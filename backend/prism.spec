@@ -69,7 +69,7 @@ exe = EXE(
     strip=False,
     upx=True,
     console=False,   # Pas de fenêtre console en production
-    icon='../public/logo.png',  # Icône Windows (idéalement .ico)
+    icon='public/logo.png',  # Icône Windows (idéalement .ico)
 )
 
 coll = COLLECT(

@@ -50,6 +50,10 @@ jobs:
           pip install pyinstaller
 
       # ── PyInstaller ───────────────────────────────────────────────────────
+      - name: Copy logo for PyInstaller icon
+        run: Copy-Item launcher\public\logo.png backend\public\logo.png -Force
+        shell: pwsh
+
       - name: Build PRISM-backend.exe (PyInstaller)
         working-directory: backend
         run: pyinstaller prism.spec --distpath ../release/prism-dist --workpath ../release/build --clean
