@@ -6,6 +6,8 @@
 import { useState, type FormEvent } from 'react'
 import { Eye, EyeOff, ArrowRight, Loader2, Shield, Lock } from 'lucide-react'
 import { colors, dark, semantic, alpha } from '../tokens'
+import { useLocaleStrings } from '../i18n/useLocale'
+import { getLauncherStrings } from '../i18n/launcher'
 import type { AuthMode, AuthUser } from '../types'
 import logoSrc from '../assets/logo.png'
 
@@ -72,6 +74,7 @@ function PasswordInput({ value, onChange, placeholder }: {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export function AuthScreen({ onAuth }: { onAuth: (user: AuthUser, token: string) => void }) {
+  const s                     = useLocaleStrings(getLauncherStrings)
   const [mode]                = useState<AuthMode>('login')
   const [email,   setEmail]   = useState('')
   const [pass,    setPass]    = useState('')
@@ -190,12 +193,10 @@ export function AuthScreen({ onAuth }: { onAuth: (user: AuthUser, token: string)
 
           {/* Heading */}
           <h2 className="mb-1 text-[20px] font-black leading-none" style={{ color: dark.text }}>
-            {mode === 'login' ? 'Bienvenue' : 'Créer un compte'}
+            {mode === 'login' ? s.auth.welcome : s.auth.createAccount}
           </h2>
           <p className="mb-6 text-[11px] leading-relaxed" style={{ color: dark.textDim }}>
-            {mode === 'login'
-              ? 'Connectez-vous pour accéder à vos projets SIF.'
-              : 'Créez votre compte PRISM Desktop local.'}
+            {mode === 'login' ? s.auth.loginSubtitle : s.auth.signupSubtitle}
           </p>
 
           {/* Form */}
@@ -211,7 +212,7 @@ export function AuthScreen({ onAuth }: { onAuth: (user: AuthUser, token: string)
             )}
             <Input
               type="email"
-              placeholder="Adresse email"
+              placeholder={s.auth.emailPlaceholder}
               value={email}
               onChange={setEmail}
               required
@@ -219,7 +220,7 @@ export function AuthScreen({ onAuth }: { onAuth: (user: AuthUser, token: string)
             <PasswordInput
               value={pass}
               onChange={setPass}
-              placeholder="Mot de passe"
+              placeholder={s.auth.passwordPlaceholder}
             />
             {mode === 'signup' && (
               <PasswordInput
@@ -257,7 +258,7 @@ export function AuthScreen({ onAuth }: { onAuth: (user: AuthUser, token: string)
                 ? <Loader2 size={16} className="animate-spin" />
                 : (
                   <>
-                    {mode === 'login' ? 'Se connecter' : 'Créer le compte'}
+                    {mode === 'login' ? s.auth.loginBtn : s.auth.signupBtn}
                     <ArrowRight size={14} />
                   </>
                 )
@@ -266,7 +267,7 @@ export function AuthScreen({ onAuth }: { onAuth: (user: AuthUser, token: string)
           </form>
 
           <p className="mt-5 text-center text-[11px]" style={{ color: alpha(dark.textDim, '60') }}>
-            Contactez votre administrateur PRISM pour obtenir un accès.
+            {s.auth.contactAdmin}
           </p>
         </div>
 
@@ -285,7 +286,7 @@ export function AuthScreen({ onAuth }: { onAuth: (user: AuthUser, token: string)
           <div className="flex items-center gap-1.5">
             <Lock size={9} style={{ color: dark.textDim }} />
             <span className="text-[9px]" style={{ color: alpha(dark.textDim, '70') }}>
-              Données stockées localement
+              {s.auth.localData}
             </span>
           </div>
         </div>

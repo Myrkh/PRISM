@@ -6,6 +6,8 @@
 import { useState, type FormEvent } from 'react'
 import { Eye, EyeOff, ArrowRight, Loader2, Shield, Crown } from 'lucide-react'
 import { colors, dark, semantic, alpha } from '../tokens'
+import { useLocaleStrings } from '../i18n/useLocale'
+import { getLauncherStrings } from '../i18n/launcher'
 import logoSrc from '../assets/logo.png'
 
 function FieldInput({ type = 'text', placeholder, value, onChange }: {
@@ -46,6 +48,7 @@ function FieldInput({ type = 'text', placeholder, value, onChange }: {
 }
 
 export function SetupScreen({ onDone }: { onDone: () => void }) {
+  const s                      = useLocaleStrings(getLauncherStrings)
   const [fullName, setFullName] = useState('')
   const [email,    setEmail]    = useState('')
   const [pass,     setPass]     = useState('')
@@ -56,8 +59,8 @@ export function SetupScreen({ onDone }: { onDone: () => void }) {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
-    if (pass.length < 8) { setError('Minimum 8 caractères.'); return }
-    if (pass !== confirm) { setError('Les mots de passe ne correspondent pas.'); return }
+    if (pass.length < 8) { setError(s.setup.errMinLength); return }
+    if (pass !== confirm) { setError(s.setup.errMismatch); return }
     setLoading(true)
     try {
       const result = await window.electron?.createUser({
@@ -110,7 +113,7 @@ export function SetupScreen({ onDone }: { onDone: () => void }) {
             </div>
             <div>
               <span className="text-[18px] font-black tracking-tight" style={{ color: dark.text }}>PRISM</span>
-              <p className="text-[10px]" style={{ color: dark.textDim }}>Configuration initiale</p>
+              <p className="text-[10px]" style={{ color: dark.textDim }}>{s.setup.configTitle}</p>
             </div>
           </div>
 
@@ -121,23 +124,21 @@ export function SetupScreen({ onDone }: { onDone: () => void }) {
           >
             <Crown size={13} style={{ color: semantic.warning, flexShrink: 0 }} />
             <div>
-              <p className="text-[11px] font-bold" style={{ color: semantic.warning }}>Compte Administrateur</p>
+              <p className="text-[11px] font-bold" style={{ color: semantic.warning }}>{s.setup.adminBadge}</p>
               <p className="text-[9px]" style={{ color: alpha(semantic.warning, 'AA') }}>
-                Premier compte créé — accès complet à la gestion des utilisateurs
+                {s.setup.adminBadgeHint}
               </p>
             </div>
           </div>
 
-          <h2 className="mb-1 text-[18px] font-black" style={{ color: dark.text }}>Créer le compte admin</h2>
-          <p className="mb-5 text-[11px]" style={{ color: dark.textDim }}>
-            Ce compte sera utilisé pour gérer les utilisateurs et la licence PRISM.
-          </p>
+          <h2 className="mb-1 text-[18px] font-black" style={{ color: dark.text }}>{s.setup.heading}</h2>
+          <p className="mb-5 text-[11px]" style={{ color: dark.textDim }}>{s.setup.subtitle}</p>
 
           <form onSubmit={handleSubmit} className="space-y-2.5">
-            <FieldInput placeholder="Nom complet" value={fullName} onChange={setFullName} />
-            <FieldInput type="email" placeholder="Adresse email" value={email} onChange={setEmail} />
-            <FieldInput type="password" placeholder="Mot de passe (min. 8 car.)" value={pass} onChange={setPass} />
-            <FieldInput type="password" placeholder="Confirmer le mot de passe" value={confirm} onChange={setConfirm} />
+            <FieldInput placeholder={s.setup.namePlaceholder} value={fullName} onChange={setFullName} />
+            <FieldInput type="email" placeholder={s.setup.emailPlaceholder} value={email} onChange={setEmail} />
+            <FieldInput type="password" placeholder={s.setup.passwordPlaceholder} value={pass} onChange={setPass} />
+            <FieldInput type="password" placeholder={s.setup.confirmPlaceholder} value={confirm} onChange={setConfirm} />
 
             {error && (
               <div
@@ -158,7 +159,7 @@ export function SetupScreen({ onDone }: { onDone: () => void }) {
                 boxShadow: `0 4px 20px ${alpha(colors.teal, '30')}`,
               }}
             >
-              {loading ? <Loader2 size={16} className="animate-spin" /> : <><span>Créer le compte</span><ArrowRight size={14} /></>}
+              {loading ? <Loader2 size={16} className="animate-spin" /> : <><span>{s.setup.createBtn}</span><ArrowRight size={14} /></>}
             </button>
           </form>
         </div>
@@ -170,7 +171,7 @@ export function SetupScreen({ onDone }: { onDone: () => void }) {
         >
           <Shield size={10} style={{ color: colors.teal }} />
           <span className="text-[9px]" style={{ color: alpha(dark.textDim, '70') }}>
-            Données stockées localement · Aucune connexion requise
+            {s.setup.localData}
           </span>
         </div>
       </div>

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from app.routes.engine import router as engine_router
 
@@ -59,3 +61,18 @@ def health() -> dict[str, str]:
 
 app.include_router(engine_router, prefix="/engine", tags=["engine"])
 app.include_router(engine_router, prefix="/api/engine", include_in_schema=False)
+
+
+def _get_frontend_dir() -> str:
+    """Retourne le chemin du frontend buildé (compatible PyInstaller + dev)."""
+    if getattr(sys, "frozen", False):
+        # Bundle PyInstaller — sys._MEIPASS pointe sur _internal/
+        return os.path.join(sys._MEIPASS, "frontend")
+    # Dev local — frontend/dist copié à côté de main.py
+    return os.path.join(os.path.dirname(__file__), "frontend")
+
+
+# Monter le frontend statique EN DERNIER (catch-all sur "/")
+_frontend_dir = _get_frontend_dir()
+if os.path.isdir(_frontend_dir):
+    app.mount("/", StaticFiles(directory=_frontend_dir, html=True), name="frontend")

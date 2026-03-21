@@ -18,12 +18,13 @@ const auth   = require('./auth')
 
 // ─── Config ────────────────────────────────────────────────────────────────
 
-const PRISM_GITHUB_REPO  = 'ton-org/prism'   // ← à adapter
+const PRISM_GITHUB_REPO  = 'Myrkh/PRISM'
 const PRISM_ASSET_NAME   = 'prism-desktop-win.zip'
 const IS_DEV             = !app.isPackaged
 
-let mainWindow  = null
+let mainWindow   = null
 let splashWindow = null
+let prismWindow  = null
 
 // ─── Chemin PRISM installé ────────────────────────────────────────────────
 
@@ -33,7 +34,7 @@ function getPrismInstallDir() {
 }
 
 function getPrismExe() {
-  return path.join(getPrismInstallDir(), 'PRISM.exe')
+  return path.join(getPrismInstallDir(), 'PRISM-backend', 'PRISM-backend.exe')
 }
 
 function isPrismInstalled() {
@@ -131,17 +132,77 @@ ipcMain.handle('win:maximize',  () => {
 })
 ipcMain.handle('win:close',     () => mainWindow?.close())
 
+// ── Helpers PRISM ──────────────────────────────────────────────────────────
+
+function waitForPrismBackend(timeoutMs = 30000) {
+  return new Promise((resolve, reject) => {
+    const start = Date.now()
+    const attempt = () => {
+      const req = http.get('http://localhost:8000/health', res => {
+        if (res.statusCode === 200) resolve()
+        else schedule()
+      })
+      req.on('error', schedule)
+      req.setTimeout(1000, () => { req.destroy(); schedule() })
+    }
+    const schedule = () => {
+      if (Date.now() - start > timeoutMs) {
+        reject(new Error('PRISM backend timeout — vérifiez l\'installation.'))
+      } else {
+        setTimeout(attempt, 600)
+      }
+    }
+    attempt()
+  })
+}
+
+function openPrismWindow() {
+  if (prismWindow && !prismWindow.isDestroyed()) {
+    prismWindow.focus()
+    return
+  }
+  prismWindow = new BrowserWindow({
+    width:    1440,
+    height:   900,
+    minWidth: 1024,
+    minHeight: 600,
+    icon:     path.join(__dirname, '../public/logo.png'),
+    title:    'PRISM',
+    webPreferences: {
+      nodeIntegration:  false,
+      contextIsolation: true,
+      webSecurity:      true,
+    },
+  })
+  prismWindow.setMenuBarVisibility(false)
+  prismWindow.loadURL('http://localhost:8000')
+  prismWindow.on('closed', () => { prismWindow = null })
+}
+
 // Lancer PRISM
 ipcMain.handle('prism:launch', async () => {
   if (!isPrismInstalled()) {
-    return { ok: false, error: 'PRISM non installé' }
+    return { ok: false, error: 'PRISM non installé. Utilisez l\'onglet Updates pour l\'installer.' }
+  }
+  // Si la fenêtre est déjà ouverte, juste focus
+  if (prismWindow && !prismWindow.isDestroyed()) {
+    prismWindow.focus()
+    return { ok: true }
   }
   try {
+    // Démarrer le backend Python
     const prismProcess = spawn(getPrismExe(), [], {
       detached: true,
       stdio:    'ignore',
+      cwd:      path.dirname(getPrismExe()),
     })
     prismProcess.unref()
+
+    // Attendre que le backend soit prêt (max 30s)
+    await waitForPrismBackend()
+
+    // Ouvrir PRISM dans sa propre fenêtre
+    openPrismWindow()
     return { ok: true }
   } catch (err) {
     return { ok: false, error: err.message }

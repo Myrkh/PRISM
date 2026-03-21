@@ -50,8 +50,12 @@ export default function App() {
 
   useEffect(() => {
     if (!window.electron) {
-      // Sans Electron (dev Vite seul) — affiche le login, les IPC ne répondront pas
-      setPhase('auth')
+      // Dev Vite seul (pas d'Electron) — mock user admin pour voir le shell
+      setUser({ id: 1, email: 'dev@prism.io', fullName: 'Dev User',
+                initials: 'DU', role: 'admin', active: true,
+                createdAt: '', lastLogin: null })
+      setToken('dev-token')
+      setPhase('app')
       return
     }
     window.electron.isSetup().then(ready => {

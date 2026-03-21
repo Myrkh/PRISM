@@ -10,6 +10,8 @@ import {
   LogIn, UserPlus, Settings, AlertTriangle, Shield,
 } from 'lucide-react'
 import { colors, semantic, alpha } from '../tokens'
+import { useLocaleStrings } from '../i18n/useLocale'
+import { getLauncherStrings } from '../i18n/launcher'
 import type { ThemeTokens } from '../hooks/useTheme'
 import type { AuthUser, AdminUser, LicenseInfo, AuditEntry } from '../types'
 
@@ -44,6 +46,7 @@ function UserModal({ user, sessionToken, t, onClose, onSave }: {
   onClose: () => void
   onSave: () => void
 }) {
+  const s   = useLocaleStrings(getLauncherStrings)
   const isNew = !user
   const [fullName, setFullName] = useState(user?.fullName ?? '')
   const [email,    setEmail]    = useState(user?.email    ?? '')
@@ -55,8 +58,8 @@ function UserModal({ user, sessionToken, t, onClose, onSave }: {
 
   const handleSave = async () => {
     setError(null)
-    if (isNew && (!email || !fullName || !pass)) { setError('Tous les champs sont requis.'); return }
-    if (isNew && pass.length < 8) { setError('Minimum 8 caractères.'); return }
+    if (isNew && (!email || !fullName || !pass)) { setError(s.admin.errRequired); return }
+    if (isNew && pass.length < 8) { setError(s.admin.errMinLength); return }
     setLoading(true)
     try {
       if (isNew) {
@@ -66,7 +69,7 @@ function UserModal({ user, sessionToken, t, onClose, onSave }: {
         const patches: Record<string, unknown> = { full_name: fullName, role }
         if (pass) patches.password = pass
         const r = await window.electron?.updateUser({ token: sessionToken, userId: user!.id, patches })
-        if (!r?.ok) throw new Error('Erreur de mise à jour')
+        if (!r?.ok) throw new Error(s.admin.errUpdateFailed)
       }
       onSave()
       onClose()
@@ -103,7 +106,7 @@ function UserModal({ user, sessionToken, t, onClose, onSave }: {
               {isNew ? <UserPlus size={14} style={{ color: colors.teal }} /> : <Edit2 size={14} style={{ color: colors.teal }} />}
             </div>
             <p className="text-[13px] font-bold" style={{ color: t.TEXT }}>
-              {isNew ? 'Nouvel utilisateur' : 'Modifier l\'utilisateur'}
+              {isNew ? s.admin.newTitle : s.admin.editTitle}
             </p>
           </div>
           <button onClick={onClose} className="rounded-lg p-1.5 transition-all hover:opacity-70" style={{ color: t.TEXT_DIM }}>
@@ -113,7 +116,7 @@ function UserModal({ user, sessionToken, t, onClose, onSave }: {
 
         <div className="space-y-3 p-5">
           <div>
-            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider" style={{ color: t.TEXT_DIM }}>Nom complet</label>
+            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider" style={{ color: t.TEXT_DIM }}>{s.admin.fieldName}</label>
             <input style={fieldStyle} value={fullName} onChange={e => setFullName(e.target.value)}
               onFocus={e => (e.currentTarget.style.borderColor = alpha(colors.teal, '50'))}
               onBlur={e  => (e.currentTarget.style.borderColor = t.BORDER)}
@@ -122,7 +125,7 @@ function UserModal({ user, sessionToken, t, onClose, onSave }: {
 
           {isNew && (
             <div>
-              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider" style={{ color: t.TEXT_DIM }}>Email</label>
+              <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider" style={{ color: t.TEXT_DIM }}>{s.admin.fieldEmail}</label>
               <input type="email" style={fieldStyle} value={email} onChange={e => setEmail(e.target.value)}
                 onFocus={e => (e.currentTarget.style.borderColor = alpha(colors.teal, '50'))}
                 onBlur={e  => (e.currentTarget.style.borderColor = t.BORDER)}
@@ -132,7 +135,7 @@ function UserModal({ user, sessionToken, t, onClose, onSave }: {
 
           <div>
             <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider" style={{ color: t.TEXT_DIM }}>
-              {isNew ? 'Mot de passe' : 'Nouveau mot de passe (optionnel)'}
+              {isNew ? s.admin.fieldPassword : s.admin.fieldPasswordOpt}
             </label>
             <div className="relative">
               <input
@@ -140,7 +143,7 @@ function UserModal({ user, sessionToken, t, onClose, onSave }: {
                 style={{ ...fieldStyle, paddingRight: 40 }}
                 value={pass}
                 onChange={e => setPass(e.target.value)}
-                placeholder={isNew ? 'Min. 8 caractères' : 'Laisser vide pour ne pas changer'}
+                placeholder={isNew ? s.admin.errMinLength : s.admin.fieldPasswordOpt}
                 onFocus={e => (e.currentTarget.style.borderColor = alpha(colors.teal, '50'))}
                 onBlur={e  => (e.currentTarget.style.borderColor = t.BORDER)}
               />
@@ -156,7 +159,7 @@ function UserModal({ user, sessionToken, t, onClose, onSave }: {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider" style={{ color: t.TEXT_DIM }}>Rôle</label>
+            <label className="mb-1.5 block text-[10px] font-bold uppercase tracking-wider" style={{ color: t.TEXT_DIM }}>{s.admin.fieldRole}</label>
             <div className="flex gap-2">
               {(['user', 'admin'] as const).map(r => (
                 <button
@@ -171,7 +174,7 @@ function UserModal({ user, sessionToken, t, onClose, onSave }: {
                   }}
                 >
                   {r === 'admin' ? <Crown size={11} /> : <User size={11} />}
-                  {r === 'admin' ? 'Admin' : 'Utilisateur'}
+                  {r === 'admin' ? s.admin.roleAdmin : s.admin.roleUser}
                 </button>
               ))}
             </div>
@@ -191,7 +194,7 @@ function UserModal({ user, sessionToken, t, onClose, onSave }: {
             className="flex-1 rounded-xl py-2.5 text-[11px] font-semibold transition-all hover:opacity-80"
             style={{ background: alpha(t.TEXT, '06'), color: t.TEXT_DIM }}
           >
-            Annuler
+            {s.admin.cancelBtn}
           </button>
           <button
             type="button"
@@ -200,7 +203,7 @@ function UserModal({ user, sessionToken, t, onClose, onSave }: {
             className="flex flex-1 items-center justify-center gap-2 rounded-xl py-2.5 text-[11px] font-bold transition-all active:scale-95 disabled:opacity-50"
             style={{ background: `linear-gradient(135deg, ${colors.teal}, ${colors.tealDark})`, color: '#041014' }}
           >
-            {loading ? <Loader2 size={13} className="animate-spin" /> : <><Check size={13} />{isNew ? 'Créer' : 'Enregistrer'}</>}
+            {loading ? <Loader2 size={13} className="animate-spin" /> : <><Check size={13} />{isNew ? s.admin.createBtn : s.admin.saveBtn}</>}
           </button>
         </div>
       </div>
@@ -211,6 +214,7 @@ function UserModal({ user, sessionToken, t, onClose, onSave }: {
 // ── Tab Utilisateurs ──────────────────────────────────────────────────────────
 
 function UsersTab({ currentUser, sessionToken, t }: { currentUser: AuthUser; sessionToken: string; t: ThemeTokens }) {
+  const s = useLocaleStrings(getLauncherStrings)
   const [users,   setUsers]   = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [modal,   setModal]   = useState<AdminUser | null | 'new'>()
@@ -238,9 +242,9 @@ function UsersTab({ currentUser, sessionToken, t }: { currentUser: AuthUser; ses
       {/* Toolbar */}
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <p className="text-[14px] font-bold" style={{ color: t.TEXT }}>Utilisateurs</p>
+          <p className="text-[14px] font-bold" style={{ color: t.TEXT }}>{s.admin.usersTitle}</p>
           <p className="text-[11px]" style={{ color: t.TEXT_DIM }}>
-            {users.length} compte{users.length > 1 ? 's' : ''} · {users.filter(u => u.active).length} actif{users.filter(u => u.active).length > 1 ? 's' : ''}
+            {users.length} {s.admin.colUser.toLowerCase()} · {users.filter(u => u.active).length} {s.admin.colLastLogin.split(' ')[0].toLowerCase()}
           </p>
         </div>
         <button
@@ -250,7 +254,7 @@ function UsersTab({ currentUser, sessionToken, t }: { currentUser: AuthUser; ses
           style={{ background: `linear-gradient(135deg, ${colors.teal}, ${colors.tealDark})`, color: '#041014', boxShadow: `0 3px 10px ${alpha(colors.teal, '30')}` }}
         >
           <Plus size={12} />
-          Nouvel utilisateur
+          {s.admin.usersNew}
         </button>
       </div>
 
@@ -261,7 +265,7 @@ function UsersTab({ currentUser, sessionToken, t }: { currentUser: AuthUser; ses
           className="grid grid-cols-[1fr_100px_100px_80px] gap-4 border-b px-5 py-2.5"
           style={{ borderColor: t.BORDER, background: alpha(t.TEXT, '02') }}
         >
-          {['Utilisateur', 'Rôle', 'Dernière connexion', ''].map(h => (
+          {[s.admin.colUser, s.admin.colRole, s.admin.colLastLogin, ''].map(h => (
             <span key={h} className="text-[9px] font-black uppercase tracking-widest" style={{ color: t.TEXT_DIM }}>{h}</span>
           ))}
         </div>
@@ -295,7 +299,7 @@ function UsersTab({ currentUser, sessionToken, t }: { currentUser: AuthUser; ses
                   <p className="truncate text-[12px] font-semibold" style={{ color: u.active ? t.TEXT : t.TEXT_DIM }}>
                     {u.fullName}
                     {u.id === currentUser.id && (
-                      <span className="ml-1.5 text-[9px] font-normal" style={{ color: t.TEXT_DIM }}>(vous)</span>
+                      <span className="ml-1.5 text-[9px] font-normal" style={{ color: t.TEXT_DIM }}>{s.admin.youLabel}</span>
                     )}
                   </p>
                   <p className="truncate text-[10px]" style={{ color: t.TEXT_DIM }}>{u.email}</p>
@@ -311,7 +315,7 @@ function UsersTab({ currentUser, sessionToken, t }: { currentUser: AuthUser; ses
                 }
               >
                 {u.role === 'admin' ? <Crown size={8} /> : <User size={8} />}
-                {u.role === 'admin' ? 'ADMIN' : 'USER'}
+                {u.role === 'admin' ? s.admin.roleAdmin : s.admin.roleUser}
               </span>
 
               {/* Last login */}
@@ -365,6 +369,7 @@ function UsersTab({ currentUser, sessionToken, t }: { currentUser: AuthUser; ses
 // ── Tab Licence ───────────────────────────────────────────────────────────────
 
 function LicenseTab({ sessionToken, t }: { sessionToken: string; t: ThemeTokens }) {
+  const s = useLocaleStrings(getLauncherStrings)
   const [license, setLicense] = useState<LicenseInfo | null>(null)
   const [users,   setUsers]   = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
@@ -396,15 +401,15 @@ function LicenseTab({ sessionToken, t }: { sessionToken: string; t: ThemeTokens 
           <Key size={24} style={{ color: semantic.warning }} />
         </div>
         <div className="text-center">
-          <p className="text-[14px] font-bold" style={{ color: t.TEXT }}>Aucune licence activée</p>
-          <p className="mt-1 text-[11px]" style={{ color: t.TEXT_DIM }}>Contactez PRISM Engineering pour obtenir votre licence.</p>
+          <p className="text-[14px] font-bold" style={{ color: t.TEXT }}>{s.admin.noLicense}</p>
+          <p className="mt-1 text-[11px]" style={{ color: t.TEXT_DIM }}>{s.admin.noLicenseHint}</p>
         </div>
         <a
           href="mailto:contact@prism-engineering.io"
           className="rounded-xl px-4 py-2 text-[11px] font-bold transition-all hover:opacity-80"
           style={{ background: alpha(colors.teal, '12'), color: colors.teal, border: `1px solid ${alpha(colors.teal, '25')}` }}
         >
-          Contacter PRISM Engineering
+          {s.admin.contactBtn}
         </a>
       </div>
     )
@@ -416,28 +421,28 @@ function LicenseTab({ sessionToken, t }: { sessionToken: string; t: ThemeTokens 
       <div className="card overflow-hidden rounded-2xl border" style={{ borderColor: alpha(colors.teal, '25'), background: alpha(colors.teal, '03') }}>
         <div className="flex items-center gap-2 border-b px-5 py-2.5" style={{ borderColor: alpha(colors.teal, '15') }}>
           <div className="h-1.5 w-1.5 rounded-full" style={{ background: colors.teal, boxShadow: `0 0 6px ${colors.teal}` }} />
-          <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.teal }}>Licence active</span>
+          <span className="text-[9px] font-black uppercase tracking-widest" style={{ color: colors.teal }}>{s.admin.activeBadge}</span>
         </div>
 
         <div className="grid grid-cols-2 gap-6 p-5">
           <div>
-            <p className="mb-0.5 text-[9px] font-black uppercase tracking-wider" style={{ color: t.TEXT_DIM }}>Société</p>
+            <p className="mb-0.5 text-[9px] font-black uppercase tracking-wider" style={{ color: t.TEXT_DIM }}>{s.admin.fieldCompany}</p>
             <p className="text-[15px] font-bold" style={{ color: t.TEXT }}>{license.company}</p>
           </div>
           <div>
-            <p className="mb-0.5 text-[9px] font-black uppercase tracking-wider" style={{ color: t.TEXT_DIM }}>Clé de licence</p>
+            <p className="mb-0.5 text-[9px] font-black uppercase tracking-wider" style={{ color: t.TEXT_DIM }}>{s.admin.fieldKey}</p>
             <p className="font-mono text-[12px]" style={{ color: t.TEXT_DIM }}>{license.key_display}</p>
           </div>
           <div>
-            <p className="mb-0.5 text-[9px] font-black uppercase tracking-wider" style={{ color: t.TEXT_DIM }}>Activée le</p>
+            <p className="mb-0.5 text-[9px] font-black uppercase tracking-wider" style={{ color: t.TEXT_DIM }}>{s.admin.fieldActivated}</p>
             <p className="text-[12px]" style={{ color: t.TEXT }}>
               {new Date(license.activated_at).toLocaleDateString('fr-FR')}
             </p>
           </div>
           <div>
-            <p className="mb-0.5 text-[9px] font-black uppercase tracking-wider" style={{ color: t.TEXT_DIM }}>Expiration</p>
+            <p className="mb-0.5 text-[9px] font-black uppercase tracking-wider" style={{ color: t.TEXT_DIM }}>{s.admin.fieldExpiry}</p>
             {days === null ? (
-              <p className="text-[12px]" style={{ color: semantic.success }}>Perpétuelle</p>
+              <p className="text-[12px]" style={{ color: semantic.success }}>{s.admin.perpetual}</p>
             ) : (
               <div className="flex items-center gap-2">
                 <p className="text-[12px]" style={{ color: expColor }}>
@@ -445,7 +450,7 @@ function LicenseTab({ sessionToken, t }: { sessionToken: string; t: ThemeTokens 
                 </p>
                 {days < 90 && (
                   <span className="rounded-full px-2 py-0.5 text-[8px] font-black" style={{ background: alpha(expColor, '15'), color: expColor }}>
-                    {days}j restants
+                    {s.admin.daysLeft.replace('{n}', String(days))}
                   </span>
                 )}
               </div>
@@ -458,8 +463,8 @@ function LicenseTab({ sessionToken, t }: { sessionToken: string; t: ThemeTokens 
       <div className="card rounded-2xl border p-5" style={{ borderColor: t.BORDER, background: t.CARD_BG }}>
         <div className="mb-3 flex items-center justify-between">
           <div>
-            <p className="text-[13px] font-bold" style={{ color: t.TEXT }}>Postes utilisés</p>
-            <p className="text-[11px]" style={{ color: t.TEXT_DIM }}>{used} actif{used > 1 ? 's' : ''} sur {license.seats} disponible{license.seats > 1 ? 's' : ''}</p>
+            <p className="text-[13px] font-bold" style={{ color: t.TEXT }}>{s.admin.seatsTitle}</p>
+            <p className="text-[11px]" style={{ color: t.TEXT_DIM }}>{used} / {license.seats}</p>
           </div>
           <span
             className="text-[22px] font-black"
@@ -486,7 +491,7 @@ function LicenseTab({ sessionToken, t }: { sessionToken: string; t: ThemeTokens 
         {pct >= 100 && (
           <div className="mt-3 flex items-center gap-2 rounded-lg border px-3 py-2" style={{ background: alpha(semantic.error, '08'), borderColor: alpha(semantic.error, '20') }}>
             <AlertTriangle size={12} style={{ color: semantic.error }} />
-            <p className="text-[10px]" style={{ color: semantic.error }}>Limite de postes atteinte — contactez PRISM Engineering pour augmenter votre quota.</p>
+            <p className="text-[10px]" style={{ color: semantic.error }}>{s.admin.seatsLimit}</p>
           </div>
         )}
       </div>
@@ -496,8 +501,8 @@ function LicenseTab({ sessionToken, t }: { sessionToken: string; t: ThemeTokens 
         <div className="flex items-center gap-3">
           <Shield size={14} style={{ color: t.TEXT_DIM }} />
           <div>
-            <p className="text-[11px] font-semibold" style={{ color: t.TEXT }}>Renouvellement ou extension</p>
-            <p className="text-[10px]" style={{ color: t.TEXT_DIM }}>Contactez PRISM Engineering — contact@prism-engineering.io</p>
+            <p className="text-[11px] font-semibold" style={{ color: t.TEXT }}>{s.admin.renewTitle}</p>
+            <p className="text-[10px]" style={{ color: t.TEXT_DIM }}>{s.admin.renewContact}</p>
           </div>
         </div>
       </div>
@@ -507,15 +512,20 @@ function LicenseTab({ sessionToken, t }: { sessionToken: string; t: ThemeTokens 
 
 // ── Tab Journal ───────────────────────────────────────────────────────────────
 
-const ACTION_CFG: Record<string, { icon: React.ElementType; color: string; label: string }> = {
-  LOGIN:        { icon: LogIn,    color: semantic.success, label: 'Connexion'          },
-  LOGIN_FAILED: { icon: LogIn,    color: semantic.error,   label: 'Échec connexion'    },
-  USER_CREATED: { icon: UserPlus, color: semantic.info,    label: 'Utilisateur créé'   },
-  USER_UPDATED: { icon: Settings, color: semantic.warning, label: 'Utilisateur modifié'},
-  LICENSE_SET:  { icon: Key,      color: colors.tealDim,   label: 'Licence configurée' },
+function useActionCfg() {
+  const s = useLocaleStrings(getLauncherStrings)
+  return {
+    LOGIN:        { icon: LogIn,    color: semantic.success, label: s.admin.actionLogin        },
+    LOGIN_FAILED: { icon: LogIn,    color: semantic.error,   label: s.admin.actionLoginFailed  },
+    USER_CREATED: { icon: UserPlus, color: semantic.info,    label: s.admin.actionUserCreated  },
+    USER_UPDATED: { icon: Settings, color: semantic.warning, label: s.admin.actionUserUpdated  },
+    LICENSE_SET:  { icon: Key,      color: colors.tealDim,   label: s.admin.actionLicenseSet   },
+  } as Record<string, { icon: React.ElementType; color: string; label: string }>
 }
 
 function AuditTab({ sessionToken, t }: { sessionToken: string; t: ThemeTokens }) {
+  const s         = useLocaleStrings(getLauncherStrings)
+  const actionCfg = useActionCfg()
   const [entries,  setEntries]  = useState<AuditEntry[]>([])
   const [loading,  setLoading]  = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -534,8 +544,8 @@ function AuditTab({ sessionToken, t }: { sessionToken: string; t: ThemeTokens })
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="mb-4 flex items-center justify-between">
         <div>
-          <p className="text-[14px] font-bold" style={{ color: t.TEXT }}>Journal d'activité</p>
-          <p className="text-[11px]" style={{ color: t.TEXT_DIM }}>{entries.length} événements récents</p>
+          <p className="text-[14px] font-bold" style={{ color: t.TEXT }}>{s.admin.auditTitle}</p>
+          <p className="text-[11px]" style={{ color: t.TEXT_DIM }}>{entries.length}</p>
         </div>
         <button
           type="button"
@@ -555,11 +565,11 @@ function AuditTab({ sessionToken, t }: { sessionToken: string; t: ThemeTokens })
         ) : entries.length === 0 ? (
           <div className="flex h-32 flex-col items-center justify-center gap-2">
             <ScrollText size={20} style={{ color: t.TEXT_DIM, opacity: 0.4 }} />
-            <p className="text-[11px]" style={{ color: alpha(t.TEXT_DIM, '60') }}>Aucune activité enregistrée</p>
+            <p className="text-[11px]" style={{ color: alpha(t.TEXT_DIM, '60') }}>{s.admin.auditEmpty}</p>
           </div>
         ) : (
           entries.map((e, i) => {
-            const cfg = ACTION_CFG[e.action] ?? { icon: ScrollText, color: t.TEXT_DIM, label: e.action }
+            const cfg = actionCfg[e.action] ?? { icon: ScrollText, color: t.TEXT_DIM, label: e.action }
             const Icon = cfg.icon
             return (
               <div
@@ -599,14 +609,15 @@ function AuditTab({ sessionToken, t }: { sessionToken: string; t: ThemeTokens })
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-const TABS: Array<{ id: AdminTab; label: string; Icon: React.ElementType }> = [
-  { id: 'users',   label: 'Utilisateurs', Icon: Users      },
-  { id: 'license', label: 'Licence',      Icon: Key        },
-  { id: 'audit',   label: 'Journal',      Icon: ScrollText },
-]
-
 export function AdminView({ t, user, sessionToken }: { t: ThemeTokens; user: AuthUser; sessionToken: string }) {
+  const s   = useLocaleStrings(getLauncherStrings)
   const [tab, setTab] = useState<AdminTab>('users')
+
+  const TABS: Array<{ id: AdminTab; label: string; Icon: React.ElementType }> = [
+    { id: 'users',   label: s.admin.tabUsers,   Icon: Users      },
+    { id: 'license', label: s.admin.tabLicense, Icon: Key        },
+    { id: 'audit',   label: s.admin.tabAudit,   Icon: ScrollText },
+  ]
 
   return (
     <div className="flex flex-1 overflow-hidden" style={{ background: t.PAGE_BG }}>

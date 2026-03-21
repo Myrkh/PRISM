@@ -173,6 +173,75 @@ export interface LauncherStrings {
     createLink:          string
     loginLink:           string
     localData:           string
+    contactAdmin:        string
+  }
+
+  setup: {
+    configTitle:         string
+    adminBadge:          string
+    adminBadgeHint:      string
+    heading:             string
+    subtitle:            string
+    namePlaceholder:     string
+    emailPlaceholder:    string
+    passwordPlaceholder: string
+    confirmPlaceholder:  string
+    createBtn:           string
+    localData:           string
+    errMinLength:        string
+    errMismatch:         string
+  }
+
+  admin: {
+    // Sidebar tabs
+    tabUsers:         string
+    tabLicense:       string
+    tabAudit:         string
+    // Users
+    usersTitle:       string
+    usersNew:         string
+    colUser:          string
+    colRole:          string
+    colLastLogin:     string
+    youLabel:         string
+    roleAdmin:        string
+    roleUser:         string
+    editTitle:        string
+    newTitle:         string
+    fieldName:        string
+    fieldEmail:       string
+    fieldPassword:    string
+    fieldPasswordOpt: string
+    fieldRole:        string
+    cancelBtn:        string
+    createBtn:        string
+    saveBtn:          string
+    errRequired:      string
+    errMinLength:     string
+    errUpdateFailed:  string
+    // License
+    noLicense:        string
+    noLicenseHint:    string
+    contactBtn:       string
+    activeBadge:      string
+    fieldCompany:     string
+    fieldKey:         string
+    fieldActivated:   string
+    fieldExpiry:      string
+    perpetual:        string
+    daysLeft:         string   // '{n}j' / '{n} days'
+    seatsTitle:       string
+    seatsLimit:       string
+    renewTitle:       string
+    renewContact:     string
+    // Audit
+    auditTitle:       string
+    auditEmpty:       string
+    actionLogin:      string
+    actionLoginFailed:string
+    actionUserCreated:string
+    actionUserUpdated:string
+    actionLicenseSet: string
   }
 
   account: {

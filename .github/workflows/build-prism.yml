@@ -1,0 +1,84 @@
+name: Build PRISM Desktop
+
+on:
+  push:
+    tags:
+      - 'prism-v*'
+  workflow_dispatch:
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # ── Node.js + Frontend ────────────────────────────────────────────────
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Build frontend
+        working-directory: front
+        run: npm install && npm run build
+        env:
+          VITE_SUPABASE_URL:      ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Copy frontend dist → backend/frontend
+        run: |
+          New-Item -ItemType Directory -Force -Path backend\frontend
+          Copy-Item -Recurse -Force front\dist\* backend\frontend\
+        shell: pwsh
+
+      # ── Python + Backend ──────────────────────────────────────────────────
+      - name: Setup Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Fix Python distutils (Python 3.12+ supprime distutils)
+        run: pip install setuptools
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: |
+          pip install ./sil-py
+          pip install fastapi "uvicorn[standard]" pydantic reportlab
+          pip install pyinstaller
+
+      # ── PyInstaller ───────────────────────────────────────────────────────
+      - name: Build PRISM-backend.exe (PyInstaller)
+        working-directory: backend
+        run: pyinstaller prism.spec --distpath ../release/prism-dist --workpath ../release/build --clean
+
+      # ── Package ───────────────────────────────────────────────────────────
+      - name: Create version.json
+        run: |
+          $version = "${{ github.ref_name }}"
+          if (-not $version) { $version = "dev" }
+          '{"version":"' + $version + '"}' | Out-File -FilePath release\version.json -Encoding utf8
+        shell: pwsh
+
+      - name: Create prism-desktop-win.zip
+        run: |
+          Compress-Archive -Path release\prism-dist\PRISM-backend, release\version.json `
+            -DestinationPath release\prism-desktop-win.zip -Force
+        shell: pwsh
+
+      # ── Artifacts ─────────────────────────────────────────────────────────
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: PRISM-Desktop-Windows
+          path: release/prism-desktop-win.zip
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/prism-desktop-win.zip
+          name: PRISM ${{ github.ref_name }}
