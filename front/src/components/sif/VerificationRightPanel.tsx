@@ -1,14 +1,12 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import {
   ArrowRight,
-  CheckCircle2,
   Download,
   Lightbulb,
   LineChart,
   Plus,
   RotateCcw,
   Save,
-  Settings2,
   ShieldCheck,
   Trash2,
 } from 'lucide-react'
@@ -33,37 +31,15 @@ import type { SIFTab } from '@/store/types'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { AssumptionsPDFExport } from '@/components/report/AssumptionsPDFExport'
+import { getSifVerificationStrings } from '@/i18n/sifVerification'
+import { useLocaleStrings } from '@/i18n/useLocale'
 
 type PanelTab = 'summary' | 'graph' | 'assumptions'
 
-const PANEL_TABS: { id: PanelTab; label: string; Icon: React.ElementType }[] = [
-  { id: 'summary', label: 'Resume', Icon: ShieldCheck },
-  { id: 'graph', label: 'Graphe', Icon: LineChart },
-  { id: 'assumptions', label: 'Hypotheses', Icon: Lightbulb },
-]
-
-const ASSUMPTION_STATUS_OPTIONS: { value: SIFAssumptionStatus; label: string }[] = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'review', label: 'Review' },
-  { value: 'validated', label: 'Validated' },
-]
-
-const ASSUMPTION_CATEGORY_OPTIONS: { value: SIFAssumptionCategory; label: string }[] = [
-  { value: 'process', label: 'Process' },
-  { value: 'proof', label: 'Proof' },
-  { value: 'architecture', label: 'Architecture' },
-  { value: 'data', label: 'Data' },
-  { value: 'governance', label: 'Governance' },
-  { value: 'other', label: 'Other' },
-]
-
-const ASSUMPTION_TAB_OPTIONS: { value: SIFReferenceTab; label: string }[] = [
-  { value: 'cockpit', label: 'Cockpit' },
-  { value: 'context', label: 'Contexte' },
-  { value: 'architecture', label: 'Architecture' },
-  { value: 'verification', label: 'Verification' },
-  { value: 'exploitation', label: 'Exploitation' },
-  { value: 'report', label: 'Publier' },
+const PANEL_TABS: { id: PanelTab; Icon: React.ElementType }[] = [
+  { id: 'summary', Icon: ShieldCheck },
+  { id: 'graph', Icon: LineChart },
+  { id: 'assumptions', Icon: Lightbulb },
 ]
 
 interface Props {
@@ -248,10 +224,10 @@ function ColorField({
   )
 }
 
-function createDraftAssumption(): SIFAssumption {
+function createDraftAssumption(title: string): SIFAssumption {
   return {
     id: nanoid(),
-    title: 'New assumption',
+    title,
     statement: '',
     rationale: '',
     status: 'draft',
@@ -269,6 +245,7 @@ function PFDContributionDonut({
   result: SIFCalcResult
   settings: SIFAnalysisSettings
 }) {
+  const strings = useLocaleStrings(getSifVerificationStrings)
   const { BORDER, CARD_BG, PAGE_BG, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const items = result.subsystems
     .map(subsystem => ({
@@ -287,7 +264,7 @@ function PFDContributionDonut({
   if (!items.length || total <= 0) {
     return (
       <div className="rounded-lg border px-3 py-3 text-xs" style={{ borderColor: BORDER, background: CARD_BG, color: TEXT_DIM }}>
-        No contribution split is available for the current result set.
+        {strings.rightPanel.donut.noContributionSplit}
       </div>
     )
   }
@@ -305,12 +282,12 @@ function PFDContributionDonut({
     <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
       <div className="flex items-start justify-between gap-3">
         <div>
-          <SectionTitle>Camembert</SectionTitle>
+          <SectionTitle>{strings.rightPanel.donut.section}</SectionTitle>
           <p className="mt-1 text-sm font-semibold" style={{ color: TEXT }}>{settings.pie.title}</p>
           <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{settings.pie.subtitle}</p>
         </div>
         <div className="rounded-lg border px-2 py-1 text-[10px] font-semibold uppercase tracking-wide" style={{ borderColor: BORDER, background: CARD_BG, color: TEAL_DIM }}>
-          PFD split
+          {strings.rightPanel.donut.badge}
         </div>
       </div>
 
@@ -365,7 +342,7 @@ function PFDContributionDonut({
             )
           })}
           <text x={center} y={center - 5} textAnchor="middle" fontSize="11" fontWeight="700" fill={TEXT_DIM}>
-            Total
+            {strings.rightPanel.donut.total}
           </text>
           <text x={center} y={center + 12} textAnchor="middle" fontSize="14" fontWeight="800" fill={TEXT}>
             {formatPFD(result.PFD_avg)}
@@ -403,6 +380,7 @@ export function VerificationRightPanel({
   onUpdateAssumptions,
   onSelectTab,
 }: Props) {
+  const strings = useLocaleStrings(getSifVerificationStrings)
   const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const selectedRightPanelTab = useAppStore(s => s.rightPanelTabs.verification)
   const setRightPanelTab = useAppStore(s => s.setRightPanelTab)
@@ -417,6 +395,28 @@ export function VerificationRightPanel({
   const openGaps = Math.max(0, compliance.totalChecks - compliance.passedChecks)
   const evidenceComplete = compliance.evidenceItems.filter(item => item.status === 'complete').length
   const assumptionsInReview = sif.assumptions.filter(item => item.status !== 'validated').length
+  const panelItems = PANEL_TABS.map(tab => ({ id: tab.id, label: strings.rightPanel.tabs[tab.id], Icon: tab.Icon }))
+  const assumptionStatusOptions: { value: SIFAssumptionStatus; label: string }[] = [
+    { value: 'draft', label: strings.rightPanel.assumptions.statusOptions.draft },
+    { value: 'review', label: strings.rightPanel.assumptions.statusOptions.review },
+    { value: 'validated', label: strings.rightPanel.assumptions.statusOptions.validated },
+  ]
+  const assumptionCategoryOptions: { value: SIFAssumptionCategory; label: string }[] = [
+    { value: 'process', label: strings.rightPanel.assumptions.categoryOptions.process },
+    { value: 'proof', label: strings.rightPanel.assumptions.categoryOptions.proof },
+    { value: 'architecture', label: strings.rightPanel.assumptions.categoryOptions.architecture },
+    { value: 'data', label: strings.rightPanel.assumptions.categoryOptions.data },
+    { value: 'governance', label: strings.rightPanel.assumptions.categoryOptions.governance },
+    { value: 'other', label: strings.rightPanel.assumptions.categoryOptions.other },
+  ]
+  const assumptionTabOptions: { value: SIFReferenceTab; label: string }[] = [
+    { value: 'cockpit', label: strings.rightPanel.assumptions.linkedTabOptions.cockpit },
+    { value: 'context', label: strings.rightPanel.assumptions.linkedTabOptions.context },
+    { value: 'architecture', label: strings.rightPanel.assumptions.linkedTabOptions.architecture },
+    { value: 'verification', label: strings.rightPanel.assumptions.linkedTabOptions.verification },
+    { value: 'exploitation', label: strings.rightPanel.assumptions.linkedTabOptions.exploitation },
+    { value: 'report', label: strings.rightPanel.assumptions.linkedTabOptions.report },
+  ]
 
   useEffect(() => {
     if (selectedRightPanelTab && PANEL_TABS.some(tab => tab.id === selectedRightPanelTab)) {
@@ -454,7 +454,7 @@ export function VerificationRightPanel({
   }
 
   const addAssumption = () => {
-    setAssumptionDrafts(prev => [...prev, createDraftAssumption()])
+    setAssumptionDrafts(prev => [...prev, createDraftAssumption(strings.rightPanel.assumptions.newAssumptionTitle)])
     setAssumptionsDirty(true)
     setAssumptionsError(null)
   }
@@ -480,7 +480,7 @@ export function VerificationRightPanel({
       setAssumptionDrafts(normalized)
       setAssumptionsDirty(false)
     } catch (error) {
-      setAssumptionsError(error instanceof Error ? error.message : 'Unable to save assumptions.')
+      setAssumptionsError(error instanceof Error ? error.message : strings.rightPanel.assumptions.saveFallback)
     } finally {
       setAssumptionsSaving(false)
     }
@@ -489,7 +489,7 @@ export function VerificationRightPanel({
 
   const openAssumptionsPdf = () => {
     if (!project) {
-      setAssumptionsError('Projet introuvable pour l export PDF des hypotheses.')
+      setAssumptionsError(strings.rightPanel.assumptions.projectMissing)
       return
     }
 
@@ -500,7 +500,7 @@ export function VerificationRightPanel({
   return (
     <>
       <RightPanelShell
-      items={PANEL_TABS}
+      items={panelItems}
       active={activeTab}
       onSelect={nextTab => {
         setActiveTab(nextTab)
@@ -512,14 +512,14 @@ export function VerificationRightPanel({
         <div className="space-y-3">
           {activeTab === 'summary' && (
             <>
-              <InspectorBlock title="Ready">
+              <InspectorBlock title={strings.rightPanel.summary.readyTitle}>
                 <div className="space-y-2">
                   {[
-                    { label: 'Phase', value: '3 / 4', tone: TEXT },
-                    { label: 'Ready', value: `${compliance.score}%`, tone: result.meetsTarget ? semantic.success : semantic.warning },
-                    { label: 'Blockers', value: String(openGaps + assumptionsInReview), tone: openGaps + assumptionsInReview === 0 ? semantic.success : semantic.warning },
-                    { label: 'Preuves', value: `${evidenceComplete}/${compliance.evidenceItems.length}`, tone: evidenceComplete === compliance.evidenceItems.length ? semantic.success : TEXT },
-                    { label: 'Proof test', value: sif.proofTestProcedure ? 'Defini' : 'Manquant', tone: sif.proofTestProcedure ? semantic.success : semantic.error },
+                    { label: strings.rightPanel.summary.metrics.phase, value: strings.rightPanel.summary.phaseValue, tone: TEXT },
+                    { label: strings.rightPanel.summary.metrics.readiness, value: `${compliance.score}%`, tone: result.meetsTarget ? semantic.success : semantic.warning },
+                    { label: strings.rightPanel.summary.metrics.blockers, value: String(openGaps + assumptionsInReview), tone: openGaps + assumptionsInReview === 0 ? semantic.success : semantic.warning },
+                    { label: strings.rightPanel.summary.metrics.evidence, value: `${evidenceComplete}/${compliance.evidenceItems.length}`, tone: evidenceComplete === compliance.evidenceItems.length ? semantic.success : TEXT },
+                    { label: strings.rightPanel.summary.metrics.proofTest, value: sif.proofTestProcedure ? strings.workspace.statuses.defined : strings.workspace.statuses.missing, tone: sif.proofTestProcedure ? semantic.success : semantic.error },
                   ].map(item => (
                     <div key={item.label} className="flex items-center justify-between gap-3 rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: CARD_BG }}>
                       <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{item.label}</p>
@@ -529,32 +529,32 @@ export function VerificationRightPanel({
                 </div>
               </InspectorBlock>
 
-              <InspectorBlock title="Blockers">
+              <InspectorBlock title={strings.rightPanel.summary.blockersTitle}>
                 {openGaps > 0 || assumptionsInReview > 0 ? (
                   <>
                     {compliance.technicalFindings.slice(0, 3).map(finding => (
                       <div key={finding.id} className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: `${semantic.warning}44`, background: `${semantic.warning}10`, color: TEXT }}>
-                        {finding.title} · {finding.subsystemLabel}
+                        {strings.rightPanel.summary.blockerFinding(finding.title, finding.subsystemLabel)}
                       </div>
                     ))}
                     {assumptionsInReview > 0 && (
                       <div className="rounded-lg border px-3 py-2 text-xs" style={{ borderColor: `${semantic.warning}44`, background: `${semantic.warning}10`, color: TEXT }}>
-                        {assumptionsInReview} hypothese{assumptionsInReview > 1 ? 's' : ''} a revoir
+                        {strings.rightPanel.summary.assumptionsInReview(assumptionsInReview)}
                       </div>
                     )}
                   </>
                 ) : (
                   <div className="rounded-lg border px-3 py-3 text-xs" style={{ borderColor: `${semantic.success}44`, background: `${semantic.success}10`, color: semantic.success }}>
-                    Aucun blocage technique ouvert.
+                    {strings.rightPanel.summary.noOpenBlockers}
                   </div>
                 )}
               </InspectorBlock>
 
               <PFDContributionDonut result={result} settings={settings} />
 
-              <InspectorBlock title="CTA">
+              <InspectorBlock title={strings.rightPanel.summary.ctaTitle}>
                 <Button size="sm" className="w-full justify-between" onClick={() => onSelectTab('exploitation')}>
-                  Traiter / passer en Exploitation
+                  {strings.rightPanel.summary.goToExploitation}
                   <ArrowRight size={12} />
                 </Button>
               </InspectorBlock>
@@ -564,12 +564,12 @@ export function VerificationRightPanel({
           {activeTab === 'graph' && (
             <>
               <SectionCard
-                title="Mission de calcul"
-                hint="Horizon et unite utilises pour la courbe PFD."
+                title={strings.rightPanel.graph.mission.title}
+                hint={strings.rightPanel.graph.mission.hint}
               >
                 <div className="space-y-3">
                   <div>
-                    <FieldLabel>Mission time</FieldLabel>
+                    <FieldLabel>{strings.rightPanel.graph.mission.missionTime}</FieldLabel>
                     <NumberField
                       value={settings.general.missionTime}
                       min={1}
@@ -579,13 +579,13 @@ export function VerificationRightPanel({
                     />
                   </div>
                   <div>
-                    <FieldLabel>Unite</FieldLabel>
+                    <FieldLabel>{strings.rightPanel.graph.mission.unit}</FieldLabel>
                     <FieldSelect
                       value={settings.general.missionTimeUnit}
                       onChange={value => setGeneral({ missionTimeUnit: value === 'hr' ? 'hr' : 'yr' })}
                       options={[
-                        { value: 'yr', label: 'Years' },
-                        { value: 'hr', label: 'Hours' },
+                        { value: 'yr', label: strings.rightPanel.graph.mission.years },
+                        { value: 'hr', label: strings.rightPanel.graph.mission.hours },
                       ]}
                     />
                   </div>
@@ -593,31 +593,31 @@ export function VerificationRightPanel({
               </SectionCard>
 
               <SectionCard
-                title="Courbe PFD"
-                hint="Titres, densite, echelle et overlays du graphe principal."
+                title={strings.rightPanel.graph.chart.title}
+                hint={strings.rightPanel.graph.chart.hint}
               >
                 <div className="space-y-3">
                   <div>
-                    <FieldLabel>Chart title</FieldLabel>
+                    <FieldLabel>{strings.rightPanel.graph.chart.chartTitle}</FieldLabel>
                     <TextField value={settings.chart.title} onChange={next => setChart({ title: next })} />
                   </div>
                   <div>
-                    <FieldLabel>Chart subtitle</FieldLabel>
+                    <FieldLabel>{strings.rightPanel.graph.chart.chartSubtitle}</FieldLabel>
                     <TextField value={settings.chart.subtitle} onChange={next => setChart({ subtitle: next })} />
                   </div>
                   <div>
-                    <FieldLabel>Scale</FieldLabel>
+                    <FieldLabel>{strings.rightPanel.graph.chart.scale}</FieldLabel>
                     <FieldSelect
                       value={settings.chart.yScale}
                       onChange={value => setChart({ yScale: value === 'linear' ? 'linear' : 'log' })}
                       options={[
-                        { value: 'log', label: 'Log' },
-                        { value: 'linear', label: 'Linear' },
+                        { value: 'log', label: strings.rightPanel.graph.chart.log },
+                        { value: 'linear', label: strings.rightPanel.graph.chart.linear },
                       ]}
                     />
                   </div>
                   <div>
-                    <FieldLabel>Curve points</FieldLabel>
+                    <FieldLabel>{strings.rightPanel.graph.chart.curvePoints}</FieldLabel>
                     <NumberField
                       value={settings.chart.curvePoints}
                       min={60}
@@ -627,64 +627,64 @@ export function VerificationRightPanel({
                     />
                   </div>
                   <ToggleRow
-                    label="Show grid"
-                    hint="Affiche la grille du graphe."
+                    label={strings.rightPanel.graph.chart.showGrid}
+                    hint={strings.rightPanel.graph.chart.showGridHint}
                     checked={settings.chart.showGrid}
                     onCheckedChange={next => setChart({ showGrid: next })}
                   />
                   <ToggleRow
-                    label="Show legend"
-                    hint="Affiche la legende de la courbe."
+                    label={strings.rightPanel.graph.chart.showLegend}
+                    hint={strings.rightPanel.graph.chart.showLegendHint}
                     checked={settings.chart.showLegend}
                     onCheckedChange={next => setChart({ showLegend: next })}
                   />
                   <ToggleRow
-                    label="Show SIL bands"
-                    hint="Affiche les zones SIL sur l axe Y."
+                    label={strings.rightPanel.graph.chart.showSilBands}
+                    hint={strings.rightPanel.graph.chart.showSilBandsHint}
                     checked={settings.chart.showSILBands}
                     onCheckedChange={next => setChart({ showSILBands: next })}
                   />
                   <ToggleRow
-                    label="Show subsystem lines"
-                    hint="Affiche sensor / logic / actuator en plus du total."
+                    label={strings.rightPanel.graph.chart.showSubsystemLines}
+                    hint={strings.rightPanel.graph.chart.showSubsystemLinesHint}
                     checked={settings.chart.showSubsystems}
                     onCheckedChange={next => setChart({ showSubsystems: next })}
                   />
                   <div className="grid grid-cols-1 gap-2">
-                    <ColorField label="Total" value={settings.chart.totalColor} onChange={next => setChart({ totalColor: next })} />
-                    <ColorField label="Sensors" value={settings.chart.sensorColor} onChange={next => setChart({ sensorColor: next })} />
-                    <ColorField label="Solver" value={settings.chart.logicColor} onChange={next => setChart({ logicColor: next })} />
-                    <ColorField label="Actuators" value={settings.chart.actuatorColor} onChange={next => setChart({ actuatorColor: next })} />
+                    <ColorField label={strings.rightPanel.graph.chart.total} value={settings.chart.totalColor} onChange={next => setChart({ totalColor: next })} />
+                    <ColorField label={strings.rightPanel.graph.chart.sensors} value={settings.chart.sensorColor} onChange={next => setChart({ sensorColor: next })} />
+                    <ColorField label={strings.rightPanel.graph.chart.solver} value={settings.chart.logicColor} onChange={next => setChart({ logicColor: next })} />
+                    <ColorField label={strings.rightPanel.graph.chart.actuators} value={settings.chart.actuatorColor} onChange={next => setChart({ actuatorColor: next })} />
                   </div>
                 </div>
               </SectionCard>
 
               <SectionCard
-                title="Camembert de contribution"
-                hint="Le donut redevient visible ici, avec ses reglages."
+                title={strings.rightPanel.graph.pie.title}
+                hint={strings.rightPanel.graph.pie.hint}
               >
                 <div className="space-y-3">
                   <div>
-                    <FieldLabel>Pie title</FieldLabel>
+                    <FieldLabel>{strings.rightPanel.graph.pie.pieTitle}</FieldLabel>
                     <TextField value={settings.pie.title} onChange={next => setPie({ title: next })} />
                   </div>
                   <div>
-                    <FieldLabel>Pie subtitle</FieldLabel>
+                    <FieldLabel>{strings.rightPanel.graph.pie.pieSubtitle}</FieldLabel>
                     <TextField value={settings.pie.subtitle} onChange={next => setPie({ subtitle: next })} />
                   </div>
                   <ToggleRow
-                    label="Show labels"
-                    hint="Affiche les pourcentages sur le donut."
+                    label={strings.rightPanel.graph.pie.showLabels}
+                    hint={strings.rightPanel.graph.pie.showLabelsHint}
                     checked={settings.pie.showLabels}
                     onCheckedChange={next => setPie({ showLabels: next })}
                   />
                   <div className="grid grid-cols-2 gap-2">
                     <div>
-                      <FieldLabel>Inner radius</FieldLabel>
+                      <FieldLabel>{strings.rightPanel.graph.pie.innerRadius}</FieldLabel>
                       <NumberField value={settings.pie.innerRadius} min={24} max={120} step={2} onChange={next => setPie({ innerRadius: next })} />
                     </div>
                     <div>
-                      <FieldLabel>Outer radius</FieldLabel>
+                      <FieldLabel>{strings.rightPanel.graph.pie.outerRadius}</FieldLabel>
                       <NumberField value={settings.pie.outerRadius} min={48} max={160} step={2} onChange={next => setPie({ outerRadius: next })} />
                     </div>
                   </div>
@@ -701,7 +701,7 @@ export function VerificationRightPanel({
                   style={{ borderColor: `${TEAL}55`, color: TEAL, background: `${TEAL}10` }}
                 >
                   <RotateCcw size={12} />
-                  Reinitialiser les reglages du graphe
+                  {strings.rightPanel.graph.pie.reset}
                 </button>
               </div>
             </>
@@ -709,7 +709,7 @@ export function VerificationRightPanel({
 
           {activeTab === 'assumptions' && (
             <>
-              <InspectorBlock title="Registre hypotheses" hint="Edition restauree du registre explicite d hypotheses SIF.">
+              <InspectorBlock title={strings.rightPanel.assumptions.title} hint={strings.rightPanel.assumptions.hint}>
                 <div className="flex items-start justify-between gap-3">
                   <div />
                   <span
@@ -718,17 +718,17 @@ export function VerificationRightPanel({
                       ? { borderColor: `${semantic.success}44`, color: semantic.success, background: `${semantic.success}10` }
                       : { borderColor: `${semantic.warning}44`, color: semantic.warning, background: `${semantic.warning}10` }}
                   >
-                    {assumptionsInReview === 0 ? 'OK' : 'Review'}
+                    {assumptionsInReview === 0 ? strings.rightPanel.assumptions.statusOk : strings.rightPanel.assumptions.statusReview}
                   </span>
                 </div>
 
                 <div className="mt-3 grid grid-cols-2 gap-2">
                   <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: CARD_BG }}>
-                    <p className="text-[10px] uppercase tracking-wide" style={{ color: TEXT_DIM }}>Items</p>
+                    <p className="text-[10px] uppercase tracking-wide" style={{ color: TEXT_DIM }}>{strings.rightPanel.assumptions.metrics.items}</p>
                     <p className="mt-1 text-sm font-bold font-mono" style={{ color: TEXT }}>{assumptionDrafts.length}</p>
                   </div>
                   <div className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: CARD_BG }}>
-                    <p className="text-[10px] uppercase tracking-wide" style={{ color: TEXT_DIM }}>Pending review</p>
+                    <p className="text-[10px] uppercase tracking-wide" style={{ color: TEXT_DIM }}>{strings.rightPanel.assumptions.metrics.pendingReview}</p>
                     <p className="mt-1 text-sm font-bold font-mono" style={{ color: assumptionsInReview === 0 ? semantic.success : semantic.warning }}>
                       {assumptionsInReview}
                     </p>
@@ -743,7 +743,7 @@ export function VerificationRightPanel({
                     style={{ borderColor: `${TEAL}55`, color: TEAL, background: `${TEAL}10` }}
                   >
                     <Plus size={12} />
-                    Add assumption
+                    {strings.rightPanel.assumptions.actions.add}
                   </button>
                   <button
                     type="button"
@@ -752,7 +752,7 @@ export function VerificationRightPanel({
                     style={{ borderColor: `${TEAL}44`, color: TEAL, background: CARD_BG }}
                   >
                     <Download size={12} />
-                    Apercu PDF
+                    {strings.rightPanel.assumptions.actions.pdfPreview}
                   </button>
                   <button
                     type="button"
@@ -762,7 +762,7 @@ export function VerificationRightPanel({
                     style={{ borderColor: BORDER, color: TEXT_DIM, background: CARD_BG }}
                   >
                     <RotateCcw size={12} />
-                    Reset
+                    {strings.rightPanel.assumptions.actions.reset}
                   </button>
                   <button
                     type="button"
@@ -772,12 +772,12 @@ export function VerificationRightPanel({
                     style={{ borderColor: `${semantic.success}55`, color: semantic.success, background: `${semantic.success}10` }}
                   >
                     <Save size={12} />
-                    {assumptionsSaving ? 'Saving...' : 'Save assumptions'}
+                    {assumptionsSaving ? strings.rightPanel.assumptions.actions.saving : strings.rightPanel.assumptions.actions.save}
                   </button>
                 </div>
 
                 <p className="mt-2 text-[10px] leading-relaxed" style={{ color: TEXT_DIM }}>
-                  L apercu PDF reprend le brouillon visible du registre, meme avant sauvegarde en base.
+                  {strings.rightPanel.assumptions.pdfDraftHint}
                 </p>
 
                 {assumptionsError && (
@@ -795,7 +795,7 @@ export function VerificationRightPanel({
                   <div key={assumption.id} className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0 flex-1">
-                        <FieldLabel>Title</FieldLabel>
+                        <FieldLabel>{strings.rightPanel.assumptions.fields.title}</FieldLabel>
                         <TextField
                           value={assumption.title}
                           onChange={next => updateAssumption(assumption.id, 'title', next)}
@@ -812,7 +812,7 @@ export function VerificationRightPanel({
                     </div>
 
                     <div className="mt-3">
-                      <FieldLabel>Statement</FieldLabel>
+                      <FieldLabel>{strings.rightPanel.assumptions.fields.statement}</FieldLabel>
                       <FieldTextArea
                         value={assumption.statement}
                         onChange={event => updateAssumption(assumption.id, 'statement', event.target.value)}
@@ -820,7 +820,7 @@ export function VerificationRightPanel({
                     </div>
 
                     <div className="mt-3">
-                      <FieldLabel>Rationale</FieldLabel>
+                      <FieldLabel>{strings.rightPanel.assumptions.fields.rationale}</FieldLabel>
                       <FieldTextArea
                         value={assumption.rationale}
                         onChange={event => updateAssumption(assumption.id, 'rationale', event.target.value)}
@@ -829,14 +829,14 @@ export function VerificationRightPanel({
 
                     <div className="mt-3 grid gap-3">
                       <div>
-                        <FieldLabel>Owner</FieldLabel>
+                        <FieldLabel>{strings.rightPanel.assumptions.fields.owner}</FieldLabel>
                         <TextField
                           value={assumption.owner}
                           onChange={next => updateAssumption(assumption.id, 'owner', next)}
                         />
                       </div>
                       <div>
-                        <FieldLabel>Review date</FieldLabel>
+                        <FieldLabel>{strings.rightPanel.assumptions.fields.reviewDate}</FieldLabel>
                         <FieldInput
                           type="date"
                           value={assumption.reviewDate}
@@ -844,27 +844,27 @@ export function VerificationRightPanel({
                         />
                       </div>
                       <div>
-                        <FieldLabel>Status</FieldLabel>
+                        <FieldLabel>{strings.rightPanel.assumptions.fields.status}</FieldLabel>
                         <FieldSelect
                           value={assumption.status}
                           onChange={value => updateAssumption(assumption.id, 'status', value as SIFAssumptionStatus)}
-                          options={ASSUMPTION_STATUS_OPTIONS}
+                          options={assumptionStatusOptions}
                         />
                       </div>
                       <div>
-                        <FieldLabel>Category</FieldLabel>
+                        <FieldLabel>{strings.rightPanel.assumptions.fields.category}</FieldLabel>
                         <FieldSelect
                           value={assumption.category}
                           onChange={value => updateAssumption(assumption.id, 'category', value as SIFAssumptionCategory)}
-                          options={ASSUMPTION_CATEGORY_OPTIONS}
+                          options={assumptionCategoryOptions}
                         />
                       </div>
                       <div>
-                        <FieldLabel>Linked tab</FieldLabel>
+                        <FieldLabel>{strings.rightPanel.assumptions.fields.linkedTab}</FieldLabel>
                         <FieldSelect
                           value={assumption.linkedTab}
                           onChange={value => updateAssumption(assumption.id, 'linkedTab', value as SIFReferenceTab)}
-                          options={ASSUMPTION_TAB_OPTIONS}
+                          options={assumptionTabOptions}
                         />
                       </div>
                     </div>
@@ -873,7 +873,7 @@ export function VerificationRightPanel({
 
                 {assumptionDrafts.length === 0 && (
                   <div className="rounded-xl border px-3 py-3 text-xs" style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}>
-                    Aucun registre d hypothese renseigne.
+                    {strings.rightPanel.assumptions.empty}
                   </div>
                 )}
               </div>

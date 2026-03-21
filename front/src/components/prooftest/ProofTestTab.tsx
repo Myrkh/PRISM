@@ -23,6 +23,8 @@ import type { SIFTab } from '@/store/types'
 import { downloadRevisionArtifact } from '@/lib/revisionArtifacts'
 import { cn } from '@/lib/utils'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import { getSifExploitationStrings } from '@/i18n/sifExploitation'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import type {
   PTStep, PTStepResult, PTCampaign, PTProcedure, Verdict, PTResponseCheck, PTResponseMeasurement,
 } from './proofTestTypes'
@@ -110,6 +112,7 @@ function computeCampaignVerdict(
 }
 
 export function ProofTestTab({ project, sif, onSelectTab }: Props) {
+  const strings = useLocaleStrings(getSifExploitationStrings)
   const { BORDER, CARD_BG, PAGE_BG, NAVY, TEAL, TEXT, TEXT_DIM, SHADOW_CARD, SHADOW_SOFT, semantic } = usePrismTheme()
   const updateProofTestProcedure = useAppStore(s => s.updateProofTestProcedure)
   const addTestCampaign = useAppStore(s => s.addTestCampaign)
@@ -336,6 +339,14 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
 
   // ── Render ─────────────────────────────────────────────────────────────
   const isActiveExecutionView = view === 'execution' && !!activeCampaign
+  const activeCampaignVerdict = activeCampaign?.verdict === 'pass'
+    ? strings.proofTestTab.verdicts.pass
+    : activeCampaign?.verdict === 'conditional'
+      ? strings.proofTestTab.verdicts.conditional
+      : activeCampaign?.verdict === 'fail'
+        ? strings.proofTestTab.verdicts.fail
+        : strings.proofTestTab.activeCampaign.verdictInProgress
+  const activeCampaignTeam = activeCampaign?.team || strings.proofTestTab.activeCampaign.teamMissing
 
   return (
     <div className="space-y-4">
@@ -346,7 +357,7 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
           style={{ background: `${semantic.error}08`, borderColor: `${semantic.error}22`, boxShadow: SHADOW_SOFT }}>
           <AlertTriangle size={15} className="text-red-500 shrink-0" />
           <p className="text-xs font-medium" style={{ color: TEXT }}>
-            Test en retard de <strong>{daysOverdue} jours</strong> — dernier test : {lastCampaign?.date} · Périodicité : {procedure.periodicityMonths} mois
+            {strings.proofTestTab.alerts.overdue(daysOverdue, lastCampaign?.date ?? '', procedure.periodicityMonths)}
           </p>
         </div>
       )}
@@ -356,7 +367,7 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
           style={{ background: `${NAVY}10`, borderColor: `${NAVY}24`, boxShadow: SHADOW_SOFT }}>
           <AlertTriangle size={15} className="shrink-0" style={{ color: NAVY }} />
           <p className="text-xs font-medium" style={{ color: TEXT }}>
-            Procédure figée sur la révision publiée. L exécution et l historique des campagnes restent disponibles.
+            {strings.proofTestTab.alerts.lockedProcedure}
           </p>
         </div>
       )}
@@ -364,12 +375,12 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
       {isActiveExecutionView ? (
         <div className="flex items-center justify-between gap-3 rounded-2xl border px-4 py-4" style={{ background: CARD_BG, borderColor: BORDER, boxShadow: SHADOW_CARD }}>
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Campagne active</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{strings.proofTestTab.activeCampaign.kicker}</p>
             <p className="mt-1 text-sm font-bold" style={{ color: TEXT }}>
-              {sif.sifNumber} | Campagne PT-{activeCampaign.date || 'en-cours'} en cours
+              {strings.proofTestTab.activeCampaign.title(sif.sifNumber, activeCampaign.date || strings.proofTestTab.activeCampaign.inProgressDate)}
             </p>
             <p className="mt-1 text-[11px]" style={{ color: TEXT_DIM }}>
-              {activeCampaign.team || 'Equipe non renseignee'} · {activeCampaign.verdict ? activeCampaign.verdict.toUpperCase() : 'Verdict en cours'}
+              {strings.proofTestTab.activeCampaign.meta(activeCampaignTeam, activeCampaignVerdict)}
             </p>
           </div>
           <button
@@ -377,16 +388,16 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
             className="h-8 px-3 text-xs font-semibold rounded-xl border hover:border-[#009BA4] hover:text-[#009BA4] transition-all"
             style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}
           >
-            Suspendre
+            {strings.proofTestTab.activeCampaign.suspend}
           </button>
         </div>
       ) : (
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-1 rounded-2xl border p-1" style={{ background: PAGE_BG, borderColor: BORDER, boxShadow: SHADOW_SOFT }}>
             {([
-              { id: 'procedure' as View, label: 'Procedure', icon: ClipboardList },
-              { id: 'execution' as View, label: 'Execution', icon: FlaskConical },
-              { id: 'history'   as View, label: 'Historique', icon: BarChart3 },
+              { id: 'procedure' as View, label: strings.proofTestTab.views.procedure, icon: ClipboardList },
+              { id: 'execution' as View, label: strings.proofTestTab.views.execution, icon: FlaskConical },
+              { id: 'history'   as View, label: strings.proofTestTab.views.history, icon: BarChart3 },
             ]).map(({ id, label, icon: Icon }) => (
               <button key={id} onClick={() => setView(id)}
                 className={cn(
@@ -403,31 +414,31 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
               <>
                 <button onClick={() => setEditMode(false)}
                   className={cn(inputCls, 'px-3 hover:text-red-500 cursor-pointer')}
-                  style={{ color: TEXT_DIM }}>Annuler</button>
+                  style={{ color: TEXT_DIM }}>{strings.proofTestTab.actions.cancel}</button>
                 <button onClick={saveProcedure}
                   disabled={isSavingProcedure}
                   className="h-8 px-4 text-xs font-semibold text-white rounded-xl flex items-center gap-1.5 shadow-sm"
-                  style={{ background: NAVY }}><Save size={12} />{isSavingProcedure ? 'Sauvegarde…' : 'Sauvegarder'}</button>
+                  style={{ background: NAVY }}><Save size={12} />{isSavingProcedure ? strings.proofTestTab.actions.saving : strings.proofTestTab.actions.save}</button>
               </>
             ) : (
               <button onClick={() => setEditMode(true)}
                 disabled={isProcedureLocked}
                 className="h-8 px-3 text-xs font-semibold rounded-xl border hover:border-[#009BA4] hover:text-[#009BA4] flex items-center gap-1.5 transition-all"
-                style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}><Pencil size={12} />{isProcedureLocked ? 'Figee' : 'Modifier'}</button>
+                style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}><Pencil size={12} />{isProcedureLocked ? strings.proofTestTab.actions.locked : strings.proofTestTab.actions.edit}</button>
             ))}
             {view === 'execution' && !activeCampaign && (
               <button onClick={() => setActiveCampaign(newCampaign())}
                 className="h-8 px-4 text-xs font-semibold text-white rounded-xl flex items-center gap-1.5 shadow-sm"
-                style={{ background: TEAL }}><Plus size={13} />Lancer campagne</button>
+                style={{ background: TEAL }}><Plus size={13} />{strings.proofTestTab.actions.launchCampaign}</button>
             )}
             {view === 'execution' && activeCampaign && activeCampaign.closedAt && (
               <button onClick={() => setActiveCampaign(null)}
                 className={cn(inputCls, 'px-3 cursor-pointer')}
-                style={{ color: TEXT_DIM }}>Fermer</button>
+                style={{ color: TEXT_DIM }}>{strings.proofTestTab.actions.close}</button>
             )}
             <button onClick={() => setShowExport(true)}
               className="h-8 px-3 text-xs font-semibold rounded-xl border hover:border-[#009BA4] hover:text-[#009BA4] flex items-center gap-1.5 transition-all"
-              style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}><Download size={12} />PDF</button>
+              style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}><Download size={12} />{strings.proofTestTab.actions.pdf}</button>
           </div>
         </div>
       )}
@@ -473,7 +484,7 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
               className={cn(inputCls, 'px-3 hover:text-red-500 cursor-pointer')}
               style={{ color: TEXT_DIM }}
             >
-              Annuler
+              {strings.proofTestTab.actions.cancel}
             </button>
             <div className="flex flex-wrap items-center gap-2">
               <button
@@ -482,7 +493,7 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
                 className="h-8 px-4 text-xs font-semibold rounded-xl border hover:border-[#009BA4] hover:text-[#009BA4] transition-all disabled:opacity-60"
                 style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}
               >
-                {isSavingCampaign ? 'Sauvegarde…' : 'Sauver'}
+                {isSavingCampaign ? strings.proofTestTab.actions.saving : strings.proofTestTab.actions.saveDraft}
               </button>
               <button
                 onClick={() => { void saveCampaign() }}
@@ -490,7 +501,7 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
                 className="h-8 px-4 text-xs font-semibold text-white rounded-xl flex items-center gap-1.5 shadow-sm disabled:opacity-60"
                 style={{ background: NAVY }}
               >
-                Cloturer test
+                {strings.proofTestTab.actions.closeTest}
               </button>
             </div>
           </div>
@@ -503,7 +514,7 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
             >
               <span className="inline-flex items-center gap-1.5">
                 <ArrowLeft size={12} />
-                Retour Verification
+                {strings.proofTestTab.actions.backToVerification}
               </span>
             </button>
             <div className="flex flex-wrap items-center gap-2">
@@ -514,7 +525,7 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
               >
                 <span className="inline-flex items-center gap-1.5">
                   <Download size={12} />
-                  Exporter PDF
+                  {strings.proofTestTab.actions.exportPdf}
                 </span>
               </button>
               <button
@@ -525,7 +536,7 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
                 className="h-8 px-4 text-xs font-semibold text-white rounded-xl flex items-center gap-1.5 shadow-sm"
                 style={{ background: TEAL }}
               >
-                {activeCampaign ? 'Reprendre campagne' : 'Lancer campagne'}
+                {activeCampaign ? strings.proofTestTab.actions.resumeCampaign : strings.proofTestTab.actions.launchCampaign}
                 <ArrowRight size={12} />
               </button>
             </div>

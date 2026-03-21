@@ -9,13 +9,20 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import { getSifExploitationStrings } from '@/i18n/sifExploitation'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import { ExpectedValueDisplay } from './ResultWidgets'
 import { ResponseChecksCard } from './ResponseChecksCard'
 import type { PTStep, PTCategory, PTProcedure, PTCampaign, ResultType, PTResponseCheck } from './proofTestTypes'
 import { LOCATIONS, CAT_META, STATUS_CFG, inputCls } from './proofTestTypes'
+import {
+  getProofTestCategoryTitle,
+  getProofTestLocationLabel,
+  getProofTestResultTypeLabel,
+  getProofTestStatusLabel,
+} from './proofTestI18n'
 
-// ─── Table design tokens ─────────────────────────────────────────────────
-const TABLE_HOVER   = 'rgba(0, 155, 164, 0.04)'
+const TABLE_HOVER = 'rgba(0, 155, 164, 0.04)'
 
 interface Props {
   procedure: PTProcedure
@@ -47,6 +54,7 @@ export function ProcedureView({
   addTestCategory, deleteCategory, updateCategory,
   addResponseCheck, updateResponseCheck, removeResponseCheck,
 }: Props) {
+  const strings = useLocaleStrings(getSifExploitationStrings)
   const { BORDER, CARD_BG, PAGE_BG, TEAL, TEXT, TEXT_DIM, SHADOW_CARD, SHADOW_SOFT } = usePrismTheme()
   const sm = STATUS_CFG[procedure.status]
 
@@ -55,16 +63,14 @@ export function ProcedureView({
 
   return (
     <div className="space-y-3">
-
-      {/* Procedure header card */}
       <div className="rounded-2xl border p-5" style={{ background: CARD_BG, borderColor: BORDER, boxShadow: SHADOW_CARD }}>
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1">
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Procédure de test périodique</span>
+              <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{strings.procedure.headerTitle}</span>
               <span className="text-[10px] font-bold px-2 py-0.5 rounded border"
                 style={{ background: sm.bg, color: sm.color, borderColor: sm.border }}
-              >{sm.label}</span>
+              >{getProofTestStatusLabel(strings, procedure.status)}</span>
             </div>
             {editMode ? (
               <input value={procedure.ref} onChange={e => setProcedure(p => ({ ...p, ref: e.target.value }))}
@@ -74,27 +80,26 @@ export function ProcedureView({
             )}
           </div>
 
-          {/* Key params */}
           <div className="flex items-center gap-4">
             <div className="text-center">
-              <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Périodicité</p>
+              <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>{strings.procedure.periodicity}</p>
               {editMode ? (
                 <input type="number" value={procedure.periodicityMonths}
                   onChange={e => setProcedure(p => ({ ...p, periodicityMonths: Number(e.target.value) }))}
                   className={cn(inputCls, 'w-16 text-center font-mono font-bold text-base mt-0.5')} />
               ) : (
-                <p className="font-mono font-bold text-lg" style={{ color: TEXT }}>{procedure.periodicityMonths}<span className="text-xs font-normal ml-0.5" style={{ color: TEXT_DIM }}>mois</span></p>
+                <p className="font-mono font-bold text-lg" style={{ color: TEXT }}>{procedure.periodicityMonths}<span className="text-xs font-normal ml-0.5" style={{ color: TEXT_DIM }}>{strings.meta.monthsUnit}</span></p>
               )}
             </div>
             <div className="text-center">
-              <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Tests réalisés</p>
+              <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>{strings.procedure.testsCompleted}</p>
               <p className="font-mono font-bold text-lg" style={{ color: TEAL }}>{campaigns.length}</p>
             </div>
             {nextDue && (
               <div className="text-center">
-                <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Prochain test</p>
+                <p className="text-[9px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>{strings.procedure.nextTest}</p>
                 <p className={cn('font-mono font-bold text-sm', isOverdue ? 'text-red-500' : 'text-emerald-600')}>
-                  {isOverdue ? `J+${daysOverdue}` : nextDue.toLocaleDateString('fr-FR', { day: '2-digit', month: 'short' })}
+                  {isOverdue ? `J+${daysOverdue}` : nextDue.toLocaleDateString(strings.localeTag, { day: '2-digit', month: 'short' })}
                 </p>
               </div>
             )}
@@ -102,16 +107,14 @@ export function ProcedureView({
         </div>
       </div>
 
-      {/* Category sections */}
       {catsSorted.map(cat => {
-        const meta  = CAT_META[cat.type]
+        const meta = CAT_META[cat.type]
         const steps = stepsFor(cat.id)
         const isCollapsed = collapsed.has(cat.id)
+        const categoryTitle = getProofTestCategoryTitle(strings, cat)
 
         return (
           <div key={cat.id} className="rounded-2xl border overflow-hidden" style={{ background: CARD_BG, borderColor: BORDER, boxShadow: SHADOW_CARD }}>
-
-            {/* Category header */}
             <div className="flex items-center gap-3 px-5 py-3 border-b"
               style={{ background: PAGE_BG, borderColor: BORDER }}
             >
@@ -123,9 +126,9 @@ export function ProcedureView({
                   style={{ color: meta.color }}
                 />
               ) : (
-                <span className="flex-1 text-sm font-bold" style={{ color: meta.color }}>{cat.title}</span>
+                <span className="flex-1 text-sm font-bold" style={{ color: meta.color }}>{categoryTitle}</span>
               )}
-              <span className="text-[10px] font-semibold" style={{ color: TEXT_DIM }}>{steps.length} étape{steps.length !== 1 ? 's' : ''}</span>
+              <span className="text-[10px] font-semibold" style={{ color: TEXT_DIM }}>{strings.meta.stepCount(steps.length)}</span>
               {editMode && cat.type === 'test' && (
                 <button onClick={() => deleteCategory(cat.id)}
                   className="p-1 rounded transition-colors"
@@ -140,7 +143,6 @@ export function ProcedureView({
               </button>
             </div>
 
-            {/* Steps table */}
             {!isCollapsed && (
               <>
                 {steps.length > 0 && (
@@ -148,10 +150,10 @@ export function ProcedureView({
                     <thead>
                       <tr className="border-b" style={{ borderColor: BORDER, background: PAGE_BG }}>
                         <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-8" style={{ color: TEXT_DIM }}>#</th>
-                        <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Action</th>
-                        <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-36" style={{ color: TEXT_DIM }}>Lieu</th>
-                        <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-28" style={{ color: TEXT_DIM }}>Type résultat</th>
-                        <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-44" style={{ color: TEXT_DIM }}>Résultat attendu</th>
+                        <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{strings.procedure.tableHeaders.action}</th>
+                        <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-36" style={{ color: TEXT_DIM }}>{strings.procedure.tableHeaders.location}</th>
+                        <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-28" style={{ color: TEXT_DIM }}>{strings.procedure.tableHeaders.resultType}</th>
+                        <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-44" style={{ color: TEXT_DIM }}>{strings.procedure.tableHeaders.expectedResult}</th>
                         {editMode && <th className="w-8" />}
                       </tr>
                     </thead>
@@ -168,7 +170,7 @@ export function ProcedureView({
                             {editMode ? (
                               <input value={step.action}
                                 onChange={e => updateStep(step.id, { action: e.target.value })}
-                                placeholder="Décrire l'action à réaliser…"
+                                placeholder={strings.procedure.placeholders.action}
                                 className="w-full bg-transparent text-xs outline-none border-b border-transparent focus:border-[#009BA4] py-0.5 placeholder:text-[#667085] dark:placeholder:text-[#8FA0B1] transition-all"
                                 style={{ color: TEXT }}
                               />
@@ -183,12 +185,12 @@ export function ProcedureView({
                                 className="w-full bg-transparent text-xs outline-none border-b border-transparent focus:border-[#009BA4] py-0.5 transition-all"
                                 style={{ color: TEXT }}
                               >
-                                {LOCATIONS.map(l => <option key={l} value={l}>{l}</option>)}
+                                {LOCATIONS.map(location => <option key={location} value={location}>{getProofTestLocationLabel(strings, location)}</option>)}
                               </select>
                             ) : (
                               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded"
                                 style={{ background: `${TEAL}15`, color: TEAL }}
-                              >{step.location}</span>
+                              >{getProofTestLocationLabel(strings, step.location)}</span>
                             )}
                           </td>
                           <td className="px-4 py-2.5">
@@ -198,13 +200,13 @@ export function ProcedureView({
                                 className="w-full bg-transparent text-xs outline-none border-b border-transparent focus:border-[#009BA4] py-0.5 transition-all"
                                 style={{ color: TEXT }}
                               >
-                                <option value="oui_non">Oui / Non</option>
-                                <option value="valeur">Valeur</option>
-                                <option value="personnalisé">Personnalisé</option>
+                                <option value="oui_non">{strings.meta.resultTypes.yesNo}</option>
+                                <option value="valeur">{strings.meta.resultTypes.value}</option>
+                                <option value="personnalisé">{strings.meta.resultTypes.custom}</option>
                               </select>
                             ) : (
                               <span className="text-[10px] font-semibold" style={{ color: TEXT_DIM }}>
-                                {step.resultType === 'oui_non' ? 'Oui / Non' : step.resultType === 'valeur' ? 'Valeur' : 'Personnalisé'}
+                                {getProofTestResultTypeLabel(strings, step.resultType)}
                               </span>
                             )}
                           </td>
@@ -212,7 +214,7 @@ export function ProcedureView({
                             {editMode && step.resultType !== 'oui_non' ? (
                               <input value={step.expectedValue}
                                 onChange={e => updateStep(step.id, { expectedValue: e.target.value })}
-                                placeholder={step.resultType === 'valeur' ? 'ex: < 500 ms, ≥ 4 mA…' : 'Décrire le résultat attendu…'}
+                                placeholder={step.resultType === 'valeur' ? strings.procedure.placeholders.expectedValue : strings.procedure.placeholders.customExpected}
                                 className="w-full bg-transparent text-xs outline-none border-b border-transparent focus:border-[#009BA4] py-0.5 placeholder:text-[#667085] dark:placeholder:text-[#8FA0B1] transition-all font-mono"
                                 style={{ color: TEXT }}
                               />
@@ -239,13 +241,13 @@ export function ProcedureView({
                     <button onClick={() => addStep(cat.id)}
                       className="flex items-center gap-1.5 text-xs font-semibold transition-colors"
                       style={{ color: TEAL }}
-                    ><Plus size={12} />Ajouter une étape</button>
+                    ><Plus size={12} />{strings.procedure.actions.addStep}</button>
                   </div>
                 )}
 
                 {steps.length === 0 && !editMode && (
                   <div className="px-4 py-4 text-xs text-center" style={{ color: TEXT_DIM }}>
-                    Aucune étape — cliquez sur Modifier pour en ajouter
+                    {strings.procedure.emptySteps}
                   </div>
                 )}
               </>
@@ -254,12 +256,11 @@ export function ProcedureView({
         )
       })}
 
-      {/* Add test category button */}
       {editMode && (
         <button onClick={addTestCategory}
           className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl border-2 border-dashed text-sm font-semibold transition-all hover:border-[#009BA4] hover:text-[#009BA4]"
           style={{ color: TEXT_DIM, borderColor: BORDER, background: PAGE_BG, boxShadow: SHADOW_SOFT }}
-        ><Plus size={14} />Ajouter une catégorie de test</button>
+        ><Plus size={14} />{strings.procedure.actions.addTestCategory}</button>
       )}
 
       <ResponseChecksCard
@@ -270,28 +271,27 @@ export function ProcedureView({
         removeResponseCheck={removeResponseCheck}
       />
 
-      {/* Signatures */}
       <div className="rounded-2xl border p-5" style={{ background: CARD_BG, borderColor: BORDER, boxShadow: SHADOW_CARD }}>
-        <p className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: TEXT_DIM }}>Signatures de la procédure</p>
+        <p className="text-[10px] font-bold uppercase tracking-widest mb-4" style={{ color: TEXT_DIM }}>{strings.procedure.signaturesTitle}</p>
         <div className="grid grid-cols-3 gap-4">
           {[
-            { key: 'madeBy' as const,     keyDate: 'madeByDate' as const,     label: 'Établi par' },
-            { key: 'verifiedBy' as const,  keyDate: 'verifiedByDate' as const,  label: 'Vérifié par' },
-            { key: 'approvedBy' as const,  keyDate: 'approvedByDate' as const,  label: 'Approuvé par' },
+            { key: 'madeBy' as const, keyDate: 'madeByDate' as const, label: strings.procedure.signatures.madeBy },
+            { key: 'verifiedBy' as const, keyDate: 'verifiedByDate' as const, label: strings.procedure.signatures.verifiedBy },
+            { key: 'approvedBy' as const, keyDate: 'approvedByDate' as const, label: strings.procedure.signatures.approvedBy },
           ].map(({ key, keyDate, label }) => (
             <div key={key} className="border rounded-xl p-4 min-h-[80px]" style={{ borderColor: BORDER, background: PAGE_BG, boxShadow: SHADOW_SOFT }}>
               <p className="text-[9px] font-bold uppercase tracking-wider mb-2" style={{ color: TEXT_DIM }}>{label}</p>
               {editMode ? (
                 <div className="space-y-1.5">
                   <input value={procedure[key]} onChange={e => setProcedure(p => ({ ...p, [key]: e.target.value }))}
-                    placeholder="Nom Prénom" className={cn(inputCls, 'w-full h-7')} />
+                    placeholder={strings.procedure.placeholders.fullName} className={cn(inputCls, 'w-full h-7')} />
                   <input type="date" value={procedure[keyDate]} onChange={e => setProcedure(p => ({ ...p, [keyDate]: e.target.value }))}
                     className={cn(inputCls, 'w-full h-7')} />
                 </div>
               ) : (
                 <>
                   <p className="text-xs font-semibold" style={{ color: TEXT }}>{procedure[key] || '_______________'}</p>
-                  <p className="text-[10px] mt-1" style={{ color: TEXT_DIM }}>{procedure[keyDate] || 'Date / Signature'}</p>
+                  <p className="text-[10px] mt-1" style={{ color: TEXT_DIM }}>{procedure[keyDate] || strings.procedure.placeholders.signatureDate}</p>
                 </>
               )}
             </div>

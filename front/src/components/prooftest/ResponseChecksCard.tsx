@@ -1,11 +1,14 @@
 import { Plus, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import { getSifExploitationStrings } from '@/i18n/sifExploitation'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import {
   type PTResponseCheck,
   RESPONSE_CHECK_TYPE_META,
   inputCls,
 } from './proofTestTypes'
+import { getProofTestResponseCheckTypeLabel } from './proofTestI18n'
 
 const TABLE_HOVER = 'rgba(0, 155, 164, 0.04)'
 
@@ -30,6 +33,7 @@ export function ResponseChecksCard({
   updateResponseCheck,
   removeResponseCheck,
 }: Props) {
+  const strings = useLocaleStrings(getSifExploitationStrings)
   const { BORDER, CARD_BG, PAGE_BG, TEAL, TEXT, TEXT_DIM, SHADOW_CARD } = usePrismTheme()
 
   return (
@@ -37,10 +41,10 @@ export function ResponseChecksCard({
       <div className="px-5 py-4 border-b" style={{ background: PAGE_BG, borderColor: BORDER }}>
         <div className="flex items-start justify-between gap-4">
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Mesures dynamiques</p>
-            <p className="text-sm font-semibold mt-1" style={{ color: TEXT }}>Temps de manoeuvre et temps de reponse a relever pendant l&apos;execution</p>
+            <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{strings.responseChecks.title}</p>
+            <p className="text-sm font-semibold mt-1" style={{ color: TEXT }}>{strings.responseChecks.subtitle}</p>
             <p className="text-xs mt-1 max-w-2xl" style={{ color: TEXT_DIM }}>
-              Definissez ici les actionneurs et temps cibles a mesurer. Ils seront saisis pendant l&apos;execution, puis traces dans le rapport PDF proof test.
+              {strings.responseChecks.description}
             </p>
           </div>
           {editMode && (
@@ -51,7 +55,7 @@ export function ResponseChecksCard({
               style={{ background: TEAL }}
             >
               <Plus size={12} />
-              Ajouter une mesure
+              {strings.responseChecks.actions.add}
             </button>
           )}
         </div>
@@ -62,17 +66,18 @@ export function ResponseChecksCard({
           <table className="w-full text-xs">
             <thead>
               <tr className="border-b" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-48" style={{ color: TEXT_DIM }}>Repere / equipement</th>
-                <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Description</th>
-                <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-36" style={{ color: TEXT_DIM }}>Mesure</th>
-                <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-28" style={{ color: TEXT_DIM }}>Cible</th>
-                <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-28" style={{ color: TEXT_DIM }}>Limite max</th>
+                <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-48" style={{ color: TEXT_DIM }}>{strings.responseChecks.tableHeaders.equipment}</th>
+                <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{strings.responseChecks.tableHeaders.description}</th>
+                <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-36" style={{ color: TEXT_DIM }}>{strings.responseChecks.tableHeaders.measurement}</th>
+                <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-28" style={{ color: TEXT_DIM }}>{strings.responseChecks.tableHeaders.target}</th>
+                <th className="px-4 py-2.5 text-left text-[9px] font-bold uppercase tracking-widest w-28" style={{ color: TEXT_DIM }}>{strings.responseChecks.tableHeaders.maxLimit}</th>
                 {editMode && <th className="w-10" />}
               </tr>
             </thead>
             <tbody>
               {responseChecks.map(check => {
                 const meta = RESPONSE_CHECK_TYPE_META[check.type]
+                const typeLabel = getProofTestResponseCheckTypeLabel(strings, check.type)
                 return (
                   <tr
                     key={check.id}
@@ -86,17 +91,17 @@ export function ResponseChecksCard({
                         <input
                           value={check.label}
                           onChange={e => updateResponseCheck(check.id, { label: e.target.value })}
-                          placeholder="XV-101 / Shutdown valve"
+                          placeholder={strings.responseChecks.placeholders.label}
                           className={cn(inputCls, 'w-full h-8')}
                         />
                       ) : (
                         <div className="space-y-1">
-                          <p className="font-semibold" style={{ color: TEXT }}>{check.label || 'Untitled check'}</p>
+                          <p className="font-semibold" style={{ color: TEXT }}>{check.label || strings.responseChecks.values.untitledCheck}</p>
                           <span
                             className="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold"
                             style={{ background: `${meta.color}15`, color: meta.color }}
                           >
-                            {meta.label}
+                            {typeLabel}
                           </span>
                         </div>
                       )}
@@ -106,7 +111,7 @@ export function ResponseChecksCard({
                         <input
                           value={check.description}
                           onChange={e => updateResponseCheck(check.id, { description: e.target.value })}
-                          placeholder="Close stroke / total SIF reaction"
+                          placeholder={strings.responseChecks.placeholders.description}
                           className={cn(inputCls, 'w-full h-8')}
                         />
                       ) : (
@@ -120,8 +125,8 @@ export function ResponseChecksCard({
                           onChange={e => updateResponseCheck(check.id, { type: e.target.value as PTResponseCheck['type'] })}
                           className={cn(inputCls, 'w-full h-8')}
                         >
-                          {Object.entries(RESPONSE_CHECK_TYPE_META).map(([type, typeMeta]) => (
-                            <option key={type} value={type}>{typeMeta.label}</option>
+                          {Object.keys(RESPONSE_CHECK_TYPE_META).map(type => (
+                            <option key={type} value={type}>{getProofTestResponseCheckTypeLabel(strings, type as PTResponseCheck['type'])}</option>
                           ))}
                         </select>
                       ) : (
@@ -129,7 +134,7 @@ export function ResponseChecksCard({
                           className="inline-flex items-center rounded-md px-2 py-0.5 text-[10px] font-semibold"
                           style={{ background: `${meta.color}15`, color: meta.color }}
                         >
-                          {meta.label}
+                          {typeLabel}
                         </span>
                       )}
                     </td>
@@ -142,7 +147,7 @@ export function ResponseChecksCard({
                             step="1"
                             value={check.expectedMs ?? ''}
                             onChange={e => updateResponseCheck(check.id, { expectedMs: parseNullableNumber(e.target.value) })}
-                            placeholder="1500"
+                            placeholder={strings.responseChecks.placeholders.expectedMs}
                             className={cn(inputCls, 'w-full h-8 pr-10 font-mono')}
                           />
                           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold" style={{ color: TEXT_DIM }}>ms</span>
@@ -162,7 +167,7 @@ export function ResponseChecksCard({
                             step="1"
                             value={check.maxAllowedMs ?? ''}
                             onChange={e => updateResponseCheck(check.id, { maxAllowedMs: parseNullableNumber(e.target.value) })}
-                            placeholder="2000"
+                            placeholder={strings.responseChecks.placeholders.maxAllowedMs}
                             className={cn(inputCls, 'w-full h-8 pr-10 font-mono')}
                           />
                           <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-semibold" style={{ color: TEXT_DIM }}>ms</span>
@@ -193,9 +198,7 @@ export function ResponseChecksCard({
         </div>
       ) : (
         <div className="px-5 py-6 text-sm text-center" style={{ color: TEXT_DIM }}>
-          {editMode
-            ? 'Aucune mesure dynamique definie. Ajoutez les temps a relever avant la phase de signature.'
-            : 'Aucune mesure dynamique n est configuree pour cette procedure.'}
+          {editMode ? strings.responseChecks.values.emptyEdit : strings.responseChecks.values.emptyReadOnly}
         </div>
       )}
     </div>

@@ -6,6 +6,8 @@ import {
   buildProofTestPdfBlob,
 } from './proofTestPdf'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import { getSifExploitationStrings } from '@/i18n/sifExploitation'
+import { useLocaleStrings } from '@/i18n/useLocale'
 
 interface Props {
   sif: SIF
@@ -16,6 +18,7 @@ interface Props {
 }
 
 export function ProofTestPDFExport({ sif, project, procedure, campaigns, onClose }: Props) {
+  const strings = useLocaleStrings(getSifExploitationStrings)
   const { BORDER, CARD_BG, PAGE_BG, SURFACE, TEXT, TEXT_DIM, TEAL, isDark } = usePrismTheme()
   const [exporting, setExporting] = useState(false)
   const hasResponseTrendPage = Boolean(
@@ -64,9 +67,9 @@ export function ProofTestPDFExport({ sif, project, procedure, campaigns, onClose
             <X size={16} />
           </button>
           <div>
-            <p className="text-sm font-bold" style={{ color: TEXT }}>Export PDF — Proof Test</p>
+            <p className="text-sm font-bold" style={{ color: TEXT }}>{strings.pdfExport.title}</p>
             <p className="text-[10px]" style={{ color: TEXT_DIM }}>
-              {totalPages} pages
+              {strings.pdfExport.pages(totalPages)}
             </p>
           </div>
         </div>
@@ -74,12 +77,12 @@ export function ProofTestPDFExport({ sif, project, procedure, campaigns, onClose
           <button onClick={() => window.print()}
             className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold border transition-colors hover:border-[#009BA4] hover:text-[#009BA4]"
             style={{ color: TEXT_DIM, borderColor: BORDER, background: SURFACE }}>
-            <Printer size={13} /> Imprimer
+            <Printer size={13} /> {strings.pdfExport.print}
           </button>
           <button onClick={handleExport} disabled={exporting}
             className="flex items-center gap-2 px-4 py-1.5 rounded-lg text-xs font-bold transition-all disabled:opacity-50"
             style={{ background: `linear-gradient(135deg, ${TEAL}, #007A82)`, color: '#fff' }}>
-            <Download size={13} /> {exporting ? 'Génération…' : 'Télécharger PDF'}
+            <Download size={13} /> {exporting ? strings.pdfExport.generating : strings.pdfExport.download}
           </button>
         </div>
       </div>
