@@ -15,22 +15,30 @@ import { AdminView }   from './AdminView'
 import type { ThemeTokens } from '../hooks/useTheme'
 import type { LauncherView, AuthUser } from '../types'
 
-type BackendStatus = 'checking' | 'ready' | 'offline'
-
-function useBackend(): BackendStatus {
-  const [s, set] = useState<BackendStatus>('checking')
+// true = PRISM backend répond sur localhost:8000 (déjà lancé)
+function useBackendRunning(): boolean {
+  const [running, set] = useState(false)
   useEffect(() => {
     const check = async () => {
       try {
         const r = await fetch('http://localhost:8000/health', { signal: AbortSignal.timeout(1500) })
-        set(r.ok ? 'ready' : 'offline')
-      } catch { set('offline') }
+        set(r.ok)
+      } catch { set(false) }
     }
     void check()
     const id = setInterval(check, 10_000)
     return () => clearInterval(id)
   }, [])
-  return s
+  return running
+}
+
+// true = PRISM-backend.exe présent dans le dossier d'installation
+function usePrismInstalled(): boolean {
+  const [installed, set] = useState(false)
+  useEffect(() => {
+    window.electron?.isPrismInstalled?.().then(set).catch(() => set(false))
+  }, [])
+  return installed
 }
 
 interface LauncherShellProps {
@@ -44,8 +52,9 @@ interface LauncherShellProps {
 export function LauncherShell({ t, user, sessionToken, onLogout, onToggleTheme }: LauncherShellProps) {
   const [view, setView]       = useState<LauncherView>('home')
   const [currentUser, setCurrentUser] = useState(user)
-  const status = useBackend()
-  const ready  = status === 'ready'
+  const running   = useBackendRunning()   // PRISM déjà lancé → glow
+  const installed = usePrismInstalled()   // PRISM installé → bouton actif
+  const ready     = running               // alias pour compatibilité composants enfants
 
   // Ctrl+L → lancer PRISM
   useEffect(() => {
@@ -67,6 +76,7 @@ export function LauncherShell({ t, user, sessionToken, onLogout, onToggleTheme }
         view={view}
         user={currentUser}
         ready={ready}
+        installed={installed}
         onView={setView}
         onLogout={onLogout}
         onToggleTheme={onToggleTheme}

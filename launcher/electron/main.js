@@ -132,6 +132,8 @@ ipcMain.handle('win:maximize',  () => {
 })
 ipcMain.handle('win:close',     () => mainWindow?.close())
 
+ipcMain.handle('prism:isInstalled', () => isPrismInstalled())
+
 // ── Helpers PRISM ──────────────────────────────────────────────────────────
 
 function waitForPrismBackend(timeoutMs = 30000) {

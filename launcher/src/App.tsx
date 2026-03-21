@@ -19,8 +19,9 @@ declare global {
       minimize:    () => void
       maximize:    () => void
       close:       () => void
-      launchPrism: () => void
-      openDataDir: () => void
+      launchPrism:      () => void
+      openDataDir:      () => void
+      isPrismInstalled: () => Promise<boolean>
       checkUpdate:   () => Promise<unknown>
       installUpdate: (url: string) => Promise<unknown>
       onProgress:    (cb: (d: unknown) => void) => void
