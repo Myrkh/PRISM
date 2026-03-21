@@ -1,52 +1,67 @@
 /**
- * src/components/TitleBar.tsx — PRISM Launcher
- * Barre de titre frameless Electron.
- * Drag region + boutons macOS/Windows selon platform.
+ * TitleBar.tsx — PRISM Launcher
+ * Barre titre frameless. Gauche : branding aligné sur LeftPanel (220px).
+ * Centre : vue courante. Droite : contrôles fenêtre.
  */
 
 import { Minus, Square, X } from 'lucide-react'
-import { colors } from '../tokens'
+import { alpha } from '../tokens'
 import type { ThemeTokens } from '../hooks/useTheme'
+import type { LauncherView } from '../types'
 
-interface TitleBarProps {
-  t: ThemeTokens
+const VIEW_LABELS: Record<LauncherView, string> = {
+  home:     'Accueil',
+  library:  'Modules',
+  updates:  'Mises à jour',
+  settings: 'Configuration',
 }
 
-export function TitleBar({ t }: TitleBarProps) {
-  const handleMin   = () => window.electron?.minimize?.()
-  const handleMax   = () => window.electron?.maximize?.()
-  const handleClose = () => window.electron?.close?.()
+interface TitleBarProps {
+  t:     ThemeTokens
+  view?: LauncherView
+}
 
+export function TitleBar({ t, view }: TitleBarProps) {
   return (
     <div
-      className="flex h-9 shrink-0 select-none items-center justify-between px-4"
-      style={{
-        background:    t.RAIL_BG,
-        borderBottom:  `1px solid ${t.BORDER}`,
-        WebkitAppRegion: 'drag',
-      } as React.CSSProperties}
+      className="drag flex h-8 shrink-0 select-none items-center"
+      style={{ background: t.PANEL_BG }}
     >
-      {/* Titre centré */}
-      <div className="flex items-center gap-2.5" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
-        <img src="/logo.png" alt="PRISM" className="h-4 w-4 object-contain opacity-80" />
-        <span className="text-[11px] font-semibold tracking-wide" style={{ color: t.TEXT_DIM }}>
+      {/* Left — branding (220px, aligné avec LeftPanel) */}
+      <div
+        className="flex h-full w-[220px] shrink-0 items-center gap-2 px-4"
+      >
+        <img src="/logo.png" alt="" className="h-3.5 w-3.5 object-contain" style={{ opacity: 0.7 }} />
+        <span className="text-[10px] font-bold" style={{ color: t.TEXT_DIM }}>
           PRISM Launcher
+        </span>
+        <span
+          className="ml-auto font-mono text-[9px]"
+          style={{ color: alpha(t.TEXT_DIM, '55') }}
+        >
+          v3.0.2
         </span>
       </div>
 
-      {/* Window controls */}
-      <div
-        className="flex items-center gap-1"
-        style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}
-      >
-        <WinBtn onClick={handleMin}  title="Réduire">
-          <Minus size={11} />
+      {/* Center — vue courante */}
+      <div className="flex flex-1 items-center px-4">
+        {view && view !== 'home' && (
+          <span className="text-[10px] font-medium" style={{ color: alpha(t.TEXT_DIM, '70') }}>
+            {VIEW_LABELS[view]}
+          </span>
+        )}
+      </div>
+
+      {/* Right — window controls */}
+      <div className="no-drag flex items-center gap-0.5 pr-2">
+        <WinBtn t={t} onClick={() => window.electron?.minimize?.()} title="Réduire">
+          <Minus size={9} />
         </WinBtn>
-        <WinBtn onClick={handleMax}  title="Agrandir">
-          <Square size={10} />
+        <WinBtn t={t} onClick={() => window.electron?.maximize?.()} title="Agrandir">
+          <Square size={8} />
         </WinBtn>
-        <WinBtn onClick={handleClose} title="Fermer" danger>
-          <X size={11} />
+        <WinBtn t={t} onClick={() => window.electron?.close?.()} title="Fermer" danger>
+          <X size={9} />
         </WinBtn>
       </div>
     </div>
@@ -54,30 +69,25 @@ export function TitleBar({ t }: TitleBarProps) {
 }
 
 function WinBtn({
-  children, onClick, title, danger = false,
+  children, onClick, title, danger = false, t,
 }: {
-  children: React.ReactNode
-  onClick:  () => void
-  title:    string
-  danger?:  boolean
+  children: React.ReactNode; onClick: () => void
+  title: string; danger?: boolean; t: ThemeTokens
 }) {
   return (
     <button
       type="button"
       title={title}
       onClick={onClick}
-      className="flex h-6 w-6 items-center justify-center rounded-md transition-colors"
-      style={{
-        color:      '#8FA0B1',
-        background: 'transparent',
-      }}
+      className="flex h-5 w-5 items-center justify-center rounded transition-all"
+      style={{ color: alpha(t.TEXT_DIM, '65'), background: 'transparent' }}
       onMouseEnter={e => {
-        e.currentTarget.style.background = danger ? '#EF444420' : '#2A3138'
-        e.currentTarget.style.color      = danger ? '#EF4444'   : '#DFE8F1'
+        e.currentTarget.style.background = danger ? alpha('#EF4444', '18') : alpha(t.BORDER, '90')
+        e.currentTarget.style.color      = danger ? '#EF4444' : alpha(t.TEXT, '80')
       }}
       onMouseLeave={e => {
         e.currentTarget.style.background = 'transparent'
-        e.currentTarget.style.color      = '#8FA0B1'
+        e.currentTarget.style.color      = alpha(t.TEXT_DIM, '65')
       }}
     >
       {children}

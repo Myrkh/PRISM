@@ -1,0 +1,46 @@
+name: Build PRISM Launcher
+
+on:
+  push:
+    tags:
+      - 'launcher-v*'        # déclenché par : git tag launcher-v1.0.0 && git push --tags
+  workflow_dispatch:         # bouton manuel dans l'onglet Actions de GitHub
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: launcher/package-lock.json
+
+      - name: Install dependencies
+        working-directory: launcher
+        run: npm ci
+
+      - name: Build & package
+        working-directory: launcher
+        run: npm run dist
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: PRISM-Launcher-Windows
+          path: launcher/release/*.exe
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: launcher/release/*.exe
+          name: PRISM Launcher ${{ github.ref_name }}

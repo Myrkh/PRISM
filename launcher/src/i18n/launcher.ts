@@ -1,0 +1,221 @@
+/**
+ * src/i18n/launcher.ts — PRISM Launcher
+ * Interface LauncherStrings + getter. Même pattern que PRISM front.
+ */
+
+import type { AppLocale } from './types'
+import { launcherStringsFr } from './locales/fr/launcher'
+import { launcherStringsEn } from './locales/en/launcher'
+
+// ── Interface ─────────────────────────────────────────────────────────────────
+
+export interface LauncherStrings {
+  nav: {
+    home:     string
+    library:  string
+    updates:  string
+    settings: string
+  }
+
+  topBar: {
+    launch:     string
+    themeLight: string
+    themeDark:  string
+    minimize:   string
+    maximize:   string
+    close:      string
+  }
+
+  home: {
+    recentlyOpened: string
+    projects:       string   // "{n} projets" — insert count in component
+    newProject:     string
+    openInPrism:    string
+  }
+
+  updates: {
+    stateLabel:     string
+    changelogLabel: string
+    // Sim switcher labels
+    simUpToDate:    string
+    simAvailable:   string
+    simUpdating:    string
+    simDone:        string
+    // Up-to-date card
+    upToDateBadge:  string
+    upToDateTitle:  string
+    upToDateBody:   string   // use {version} placeholder
+    checkNow:       string
+    checking:       string
+    // Checking card
+    checkingBadge:  string
+    checkingTitle:  string
+    checkingBody:   string
+    // Downloading / installing
+    downloadingBadge:  string
+    installingBadge:   string
+    inProgressTitle:   string
+    // Done card
+    doneBadge:      string
+    doneTitle:      string
+    doneBody:       string
+    restartBtn:     string
+    // Available card
+    availableBadge: string
+    availableTitle: string   // use {tag} placeholder
+    currentVersion: string   // use {version} placeholder
+    updateNowBtn:   string
+    scheduleBtn:    string
+    // Inline schedule picker
+    pickerMonth:    string
+    pickerDay:      string
+    pickerHour:     string
+    scheduleConfirm: string  // use {month} {day} {hour} placeholders
+    months:         string[]
+    // Changelog
+    installedBadge: string
+    // Progress step labels
+    stepConnecting:  string
+    stepDownloading: string
+    stepVerifying:   string
+    stepExtracting:  string
+    stepFinalizing:  string
+  }
+
+  library: {
+    included:        string
+    modulesCount:    string   // "{n} modules"
+    extensions:      string
+    roadmap:         string
+    badgeNative:     string
+    actionIncluded:  string
+    actionInstall:   string
+    actionSoon:      string
+  }
+
+  footer: {
+    checking:   string
+    engineOk:   string
+    engineOff:  string
+    copyright:  string
+    legal:      string
+  }
+
+  settings: {
+    title:    string
+    subtitle: string
+    sections: {
+      appearance: string
+      backend:    string
+      data:       string
+      about:      string
+      danger:     string
+    }
+    appearance: {
+      theme:     string
+      themeHint: string
+      dark:      string
+      light:     string
+    }
+    language: {
+      label: string
+      hint:  string
+      fr:    string
+      en:    string
+    }
+    backend: {
+      url:            string
+      urlHint:        string
+      autoStart:      string
+      autoStartHint:  string
+      autoUpdate:     string
+      autoUpdateHint: string
+    }
+    data: {
+      sqlite:        string
+      sqliteHint:    string
+      openBtn:       string
+      backup:        string
+      backupHint:    string
+      exportBtn:     string
+      telemetry:     string
+      telemetryHint: string
+    }
+    about: {
+      desktop:      string
+      launcher:     string
+      standard:     string
+      standardHint: string
+      docs:         string
+      openBtn:      string
+      bug:          string
+    }
+    danger: {
+      reset:     string
+      resetHint: string
+      resetBtn:  string
+    }
+  }
+
+  auth: {
+    welcome:             string
+    createAccount:       string
+    loginSubtitle:       string
+    signupSubtitle:      string
+    namePlaceholder:     string
+    emailPlaceholder:    string
+    passwordPlaceholder: string
+    confirmPlaceholder:  string
+    loginBtn:            string
+    signupBtn:           string
+    noAccount:           string
+    hasAccount:          string
+    createLink:          string
+    loginLink:           string
+    localData:           string
+  }
+
+  account: {
+    title:        string
+    tabProfile:   string
+    tabSecurity:  string
+    avatarColor:  string
+    fullName:     string
+    email:        string
+    emailHint:    string
+    plan:         string
+    planDetail:   string
+    saveBtn:      string
+    saved:        string
+    currentPwd:   string
+    newPwd:       string
+    confirmPwd:   string
+    changePwdBtn: string
+    pwdUpdated:   string
+    pwdMismatch:  string
+    pwdTooShort:  string
+    strength: {
+      tooShort:   string
+      weak:       string
+      medium:     string
+      strong:     string
+      veryStrong: string
+    }
+  }
+
+  userCard: {
+    myAccount: string
+    logout:    string
+  }
+}
+
+// ── Getter ────────────────────────────────────────────────────────────────────
+
+const STRINGS: Record<AppLocale, LauncherStrings> = {
+  fr: launcherStringsFr,
+  en: launcherStringsEn,
+}
+
+export function getLauncherStrings(locale: AppLocale): LauncherStrings {
+  return STRINGS[locale]
+}

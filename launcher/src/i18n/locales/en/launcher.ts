@@ -1,0 +1,206 @@
+/**
+ * src/i18n/locales/en/launcher.ts — PRISM Launcher
+ * English translations.
+ */
+
+import type { LauncherStrings } from '../../launcher'
+
+export const launcherStringsEn: LauncherStrings = {
+  nav: {
+    home:     'Home',
+    library:  'Modules',
+    updates:  'Updates',
+    settings: 'Config',
+  },
+
+  topBar: {
+    launch:     'Launch',
+    themeLight: 'Light mode',
+    themeDark:  'Dark mode',
+    minimize:   'Minimize',
+    maximize:   'Maximize',
+    close:      'Close',
+  },
+
+  home: {
+    recentlyOpened: 'Recently opened',
+    projects:       'projects',
+    newProject:     'New project',
+    openInPrism:    'Projects open directly in PRISM',
+  },
+
+  updates: {
+    stateLabel:     'Status',
+    changelogLabel: 'Release notes',
+    // Sim switcher
+    simUpToDate:    'Up to date',
+    simAvailable:   'Available',
+    simUpdating:    'Updating…',
+    simDone:        'Done',
+    // Up-to-date card
+    upToDateBadge:  'Up to date',
+    upToDateTitle:  'PRISM is up to date',
+    upToDateBody:   'Version {version} — you have the latest release.',
+    checkNow:       'Check now',
+    checking:       'Checking…',
+    // Checking card
+    checkingBadge:  'Checking',
+    checkingTitle:  'Looking for updates…',
+    checkingBody:   'Connecting to PRISM servers',
+    // Downloading / installing
+    downloadingBadge:  'Downloading',
+    installingBadge:   'Installing',
+    inProgressTitle:   'Update in progress',
+    // Done card
+    doneBadge:      'Done',
+    doneTitle:      'Installation complete',
+    doneBody:       'Restart PRISM to apply the update.',
+    restartBtn:     'Restart PRISM',
+    // Available card
+    availableBadge: 'Update available',
+    availableTitle: 'PRISM {tag} is available',
+    currentVersion: 'You have v{version}',
+    updateNowBtn:   'Update now',
+    scheduleBtn:    'Schedule for later',
+    // Inline schedule picker
+    pickerMonth:    'Month',
+    pickerDay:      'Day',
+    pickerHour:     'Hour',
+    scheduleConfirm: 'Schedule — {month} {day} at {hour}',
+    months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
+    // Changelog
+    installedBadge: 'INSTALLED',
+    // Progress steps
+    stepConnecting:  'Connecting to GitHub Releases…',
+    stepDownloading: 'Downloading prism-desktop-win.zip…',
+    stepVerifying:   'Verifying SHA-256…',
+    stepExtracting:  'Extracting files…',
+    stepFinalizing:  'Finalizing…',
+  },
+
+  library: {
+    included:       'Included modules',
+    modulesCount:   'modules',
+    extensions:     'Available extensions',
+    roadmap:        'Roadmap',
+    badgeNative:    'Native',
+    actionIncluded: 'Included',
+    actionInstall:  'Install',
+    actionSoon:     'Coming soon',
+  },
+
+  footer: {
+    checking:  'Connecting…',
+    engineOk:  'Engine operational',
+    engineOff: 'Engine offline',
+    copyright: '© 2025 PRISM Engineering',
+    legal:     'Legal',
+  },
+
+  settings: {
+    title:    'Settings',
+    subtitle: 'PRISM Desktop launcher preferences',
+    sections: {
+      appearance: 'Appearance',
+      backend:    'Engine connection',
+      data:       'Local data',
+      about:      'About',
+      danger:     'Danger zone',
+    },
+    appearance: {
+      theme:     'Theme',
+      themeHint: 'Applied to the launcher and PRISM app',
+      dark:      'Dark',
+      light:     'Light',
+    },
+    language: {
+      label: 'Language',
+      hint:  'Launcher interface language',
+      fr:    'Français',
+      en:    'English',
+    },
+    backend: {
+      url:            'Backend URL',
+      urlHint:        'PRISM Desktop local FastAPI server',
+      autoStart:      'Auto-start',
+      autoStartHint:  'Start the Python engine when launcher opens',
+      autoUpdate:     'Auto-update',
+      autoUpdateHint: 'Download and install updates silently',
+    },
+    data: {
+      sqlite:        'SQLite database',
+      sqliteHint:    'AppData\\Roaming\\PRISM\\prism.db',
+      openBtn:       'Open',
+      backup:        'Manual backup',
+      backupHint:    'Timestamped copy of the database',
+      exportBtn:     'Export',
+      telemetry:     'Anonymous telemetry',
+      telemetryHint: 'Helps improve PRISM (no SIF data)',
+    },
+    about: {
+      desktop:      'PRISM Desktop',
+      launcher:     'Launcher',
+      standard:     'Standard',
+      standardHint: 'Safety Instrumented Functions',
+      docs:         'Documentation',
+      openBtn:      'Open',
+      bug:          'Report a bug',
+    },
+    danger: {
+      reset:     'Reset preferences',
+      resetHint: 'Restore all default settings',
+      resetBtn:  'Reset',
+    },
+  },
+
+  auth: {
+    welcome:             'Welcome',
+    createAccount:       'Create account',
+    loginSubtitle:       'Sign in to access your SIF projects.',
+    signupSubtitle:      'Create your local PRISM Desktop account.',
+    namePlaceholder:     'Full name',
+    emailPlaceholder:    'Email address',
+    passwordPlaceholder: 'Password',
+    confirmPlaceholder:  'Confirm password',
+    loginBtn:            'Sign in',
+    signupBtn:           'Create account',
+    noAccount:           'No account yet?',
+    hasAccount:          'Already have an account?',
+    createLink:          'Create account',
+    loginLink:           'Sign in',
+    localData:           'Data stored locally',
+  },
+
+  account: {
+    title:        'My account',
+    tabProfile:   'Profile',
+    tabSecurity:  'Security',
+    avatarColor:  'Avatar color',
+    fullName:     'Full name',
+    email:        'Email address',
+    emailHint:    'The email is tied to the backend account and cannot be changed here.',
+    plan:         'PRISM Desktop',
+    planDetail:   'Local licence · IEC 61511 · SIL 1–4',
+    saveBtn:      'Save',
+    saved:        'Saved',
+    currentPwd:   'Current password',
+    newPwd:       'New password',
+    confirmPwd:   'Confirm',
+    changePwdBtn: 'Change password',
+    pwdUpdated:   'Password updated',
+    pwdMismatch:  'Passwords do not match.',
+    pwdTooShort:  'Minimum 8 characters.',
+    strength: {
+      tooShort:   'Too short',
+      weak:       'Weak',
+      medium:     'Medium',
+      strong:     'Strong',
+      veryStrong: 'Very strong',
+    },
+  },
+
+  userCard: {
+    myAccount: 'My account',
+    logout:    'Sign out',
+  },
+}

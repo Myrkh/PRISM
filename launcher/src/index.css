@@ -3,9 +3,7 @@
 @tailwind components;
 @tailwind utilities;
 
-*, *::before, *::after {
-  box-sizing: border-box;
-}
+*, *::before, *::after { box-sizing: border-box; }
 
 html, body, #root {
   height: 100%;
@@ -18,21 +16,100 @@ html, body, #root {
   user-select: none;
 }
 
-/* Scrollbar PRISM */
-::-webkit-scrollbar        { width: 6px; height: 6px; }
+::-webkit-scrollbar        { width: 0px; height: 0px; }
 ::-webkit-scrollbar-track  { background: transparent; }
-::-webkit-scrollbar-thumb  { background: #2A3138; border-radius: 3px; }
-::-webkit-scrollbar-thumb:hover { background: #3A4148; }
+::-webkit-scrollbar-thumb  { background: rgba(42,49,56,0.8); border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: rgba(95,216,210,0.2); }
 
-/* Inputs reset */
-input, textarea {
-  font-family: inherit;
-  -webkit-font-smoothing: antialiased;
-}
-
-/* Remove outline on focus for styled inputs */
+input, textarea { font-family: inherit; -webkit-font-smoothing: antialiased; }
 input:focus { outline: none; }
 
-/* Electron drag utility */
 .drag    { -webkit-app-region: drag; }
 .no-drag { -webkit-app-region: no-drag; }
+
+/* ── Launch button glow ──────────────────────────────────────────────────── */
+@keyframes launch-glow {
+  0%, 100% {
+    box-shadow:
+      0 0 0 0 rgba(0,155,164,0),
+      0 4px 20px rgba(0,155,164,0.4),
+      0 2px 8px rgba(0,155,164,0.25);
+  }
+  50% {
+    box-shadow:
+      0 0 0 6px rgba(0,155,164,0.08),
+      0 4px 28px rgba(0,155,164,0.6),
+      0 2px 12px rgba(0,155,164,0.35);
+  }
+}
+.launch-glow { animation: launch-glow 2.5s ease-in-out infinite; }
+
+/* ── Status dot pulse ────────────────────────────────────────────────────── */
+@keyframes dot-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+.dot-pulse { animation: dot-pulse 1.8s ease-in-out infinite; }
+
+/* ── Fade in up ──────────────────────────────────────────────────────────── */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(6px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.fade-up { animation: fade-up 0.35s ease both; }
+
+/* ── Slide from left ─────────────────────────────────────────────────────── */
+@keyframes slide-left {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+.slide-left { animation: slide-left 0.25s ease both; }
+
+/* ── Progress indeterminate ──────────────────────────────────────────────── */
+@keyframes indeterminate {
+  0%   { transform: translateX(-100%); }
+  100% { transform: translateX(400%); }
+}
+.indeterminate { animation: indeterminate 1.4s ease-in-out infinite; }
+
+/* ── Noise overlay ───────────────────────────────────────────────────────── */
+.noise::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='256' height='256'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='256' height='256' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-size: 160px 160px;
+  opacity: 0.028;
+  pointer-events: none;
+}
+
+/* ── Glass ───────────────────────────────────────────────────────────────── */
+.glass {
+  backdrop-filter: blur(20px) saturate(150%);
+  -webkit-backdrop-filter: blur(20px) saturate(150%);
+}
+
+/* ── Dot grid ────────────────────────────────────────────────────────────── */
+.dot-grid {
+  background-image: radial-gradient(circle, rgba(42,49,56,0.9) 1px, transparent 1px);
+  background-size: 20px 20px;
+}
+
+/* ── Card relief (inset highlight + drop shadow) ─────────────────────────── */
+.card {
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.06),
+    0 4px 14px rgba(0,0,0,0.20),
+    0 1px 3px rgba(0,0,0,0.08);
+}
+
+/* ── Scan line (decorative) ──────────────────────────────────────────────── */
+@keyframes scan {
+  0%   { transform: translateY(0); opacity: 0; }
+  10%  { opacity: 1; }
+  90%  { opacity: 1; }
+  100% { transform: translateY(100%); opacity: 0; }
+}
+.scan-line {
+  animation: scan 6s ease-in-out infinite;
+}

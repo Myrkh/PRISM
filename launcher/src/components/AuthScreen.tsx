@@ -1,147 +1,43 @@
 /**
- * src/components/AuthScreen.tsx — PRISM Launcher
- * Écran de connexion / inscription.
- * DA identique à PRISM main : split layout, carousel droite, form gauche.
- * Autonome : stocke le token JWT localement (même backend desktop que PRISM).
+ * AuthScreen.tsx — PRISM Launcher
+ * Écran de connexion. Full-bleed dark avec glass card centré.
  */
 
-import { useState, useEffect, type FormEvent } from 'react'
-import {
-  Eye, EyeOff, ArrowRight, Loader2, Mail,
-  BarChart2, ShieldCheck, Cpu, List, FileCheck2,
-} from 'lucide-react'
+import { useState, type FormEvent } from 'react'
+import { Eye, EyeOff, ArrowRight, Loader2, Shield, Lock } from 'lucide-react'
 import { colors, dark, semantic, alpha } from '../tokens'
 import type { AuthMode, AuthUser } from '../types'
 
-// ─── Slides carousel ─────────────────────────────────────────────────────────
+// ── Input ─────────────────────────────────────────────────────────────────────
 
-const SLIDES = [
-  {
-    Icon:    List,
-    accent:  colors.tealDim,
-    title:   'SIF register & compliance',
-    desc:    'Architecture, gouvernance et preuves dans un seul workspace.',
-  },
-  {
-    Icon:    BarChart2,
-    accent:  semantic.info,
-    title:   'Analyse temps réel',
-    desc:    'Estimation TypeScript immédiate, escalade moteur Python si besoin.',
-  },
-  {
-    Icon:    ShieldCheck,
-    accent:  semantic.success,
-    title:   'Proof tests archivés',
-    desc:    'Campagnes, résultats, PDFs — attachés à la bonne révision.',
-  },
-  {
-    Icon:    FileCheck2,
-    accent:  semantic.warning,
-    title:   'Révisions figées',
-    desc:    'Fermez, archivez, repartez proprement sur la révision suivante.',
-  },
-  {
-    Icon:    Cpu,
-    accent:  colors.teal,
-    title:   'Moteur hybride',
-    desc:    'Frontend interactif + Markov, Monte Carlo et solveurs Python.',
-  },
-] as const
-
-function FeatureCarousel({ idx, onDot }: { idx: number; onDot: (i: number) => void }) {
+function Input({ type, placeholder, value, onChange, required }: {
+  type: string; placeholder: string; value: string
+  onChange: (v: string) => void; required?: boolean
+}) {
   return (
-    <div
-      className="relative hidden flex-col items-center justify-between overflow-hidden p-10 md:flex"
+    <input
+      type={type}
+      placeholder={placeholder}
+      value={value}
+      onChange={e => onChange(e.target.value)}
+      required={required}
+      className="w-full rounded-xl px-4 py-3 text-[13px] transition-all"
       style={{
-        background: `radial-gradient(ellipse 80% 50% at 50% 20%, ${alpha(colors.teal, '18')} 0%, transparent 70%), linear-gradient(180deg, ${dark.card2} 0%, ${dark.panel} 100%)`,
-        width: '42%',
-        flexShrink: 0,
+        background: alpha(dark.card, '90'),
+        color: dark.text,
+        border: `1px solid ${alpha('#FFFFFF', '08')}`,
+        outline: 'none',
       }}
-    >
-      {/* Logo */}
-      <div className="flex w-full items-center gap-3">
-        <div
-          className="flex h-9 w-9 items-center justify-center rounded-xl border"
-          style={{ background: alpha(colors.teal, '14'), borderColor: alpha(colors.teal, '40') }}
-        >
-          <img src="/logo.png" alt="PRISM" className="h-5 w-5 object-contain" />
-        </div>
-        <span className="text-lg font-bold tracking-wide" style={{ color: dark.text }}>PRISM</span>
-      </div>
-
-      {/* Slide icon */}
-      <div className="flex flex-1 flex-col items-center justify-center text-center">
-        <div className="relative mb-8 h-24 w-24">
-          {SLIDES.map((slide, i) => {
-            const Icon = slide.Icon
-            return (
-              <div
-                key={slide.title}
-                className="absolute inset-0 flex items-center justify-center transition-all duration-500"
-                style={{ opacity: i === idx ? 1 : 0, transform: i === idx ? 'scale(1)' : 'scale(0.88)' }}
-              >
-                <div
-                  className="flex h-24 w-24 items-center justify-center rounded-3xl"
-                  style={{
-                    background:  alpha(slide.accent, '14'),
-                    boxShadow:   i === idx ? `0 0 48px ${alpha(slide.accent, '28')}` : 'none',
-                  }}
-                >
-                  <Icon size={44} strokeWidth={1.2} style={{ color: slide.accent }} />
-                </div>
-              </div>
-            )
-          })}
-        </div>
-
-        <div style={{ minHeight: 100 }}>
-          {SLIDES.map((slide, i) => (
-            <div
-              key={slide.title}
-              style={{ display: i === idx ? 'block' : 'none' }}
-            >
-              <h2 className="mb-3 text-xl font-bold leading-snug" style={{ color: dark.text }}>
-                {slide.title}
-              </h2>
-              <p className="px-4 text-sm leading-relaxed" style={{ color: alpha(dark.text, 'AA') }}>
-                {slide.desc}
-              </p>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* Dots */}
-      <div className="flex gap-2">
-        {SLIDES.map((_, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => onDot(i)}
-            className="rounded-full transition-all duration-300"
-            style={{
-              width:      i === idx ? 24 : 8,
-              height:     8,
-              background: i === idx ? colors.teal : alpha(dark.text, '33'),
-            }}
-          />
-        ))}
-      </div>
-    </div>
+      onFocus={e  => (e.currentTarget.style.borderColor = alpha(colors.teal, '50'))}
+      onBlur={e   => (e.currentTarget.style.borderColor = alpha('#FFFFFF', '08'))}
+    />
   )
 }
 
-// ─── Password field ───────────────────────────────────────────────────────────
-
-function PasswordField({
-  value, onChange, placeholder, show, onToggle,
-}: {
-  value:       string
-  onChange:    (v: string) => void
-  placeholder: string
-  show:        boolean
-  onToggle:    () => void
+function PasswordInput({ value, onChange, placeholder }: {
+  value: string; onChange: (v: string) => void; placeholder: string
 }) {
+  const [show, setShow] = useState(false)
   return (
     <div className="relative">
       <input
@@ -149,15 +45,21 @@ function PasswordField({
         placeholder={placeholder}
         value={value}
         onChange={e => onChange(e.target.value)}
-        className="w-full rounded-xl px-4 py-3 pr-11 text-sm outline-none transition-all"
-        style={{ background: dark.card2, color: dark.text, border: `1px solid ${alpha(dark.text, '10')}` }}
-        onFocus={e  => (e.currentTarget.style.borderColor = alpha(colors.teal, '60'))}
-        onBlur={e   => (e.currentTarget.style.borderColor = alpha(dark.text, '10'))}
+        required
+        className="w-full rounded-xl px-4 py-3 pr-11 text-[13px] transition-all"
+        style={{
+          background: alpha(dark.card, '90'),
+          color: dark.text,
+          border: `1px solid ${alpha('#FFFFFF', '08')}`,
+          outline: 'none',
+        }}
+        onFocus={e  => (e.currentTarget.style.borderColor = alpha(colors.teal, '50'))}
+        onBlur={e   => (e.currentTarget.style.borderColor = alpha('#FFFFFF', '08'))}
       />
       <button
         type="button"
-        onClick={onToggle}
-        className="absolute inset-y-0 right-0 flex items-center px-3 transition-opacity hover:opacity-80"
+        onClick={() => setShow(v => !v)}
+        className="absolute inset-y-0 right-0 flex items-center px-3 transition-opacity hover:opacity-70"
         style={{ color: dark.textDim }}
       >
         {show ? <EyeOff size={15} /> : <Eye size={15} />}
@@ -166,71 +68,50 @@ function PasswordField({
   )
 }
 
-// ─── Main AuthScreen ──────────────────────────────────────────────────────────
+// ── Main ──────────────────────────────────────────────────────────────────────
 
-interface AuthScreenProps {
-  onAuth: (user: AuthUser) => void
-}
-
-export function AuthScreen({ onAuth }: AuthScreenProps) {
-  const [mode,            setMode]            = useState<AuthMode>('login')
-  const [email,           setEmail]           = useState('')
-  const [password,        setPassword]        = useState('')
-  const [confirmPassword, setConfirmPassword] = useState('')
-  const [fullName,        setFullName]        = useState('')
-  const [showPwd,         setShowPwd]         = useState(false)
-  const [loading,         setLoading]         = useState(false)
-  const [error,           setError]           = useState<string | null>(null)
-  const [slideIdx,        setSlideIdx]        = useState(0)
-
-  useEffect(() => {
-    const t = setInterval(() => setSlideIdx(i => (i + 1) % SLIDES.length), 4500)
-    return () => clearInterval(t)
-  }, [])
-
-  const inputCls = 'w-full rounded-xl px-4 py-3 text-sm outline-none transition-all'
-  const inputStyle = {
-    background:  dark.card2,
-    color:       dark.text,
-    border:      `1px solid ${alpha(dark.text, '10')}`,
-  }
+export function AuthScreen({ onAuth }: { onAuth: (user: AuthUser) => void }) {
+  const [mode,    setMode]    = useState<AuthMode>('login')
+  const [email,   setEmail]   = useState('')
+  const [pass,    setPass]    = useState('')
+  const [confirm, setConfirm] = useState('')
+  const [name,    setName]    = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error,   setError]   = useState<string | null>(null)
 
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
-    if (mode === 'signup' && password !== confirmPassword) {
+    if (mode === 'signup' && pass !== confirm) {
       setError('Les mots de passe ne correspondent pas.')
       return
     }
     setLoading(true)
     try {
-      // En desktop : appel au backend FastAPI local
       const endpoint = mode === 'login' ? '/auth/login' : '/auth/signup'
       const body = mode === 'login'
-        ? { email, password }
-        : { email, password, full_name: fullName }
+        ? { email, password: pass }
+        : { email, password: pass, full_name: name }
 
       const res = await fetch(`http://localhost:8000${endpoint}`, {
-        method:  'POST',
+        method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify(body),
+        body: JSON.stringify(body),
       })
-
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
         throw new Error(err.detail ?? 'Erreur de connexion')
       }
-
       const data = await res.json()
       localStorage.setItem('prism_desktop_token', data.access_token)
 
-      const name = data.user?.full_name ?? data.user?.email ?? 'Utilisateur'
-      const parts = name.trim().split(/\s+/)
+      const n = data.user?.full_name ?? data.user?.email ?? 'Utilisateur'
+      const parts = n.trim().split(/\s+/)
       const initials = parts.length === 1
         ? parts[0].slice(0, 2).toUpperCase()
         : `${parts[0][0]}${parts[1][0]}`.toUpperCase()
 
-      onAuth({ email: data.user.email, fullName: name, initials })
+      onAuth({ email: data.user.email, fullName: n, initials })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connexion impossible')
     } finally {
@@ -239,110 +120,151 @@ export function AuthScreen({ onAuth }: AuthScreenProps) {
   }
 
   const switchMode = (m: AuthMode) => {
-    setMode(m)
-    setError(null)
-    setPassword('')
-    setConfirmPassword('')
+    setMode(m); setError(null); setPass(''); setConfirm('')
   }
 
   return (
     <div
-      className="flex flex-1 overflow-hidden"
+      className="relative flex flex-1 items-center justify-center overflow-hidden"
       style={{
-        background: `radial-gradient(900px 500px at 10% 5%, ${alpha(colors.teal, '10')} 0%, transparent 60%), linear-gradient(180deg, ${dark.page} 0%, ${dark.rail} 100%)`,
+        background: `
+          radial-gradient(ellipse 70% 60% at 10% 30%, ${alpha(colors.teal, '14')} 0%, transparent 55%),
+          radial-gradient(ellipse 50% 70% at 90% 70%, ${alpha('#8B5CF6', '09')} 0%, transparent 55%),
+          radial-gradient(ellipse 40% 40% at 50% 0%,  ${alpha(colors.teal, '07')} 0%, transparent 50%),
+          ${dark.rail}
+        `,
       }}
     >
-      {/* Left: form */}
+      {/* Dot grid */}
       <div
-        className="flex flex-1 flex-col items-center justify-center overflow-y-auto px-8 py-10"
-        style={{ background: dark.panel, borderRight: `1px solid ${alpha(dark.border, 'CC')}` }}
-      >
-        <div className="w-full max-w-[380px]">
+        className="pointer-events-none absolute inset-0 dot-grid"
+        style={{ opacity: 0.45 }}
+      />
 
+      {/* Ambient orbs */}
+      <div
+        className="pointer-events-none absolute -left-24 -top-24 h-72 w-72 rounded-full"
+        style={{
+          background: `radial-gradient(circle, ${alpha(colors.teal, '10')} 0%, transparent 70%)`,
+          filter: 'blur(48px)',
+        }}
+      />
+      <div
+        className="pointer-events-none absolute -bottom-24 -right-24 h-64 w-64 rounded-full"
+        style={{
+          background: `radial-gradient(circle, ${alpha('#8B5CF6', '08')} 0%, transparent 70%)`,
+          filter: 'blur(48px)',
+        }}
+      />
+
+      {/* Glass card */}
+      <div
+        className="relative glass fade-up w-full max-w-[380px] overflow-hidden rounded-2xl"
+        style={{
+          background: alpha(dark.panel, 'E6'),
+          border: `1px solid ${alpha('#FFFFFF', '07')}`,
+          boxShadow: `
+            0 40px 80px rgba(0,0,0,0.55),
+            0 0 0 1px ${alpha(colors.teal, '08')},
+            inset 0 1px 0 ${alpha('#FFFFFF', '05')}
+          `,
+        }}
+      >
+        {/* Top accent */}
+        <div
+          className="h-[2px] w-full"
+          style={{
+            background: `linear-gradient(90deg, transparent 0%, ${colors.teal} 30%, ${colors.tealDim} 70%, transparent 100%)`,
+          }}
+        />
+
+        <div className="px-8 py-7">
           {/* Brand */}
-          <div className="mb-8 flex items-center gap-3">
+          <div className="mb-7 flex items-center gap-3">
             <div
-              className="flex h-10 w-10 items-center justify-center rounded-xl border"
-              style={{ background: alpha(colors.teal, '14'), borderColor: alpha(colors.teal, '40') }}
+              className="flex h-11 w-11 items-center justify-center rounded-xl border"
+              style={{
+                background: alpha(colors.teal, '12'),
+                borderColor: alpha(colors.teal, '30'),
+                boxShadow: `0 0 20px ${alpha(colors.teal, '20')}`,
+              }}
             >
-              <img src="/logo.png" alt="PRISM" className="h-5 w-5 object-contain" />
+              <img src="/logo.png" alt="PRISM" className="h-6 w-6 object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-xl font-bold tracking-wide" style={{ color: dark.text }}>PRISM</span>
                 <span
-                  className="rounded-full border px-2 py-0.5 text-[9px] font-black"
-                  style={{ background: alpha(semantic.warning, '14'), color: semantic.warning, borderColor: alpha(semantic.warning, '28') }}
+                  className="text-[20px] font-black tracking-tight"
+                  style={{ color: dark.text, textShadow: `0 0 24px ${alpha(colors.teal, '20')}` }}
+                >
+                  PRISM
+                </span>
+                <span
+                  className="rounded-full border px-2 py-0.5 text-[8px] font-black tracking-wider"
+                  style={{
+                    background: alpha(semantic.warning, '12'),
+                    borderColor: alpha(semantic.warning, '25'),
+                    color: semantic.warning,
+                  }}
                 >
                   DESKTOP
                 </span>
               </div>
-              <p className="text-[11px]" style={{ color: dark.textDim }}>
+              <p className="text-[10px]" style={{ color: dark.textDim }}>
                 Process Safety Engineering
               </p>
             </div>
           </div>
 
           {/* Heading */}
-          <h2 className="mb-1.5 text-2xl font-bold" style={{ color: dark.text }}>
+          <h2 className="mb-1 text-[20px] font-black leading-none" style={{ color: dark.text }}>
             {mode === 'login' ? 'Bienvenue' : 'Créer un compte'}
           </h2>
-          <p className="mb-7 text-sm leading-relaxed" style={{ color: dark.textDim }}>
+          <p className="mb-6 text-[11px] leading-relaxed" style={{ color: dark.textDim }}>
             {mode === 'login'
-              ? 'Connectez-vous pour accéder à vos projets et SIFs.'
-              : 'Créez votre compte local PRISM Desktop.'}
+              ? 'Connectez-vous pour accéder à vos projets SIF.'
+              : 'Créez votre compte PRISM Desktop local.'}
           </p>
 
           {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-3">
+          <form onSubmit={handleSubmit} className="space-y-2.5">
             {mode === 'signup' && (
-              <input
-                className={inputCls}
-                style={inputStyle}
+              <Input
                 type="text"
                 placeholder="Nom complet"
-                value={fullName}
-                onChange={e => setFullName(e.target.value)}
+                value={name}
+                onChange={setName}
                 required
-                onFocus={e  => (e.currentTarget.style.borderColor = alpha(colors.teal, '60'))}
-                onBlur={e   => (e.currentTarget.style.borderColor = alpha(dark.text, '10'))}
               />
             )}
-
-            <input
-              className={inputCls}
-              style={inputStyle}
+            <Input
               type="email"
               placeholder="Adresse email"
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={setEmail}
               required
-              onFocus={e  => (e.currentTarget.style.borderColor = alpha(colors.teal, '60'))}
-              onBlur={e   => (e.currentTarget.style.borderColor = alpha(dark.text, '10'))}
             />
-
-            <PasswordField
-              value={password}
-              onChange={setPassword}
+            <PasswordInput
+              value={pass}
+              onChange={setPass}
               placeholder="Mot de passe"
-              show={showPwd}
-              onToggle={() => setShowPwd(v => !v)}
             />
-
             {mode === 'signup' && (
-              <PasswordField
-                value={confirmPassword}
-                onChange={setConfirmPassword}
+              <PasswordInput
+                value={confirm}
+                onChange={setConfirm}
                 placeholder="Confirmer le mot de passe"
-                show={showPwd}
-                onToggle={() => setShowPwd(v => !v)}
               />
             )}
 
             {error && (
               <div
-                className="rounded-xl border px-3 py-2.5 text-center text-xs"
-                style={{ background: alpha(semantic.error, '12'), borderColor: alpha(semantic.error, '28'), color: semantic.error }}
+                className="rounded-xl border px-3 py-2.5 text-center text-[11px]"
+                style={{
+                  background: alpha(semantic.error, '10'),
+                  borderColor: alpha(semantic.error, '25'),
+                  color: semantic.error,
+                }}
               >
                 {error}
               </div>
@@ -351,37 +273,60 @@ export function AuthScreen({ onAuth }: AuthScreenProps) {
             <button
               type="submit"
               disabled={loading}
-              className="flex w-full items-center justify-center gap-2 rounded-xl py-3 text-sm font-bold transition-opacity hover:opacity-90 disabled:opacity-50"
-              style={{ background: `linear-gradient(135deg, ${colors.teal}, ${colors.tealDark})`, color: '#041014' }}
+              className="flex w-full items-center justify-center gap-2 rounded-xl py-3.5 text-[12px] font-black uppercase tracking-widest transition-all hover:opacity-90 disabled:opacity-50 active:scale-[0.98]"
+              style={{
+                background: `linear-gradient(135deg, ${colors.teal}, ${colors.tealDark})`,
+                color: '#041014',
+                boxShadow: `0 4px 20px ${alpha(colors.teal, '30')}`,
+                letterSpacing: '0.1em',
+              }}
             >
               {loading
                 ? <Loader2 size={16} className="animate-spin" />
-                : <>{mode === 'login' ? 'Se connecter' : 'Créer le compte'} <ArrowRight size={15} /></>}
+                : (
+                  <>
+                    {mode === 'login' ? 'Se connecter' : 'Créer le compte'}
+                    <ArrowRight size={14} />
+                  </>
+                )
+              }
             </button>
           </form>
 
           {/* Switch mode */}
-          <p className="mt-6 text-center text-xs" style={{ color: dark.textDim }}>
+          <p className="mt-5 text-center text-[11px]" style={{ color: dark.textDim }}>
             {mode === 'login' ? 'Pas encore de compte ?' : 'Déjà un compte ?'}{' '}
             <button
               type="button"
-              className="font-semibold transition-opacity hover:opacity-80"
+              className="font-bold transition-opacity hover:opacity-75"
               style={{ color: colors.tealDim }}
               onClick={() => switchMode(mode === 'login' ? 'signup' : 'login')}
             >
               {mode === 'login' ? 'Créer un compte' : 'Se connecter'}
             </button>
           </p>
+        </div>
 
-          {/* Legal */}
-          <p className="mt-8 text-center text-[10px] leading-relaxed" style={{ color: alpha(dark.textDim, '80') }}>
-            PRISM Desktop · IEC 61511 · Données stockées localement
-          </p>
+        {/* Footer strip */}
+        <div
+          className="flex items-center justify-center gap-4 border-t px-8 py-3"
+          style={{ borderColor: alpha('#FFFFFF', '05'), background: alpha(dark.rail, '88') }}
+        >
+          <div className="flex items-center gap-1.5">
+            <Shield size={10} style={{ color: colors.teal }} />
+            <span className="text-[9px] font-bold" style={{ color: alpha(colors.tealDim, 'AA') }}>
+              IEC 61511
+            </span>
+          </div>
+          <span style={{ color: alpha(dark.textDim, '40') }}>·</span>
+          <div className="flex items-center gap-1.5">
+            <Lock size={9} style={{ color: dark.textDim }} />
+            <span className="text-[9px]" style={{ color: alpha(dark.textDim, '70') }}>
+              Données stockées localement
+            </span>
+          </div>
         </div>
       </div>
-
-      {/* Right: carousel */}
-      <FeatureCarousel idx={slideIdx} onDot={setSlideIdx} />
     </div>
   )
 }

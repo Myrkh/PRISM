@@ -42,9 +42,9 @@ function isPrismInstalled() {
 
 function createWindow() {
   mainWindow = new BrowserWindow({
-    width:           920,
+    width:           960,
     height:          640,
-    minWidth:        760,
+    minWidth:        780,
     minHeight:       520,
     frame:           false,        // Frameless — TitleBar React custom
     titleBarStyle:   'hidden',
