@@ -51,7 +51,9 @@ jobs:
 
       # ── PyInstaller ───────────────────────────────────────────────────────
       - name: Copy logo for PyInstaller icon
-        run: Copy-Item launcher\public\logo.png backend\public\logo.png -Force
+        run: |
+          New-Item -ItemType Directory -Force -Path backend\public | Out-Null
+          Copy-Item launcher\public\logo.png backend\public\logo.png -Force
         shell: pwsh
 
       - name: Build PRISM-backend.exe (PyInstaller)
