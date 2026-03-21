@@ -19,6 +19,9 @@ jobs:
         with:
           node-version: '22'
 
+      - name: Fix Python distutils (Python 3.12 supprime distutils, requis par node-gyp)
+        run: pip install setuptools
+
       - name: Install dependencies
         working-directory: launcher
         run: npm install
