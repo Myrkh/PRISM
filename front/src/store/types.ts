@@ -119,6 +119,7 @@ export function normalizeSIFTab(tab: SIFTab | string | null | undefined): Canoni
 export type AppView =
   | { type: 'projects' }
   | { type: 'search' }
+  | { type: 'planning' }
   | {
       type: 'library'
       templateId?: string

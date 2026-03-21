@@ -8,7 +8,7 @@ import {
   Search, Settings, Moon, Sun, FolderPlus, FilePlus,
   LayoutDashboard, Network, BarChart3, Shield, FlaskConical,
   ChevronRight, FileText, Home, Pencil, History,
-  ClipboardCheck, Cpu, BookOpen, BookOpenText,
+  ClipboardCheck, CalendarDays, Cpu, BookOpen, BookOpenText,
 } from 'lucide-react'
 import { getSearchResultIcon } from '@/components/search/searchMeta'
 import { useComponentLibrary } from '@/features/library'
@@ -299,6 +299,15 @@ export function CommandPalette({
         Icon: History,
         onSelect: () => run(() => navigate({ type: 'audit-log' })),
         isActive: view.type === 'audit-log',
+        level: 0,
+      },
+      {
+        id: 'planning',
+        label: strings.commandPalette.labels.planning,
+        keywords: 'planning calendrier campagnes proof test t0 t1 échéances',
+        Icon: CalendarDays,
+        onSelect: () => run(() => navigate({ type: 'planning' })),
+        isActive: view.type === 'planning',
         level: 0,
       },
       {

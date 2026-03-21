@@ -35,6 +35,7 @@ import { DocsSidebar } from '@/components/docs/DocsSidebar'
 import { SearchSidebar } from '@/components/search/SearchSidebar'
 import { LibrarySidebar } from '@/components/library/LibrarySidebar'
 import { AuditSidebar } from '@/components/audit/AuditSidebar'
+import { PlanningSidebar } from '@/planning/PlanningSidebar'
 import { EngineSidebar } from '@/components/engine/EngineSidebar'
 import { LibraryInspector } from '@/components/library/LibraryInspector'
 import { HomeScreen } from '@/components/layout/HomeScreen'
@@ -143,11 +144,12 @@ function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) 
   )
 }
 
-function GlobalRightPanelPlaceholder({ mode }: { mode: 'audit' | 'history' | 'engine' | 'hazop' }) {
+function GlobalRightPanelPlaceholder({ mode }: { mode: 'audit' | 'history' | 'planning' | 'engine' | 'hazop' }) {
   const { BORDER, CARD_BG, PANEL_BG, SHADOW_PANEL, TEXT_DIM } = usePrismTheme()
   const labels: Record<typeof mode, string> = {
     audit:   'Audit Log',
     history: 'SIF History',
+    planning:'Planning',
     engine:  'Engine',
     hazop:   'HAZOP / LOPA',
   }
@@ -162,7 +164,9 @@ function GlobalRightPanelPlaceholder({ mode }: { mode: 'audit' | 'history' | 'en
       >
         {mode === 'engine'
           ? 'Engine overview, integration status, and backend contract details.'
-          : 'Select a row to inspect details and actions.'}
+          : mode === 'planning'
+            ? 'Select a campaign to inspect details or click a day to plan a new one.'
+            : 'Select a row to inspect details and actions.'}
       </div>
     </div>
   )
@@ -250,9 +254,10 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
   const showStandalone = showSettings
   const showAudit     = view.type === 'audit-log'
   const showHistory   = view.type === 'sif-history'
+  const showPlanning  = view.type === 'planning'
   const showEngine    = view.type === 'engine'
   const showHazop     = view.type === 'hazop'
-  const showGlobal    = showAudit || showHistory || showEngine || showHazop
+  const showGlobal    = showAudit || showHistory || showPlanning || showEngine || showHazop
   const showDashboard = view.type === 'sif-dashboard' && !!project && !!sif
   const showHome      = !showSettings && !showDocs && !showSearch && !showLibrary && !showDashboard && !showGlobal
 
@@ -355,9 +360,11 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                         ? <LibrarySidebar />
                         : showAudit
                           ? <AuditSidebar />
-                          : showEngine
-                            ? <EngineSidebar />
-                            : <ProjectTree projectId={projectId ?? ''} sifId={sifId ?? ''} />
+                          : showPlanning
+                            ? <PlanningSidebar />
+                            : showEngine
+                              ? <EngineSidebar />
+                              : <ProjectTree projectId={projectId ?? ''} sifId={sifId ?? ''} />
                 )}
               </div>
 
@@ -415,7 +422,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                       <ResizeDivider isResizing={isResizingRightPanel} onPointerDown={startResize} />
                       {rightPanelOverride || (
                         <GlobalRightPanelPlaceholder
-                          mode={showAudit ? 'audit' : showHistory ? 'history' : showEngine ? 'engine' : 'hazop'}
+                          mode={showAudit ? 'audit' : showHistory ? 'history' : showPlanning ? 'planning' : showEngine ? 'engine' : 'hazop'}
                         />
                       )}
                     </div>

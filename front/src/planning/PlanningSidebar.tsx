@@ -1,43 +1,40 @@
-/**
- * planning/PlanningSidebar.tsx — PRISM
- *
- * Panneau gauche du module Planning.
- * Même pattern structurel que AuditSidebar / EngineSidebar.
- *   – Mini-calendrier de navigation (mois)
- *   – Filtres projet
- *   – Légende statuts
- *   – Prochaines échéances T1
- */
 import { useMemo } from 'react'
 import {
-  CalendarDays, ChevronLeft, ChevronRight,
-  AlertTriangle, Clock, CheckCircle2, Circle,
-  FolderOpen, CalendarClock,
+  AlertTriangle,
+  CalendarClock,
+  CalendarDays,
+  CheckCircle2,
+  ChevronLeft,
+  ChevronRight,
+  Circle,
+  Clock,
+  FolderOpen,
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import {
-  SidebarBody, SidebarSectionTitle,
-  sidebarHoverIn, sidebarHoverOut, sidebarPressDown, sidebarPressUp,
+  SidebarBody,
+  SidebarSectionTitle,
+  sidebarHoverIn,
+  sidebarHoverOut,
+  sidebarPressDown,
+  sidebarPressUp,
 } from '@/components/layout/SidebarPrimitives'
 import {
+  CAMPAIGN_STATUS_META,
+  DAY_NAMES_SHORT,
+  MONTH_NAMES_FR,
+  buildCalendarGrid,
+  toDateStr,
+  usePlanningData,
   usePlanningNavigation,
-  CAMPAIGN_STATUS_META, MONTH_NAMES_FR, DAY_NAMES_SHORT,
-  buildCalendarGrid, toDateStr,
-  type CampaignStatus, type PlanningCampaign, type DeadlineGhost,
+  type CampaignStatus,
+  type DeadlineGhost,
+  type PlanningCampaign,
 } from './PlanningNavigation'
 
-// ─── Props ────────────────────────────────────────────────────────────────
-
-interface PlanningSidebarProps {
-  campaigns:  PlanningCampaign[]
-  deadlines:  DeadlineGhost[]
-}
-
-// ─── Mini calendar ────────────────────────────────────────────────────────
-
 function MiniCalendar({ campaigns }: { campaigns: PlanningCampaign[] }) {
-  const { BORDER, CARD_BG, PAGE_BG, SURFACE, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
+  const { TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const { currentYear, currentMonth, prevMonth, nextMonth, goToToday, openCreate } = usePlanningNavigation()
 
   const cells = useMemo(
@@ -45,23 +42,21 @@ function MiniCalendar({ campaigns }: { campaigns: PlanningCampaign[] }) {
     [currentYear, currentMonth],
   )
 
-  // Ensemble des dates avec au moins une campagne
   const datesWithEvents = useMemo(() => {
-    const set = new Set<string>()
-    campaigns.forEach(c => {
-      const start = new Date(c.startDate)
-      const end   = new Date(c.endDate)
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        set.add(toDateStr(new Date(d)))
+    const result = new Set<string>()
+    campaigns.forEach(campaign => {
+      const start = new Date(campaign.startDate)
+      const end = new Date(campaign.endDate)
+      for (let cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+        result.add(toDateStr(new Date(cursor)))
       }
     })
-    return set
+    return result
   }, [campaigns])
 
   return (
     <div className="px-2 py-2">
-      {/* Header mois */}
-      <div className="flex items-center justify-between mb-2">
+      <div className="mb-2 flex items-center justify-between">
         <button
           type="button"
           onClick={prevMonth}
@@ -90,19 +85,20 @@ function MiniCalendar({ campaigns }: { campaigns: PlanningCampaign[] }) {
         </button>
       </div>
 
-      {/* Jours */}
-      <div className="grid grid-cols-7 mb-1">
-        {DAY_NAMES_SHORT.map(d => (
-          <div key={d} className="text-center text-[9px] font-bold uppercase tracking-wide py-0.5"
-            style={{ color: TEXT_DIM }}>
-            {d}
+      <div className="mb-1 grid grid-cols-7">
+        {DAY_NAMES_SHORT.map(label => (
+          <div
+            key={label}
+            className="py-0.5 text-center text-[9px] font-bold uppercase tracking-wide"
+            style={{ color: TEXT_DIM }}
+          >
+            {label}
           </div>
         ))}
       </div>
 
-      {/* Grille */}
       <div className="grid grid-cols-7 gap-y-0.5">
-        {cells.map(({ date, isCurrentMonth, isToday, dateStr }) => {
+        {cells.map(({ date, dateStr, isCurrentMonth, isToday }) => {
           const hasEvent = datesWithEvents.has(dateStr)
           return (
             <button
@@ -130,10 +126,7 @@ function MiniCalendar({ campaigns }: { campaigns: PlanningCampaign[] }) {
                 {date.getDate()}
               </span>
               {hasEvent && isCurrentMonth && (
-                <span
-                  className="mt-0.5 h-1 w-1 rounded-full"
-                  style={{ background: TEAL }}
-                />
+                <span className="mt-0.5 h-1 w-1 rounded-full" style={{ background: TEAL }} />
               )}
             </button>
           )
@@ -143,45 +136,43 @@ function MiniCalendar({ campaigns }: { campaigns: PlanningCampaign[] }) {
   )
 }
 
-// ─── Status legend ────────────────────────────────────────────────────────
-
 const STATUS_ICONS: Record<CampaignStatus, typeof Circle> = {
-  planned:     Circle,
+  planned: Circle,
   in_progress: Clock,
-  completed:   CheckCircle2,
-  overdue:     AlertTriangle,
+  completed: CheckCircle2,
+  overdue: AlertTriangle,
 }
 
 function StatusLegend({ campaigns }: { campaigns: PlanningCampaign[] }) {
-  const { TEXT_DIM } = usePrismTheme()
-
   const counts = useMemo(() => {
-    const c: Record<CampaignStatus, number> = {
-      planned: 0, in_progress: 0, completed: 0, overdue: 0,
+    const result: Record<CampaignStatus, number> = {
+      planned: 0,
+      in_progress: 0,
+      completed: 0,
+      overdue: 0,
     }
-    campaigns.forEach(camp => { c[camp.status]++ })
-    return c
+    campaigns.forEach(campaign => {
+      result[campaign.status] += 1
+    })
+    return result
   }, [campaigns])
 
   return (
     <>
-      <SidebarSectionTitle className="px-2 pt-3 pb-1">Statuts</SidebarSectionTitle>
-      <div className="px-2 space-y-0.5">
-        {(Object.entries(CAMPAIGN_STATUS_META) as [CampaignStatus, typeof CAMPAIGN_STATUS_META[CampaignStatus]][]).map(([status, meta]) => {
+      <SidebarSectionTitle className="px-2 pb-1 pt-3">Statuts</SidebarSectionTitle>
+      <div className="space-y-0.5 px-2">
+        {(Object.entries(CAMPAIGN_STATUS_META) as Array<[CampaignStatus, typeof CAMPAIGN_STATUS_META[CampaignStatus]]>).map(([status, meta]) => {
           const Icon = STATUS_ICONS[status]
           const count = counts[status]
           return (
-            <div
-              key={status}
-              className="flex items-center justify-between rounded-md px-2 py-1"
-            >
+            <div key={status} className="flex items-center justify-between rounded-md px-2 py-1">
               <div className="flex items-center gap-2">
                 <Icon size={11} style={{ color: meta.color }} strokeWidth={2} />
                 <span className="text-[11px]" style={{ color: meta.color }}>{meta.label}</span>
               </div>
               {count > 0 && (
                 <span
-                  className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                  className="rounded-full px-1.5 py-0.5 text-[10px] font-bold"
                   style={{ background: meta.bg, color: meta.color }}
                 >
                   {count}
@@ -195,18 +186,16 @@ function StatusLegend({ campaigns }: { campaigns: PlanningCampaign[] }) {
   )
 }
 
-// ─── Project filter ───────────────────────────────────────────────────────
-
 function ProjectFilter() {
   const { BORDER, PAGE_BG, SHADOW_CARD, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM, TEAL } = usePrismTheme()
   const { filterProjectId, setFilterProject } = usePlanningNavigation()
-  const projects = useAppStore(s => s.projects).filter(p => p.status === 'active')
+  const projects = useAppStore(state => state.projects).filter(project => project.status === 'active')
 
   return (
     <>
-      <SidebarSectionTitle className="px-2 pt-3 pb-1">Projet</SidebarSectionTitle>
-      <div className="px-2 space-y-0.5">
-        {[{ id: null, name: 'Tous les projets' }, ...projects.map(p => ({ id: p.id, name: p.name }))].map(item => {
+      <SidebarSectionTitle className="px-2 pb-1 pt-3">Projet</SidebarSectionTitle>
+      <div className="space-y-0.5 px-2">
+        {[{ id: null, name: 'Tous les projets' }, ...projects.map(project => ({ id: project.id, name: project.name }))].map(item => {
           const active = filterProjectId === item.id
           return (
             <button
@@ -220,14 +209,28 @@ function ProjectFilter() {
                 boxShadow: active ? SHADOW_CARD : 'none',
                 color: active ? TEXT : TEXT_DIM,
               }}
-              onMouseEnter={e => {
-                if (!active) sidebarHoverIn(e.currentTarget, { background: PAGE_BG, borderColor: `${BORDER}D0`, boxShadow: SHADOW_SOFT, color: TEXT })
+              onMouseEnter={event => {
+                if (!active) {
+                  sidebarHoverIn(event.currentTarget, {
+                    background: PAGE_BG,
+                    borderColor: `${BORDER}D0`,
+                    boxShadow: SHADOW_SOFT,
+                    color: TEXT,
+                  })
+                }
               }}
-              onMouseLeave={e => {
-                if (!active) sidebarHoverOut(e.currentTarget, { background: 'transparent', borderColor: 'transparent', boxShadow: 'none', color: TEXT_DIM })
+              onMouseLeave={event => {
+                if (!active) {
+                  sidebarHoverOut(event.currentTarget, {
+                    background: 'transparent',
+                    borderColor: 'transparent',
+                    boxShadow: 'none',
+                    color: TEXT_DIM,
+                  })
+                }
               }}
-              onPointerDown={e => sidebarPressDown(e.currentTarget, SHADOW_SOFT)}
-              onPointerUp={e => sidebarPressUp(e.currentTarget, active ? SHADOW_CARD : 'none')}
+              onPointerDown={event => sidebarPressDown(event.currentTarget, SHADOW_SOFT)}
+              onPointerUp={event => sidebarPressUp(event.currentTarget, active ? SHADOW_CARD : 'none')}
             >
               <FolderOpen size={11} strokeWidth={active ? 2.1 : 1.8} />
               <span className="truncate text-[11px] font-medium">{item.name}</span>
@@ -239,14 +242,12 @@ function ProjectFilter() {
   )
 }
 
-// ─── Upcoming deadlines ───────────────────────────────────────────────────
-
 function UpcomingDeadlines({ deadlines }: { deadlines: DeadlineGhost[] }) {
-  const { navigate } = useAppStore(s => ({ navigate: s.navigate, projects: s.projects }))
-  const { BORDER, TEXT, TEXT_DIM, TEAL, semantic } = usePrismTheme()
+  const navigate = useAppStore(state => state.navigate)
+  const { BORDER, TEXT, TEXT_DIM, semantic } = usePrismTheme()
 
   const sorted = useMemo(
-    () => [...deadlines].sort((a, b) => a.daysRemaining - b.daysRemaining).slice(0, 6),
+    () => [...deadlines].sort((left, right) => left.daysRemaining - right.daysRemaining).slice(0, 6),
     [deadlines],
   )
 
@@ -254,33 +255,40 @@ function UpcomingDeadlines({ deadlines }: { deadlines: DeadlineGhost[] }) {
 
   return (
     <>
-      <SidebarSectionTitle className="px-2 pt-3 pb-1">
+      <SidebarSectionTitle className="px-2 pb-1 pt-3">
         <span className="flex items-center gap-1.5">
           <CalendarClock size={10} />
           Échéances T1
         </span>
       </SidebarSectionTitle>
-      <div className="px-2 space-y-1">
-        {sorted.map(dl => {
-          const urgent = dl.daysRemaining <= 30
-          const color  = dl.overdue ? semantic.error : urgent ? semantic.warning : TEXT_DIM
+      <div className="space-y-1 px-2">
+        {sorted.map(deadline => {
+          const urgent = deadline.daysRemaining <= 30
+          const color = deadline.overdue ? semantic.error : urgent ? semantic.warning : TEXT_DIM
           return (
-            <div
-              key={dl.id}
-              className="rounded-lg border px-2.5 py-1.5"
+            <button
+              key={deadline.id}
+              type="button"
+              onClick={() => navigate({
+                type: 'sif-dashboard',
+                projectId: deadline.projectId,
+                sifId: deadline.sifId,
+                tab: 'exploitation',
+              })}
+              className="w-full rounded-lg border px-2.5 py-1.5 text-left transition-opacity hover:opacity-80"
               style={{
-                borderColor: dl.overdue ? `${semantic.error}30` : urgent ? `${semantic.warning}25` : BORDER,
-                background: dl.overdue ? `${semantic.error}08` : 'transparent',
+                borderColor: deadline.overdue ? `${semantic.error}30` : urgent ? `${semantic.warning}25` : BORDER,
+                background: deadline.overdue ? `${semantic.error}08` : 'transparent',
               }}
             >
-              <p className="text-[11px] font-semibold" style={{ color: TEXT }}>{dl.sifNumber}</p>
-              <p className="text-[10px] mt-0.5" style={{ color: TEXT_DIM }}>{dl.projectName}</p>
-              <p className="text-[10px] font-medium mt-0.5" style={{ color }}>
-                {dl.overdue
-                  ? `En retard de ${Math.abs(dl.daysRemaining)}j`
-                  : `Dans ${dl.daysRemaining}j`}
+              <p className="text-[11px] font-semibold" style={{ color: TEXT }}>{deadline.sifNumber}</p>
+              <p className="mt-0.5 text-[10px]" style={{ color: TEXT_DIM }}>{deadline.projectName}</p>
+              <p className="mt-0.5 text-[10px] font-medium" style={{ color }}>
+                {deadline.overdue
+                  ? `En retard de ${Math.abs(deadline.daysRemaining)}j`
+                  : `Dans ${deadline.daysRemaining}j`}
               </p>
-            </div>
+            </button>
           )
         })}
       </div>
@@ -288,29 +296,35 @@ function UpcomingDeadlines({ deadlines }: { deadlines: DeadlineGhost[] }) {
   )
 }
 
-// ─── Main sidebar ─────────────────────────────────────────────────────────
-
-export function PlanningSidebar({ campaigns, deadlines }: PlanningSidebarProps) {
+export function PlanningSidebar() {
   const { BORDER, PANEL_BG, TEAL, TEXT } = usePrismTheme()
-  const { openCreate } = usePlanningNavigation()
+  const { campaigns, deadlines } = usePlanningData()
+  const { filterProjectId, openCreate } = usePlanningNavigation()
   const today = toDateStr(new Date())
+
+  const filteredCampaigns = useMemo(
+    () => filterProjectId ? campaigns.filter(campaign => campaign.projectId === filterProjectId) : campaigns,
+    [campaigns, filterProjectId],
+  )
+  const filteredDeadlines = useMemo(
+    () => filterProjectId ? deadlines.filter(deadline => deadline.projectId === filterProjectId) : deadlines,
+    [deadlines, filterProjectId],
+  )
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-      {/* Header */}
       <div
-        className="shrink-0 flex items-center gap-2 border-b px-3 py-3"
+        className="flex shrink-0 items-center gap-2 border-b px-3 py-3"
         style={{ borderColor: BORDER, background: PANEL_BG }}
       >
         <CalendarDays size={14} style={{ color: TEAL }} strokeWidth={2} />
         <span className="text-[12px] font-bold tracking-wide" style={{ color: TEXT }}>Planning</span>
       </div>
 
-      {/* Bouton nouvelle campagne */}
-      <div className="shrink-0 px-2 pt-2 pb-1">
+      <div className="shrink-0 px-2 pb-1 pt-2">
         <button
           type="button"
-          onClick={() => openCreate({ startDate: today, endDate: today, projectId: '' })}
+          onClick={() => openCreate({ startDate: today, endDate: today, projectId: filterProjectId ?? '' })}
           className="flex w-full items-center justify-center gap-1.5 rounded-xl py-1.5 text-[11px] font-bold transition-opacity hover:opacity-80"
           style={{ background: TEAL, color: '#041014' }}
         >
@@ -319,23 +333,13 @@ export function PlanningSidebar({ campaigns, deadlines }: PlanningSidebarProps) 
       </div>
 
       <SidebarBody className="overflow-y-auto">
-        {/* Mini calendrier */}
-        <MiniCalendar campaigns={campaigns} />
-
+        <MiniCalendar campaigns={filteredCampaigns} />
         <div className="mx-2 my-2 border-t" style={{ borderColor: BORDER }} />
-
-        {/* Filtre projet */}
         <ProjectFilter />
-
         <div className="mx-2 my-2 border-t" style={{ borderColor: BORDER }} />
-
-        {/* Légende */}
-        <StatusLegend campaigns={campaigns} />
-
+        <StatusLegend campaigns={filteredCampaigns} />
         <div className="mx-2 my-2 border-t" style={{ borderColor: BORDER }} />
-
-        {/* Échéances */}
-        <UpcomingDeadlines deadlines={deadlines} />
+        <UpcomingDeadlines deadlines={filteredDeadlines} />
       </SidebarBody>
     </div>
   )

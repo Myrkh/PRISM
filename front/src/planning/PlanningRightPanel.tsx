@@ -1,141 +1,117 @@
-/**
- * planning/PlanningRightPanel.tsx — PRISM
- *
- * Panneau droit du module Planning.
- * Même pattern que RightPanelShell + IntercalaireTabBar.
- * Affiche les détails d'une campagne sélectionnée ou le formulaire
- * de création d'une nouvelle campagne.
- */
-import { useState, useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
-  CalendarDays, Users, ClipboardList, CheckCircle2,
-  XCircle, AlertCircle, Clock, ExternalLink, Plus, X, Trash2,
+  CalendarDays,
+  CheckCircle2,
+  ClipboardList,
+  Clock,
+  ExternalLink,
+  Plus,
+  X,
+  XCircle,
 } from 'lucide-react'
+import { createDefaultProofTestCampaignArtifact } from '@/core/models/proofTestCampaignWorkflow'
+import type { TestCampaign } from '@/core/types'
+import { RightPanelShell } from '@/components/layout/RightPanelShell'
 import { useAppStore } from '@/store/appStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
-import { RightPanelShell } from '@/components/layout/RightPanelShell'
 import {
-  usePlanningNavigation,
   CAMPAIGN_STATUS_META,
   formatDateFr,
-  type PlanningCampaign,
+  usePlanningData,
+  usePlanningNavigation,
   type NewCampaignDraft,
+  type PlanningCampaign,
 } from './PlanningNavigation'
-
-// ─── Verdict chip ─────────────────────────────────────────────────────────
 
 type VerdictValue = 'pass' | 'fail' | 'conditional' | null
 
-function VerdictChip({
-  value,
-  onChange,
-}: {
-  value: VerdictValue
-  onChange: (v: VerdictValue) => void
-}) {
+function VerdictChip({ value, onChange }: { value: VerdictValue; onChange: (value: VerdictValue) => void }) {
   const { TEXT_DIM } = usePrismTheme()
 
-  const options: Array<{ v: VerdictValue; label: string; color: string; bg: string }> = [
-    { v: 'pass',        label: 'OK',    color: '#4ADE80', bg: '#4ADE8018' },
-    { v: 'conditional', label: 'Cond.', color: '#F59E0B', bg: '#F59E0B18' },
-    { v: 'fail',        label: 'NOK',   color: '#EF4444', bg: '#EF444418' },
+  const options: Array<{ value: VerdictValue; label: string; color: string; bg: string }> = [
+    { value: 'pass', label: 'OK', color: '#4ADE80', bg: '#4ADE8018' },
+    { value: 'conditional', label: 'Cond.', color: '#F59E0B', bg: '#F59E0B18' },
+    { value: 'fail', label: 'NOK', color: '#EF4444', bg: '#EF444418' },
   ]
 
   return (
     <div className="flex gap-1">
-      {options.map(opt => (
+      {options.map(option => (
         <button
-          key={opt.v}
+          key={option.value}
           type="button"
-          onClick={() => onChange(value === opt.v ? null : opt.v)}
-          className="px-2 py-0.5 rounded-md text-[10px] font-bold border transition-all"
+          onClick={() => onChange(value === option.value ? null : option.value)}
+          className="rounded-md border px-2 py-0.5 text-[10px] font-bold transition-all"
           style={{
-            background: value === opt.v ? opt.bg : 'transparent',
-            borderColor: value === opt.v ? `${opt.color}40` : 'transparent',
-            color: value === opt.v ? opt.color : TEXT_DIM,
-            opacity: value !== null && value !== opt.v ? 0.35 : 1,
+            background: value === option.value ? option.bg : 'transparent',
+            borderColor: value === option.value ? `${option.color}40` : 'transparent',
+            color: value === option.value ? option.color : TEXT_DIM,
+            opacity: value !== null && value !== option.value ? 0.35 : 1,
           }}
         >
-          {opt.label}
+          {option.label}
         </button>
       ))}
     </div>
   )
 }
 
-// ─── Campaign detail panel ─────────────────────────────────────────────────
-
 function CampaignDetailPanel({ campaign }: { campaign: PlanningCampaign }) {
-  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEXT, TEXT_DIM, TEAL, semantic } = usePrismTheme()
-  const navigate = useAppStore(s => s.navigate)
-  const projects = useAppStore(s => s.projects)
+  const { BORDER, CARD_BG, PAGE_BG, TEXT, TEXT_DIM, TEAL, semantic } = usePrismTheme()
+  const navigate = useAppStore(state => state.navigate)
+  const projects = useAppStore(state => state.projects)
   const meta = CAMPAIGN_STATUS_META[campaign.status]
-
-  // Verdicts locaux (optimiste)
-  const [verdicts, setVerdicts] = useState<Record<string, VerdictValue>>(
-    () => campaign.verdicts ?? {},
-  )
+  const [verdicts, setVerdicts] = useState<Record<string, VerdictValue>>(() => campaign.verdicts ?? {})
 
   const sifObjects = useMemo(() => {
-    const proj = projects.find(p => p.id === campaign.projectId)
-    return campaign.sifIds.map(id => proj?.sifs.find(s => s.id === id)).filter(Boolean)
-  }, [projects, campaign])
+    const project = projects.find(entry => entry.id === campaign.projectId)
+    return campaign.sifIds.map(id => project?.sifs.find(sif => sif.id === id)).filter(Boolean)
+  }, [campaign, projects])
 
-  const passCount = Object.values(verdicts).filter(v => v === 'pass').length
-  const failCount = Object.values(verdicts).filter(v => v === 'fail').length
+  const passCount = Object.values(verdicts).filter(value => value === 'pass').length
+  const failCount = Object.values(verdicts).filter(value => value === 'fail').length
   const totalSifs = campaign.sifIds.length
 
   return (
     <div className="flex h-full flex-col overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
-
-      {/* ── Header campagne ── */}
       <div className="shrink-0 border-b px-4 pb-3 pt-4" style={{ borderColor: BORDER }}>
-        <div className="flex items-start gap-2 mb-2">
+        <div className="mb-2 flex items-start gap-2">
           <span
-            className="shrink-0 mt-0.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider"
+            className="mt-0.5 shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider"
             style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.border}` }}
           >
             {meta.label}
           </span>
         </div>
         <p className="text-[13px] font-bold leading-snug" style={{ color: TEXT }}>{campaign.title}</p>
-        <p className="mt-1 text-[11px]" style={{ color: TEXT_DIM }}>
-          {campaign.projectName}
-        </p>
+        <p className="mt-1 text-[11px]" style={{ color: TEXT_DIM }}>{campaign.projectName}</p>
       </div>
 
-      {/* ── Dates ── */}
-      <div className="px-4 pt-3 pb-2">
+      <div className="px-4 pb-2 pt-3">
         <div
           className="flex items-center gap-3 rounded-xl border px-3 py-2.5"
           style={{ borderColor: BORDER, background: PAGE_BG }}
         >
           <CalendarDays size={13} style={{ color: TEAL }} />
           <div>
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-0.5" style={{ color: TEXT_DIM }}>
+            <p className="mb-0.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
               Période
             </p>
             <p className="text-[12px] font-semibold" style={{ color: TEXT }}>
               {formatDateFr(campaign.startDate)}
-              {campaign.endDate !== campaign.startDate && (
-                <> → {formatDateFr(campaign.endDate)}</>
-              )}
+              {campaign.endDate !== campaign.startDate && <> → {formatDateFr(campaign.endDate)}</>}
             </p>
           </div>
         </div>
       </div>
 
-      {/* ── Progression ── */}
       {totalSifs > 0 && (
         <div className="px-4 pb-2">
-          <div
-            className="rounded-xl border px-3 py-2.5"
-            style={{ borderColor: BORDER, background: PAGE_BG }}
-          >
-            <p className="text-[10px] font-bold uppercase tracking-widest mb-2" style={{ color: TEXT_DIM }}>
+          <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
+            <p className="mb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
               Progression
             </p>
-            <div className="flex gap-3 mb-2">
+            <div className="mb-2 flex gap-3">
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 size={11} style={{ color: semantic.success }} />
                 <span className="text-[11px] font-semibold" style={{ color: semantic.success }}>{passCount} OK</span>
@@ -151,8 +127,7 @@ function CampaignDetailPanel({ campaign }: { campaign: PlanningCampaign }) {
                 </span>
               </div>
             </div>
-            {/* Barre de progression */}
-            <div className="h-1.5 rounded-full overflow-hidden" style={{ background: BORDER }}>
+            <div className="h-1.5 overflow-hidden rounded-full" style={{ background: BORDER }}>
               <div
                 className="h-full rounded-full transition-all duration-300"
                 style={{
@@ -165,21 +140,20 @@ function CampaignDetailPanel({ campaign }: { campaign: PlanningCampaign }) {
         </div>
       )}
 
-      {/* ── Équipe ── */}
       {campaign.team.length > 0 && (
         <div className="px-4 pb-2">
-          <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: TEXT_DIM }}>
+          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
             Équipe
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {campaign.team.map((member, i) => (
+            {campaign.team.map(member => (
               <div
-                key={i}
+                key={member}
                 className="flex items-center gap-1.5 rounded-lg border px-2 py-1"
                 style={{ borderColor: BORDER, background: CARD_BG }}
               >
                 <div
-                  className="h-4 w-4 rounded-full flex items-center justify-center text-[9px] font-bold"
+                  className="flex h-4 w-4 items-center justify-center rounded-full text-[9px] font-bold"
                   style={{ background: `${TEAL}20`, color: TEAL }}
                 >
                   {member.charAt(0).toUpperCase()}
@@ -191,10 +165,9 @@ function CampaignDetailPanel({ campaign }: { campaign: PlanningCampaign }) {
         </div>
       )}
 
-      {/* ── SIFs & verdicts ── */}
       {sifObjects.length > 0 && (
         <div className="px-4 pb-2">
-          <p className="text-[10px] font-bold uppercase tracking-widest mb-1.5" style={{ color: TEXT_DIM }}>
+          <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
             SIFs testées
           </p>
           <div className="space-y-1.5">
@@ -206,12 +179,10 @@ function CampaignDetailPanel({ campaign }: { campaign: PlanningCampaign }) {
                   className="rounded-xl border px-3 py-2"
                   style={{ borderColor: BORDER, background: PAGE_BG }}
                 >
-                  <div className="flex items-center justify-between gap-2 mb-1.5">
+                  <div className="mb-1.5 flex items-center justify-between gap-2">
                     <div className="min-w-0">
                       <p className="text-[11px] font-bold" style={{ color: TEXT }}>{sif.sifNumber}</p>
-                      {sif.title && (
-                        <p className="text-[10px] truncate" style={{ color: TEXT_DIM }}>{sif.title}</p>
-                      )}
+                      {sif.title && <p className="truncate text-[10px]" style={{ color: TEXT_DIM }}>{sif.title}</p>}
                     </div>
                     <button
                       type="button"
@@ -229,7 +200,7 @@ function CampaignDetailPanel({ campaign }: { campaign: PlanningCampaign }) {
                   </div>
                   <VerdictChip
                     value={verdicts[sif.id] ?? null}
-                    onChange={v => setVerdicts(prev => ({ ...prev, [sif.id]: v }))}
+                    onChange={value => setVerdicts(current => ({ ...current, [sif.id]: value }))}
                   />
                 </div>
               )
@@ -238,10 +209,9 @@ function CampaignDetailPanel({ campaign }: { campaign: PlanningCampaign }) {
         </div>
       )}
 
-      {/* ── Notes ── */}
       {campaign.notes && (
         <div className="px-4 pb-3">
-          <p className="text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: TEXT_DIM }}>
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
             Notes
           </p>
           <p className="text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>{campaign.notes}</p>
@@ -251,45 +221,87 @@ function CampaignDetailPanel({ campaign }: { campaign: PlanningCampaign }) {
   )
 }
 
-// ─── New campaign form ─────────────────────────────────────────────────────
-
 function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
-  const { BORDER, PAGE_BG, TEXT, TEXT_DIM, TEAL, CARD_BG } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, TEXT, TEXT_DIM, TEAL } = usePrismTheme()
+  const addTestCampaign = useAppStore(state => state.addTestCampaign)
   const { closeCreate } = usePlanningNavigation()
-  const projects = useAppStore(s => s.projects).filter(p => p.status === 'active')
+  const projects = useAppStore(state => state.projects).filter(project => project.status === 'active')
 
-  const [title,      setTitle]      = useState('')
-  const [startDate,  setStartDate]  = useState(draft.startDate)
-  const [endDate,    setEndDate]    = useState(draft.endDate)
-  const [projectId,  setProjectId]  = useState(draft.projectId || projects[0]?.id || '')
-  const [team,       setTeam]       = useState<string[]>([])
-  const [newMember,  setNewMember]  = useState('')
-  const [notes,      setNotes]      = useState('')
+  const [title, setTitle] = useState('')
+  const [startDate, setStartDate] = useState(draft.startDate)
+  const [endDate, setEndDate] = useState(draft.endDate)
+  const [projectId, setProjectId] = useState(draft.projectId || projects[0]?.id || '')
+  const [team, setTeam] = useState<string[]>([])
+  const [newMember, setNewMember] = useState('')
+  const [notes, setNotes] = useState('')
   const [selectedSifs, setSelectedSifs] = useState<string[]>([])
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [errorMessage, setErrorMessage] = useState<string | null>(null)
 
-  const project = projects.find(p => p.id === projectId)
+  const project = projects.find(entry => entry.id === projectId)
+  const availableSifs = useMemo(
+    () => (project?.sifs ?? []).filter(sif => sif.status !== 'archived' && Boolean(sif.proofTestProcedure)),
+    [project],
+  )
 
-  const inputCls = `w-full rounded-xl border px-3 py-2 text-[12px] outline-none transition-all focus:ring-2`
-  const inputStyle = {
-    borderColor: BORDER,
-    background: PAGE_BG,
-    color: TEXT,
-  }
+  const inputCls = 'w-full rounded-xl border px-3 py-2 text-[12px] outline-none transition-all focus:ring-2'
+  const inputStyle = { borderColor: BORDER, background: PAGE_BG, color: TEXT }
 
   const handleAddMember = () => {
-    if (newMember.trim()) {
-      setTeam(t => [...t, newMember.trim()])
-      setNewMember('')
+    if (!newMember.trim()) return
+    setTeam(current => [...current, newMember.trim()])
+    setNewMember('')
+  }
+
+  const handleCreate = async () => {
+    if (!project || selectedSifs.length === 0 || !startDate) return
+    setErrorMessage(null)
+    setIsSubmitting(true)
+
+    try {
+      const selected = availableSifs.filter(sif => selectedSifs.includes(sif.id) && sif.proofTestProcedure)
+      for (const sif of selected) {
+        const procedureSnapshot = JSON.parse(JSON.stringify({
+          ...sif.proofTestProcedure,
+          planningMeta: {
+            title: title.trim() || null,
+            endDate,
+          },
+        }))
+
+        const payload = {
+          id: crypto.randomUUID(),
+          date: startDate,
+          team: team.join(', '),
+          operatingMode: 'planned',
+          verdict: null,
+          notes: notes.trim(),
+          stepResults: [],
+          responseMeasurements: [],
+          procedureSnapshot,
+          pdfArtifact: createDefaultProofTestCampaignArtifact(),
+          closedAt: null,
+          conductedBy: '',
+          witnessedBy: '',
+          reviewedBy: '',
+          processLoad: '',
+        } as TestCampaign
+
+        await addTestCampaign(project.id, sif.id, payload)
+      }
+      closeCreate()
+    } catch (error) {
+      setErrorMessage(error instanceof Error ? error.message : String(error))
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
   return (
     <div className="flex h-full flex-col overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
-      <div className="px-4 pt-4 pb-2 space-y-3">
-
-        {/* Titre */}
+      <div className="space-y-3 px-4 pb-2 pt-4">
         <div>
-          <label className="block text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: TEXT_DIM }}>
+          <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
             Titre
           </label>
           <input
@@ -297,14 +309,13 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
             style={inputStyle}
             placeholder="ex: Arrêt T2 2025 — Unité HP"
             value={title}
-            onChange={e => setTitle(e.target.value)}
+            onChange={event => setTitle(event.target.value)}
           />
         </div>
 
-        {/* Dates */}
         <div className="flex gap-2">
           <div className="flex-1">
-            <label className="block text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: TEXT_DIM }}>
+            <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
               Début
             </label>
             <input
@@ -312,11 +323,11 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
               className={inputCls}
               style={inputStyle}
               value={startDate}
-              onChange={e => setStartDate(e.target.value)}
+              onChange={event => setStartDate(event.target.value)}
             />
           </div>
           <div className="flex-1">
-            <label className="block text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: TEXT_DIM }}>
+            <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
               Fin
             </label>
             <input
@@ -325,88 +336,99 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
               style={inputStyle}
               value={endDate}
               min={startDate}
-              onChange={e => setEndDate(e.target.value)}
+              onChange={event => setEndDate(event.target.value)}
             />
           </div>
         </div>
 
-        {/* Projet */}
         <div>
-          <label className="block text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: TEXT_DIM }}>
+          <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
             Projet
           </label>
           <select
             className={inputCls}
             style={inputStyle}
             value={projectId}
-            onChange={e => { setProjectId(e.target.value); setSelectedSifs([]) }}
+            onChange={event => {
+              setProjectId(event.target.value)
+              setSelectedSifs([])
+            }}
           >
-            {projects.map(p => (
-              <option key={p.id} value={p.id}>{p.name}</option>
+            {projects.map(projectOption => (
+              <option key={projectOption.id} value={projectOption.id}>{projectOption.name}</option>
             ))}
           </select>
         </div>
 
-        {/* SIFs */}
-        {project && project.sifs.length > 0 && (
+        {project && (
           <div>
-            <label className="block text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: TEXT_DIM }}>
+            <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
               SIFs concernées
             </label>
-            <div className="rounded-xl border overflow-hidden" style={{ borderColor: BORDER }}>
-              {project.sifs.filter(s => s.status !== 'archived').map((sif, i) => {
-                const checked = selectedSifs.includes(sif.id)
-                return (
-                  <label
-                    key={sif.id}
-                    className="flex items-center gap-3 px-3 py-2 cursor-pointer transition-colors hover:opacity-80"
-                    style={{
-                      background: checked ? `${TEAL}10` : i % 2 === 0 ? PAGE_BG : CARD_BG,
-                      borderBottom: i < project.sifs.length - 1 ? `1px solid ${BORDER}` : 'none',
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={e => {
-                        setSelectedSifs(prev =>
-                          e.target.checked
-                            ? [...prev, sif.id]
-                            : prev.filter(id => id !== sif.id),
-                        )
+            {availableSifs.length > 0 ? (
+              <div className="overflow-hidden rounded-xl border" style={{ borderColor: BORDER }}>
+                {availableSifs.map((sif, index) => {
+                  const checked = selectedSifs.includes(sif.id)
+                  return (
+                    <label
+                      key={sif.id}
+                      className="flex cursor-pointer items-center gap-3 px-3 py-2 transition-colors hover:opacity-80"
+                      style={{
+                        background: checked ? `${TEAL}10` : index % 2 === 0 ? PAGE_BG : CARD_BG,
+                        borderBottom: index < availableSifs.length - 1 ? `1px solid ${BORDER}` : 'none',
                       }}
-                      className="rounded"
-                      style={{ accentColor: TEAL }}
-                    />
-                    <div>
-                      <p className="text-[11px] font-semibold" style={{ color: TEXT }}>{sif.sifNumber}</p>
-                      {sif.title && <p className="text-[10px]" style={{ color: TEXT_DIM }}>{sif.title}</p>}
-                    </div>
-                  </label>
-                )
-              })}
-            </div>
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={event => {
+                          setSelectedSifs(current => (
+                            event.target.checked
+                              ? [...current, sif.id]
+                              : current.filter(id => id !== sif.id)
+                          ))
+                        }}
+                        className="rounded"
+                        style={{ accentColor: TEAL }}
+                      />
+                      <div>
+                        <p className="text-[11px] font-semibold" style={{ color: TEXT }}>{sif.sifNumber}</p>
+                        {sif.title && <p className="text-[10px]" style={{ color: TEXT_DIM }}>{sif.title}</p>}
+                      </div>
+                    </label>
+                  )
+                })}
+              </div>
+            ) : (
+              <div className="rounded-xl border px-3 py-3 text-[11px]" style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}>
+                Aucune SIF active avec procédure de proof test disponible dans ce projet.
+              </div>
+            )}
           </div>
         )}
 
-        {/* Équipe */}
         <div>
-          <label className="block text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: TEXT_DIM }}>
+          <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
             Équipe
           </label>
-          <div className="flex gap-2 mb-2">
+          <div className="mb-2 flex gap-2">
             <input
               className={`${inputCls} flex-1`}
               style={inputStyle}
               placeholder="Prénom Nom"
               value={newMember}
-              onChange={e => setNewMember(e.target.value)}
-              onKeyDown={e => { if (e.key === 'Enter') handleAddMember() }}
+              onChange={event => setNewMember(event.target.value)}
+              onKeyDown={event => {
+                if (event.key === 'Enter') {
+                  event.preventDefault()
+                  handleAddMember()
+                }
+              }}
             />
             <button
               type="button"
               onClick={handleAddMember}
-              className="shrink-0 flex h-9 w-9 items-center justify-center rounded-xl border transition-opacity hover:opacity-70"
+              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border transition-opacity hover:opacity-70"
               style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
             >
               <Plus size={14} />
@@ -414,17 +436,18 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
           </div>
           {team.length > 0 && (
             <div className="flex flex-wrap gap-1.5">
-              {team.map((m, i) => (
+              {team.map((member, index) => (
                 <span
-                  key={i}
+                  key={`${member}-${index}`}
                   className="flex items-center gap-1 rounded-lg border px-2 py-0.5 text-[11px]"
                   style={{ borderColor: BORDER, background: CARD_BG, color: TEXT }}
                 >
-                  {m}
+                  {member}
                   <button
                     type="button"
-                    onClick={() => setTeam(t => t.filter((_, j) => j !== i))}
-                    className="ml-0.5 opacity-50 hover:opacity-100 transition-opacity"
+                    onClick={() => setTeam(current => current.filter((_, currentIndex) => currentIndex !== index))}
+                    className="ml-0.5 transition-opacity hover:opacity-100"
+                    style={{ opacity: 0.5 }}
                   >
                     <X size={9} />
                   </button>
@@ -434,9 +457,8 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
           )}
         </div>
 
-        {/* Notes */}
         <div>
-          <label className="block text-[10px] font-bold uppercase tracking-widest mb-1" style={{ color: TEXT_DIM }}>
+          <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
             Notes
           </label>
           <textarea
@@ -445,16 +467,18 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
             rows={3}
             placeholder="Permis de feu requis, accès restreint…"
             value={notes}
-            onChange={e => setNotes(e.target.value)}
+            onChange={event => setNotes(event.target.value)}
           />
         </div>
+
+        {errorMessage && (
+          <div className="rounded-xl border px-3 py-2 text-[11px]" style={{ borderColor: '#EF444440', background: '#EF444410', color: '#EF4444' }}>
+            {errorMessage}
+          </div>
+        )}
       </div>
 
-      {/* Actions */}
-      <div
-        className="shrink-0 flex gap-2 border-t px-4 py-3"
-        style={{ borderColor: BORDER }}
-      >
+      <div className="flex shrink-0 gap-2 border-t px-4 py-3" style={{ borderColor: BORDER }}>
         <button
           type="button"
           onClick={closeCreate}
@@ -465,22 +489,17 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
         </button>
         <button
           type="button"
-          disabled={!title.trim() || !startDate || !projectId}
+          disabled={isSubmitting || !projectId || !startDate || selectedSifs.length === 0}
           className="flex-1 rounded-xl py-2 text-[12px] font-bold transition-opacity hover:opacity-80 disabled:opacity-40"
           style={{ background: TEAL, color: '#041014' }}
-          onClick={() => {
-            // Ici tu brancheras sur addTestCampaign / ta mutation store
-            closeCreate()
-          }}
+          onClick={() => { void handleCreate() }}
         >
-          Créer
+          {isSubmitting ? 'Création…' : 'Créer'}
         </button>
       </div>
     </div>
   )
 }
-
-// ─── Empty state ──────────────────────────────────────────────────────────
 
 function EmptyRightPanel() {
   const { TEXT_DIM, TEAL } = usePrismTheme()
@@ -488,7 +507,7 @@ function EmptyRightPanel() {
     <div className="flex h-full flex-col items-center justify-center gap-3 px-4">
       <CalendarDays size={28} style={{ color: `${TEAL}50` }} strokeWidth={1.5} />
       <div className="text-center">
-        <p className="text-[12px] font-semibold mb-1" style={{ color: TEXT_DIM }}>
+        <p className="mb-1 text-[12px] font-semibold" style={{ color: TEXT_DIM }}>
           Sélectionnez une campagne
         </p>
         <p className="text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
@@ -499,17 +518,15 @@ function EmptyRightPanel() {
   )
 }
 
-// ─── Right panel shell ────────────────────────────────────────────────────
-
 const RIGHT_PANEL_ITEMS = [
   { id: 'detail' as const, label: 'Campagne', Icon: ClipboardList },
 ] as const
 
-export function PlanningRightPanel({ campaigns }: { campaigns: PlanningCampaign[] }) {
+export function PlanningRightPanel() {
   const { PANEL_BG } = usePrismTheme()
+  const { campaigns } = usePlanningData()
   const { selectedId, isCreating, draft } = usePlanningNavigation()
-
-  const selected = selectedId ? campaigns.find(c => c.id === selectedId) ?? null : null
+  const selected = selectedId ? campaigns.find(campaign => campaign.id === selectedId) ?? null : null
 
   return (
     <RightPanelShell
@@ -522,8 +539,7 @@ export function PlanningRightPanel({ campaigns }: { campaigns: PlanningCampaign[
         ? <NewCampaignForm draft={draft} />
         : selected
           ? <CampaignDetailPanel campaign={selected} />
-          : <EmptyRightPanel />
-      }
+          : <EmptyRightPanel />}
     </RightPanelShell>
   )
 }

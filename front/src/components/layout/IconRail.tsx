@@ -6,7 +6,7 @@
  */
 import {
   Home, Search, BookOpen, BookOpenText,
-  History, Cpu,
+  History, CalendarDays, Cpu,
   Settings, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
@@ -19,6 +19,7 @@ const GLOBAL_TOOLS = [
   { id: 'search' as const, Icon: Search, labelKey: 'search' as const },
   { id: 'library' as const, Icon: BookOpen, labelKey: 'library' as const },
   { id: 'audit-log' as const, Icon: History, labelKey: 'audit' as const },
+  { id: 'planning' as const, Icon: CalendarDays, labelKey: 'planning' as const },
   { id: 'engine' as const, Icon: Cpu, labelKey: 'engine' as const },
 ] as const
 

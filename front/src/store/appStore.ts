@@ -1058,28 +1058,35 @@ export const useAppStore = create<AppState>()(
         const procedureSnapshot = campaign.procedureSnapshot
           ? JSON.parse(JSON.stringify(campaign.procedureSnapshot))
           : JSON.parse(JSON.stringify(currentProcedure))
-        const closedAt = campaign.closedAt ?? new Date().toISOString()
-        const campaignPath = buildProofTestCampaignArtifactPath({
-          project,
-          sif: sifSnapshot,
-          campaignId,
-          campaignDate: campaign.date || closedAt.split('T')[0],
-        })
-        const pendingArtifact: ReturnType<typeof createDefaultProofTestCampaignArtifact> = {
+        const closedAt = campaign.closedAt ?? null
+        const baseArtifact: ReturnType<typeof createDefaultProofTestCampaignArtifact> = {
           ...createDefaultProofTestCampaignArtifact(),
           ...(campaign.pdfArtifact ?? {}),
-          bucket: 'prism_prooftest',
-          path: campaignPath.path,
-          fileName: campaignPath.fileName,
-          status: 'pending' as const,
-          error: null,
         }
+        const campaignPath = closedAt
+          ? buildProofTestCampaignArtifactPath({
+              project,
+              sif: sifSnapshot,
+              campaignId,
+              campaignDate: campaign.date || closedAt.split('T')[0],
+            })
+          : null
+        const initialArtifact: ReturnType<typeof createDefaultProofTestCampaignArtifact> = closedAt && campaignPath
+          ? {
+              ...baseArtifact,
+              bucket: 'prism_prooftest',
+              path: campaignPath.path,
+              fileName: campaignPath.fileName,
+              status: 'pending' as const,
+              error: null,
+            }
+          : baseArtifact
         const persistedCampaign = {
           ...campaign,
           id: campaignId,
           procedureSnapshot,
           closedAt,
-          pdfArtifact: pendingArtifact,
+          pdfArtifact: initialArtifact,
         }
         const previousCampaigns = [...(sifSnapshot.testCampaigns ?? [])]
         set(s => {
@@ -1088,18 +1095,22 @@ export const useAppStore = create<AppState>()(
         })
         let uploadedArtifact: typeof persistedCampaign.pdfArtifact = persistedCampaign.pdfArtifact
         try {
-          const proofTestPdf = await buildProofTestPdfBlob({
-            project,
-            sif: {
-              ...sifSnapshot,
-              proofTestProcedure: procedureSnapshot,
-              testCampaigns: [persistedCampaign],
-            },
-            procedure: procedureSnapshot,
-            campaigns: [persistedCampaign],
-          })
-          uploadedArtifact = await uploadRevisionArtifact(persistedCampaign.pdfArtifact, proofTestPdf.blob)
-          const finalizedCampaign = { ...persistedCampaign, pdfArtifact: uploadedArtifact }
+          let finalizedCampaign = persistedCampaign
+
+          if (closedAt) {
+            const proofTestPdf = await buildProofTestPdfBlob({
+              project,
+              sif: {
+                ...sifSnapshot,
+                proofTestProcedure: procedureSnapshot,
+                testCampaigns: [persistedCampaign],
+              },
+              procedure: procedureSnapshot,
+              campaigns: [persistedCampaign],
+            })
+            uploadedArtifact = await uploadRevisionArtifact(persistedCampaign.pdfArtifact, proofTestPdf.blob)
+            finalizedCampaign = { ...persistedCampaign, pdfArtifact: uploadedArtifact }
+          }
 
           await dbCreateCampaign({
             id: finalizedCampaign.id,

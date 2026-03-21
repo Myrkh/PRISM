@@ -14,6 +14,7 @@ export interface ShellStrings {
     search: string
     library: string
     audit: string
+    planning: string
     engine: string
     docs: string
     settings: string
@@ -57,6 +58,7 @@ export interface ShellStrings {
       switchToLight: string
       switchToDark: string
       auditLog: string
+      planning: string
       engine: string
       docs: string
       settings: string

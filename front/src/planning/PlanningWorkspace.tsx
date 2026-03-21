@@ -1,131 +1,34 @@
-/**
- * planning/PlanningWorkspace.tsx — PRISM
- *
- * Vue principale du module Planning : calendrier mensuel interactif.
- * DA : grille mensuelle style Google Calendar / Linear,
- * avec tokens PRISM, events colorés par statut, ghost events T1.
- */
-import { useMemo, useState, useCallback } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  ChevronLeft, ChevronRight, CalendarDays,
-  Plus, Calendar, List, AlertTriangle,
+  AlertTriangle,
+  Calendar,
+  CalendarDays,
+  ChevronLeft,
+  ChevronRight,
+  List,
+  Plus,
 } from 'lucide-react'
-import { useAppStore } from '@/store/appStore'
+import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import { PlanningRightPanel } from './PlanningRightPanel'
 import {
+  CAMPAIGN_STATUS_META,
+  DAY_NAMES_SHORT,
+  MONTH_NAMES_FR,
+  buildCalendarGrid,
+  formatDateFr,
+  toDateStr,
+  usePlanningData,
   usePlanningNavigation,
-  CAMPAIGN_STATUS_META, MONTH_NAMES_FR, DAY_NAMES_SHORT,
-  buildCalendarGrid, toDateStr, formatDateFr,
-  type PlanningCampaign, type DeadlineGhost,
+  type DeadlineGhost,
+  type PlanningCampaign,
 } from './PlanningNavigation'
-import { loadSIFAnalysisSettings } from '@/core/models/analysisSettings'
-
-// ─── Hook: build campaigns from store ─────────────────────────────────────
-
-export function usePlanningData(): {
-  campaigns: PlanningCampaign[]
-  deadlines: DeadlineGhost[]
-} {
-  const projects = useAppStore(s => s.projects)
-
-  const campaigns = useMemo<PlanningCampaign[]>(() => {
-    const result: PlanningCampaign[] = []
-    const now = new Date()
-
-    projects.forEach(project => {
-      project.sifs.forEach(sif => {
-        ;(sif.testCampaigns ?? []).forEach(campaign => {
-          const startDate = campaign.date
-          const endDate   = campaign.date
-          const start     = new Date(startDate)
-
-          let status: PlanningCampaign['status']
-          if (campaign.verdict === 'pass' || campaign.verdict === 'fail' || campaign.verdict === 'conditional') {
-            status = 'completed'
-          } else if (start <= now) {
-            status = start.toDateString() === now.toDateString() ? 'in_progress' : 'overdue'
-          } else {
-            status = 'planned'
-          }
-
-          const existing = result.find(c =>
-            c.title === `Campagne ${campaign.date}` && c.projectId === project.id && c.startDate === startDate,
-          )
-
-          if (existing) {
-            if (!existing.sifIds.includes(sif.id)) {
-              existing.sifIds.push(sif.id)
-              existing.sifLabels.push(sif.sifNumber)
-            }
-          } else {
-            result.push({
-              id:          campaign.id,
-              title:       campaign.team ? `Campagne — ${campaign.team}` : `Campagne ${formatDateFr(startDate)}`,
-              projectId:   project.id,
-              projectName: project.name,
-              sifIds:      [sif.id],
-              sifLabels:   [sif.sifNumber],
-              startDate,
-              endDate,
-              status,
-              team: campaign.team ? campaign.team.split(',').map(s => s.trim()).filter(Boolean) : [],
-              notes: campaign.notes ?? '',
-              verdicts: { [sif.id]: campaign.verdict ?? null },
-            })
-          }
-        })
-      })
-    })
-
-    return result
-  }, [projects])
-
-  const deadlines = useMemo<DeadlineGhost[]>(() => {
-    const result: DeadlineGhost[] = []
-    const now = new Date()
-
-    projects.forEach(project => {
-      project.sifs.forEach(sif => {
-        if (sif.status === 'archived') return
-        const settings  = loadSIFAnalysisSettings(sif.id)
-        const periodicity = settings?.general?.periodicityMonths ?? 12
-
-        // Dernière campagne
-        const sorted = [...(sif.testCampaigns ?? [])].sort(
-          (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-        )
-        const lastDate = sorted[0] ? new Date(sorted[0].date) : null
-        const dueDate  = lastDate
-          ? new Date(lastDate.getFullYear(), lastDate.getMonth() + periodicity, lastDate.getDate())
-          : new Date(now.getFullYear(), now.getMonth() + 3, 1)
-
-        const daysRemaining = Math.round((dueDate.getTime() - now.getTime()) / 86400000)
-
-        result.push({
-          id:            `ghost-${sif.id}`,
-          sifId:         sif.id,
-          sifNumber:     sif.sifNumber,
-          projectName:   project.name,
-          dueDate:       toDateStr(dueDate),
-          daysRemaining,
-          overdue:       daysRemaining < 0,
-        })
-      })
-    })
-
-    return result
-  }, [projects])
-
-  return { campaigns, deadlines }
-}
-
-// ─── Event pill ───────────────────────────────────────────────────────────
 
 interface EventPillProps {
-  campaign:   PlanningCampaign
-  compact?:   boolean
-  selected:   boolean
-  onClick:    (id: string) => void
+  campaign: PlanningCampaign
+  compact?: boolean
+  selected: boolean
+  onClick: (id: string) => void
 }
 
 function EventPill({ campaign, compact, selected, onClick }: EventPillProps) {
@@ -135,10 +38,10 @@ function EventPill({ campaign, compact, selected, onClick }: EventPillProps) {
   return (
     <button
       type="button"
-      onClick={e => { e.stopPropagation(); onClick(campaign.id) }}
+      onClick={event => { event.stopPropagation(); onClick(campaign.id) }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="w-full text-left rounded-md px-1.5 py-0.5 transition-all duration-100"
+      className="w-full rounded-md px-1.5 py-0.5 text-left transition-all duration-100"
       style={{
         background: selected ? meta.color : hovered ? `${meta.color}28` : `${meta.color}18`,
         border: `1px solid ${selected ? 'transparent' : `${meta.color}35`}`,
@@ -156,7 +59,7 @@ function EventPill({ campaign, compact, selected, onClick }: EventPillProps) {
       </p>
       {!compact && campaign.sifLabels.length > 0 && (
         <p
-          className="truncate leading-tight mt-0.5"
+          className="mt-0.5 truncate leading-tight"
           style={{ fontSize: 9, color: selected ? 'rgba(255,255,255,0.75)' : meta.color, opacity: 0.8 }}
         >
           {campaign.sifLabels.slice(0, 3).join(' · ')}
@@ -166,8 +69,6 @@ function EventPill({ campaign, compact, selected, onClick }: EventPillProps) {
     </button>
   )
 }
-
-// ─── Ghost deadline pill ──────────────────────────────────────────────────
 
 function GhostPill({ deadline }: { deadline: DeadlineGhost }) {
   const { TEXT_DIM, semantic } = usePrismTheme()
@@ -188,40 +89,44 @@ function GhostPill({ deadline }: { deadline: DeadlineGhost }) {
   )
 }
 
-// ─── Day cell ─────────────────────────────────────────────────────────────
-
 interface DayCellProps {
-  dateStr:      string
-  dayNumber:    number
+  dateStr: string
+  dayNumber: number
   isCurrentMonth: boolean
-  isToday:      boolean
-  campaigns:    PlanningCampaign[]
-  deadlines:    DeadlineGhost[]
-  selectedId:   string | null
-  onDayClick:   (dateStr: string) => void
+  isToday: boolean
+  campaigns: PlanningCampaign[]
+  deadlines: DeadlineGhost[]
+  selectedId: string | null
+  onDayClick: (dateStr: string) => void
   onEventClick: (id: string) => void
 }
 
 function DayCell({
-  dateStr, dayNumber, isCurrentMonth, isToday,
-  campaigns, deadlines, selectedId, onDayClick, onEventClick,
+  dateStr,
+  dayNumber,
+  isCurrentMonth,
+  isToday,
+  campaigns,
+  deadlines,
+  selectedId,
+  onDayClick,
+  onEventClick,
 }: DayCellProps) {
-  const { BORDER, CARD_BG, PAGE_BG, TEXT, TEXT_DIM, TEAL, isDark } = usePrismTheme()
+  const { BORDER, CARD_BG, TEXT, TEXT_DIM, TEAL, isDark } = usePrismTheme()
   const [hovered, setHovered] = useState(false)
 
-  const MAX_VISIBLE = 3
-  const allEvents  = campaigns.length + deadlines.length
-  const overflow   = allEvents - MAX_VISIBLE
-
-  const visibleCampaigns = campaigns.slice(0, MAX_VISIBLE)
-  const visibleDeadlines = deadlines.slice(0, Math.max(0, MAX_VISIBLE - campaigns.length))
+  const maxVisible = 3
+  const allEvents = campaigns.length + deadlines.length
+  const overflow = allEvents - maxVisible
+  const visibleCampaigns = campaigns.slice(0, maxVisible)
+  const visibleDeadlines = deadlines.slice(0, Math.max(0, maxVisible - campaigns.length))
 
   return (
     <div
       onClick={() => isCurrentMonth && onDayClick(dateStr)}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
-      className="relative flex flex-col border-r border-b overflow-hidden cursor-pointer transition-colors duration-100 group"
+      className="group relative flex cursor-pointer flex-col overflow-hidden border-b border-r transition-colors duration-100"
       style={{
         minHeight: 96,
         borderColor: BORDER,
@@ -233,8 +138,7 @@ function DayCell({
         opacity: isCurrentMonth ? 1 : 0.38,
       }}
     >
-      {/* Day number */}
-      <div className="flex items-center justify-between px-2 pt-1.5 pb-1">
+      <div className="flex items-center justify-between px-2 pb-1 pt-1.5">
         <span
           className="flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-semibold leading-none transition-all"
           style={{
@@ -246,28 +150,26 @@ function DayCell({
           {dayNumber}
         </span>
 
-        {/* "+" au hover */}
         {isCurrentMonth && hovered && (
-          <Plus size={10} style={{ color: TEXT_DIM }} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+          <Plus size={10} style={{ color: TEXT_DIM }} className="opacity-0 transition-opacity group-hover:opacity-100" />
         )}
       </div>
 
-      {/* Events */}
-      <div className="flex flex-col gap-0.5 px-1 pb-1 min-h-0">
-        {visibleCampaigns.map(c => (
+      <div className="flex min-h-0 flex-col gap-0.5 px-1 pb-1">
+        {visibleCampaigns.map(campaign => (
           <EventPill
-            key={c.id}
-            campaign={c}
+            key={campaign.id}
+            campaign={campaign}
             compact={allEvents > 2}
-            selected={selectedId === c.id}
+            selected={selectedId === campaign.id}
             onClick={onEventClick}
           />
         ))}
-        {visibleDeadlines.map(dl => (
-          <GhostPill key={dl.id} deadline={dl} />
+        {visibleDeadlines.map(deadline => (
+          <GhostPill key={deadline.id} deadline={deadline} />
         ))}
         {overflow > 0 && (
-          <p className="text-[9px] px-1.5 font-medium" style={{ color: TEXT_DIM }}>
+          <p className="px-1.5 text-[9px] font-medium" style={{ color: TEXT_DIM }}>
             +{overflow} autre{overflow > 1 ? 's' : ''}
           </p>
         )}
@@ -276,31 +178,31 @@ function DayCell({
   )
 }
 
-// ─── Agenda view ──────────────────────────────────────────────────────────
-
 function AgendaView({
-  campaigns, selectedId, onEventClick,
+  campaigns,
+  selectedId,
+  onEventClick,
 }: {
   campaigns: PlanningCampaign[]
   selectedId: string | null
   onEventClick: (id: string) => void
 }) {
-  const { BORDER, CARD_BG, PAGE_BG, TEXT, TEXT_DIM, TEAL } = usePrismTheme()
+  const { BORDER, PAGE_BG, TEXT, TEXT_DIM, TEAL } = usePrismTheme()
 
   const grouped = useMemo(() => {
     const map = new Map<string, PlanningCampaign[]>()
-    const sorted = [...campaigns].sort((a, b) => a.startDate.localeCompare(b.startDate))
-    sorted.forEach(c => {
-      const key = c.startDate
+    const sorted = [...campaigns].sort((left, right) => left.startDate.localeCompare(right.startDate))
+    sorted.forEach(campaign => {
+      const key = campaign.startDate
       if (!map.has(key)) map.set(key, [])
-      map.get(key)!.push(c)
+      map.get(key)!.push(campaign)
     })
     return Array.from(map.entries())
   }, [campaigns])
 
   if (grouped.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center h-full gap-3">
+      <div className="flex h-full flex-col items-center justify-center gap-3">
         <CalendarDays size={32} style={{ color: `${TEAL}40` }} strokeWidth={1.5} />
         <p className="text-[13px]" style={{ color: TEXT_DIM }}>Aucune campagne planifiée</p>
       </div>
@@ -308,29 +210,26 @@ function AgendaView({
   }
 
   return (
-    <div className="overflow-y-auto h-full px-6 py-4 space-y-5" style={{ scrollbarGutter: 'stable' }}>
+    <div className="h-full overflow-y-auto space-y-5 px-6 py-4" style={{ scrollbarGutter: 'stable' }}>
       {grouped.map(([date, items]) => (
         <div key={date}>
-          <div className="flex items-center gap-3 mb-2">
-            <div
-              className="h-px flex-1"
-              style={{ background: BORDER }}
-            />
+          <div className="mb-2 flex items-center gap-3">
+            <div className="h-px flex-1" style={{ background: BORDER }} />
             <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
               {formatDateFr(date)}
             </span>
             <div className="h-px flex-1" style={{ background: BORDER }} />
           </div>
           <div className="space-y-2">
-            {items.map(c => {
-              const meta     = CAMPAIGN_STATUS_META[c.status]
-              const selected = selectedId === c.id
+            {items.map(campaign => {
+              const meta = CAMPAIGN_STATUS_META[campaign.status]
+              const selected = selectedId === campaign.id
               return (
                 <button
-                  key={c.id}
+                  key={campaign.id}
                   type="button"
-                  onClick={() => onEventClick(c.id)}
-                  className="w-full text-left rounded-xl border px-4 py-3 transition-all duration-150 hover:scale-[1.005]"
+                  onClick={() => onEventClick(campaign.id)}
+                  className="w-full rounded-xl border px-4 py-3 text-left transition-all duration-150 hover:scale-[1.005]"
                   style={{
                     background: selected ? `${meta.color}12` : PAGE_BG,
                     borderColor: selected ? meta.color : BORDER,
@@ -340,14 +239,14 @@ function AgendaView({
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="min-w-0">
-                      <p className="text-[13px] font-semibold" style={{ color: TEXT }}>{c.title}</p>
-                      <p className="text-[11px] mt-0.5" style={{ color: TEXT_DIM }}>{c.projectName}</p>
-                      {c.sifLabels.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          {c.sifLabels.map(label => (
+                      <p className="text-[13px] font-semibold" style={{ color: TEXT }}>{campaign.title}</p>
+                      <p className="mt-0.5 text-[11px]" style={{ color: TEXT_DIM }}>{campaign.projectName}</p>
+                      {campaign.sifLabels.length > 0 && (
+                        <div className="mt-1.5 flex flex-wrap gap-1">
+                          {campaign.sifLabels.map(label => (
                             <span
                               key={label}
-                              className="px-1.5 py-0.5 rounded text-[9px] font-bold"
+                              className="rounded px-1.5 py-0.5 text-[9px] font-bold"
                               style={{ background: `${meta.color}15`, color: meta.color }}
                             >
                               {label}
@@ -357,15 +256,15 @@ function AgendaView({
                       )}
                     </div>
                     <span
-                      className="shrink-0 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider"
+                      className="shrink-0 rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-wider"
                       style={{ background: meta.bg, color: meta.color, border: `1px solid ${meta.border}` }}
                     >
                       {meta.label}
                     </span>
                   </div>
-                  {c.team.length > 0 && (
-                    <p className="text-[10px] mt-2" style={{ color: TEXT_DIM }}>
-                      👥 {c.team.join(', ')}
+                  {campaign.team.length > 0 && (
+                    <p className="mt-2 text-[10px]" style={{ color: TEXT_DIM }}>
+                      👥 {campaign.team.join(', ')}
                     </p>
                   )}
                 </button>
@@ -378,18 +277,20 @@ function AgendaView({
   )
 }
 
-// ─── Month view ────────────────────────────────────────────────────────────
-
 function MonthView({
-  campaigns, deadlines, selectedId, onDayClick, onEventClick,
+  campaigns,
+  deadlines,
+  selectedId,
+  onDayClick,
+  onEventClick,
 }: {
-  campaigns:    PlanningCampaign[]
-  deadlines:    DeadlineGhost[]
-  selectedId:   string | null
-  onDayClick:   (dateStr: string) => void
+  campaigns: PlanningCampaign[]
+  deadlines: DeadlineGhost[]
+  selectedId: string | null
+  onDayClick: (dateStr: string) => void
   onEventClick: (id: string) => void
 }) {
-  const { BORDER, CARD_BG, TEXT_DIM, TEAL, isDark } = usePrismTheme()
+  const { BORDER, CARD_BG, TEXT_DIM, TEAL } = usePrismTheme()
   const { currentYear, currentMonth } = usePlanningNavigation()
 
   const cells = useMemo(
@@ -397,47 +298,41 @@ function MonthView({
     [currentYear, currentMonth],
   )
 
-  // Index campagnes par date
   const campaignsByDate = useMemo(() => {
     const map = new Map<string, PlanningCampaign[]>()
-    campaigns.forEach(c => {
-      const start = new Date(c.startDate)
-      const end   = new Date(c.endDate)
-      for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-        const key = toDateStr(new Date(d))
+    campaigns.forEach(campaign => {
+      const start = new Date(campaign.startDate)
+      const end = new Date(campaign.endDate)
+      for (let cursor = new Date(start); cursor <= end; cursor.setDate(cursor.getDate() + 1)) {
+        const key = toDateStr(new Date(cursor))
         if (!map.has(key)) map.set(key, [])
-        map.get(key)!.push(c)
+        map.get(key)!.push(campaign)
       }
     })
     return map
   }, [campaigns])
 
-  // Index deadlines par date
   const deadlinesByDate = useMemo(() => {
     const map = new Map<string, DeadlineGhost[]>()
-    deadlines.forEach(dl => {
-      if (!map.has(dl.dueDate)) map.set(dl.dueDate, [])
-      map.get(dl.dueDate)!.push(dl)
+    deadlines.forEach(deadline => {
+      if (!map.has(deadline.dueDate)) map.set(deadline.dueDate, [])
+      map.get(deadline.dueDate)!.push(deadline)
     })
     return map
   }, [deadlines])
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Day headers */}
-      <div
-        className="grid grid-cols-7 shrink-0 border-b"
-        style={{ borderColor: BORDER, background: CARD_BG }}
-      >
-        {DAY_NAMES_SHORT.map((day, i) => (
+    <div className="flex h-full flex-col">
+      <div className="grid shrink-0 grid-cols-7 border-b" style={{ borderColor: BORDER, background: CARD_BG }}>
+        {DAY_NAMES_SHORT.map((day, index) => (
           <div
             key={day}
-            className="py-2 text-center border-r last:border-r-0"
+            className="border-r py-2 text-center last:border-r-0"
             style={{ borderColor: BORDER }}
           >
             <span
               className="text-[10px] font-bold uppercase tracking-widest"
-              style={{ color: i >= 5 ? `${TEAL}80` : TEXT_DIM }}
+              style={{ color: index >= 5 ? `${TEAL}80` : TEXT_DIM }}
             >
               {day}
             </span>
@@ -445,11 +340,7 @@ function MonthView({
         ))}
       </div>
 
-      {/* Calendar grid */}
-      <div
-        className="flex-1 grid grid-cols-7 overflow-hidden"
-        style={{ gridTemplateRows: 'repeat(6, 1fr)' }}
-      >
+      <div className="grid flex-1 grid-cols-7 overflow-hidden" style={{ gridTemplateRows: 'repeat(6, 1fr)' }}>
         {cells.map(cell => (
           <DayCell
             key={cell.dateStr}
@@ -469,41 +360,47 @@ function MonthView({
   )
 }
 
-// ─── Main workspace ────────────────────────────────────────────────────────
-
-export function PlanningWorkspace({
-  campaigns,
-  deadlines,
-}: {
-  campaigns: PlanningCampaign[]
-  deadlines: DeadlineGhost[]
-}) {
-  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEXT, TEXT_DIM, TEAL, SHADOW_TAB, isDark } = usePrismTheme()
+export function PlanningWorkspace() {
+  const { BORDER, PANEL_BG, TEXT, TEXT_DIM, TEAL, SHADOW_TAB, isDark } = usePrismTheme()
+  const { setRightPanelOverride } = useLayout()
+  const { campaigns, deadlines } = usePlanningData()
   const {
-    view, setView,
-    currentYear, currentMonth,
-    prevMonth, nextMonth, goToToday,
-    selectedId, filterProjectId,
-    selectCampaign, openCreate,
+    view,
+    setView,
+    currentYear,
+    currentMonth,
+    prevMonth,
+    nextMonth,
+    goToToday,
+    selectedId,
+    filterProjectId,
+    selectCampaign,
+    openCreate,
   } = usePlanningNavigation()
+
+  useEffect(() => {
+    setRightPanelOverride(<PlanningRightPanel />)
+    return () => setRightPanelOverride(null)
+  }, [setRightPanelOverride])
 
   const today = toDateStr(new Date())
 
   const filteredCampaigns = useMemo(
-    () => filterProjectId
-      ? campaigns.filter(c => c.projectId === filterProjectId)
-      : campaigns,
+    () => filterProjectId ? campaigns.filter(campaign => campaign.projectId === filterProjectId) : campaigns,
     [campaigns, filterProjectId],
   )
-
+  const filteredDeadlines = useMemo(
+    () => filterProjectId ? deadlines.filter(deadline => deadline.projectId === filterProjectId) : deadlines,
+    [deadlines, filterProjectId],
+  )
   const overdueCount = useMemo(
-    () => deadlines.filter(d => d.overdue).length,
-    [deadlines],
+    () => filteredDeadlines.filter(deadline => deadline.overdue).length,
+    [filteredDeadlines],
   )
 
   const handleDayClick = useCallback((dateStr: string) => {
-    openCreate({ startDate: dateStr, endDate: dateStr, projectId: '' })
-  }, [openCreate])
+    openCreate({ startDate: dateStr, endDate: dateStr, projectId: filterProjectId ?? '' })
+  }, [filterProjectId, openCreate])
 
   const handleEventClick = useCallback((id: string) => {
     selectCampaign(selectedId === id ? null : id)
@@ -511,27 +408,23 @@ export function PlanningWorkspace({
 
   return (
     <div className="flex h-full flex-col overflow-hidden">
-
-      {/* ── Toolbar ── */}
       <div
-        className="shrink-0 flex items-center gap-3 border-b px-4 py-2.5"
+        className="flex shrink-0 items-center gap-3 border-b px-4 py-2.5"
         style={{
           borderColor: BORDER,
           background: PANEL_BG,
           boxShadow: `${SHADOW_TAB}, inset 0 -1px 0 ${isDark ? 'rgba(0,0,0,0.2)' : 'rgba(15,23,42,0.04)'}`,
         }}
       >
-        {/* Aujourd'hui */}
         <button
           type="button"
           onClick={goToToday}
           className="rounded-xl border px-3 py-1 text-[11px] font-semibold transition-all hover:opacity-80"
-          style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT }}
+          style={{ borderColor: BORDER, background: 'transparent', color: TEXT }}
         >
           Aujourd'hui
         </button>
 
-        {/* Prev / Next */}
         <div className="flex items-center gap-0.5">
           <button
             type="button"
@@ -551,12 +444,10 @@ export function PlanningWorkspace({
           </button>
         </div>
 
-        {/* Titre mois */}
         <h2 className="text-[14px] font-bold" style={{ color: TEXT }}>
           {MONTH_NAMES_FR[currentMonth]} {currentYear}
         </h2>
 
-        {/* Alerte overdue */}
         {overdueCount > 0 && (
           <div
             className="flex items-center gap-1.5 rounded-lg border px-2.5 py-1"
@@ -571,36 +462,31 @@ export function PlanningWorkspace({
 
         <div className="flex-1" />
 
-        {/* View toggle */}
-        <div
-          className="flex rounded-xl border overflow-hidden"
-          style={{ borderColor: BORDER }}
-        >
+        <div className="flex overflow-hidden rounded-xl border" style={{ borderColor: BORDER }}>
           {([
             { id: 'month' as const, Icon: Calendar, label: 'Mois' },
-            { id: 'agenda' as const, Icon: List,     label: 'Agenda' },
-          ] as const).map(opt => (
+            { id: 'agenda' as const, Icon: List, label: 'Agenda' },
+          ] as const).map(option => (
             <button
-              key={opt.id}
+              key={option.id}
               type="button"
-              onClick={() => setView(opt.id)}
+              onClick={() => setView(option.id)}
               className="flex items-center gap-1.5 px-3 py-1.5 text-[11px] font-semibold transition-colors"
               style={{
-                background: view === opt.id ? `${TEAL}18` : 'transparent',
-                color: view === opt.id ? TEAL : TEXT_DIM,
-                borderRight: opt.id === 'month' ? `1px solid ${BORDER}` : 'none',
+                background: view === option.id ? `${TEAL}18` : 'transparent',
+                color: view === option.id ? TEAL : TEXT_DIM,
+                borderRight: option.id === 'month' ? `1px solid ${BORDER}` : 'none',
               }}
             >
-              <opt.Icon size={12} />
-              {opt.label}
+              <option.Icon size={12} />
+              {option.label}
             </button>
           ))}
         </div>
 
-        {/* Bouton nouvelle campagne */}
         <button
           type="button"
-          onClick={() => openCreate({ startDate: today, endDate: today, projectId: '' })}
+          onClick={() => openCreate({ startDate: today, endDate: today, projectId: filterProjectId ?? '' })}
           className="flex items-center gap-1.5 rounded-xl px-3 py-1.5 text-[11px] font-bold transition-opacity hover:opacity-80"
           style={{ background: TEAL, color: '#041014' }}
         >
@@ -609,12 +495,11 @@ export function PlanningWorkspace({
         </button>
       </div>
 
-      {/* ── Content ── */}
-      <div className="flex-1 min-h-0 overflow-hidden">
+      <div className="min-h-0 flex-1 overflow-hidden">
         {view === 'month' ? (
           <MonthView
             campaigns={filteredCampaigns}
-            deadlines={deadlines}
+            deadlines={filteredDeadlines}
             selectedId={selectedId}
             onDayClick={handleDayClick}
             onEventClick={handleEventClick}

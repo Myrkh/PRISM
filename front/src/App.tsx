@@ -34,6 +34,8 @@ import { SearchNavigationProvider } from '@/components/search/SearchNavigation'
 import { LibraryNavigationProvider } from '@/components/library/LibraryNavigation'
 import { AuditNavigationProvider } from '@/components/audit/AuditNavigation'
 import { EngineNavigationProvider } from '@/components/engine/EngineNavigation'
+import { PlanningWorkspace } from '@/planning/PlanningWorkspace'
+import { PlanningNavigationProvider } from '@/planning/PlanningNavigation'
 import { fetchAllProjects } from '@/lib/db'
 
 // ─── Hash routing ─────────────────────────────────────────────────────────
@@ -43,6 +45,7 @@ function viewToHash(view: AppView): string {
     return `#/project/${view.projectId}/sif/${view.sifId}/${view.tab}`
   }
   if (view.type === 'search') return '#/search'
+  if (view.type === 'planning') return '#/planning'
   if (view.type === 'library') {
     const params = new URLSearchParams()
     if (view.templateId) params.set('template', view.templateId)
@@ -77,6 +80,7 @@ function hashToView(hash: string): AppView | null {
     }
   }
   if (path === '/search') return { type: 'search' }
+  if (path === '/planning') return { type: 'planning' }
   if (path === '/library') {
     const params = new URLSearchParams(queryString)
     const templateId = params.get('template') || undefined
@@ -257,6 +261,9 @@ export default function App() {
       {view.type === 'search' && (
         <SearchWorkspace />
       )}
+      {view.type === 'planning' && (
+        <PlanningWorkspace />
+      )}
       {view.type === 'library' && (
         <LibraryWorkspace />
       )}
@@ -332,6 +339,12 @@ export default function App() {
             {shellContent}
           </SIFWorkbenchLayout>
         </SearchNavigationProvider>
+      ) : view.type === 'planning' ? (
+        <PlanningNavigationProvider>
+          <SIFWorkbenchLayout projectId={shellProjectId} sifId={shellSifId}>
+            {shellContent}
+          </SIFWorkbenchLayout>
+        </PlanningNavigationProvider>
       ) : view.type === 'library' ? (
         <LibraryNavigationProvider>
           <SIFWorkbenchLayout projectId={shellProjectId} sifId={shellSifId}>
