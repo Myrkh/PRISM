@@ -45,6 +45,9 @@ a = Analysis(
         # reportlab
         'reportlab',
         *collect_submodules('reportlab'),
+        # Pillow (requis par reportlab)
+        'PIL',
+        *collect_submodules('PIL'),
     ],
     hookspath=[],
     hooksconfig={},
