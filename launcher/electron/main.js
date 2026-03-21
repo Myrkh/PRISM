@@ -230,8 +230,12 @@ ipcMain.handle('update:check', async () => {
       res.on('data', chunk => (data += chunk))
       res.on('end', () => {
         try {
-          const releases = JSON.parse(data)
-          const release  = releases.find(r => r.assets?.some(a => a.name === PRISM_ASSET_NAME))
+          const parsed = JSON.parse(data)
+          if (!Array.isArray(parsed)) {
+            resolve({ error: parsed?.message ?? 'Réponse GitHub inattendue.' })
+            return
+          }
+          const release = parsed.find(r => r.assets?.some(a => a.name === PRISM_ASSET_NAME))
           if (!release) {
             resolve({ error: 'Aucune release PRISM trouvée sur GitHub.' })
             return
@@ -245,8 +249,8 @@ ipcMain.handle('update:check', async () => {
             size:        Math.round(asset.size / 1024 / 1024) + ' Mo',
             body:        release.body ?? '',
           })
-        } catch {
-          resolve({ error: 'Impossible de parser la réponse GitHub' })
+        } catch (e) {
+          resolve({ error: 'Impossible de parser la réponse GitHub : ' + e.message })
         }
       })
     })
