@@ -73,7 +73,10 @@ export interface LauncherStrings {
     scheduleConfirm: string  // use {month} {day} {hour} placeholders
     months:         string[]
     // Changelog
-    installedBadge: string
+    installedBadge:  string
+    noReleaseInfo:   string
+    // Error
+    errorTitle:      string
     // Progress step labels
     stepConnecting:  string
     stepDownloading: string

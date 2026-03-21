@@ -3,78 +3,72 @@
  * Deux colonnes : état de mise à jour (gauche) + changelog collapsible (droite).
  */
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   CheckCircle2, RefreshCw, Download, ArrowUpCircle,
   Tag, Calendar, ChevronDown, ChevronRight, PackageCheck,
-  Clock, Zap,
+  Clock, Zap, AlertCircle,
 } from 'lucide-react'
 import { colors, semantic, alpha } from '../tokens'
 import { useLocaleStrings } from '../i18n/useLocale'
 import { getLauncherStrings } from '../i18n/launcher'
 import type { ThemeTokens } from '../hooks/useTheme'
-import type { Release, InstallStatus } from '../types'
+import type { InstallStatus } from '../types'
 import type { LauncherStrings } from '../i18n/launcher'
 
-const CURRENT = '3.0.2'
+// ── Types ─────────────────────────────────────────────────────────────────────
 
-const RELEASES: Release[] = [
-  {
-    tag: 'v3.0.2',
-    name: 'PRISM 3.0.2 — Planning & Engine',
-    publishedAt: '15 mars 2025',
-    notes: [
-      'Planning proof tests — calendrier mensuel interactif avec équipe',
-      'Engine — comparaison TS vs Python avec tolérance configurable',
-      'Library — import par lot avec revue de conflits',
-      'Fix : synchronisation lors de mutations simultanées',
-      'Fix : recalcul PFDavg après changement de vote 2oo3',
-    ],
-    downloadUrl: 'https://github.com/ton-org/prism/releases/download/v3.0.2/prism-desktop-win.zip',
-    size: '143 Mo',
-  },
-  {
-    tag: 'v3.0.1',
-    name: 'PRISM 3.0.1 — Correctifs',
-    publishedAt: '28 fév. 2025',
-    notes: [
-      'Fix : Loop Editor — drag & drop depuis la Library',
-      'Fix : Audit Log — filtre par projet ne persistait pas',
-      'Perf : réduction du bundle React de 18%',
-    ],
-    downloadUrl: '',
-    size: '141 Mo',
-  },
-  {
-    tag: 'v3.0.0',
-    name: 'PRISM 3.0 — Refonte majeure',
-    publishedAt: '20 jan. 2025',
-    notes: [
-      'Architecture VS Code : rail + sidebar + workbench + panel droit',
-      'Nouveau moteur de calcul Python avec API FastAPI',
-      'Système de révisions figées avec PDF archivé',
-      'Mode desktop avec SQLite local',
-    ],
-    downloadUrl: '',
-    size: '138 Mo',
-  },
-]
+interface GithubRelease {
+  tag: string
+  name: string
+  publishedAt: string
+  downloadUrl: string | null
+  size: string
+  body: string
+  error?: string
+}
 
 // ── Left column — status card ─────────────────────────────────────────────────
 
-function StatusCard({ status, checking, onCheck, onUpdate, t, s, forceAvailable = false }: {
+function StatusCard({ status, checking, onCheck, onUpdate, release, forceAvailable = false, t, s }: {
   status: InstallStatus
   checking: boolean
   onCheck: () => void
   onUpdate: () => void
+  release: GithubRelease | null
+  forceAvailable?: boolean
   t: ThemeTokens
   s: LauncherStrings
-  forceAvailable?: boolean
 }) {
   const [scheduleOpen, setScheduleOpen] = useState(false)
 
   if (forceAvailable) {
-    return <UpdateAvailableCard onUpdate={onUpdate} t={t} s={s} scheduleOpen={scheduleOpen} setScheduleOpen={setScheduleOpen} />
+    return <UpdateAvailableCard release={release} onUpdate={onUpdate} t={t} s={s} scheduleOpen={scheduleOpen} setScheduleOpen={setScheduleOpen} />
+  }
+
+  // Error from GitHub API
+  if (release?.error) {
+    return (
+      <div
+        className="card overflow-hidden rounded-2xl border"
+        style={{ borderColor: alpha(semantic.error ?? '#ef4444', '28'), background: alpha(semantic.error ?? '#ef4444', '05') }}
+      >
+        <div className="p-5">
+          <AlertCircle size={24} style={{ color: semantic.error ?? '#ef4444', marginBottom: 12 }} />
+          <p className="text-[13px] font-bold" style={{ color: t.TEXT }}>{s.updates.errorTitle ?? 'Erreur'}</p>
+          <p className="mt-1 text-[11px]" style={{ color: t.TEXT_DIM }}>{release.error}</p>
+          <button
+            type="button"
+            onClick={onCheck}
+            className="mt-4 flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[11px] font-medium transition-all hover:opacity-80"
+            style={{ borderColor: t.BORDER, color: t.TEXT_DIM }}
+          >
+            <RefreshCw size={11} />
+            {s.updates.checkNow}
+          </button>
+        </div>
+      </div>
+    )
   }
 
   // Up to date
@@ -97,7 +91,7 @@ function StatusCard({ status, checking, onCheck, onUpdate, t, s, forceAvailable 
           </div>
           <p className="text-[15px] font-bold" style={{ color: t.TEXT }}>{s.updates.upToDateTitle}</p>
           <p className="mt-1 text-[11px]" style={{ color: t.TEXT_DIM }}>
-            {s.updates.upToDateBody.replace('{version}', CURRENT)}
+            {release ? s.updates.upToDateBody.replace('{version}', release.tag) : s.updates.upToDateBody.replace('{version}', '—')}
           </p>
           <button
             type="button"
@@ -219,13 +213,14 @@ function StatusCard({ status, checking, onCheck, onUpdate, t, s, forceAvailable 
     )
   }
 
-  // Update available (default)
-  return <UpdateAvailableCard onUpdate={onUpdate} t={t} s={s} scheduleOpen={scheduleOpen} setScheduleOpen={setScheduleOpen} />
+  // Update available
+  return <UpdateAvailableCard release={release} onUpdate={onUpdate} t={t} s={s} scheduleOpen={scheduleOpen} setScheduleOpen={setScheduleOpen} />
 }
 
 const HOURS = ['06:00', '08:00', '10:00', '12:00', '18:00', '20:00', '22:00', '00:00']
 
-function UpdateAvailableCard({ onUpdate, t, s, scheduleOpen, setScheduleOpen }: {
+function UpdateAvailableCard({ release, onUpdate, t, s, scheduleOpen, setScheduleOpen }: {
+  release: GithubRelease | null
   onUpdate: () => void
   t: ThemeTokens
   s: LauncherStrings
@@ -263,11 +258,13 @@ function UpdateAvailableCard({ onUpdate, t, s, scheduleOpen, setScheduleOpen }: 
           <ArrowUpCircle size={24} style={{ color: colors.teal }} />
         </div>
         <p className="text-[15px] font-bold" style={{ color: t.TEXT }}>
-          {s.updates.availableTitle.replace('{tag}', RELEASES[0].tag)}
+          {s.updates.availableTitle.replace('{tag}', release?.tag ?? '—')}
         </p>
-        <p className="mt-1 text-[11px]" style={{ color: t.TEXT_DIM }}>
-          {s.updates.currentVersion.replace('{version}', CURRENT)}
-        </p>
+        {release?.size && (
+          <p className="mt-1 text-[11px]" style={{ color: t.TEXT_DIM }}>
+            {release.size}
+          </p>
+        )}
 
         <button
           type="button"
@@ -376,16 +373,16 @@ function UpdateAvailableCard({ onUpdate, t, s, scheduleOpen, setScheduleOpen }: 
 
 // ── Right column — changelog ──────────────────────────────────────────────────
 
-function ReleaseEntry({ release, isCurrent, t, s }: { release: Release; isCurrent: boolean; t: ThemeTokens; s: LauncherStrings }) {
-  const [open, setOpen] = useState(isCurrent)
+function ReleaseEntry({ release, t, s }: { release: GithubRelease; t: ThemeTokens; s: LauncherStrings }) {
+  const [open, setOpen] = useState(true)
+  const notes = release.body
+    ? release.body.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(Boolean)
+    : []
 
   return (
     <div
       className="overflow-hidden rounded-xl border transition-all"
-      style={{
-        borderColor: isCurrent ? alpha(colors.teal, '28') : t.BORDER,
-        background: isCurrent ? alpha(colors.teal, '03') : t.CARD_BG,
-      }}
+      style={{ borderColor: alpha(colors.teal, '28'), background: alpha(colors.teal, '03') }}
     >
       <button
         type="button"
@@ -396,22 +393,20 @@ function ReleaseEntry({ release, isCurrent, t, s }: { release: Release; isCurren
       >
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[12px] font-bold" style={{ color: t.TEXT }}>{release.name}</span>
-            {isCurrent && (
-              <span
-                className="rounded-full border px-2 py-0.5 text-[8px] font-black tracking-wider"
-                style={{ background: alpha(colors.teal, '12'), borderColor: alpha(colors.teal, '28'), color: colors.teal }}
-              >
-                {s.updates.installedBadge}
-              </span>
-            )}
+            <span className="text-[12px] font-bold" style={{ color: t.TEXT }}>{release.name || release.tag}</span>
+            <span
+              className="rounded-full border px-2 py-0.5 text-[8px] font-black tracking-wider"
+              style={{ background: alpha(colors.teal, '12'), borderColor: alpha(colors.teal, '28'), color: colors.teal }}
+            >
+              {s.updates.installedBadge}
+            </span>
           </div>
           <div className="mt-1 flex items-center gap-3">
             <span className="flex items-center gap-1 text-[9px]" style={{ color: t.TEXT_DIM }}>
               <Tag size={8} /> {release.tag}
             </span>
             <span className="flex items-center gap-1 text-[9px]" style={{ color: t.TEXT_DIM }}>
-              <Calendar size={8} /> {release.publishedAt}
+              <Calendar size={8} /> {release.publishedAt ? new Date(release.publishedAt).toLocaleDateString('fr-FR') : '—'}
             </span>
             {release.size && (
               <span className="flex items-center gap-1 text-[9px]" style={{ color: t.TEXT_DIM }}>
@@ -425,18 +420,15 @@ function ReleaseEntry({ release, isCurrent, t, s }: { release: Release; isCurren
         </div>
       </button>
 
-      {open && (
+      {open && notes.length > 0 && (
         <div
           className="border-t px-4 py-3"
           style={{ borderColor: t.BORDER, background: alpha(t.RAIL_BG, '40') }}
         >
           <ul className="space-y-2">
-            {release.notes.map((note, i) => (
+            {notes.map((note, i) => (
               <li key={i} className="flex gap-2.5 text-[11px]" style={{ color: t.TEXT_DIM }}>
-                <span
-                  className="mt-[5px] h-1 w-1 shrink-0 rounded-full"
-                  style={{ background: isCurrent ? colors.teal : t.TEXT_DIM }}
-                />
+                <span className="mt-[5px] h-1 w-1 shrink-0 rounded-full" style={{ background: colors.teal }} />
                 {note}
               </li>
             ))}
@@ -449,47 +441,49 @@ function ReleaseEntry({ release, isCurrent, t, s }: { release: Release; isCurren
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-type SimState = 'up_to_date' | 'available' | 'updating' | 'done'
-
 export function UpdatesView({ t }: { t: ThemeTokens }) {
   const s = useLocaleStrings(getLauncherStrings)
   const [status,   setStatus]   = useState<InstallStatus>({ phase: 'idle' })
   const [checking, setChecking] = useState(false)
-  const [sim,      setSim]      = useState<SimState>('up_to_date')
+  const [release,  setRelease]  = useState<GithubRelease | null>(null)
 
-  const SIM_LABELS: Record<SimState, string> = {
-    up_to_date: s.updates.simUpToDate,
-    available:  s.updates.simAvailable,
-    updating:   s.updates.simUpdating,
-    done:       s.updates.simDone,
-  }
-
-  const handleUpdate = async () => {
-    const steps: Array<{ phase: InstallStatus['phase']; progress?: number; label?: string; delay: number }> = [
-      { phase: 'checking',    delay: 600 },
-      { phase: 'downloading', progress: 10,  label: s.updates.stepConnecting,  delay: 500  },
-      { phase: 'downloading', progress: 45,  label: s.updates.stepDownloading, delay: 1200 },
-      { phase: 'downloading', progress: 82,  label: s.updates.stepDownloading, delay: 900  },
-      { phase: 'downloading', progress: 98,  label: s.updates.stepVerifying,   delay: 600  },
-      { phase: 'installing',  progress: 50,  label: s.updates.stepExtracting,  delay: 800  },
-      { phase: 'installing',  progress: 100, label: s.updates.stepFinalizing,  delay: 600  },
-      { phase: 'done',        delay: 0 },
-    ]
-    let elapsed = 0
-    for (const step of steps) {
-      await new Promise<void>(resolve => setTimeout(() => {
-        setStatus({ phase: step.phase, ...(step.progress !== undefined ? { progress: step.progress, label: step.label ?? '' } : {}) } as InstallStatus)
-        resolve()
-      }, elapsed))
-      elapsed += step.delay
+  // Listen for download/install progress from main process
+  useEffect(() => {
+    if (!window.electron?.onProgress) return
+    const cb = (data: unknown) => {
+      setStatus(data as InstallStatus)
     }
-  }
+    window.electron.onProgress(cb)
+    return () => { window.electron?.offProgress?.(cb) }
+  }, [])
 
-  const handleCheck = async () => {
+  const handleCheck = useCallback(async () => {
     setChecking(true)
-    await new Promise(r => setTimeout(r, 1400))
-    setChecking(false)
-  }
+    setStatus({ phase: 'checking' })
+    try {
+      const result = (window.electron?.checkUpdate
+        ? await window.electron.checkUpdate()
+        : { tag: 'dev', name: 'Dev mode', publishedAt: '', downloadUrl: null, size: '—', body: '' }) as GithubRelease
+      setRelease(result)
+      setStatus({ phase: result.error ? 'idle' : 'up_to_date' })
+    } finally {
+      setChecking(false)
+    }
+  }, [])
+
+  // Auto-check on mount
+  useEffect(() => { void handleCheck() }, [handleCheck])
+
+  const handleUpdate = useCallback(async () => {
+    if (!release?.downloadUrl) return
+    const result = await window.electron?.installUpdate?.(release.downloadUrl) as { ok: boolean; error?: string } | undefined
+    if (result && !result.ok) {
+      setRelease(prev => prev ? { ...prev, error: result.error } : prev)
+      setStatus({ phase: 'idle' })
+    }
+  }, [release])
+
+  const showAvailable = release && !release.error && status.phase !== 'downloading' && status.phase !== 'installing' && status.phase !== 'done' && status.phase !== 'checking'
 
   return (
     <div className="flex flex-1 overflow-hidden" style={{ background: t.PAGE_BG }}>
@@ -499,47 +493,21 @@ export function UpdatesView({ t }: { t: ThemeTokens }) {
         className="flex w-[280px] shrink-0 flex-col overflow-y-auto border-r p-5"
         style={{ borderColor: t.BORDER, scrollbarGutter: 'stable' }}
       >
-        {/* Header + sim switcher */}
-        <div className="mb-3 flex items-center justify-between">
+        <div className="mb-3">
           <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: t.TEXT_DIM }}>
             {s.updates.stateLabel}
           </p>
-          <div
-            className="flex items-center gap-0.5 rounded-lg border p-0.5"
-            style={{ borderColor: t.BORDER, background: alpha(t.TEXT, '04') }}
-          >
-            {(Object.keys(SIM_LABELS) as SimState[]).map(key => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => {
-                  setSim(key)
-                  if (key === 'up_to_date') setStatus({ phase: 'idle' })
-                  if (key === 'available')  setStatus({ phase: 'up_to_date' })
-                  if (key === 'done')       setStatus({ phase: 'done' })
-                  if (key === 'updating')   void handleUpdate()
-                }}
-                className="rounded-md px-2 py-0.5 text-[8px] font-bold transition-all"
-                style={{
-                  background: sim === key ? t.SURFACE : 'transparent',
-                  color: sim === key ? t.TEXT : t.TEXT_DIM,
-                  boxShadow: sim === key ? '0 1px 3px rgba(0,0,0,0.15)' : 'none',
-                }}
-              >
-                {SIM_LABELS[key]}
-              </button>
-            ))}
-          </div>
         </div>
 
         <StatusCard
-          status={sim === 'available' ? { phase: 'up_to_date' } as InstallStatus : status}
+          status={status}
           checking={checking}
           onCheck={handleCheck}
           onUpdate={handleUpdate}
+          release={release}
+          forceAvailable={!!showAvailable}
           t={t}
           s={s}
-          forceAvailable={sim === 'available'}
         />
       </div>
 
@@ -550,15 +518,14 @@ export function UpdatesView({ t }: { t: ThemeTokens }) {
             {s.updates.changelogLabel}
           </p>
           <div className="space-y-2">
-            {RELEASES.map(r => (
-              <ReleaseEntry
-                key={r.tag}
-                release={r}
-                isCurrent={r.tag === `v${CURRENT}`}
-                t={t}
-                s={s}
-              />
-            ))}
+            {release && !release.error && (
+              <ReleaseEntry release={release} t={t} s={s} />
+            )}
+            {!release && (
+              <p className="text-[11px]" style={{ color: t.TEXT_DIM }}>
+                {checking ? s.updates.checkingBody : s.updates.noReleaseInfo ?? 'Vérifiez les mises à jour pour voir le changelog.'}
+              </p>
+            )}
           </div>
         </div>
       </div>

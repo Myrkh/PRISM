@@ -69,7 +69,9 @@ export const launcherStringsEn: LauncherStrings = {
     scheduleConfirm: 'Schedule — {month} {day} at {hour}',
     months: ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'],
     // Changelog
-    installedBadge: 'INSTALLED',
+    installedBadge:  'INSTALLED',
+    noReleaseInfo:   'Check for updates to see the changelog.',
+    errorTitle:      'Check failed',
     // Progress steps
     stepConnecting:  'Connecting to GitHub Releases…',
     stepDownloading: 'Downloading prism-desktop-win.zip…',

@@ -69,7 +69,9 @@ export const launcherStringsFr: LauncherStrings = {
     scheduleConfirm: 'Planifier — {month} {day} à {hour}',
     months: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Aoû', 'Sep', 'Oct', 'Nov', 'Déc'],
     // Changelog
-    installedBadge: 'INSTALLÉ',
+    installedBadge:  'INSTALLÉ',
+    noReleaseInfo:   'Vérifiez les mises à jour pour voir le changelog.',
+    errorTitle:      'Erreur de vérification',
     // Progress steps
     stepConnecting:  'Connexion à GitHub Releases…',
     stepDownloading: 'Téléchargement prism-desktop-win.zip…',
