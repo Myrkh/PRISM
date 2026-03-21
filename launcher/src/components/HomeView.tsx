@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { FolderOpen, Clock, Plus, ArrowUpRight, Shield } from 'lucide-react'
 import { colors, semantic, alpha } from '../tokens'
+import logoSrc from '../assets/logo.png'
 import { useLocaleStrings } from '../i18n/useLocale'
 import { getLauncherStrings } from '../i18n/launcher'
 import type { ThemeTokens } from '../hooks/useTheme'
@@ -109,7 +110,7 @@ function BrandingHero({ t, ready }: { t: ThemeTokens; ready: boolean }) {
                 : 'none',
             }}
           >
-            <img src="/logo.png" alt="PRISM" className="h-11 w-11 object-contain" />
+            <img src={logoSrc} alt="PRISM" className="h-11 w-11 object-contain" />
           </div>
         </div>
 

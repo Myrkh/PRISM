@@ -23,6 +23,10 @@ jobs:
         working-directory: launcher
         run: npm install
 
+      - name: Rebuild native modules for Electron
+        working-directory: launcher
+        run: npx electron-rebuild -f -w better-sqlite3
+
       - name: Build & package
         working-directory: launcher
         run: npm run dist -- --publish never

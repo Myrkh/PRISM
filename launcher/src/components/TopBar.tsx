@@ -5,8 +5,9 @@
  */
 
 import { useState } from 'react'
-import { Play, Sun, Moon, Minus, Square, X, LogOut, User, ChevronDown } from 'lucide-react'
-import { colors, alpha } from '../tokens'
+import { Play, Sun, Moon, Minus, Square, X, LogOut, User, ChevronDown, Crown } from 'lucide-react'
+import logoSrc from '../assets/logo.png'
+import { colors, semantic, alpha } from '../tokens'
 import { AccountModal } from './AccountModal'
 import { useLocaleStrings } from '../i18n/useLocale'
 import { setStoredLocale, useLocale } from '../i18n/useLocale'
@@ -30,12 +31,14 @@ export function TopBar({ t, view, user, ready, onView, onLogout, onToggleTheme, 
   const s = useLocaleStrings(getLauncherStrings)
   const [locale] = useLocale()
 
-  const TABS: Array<{ id: LauncherView; label: string }> = [
+  const ALL_TABS: Array<{ id: LauncherView; label: string; adminOnly?: boolean }> = [
     { id: 'home',     label: s.nav.home     },
     { id: 'library',  label: s.nav.library  },
     { id: 'updates',  label: s.nav.updates  },
     { id: 'settings', label: s.nav.settings },
+    { id: 'admin',    label: 'Admin',        adminOnly: true },
   ]
+  const TABS = ALL_TABS.filter(tab => !tab.adminOnly || user.role === 'admin')
 
   return (
     <div
@@ -44,7 +47,7 @@ export function TopBar({ t, view, user, ready, onView, onLogout, onToggleTheme, 
     >
       {/* ── Branding ── */}
       <div className="flex shrink-0 items-center gap-2.5 px-4">
-        <img src="/logo.png" alt="PRISM" className="h-5 w-5 object-contain" style={{ opacity: 0.85 }} />
+        <img src={logoSrc} alt="PRISM" className="h-5 w-5 object-contain" style={{ opacity: 0.85 }} />
         <div className="leading-none">
           <p className="text-[12px] font-black tracking-tight" style={{ color: t.TEXT }}>PRISM</p>
           <p className="text-[8px] font-bold uppercase tracking-[0.18em]" style={{ color: colors.tealDim }}>Launcher</p>
@@ -64,15 +67,18 @@ export function TopBar({ t, view, user, ready, onView, onLogout, onToggleTheme, 
               type="button"
               onClick={() => onView(id)}
               className="no-drag relative flex h-full items-center px-3.5 text-[11px] font-semibold transition-colors"
-              style={{ color: active ? colors.teal : t.TEXT_DIM }}
+              style={{ color: active ? (id === 'admin' ? semantic.warning : colors.teal) : t.TEXT_DIM }}
               onMouseEnter={e => { if (!active) e.currentTarget.style.color = t.TEXT }}
               onMouseLeave={e => { if (!active) e.currentTarget.style.color = t.TEXT_DIM }}
             >
-              {label}
+              <span className="flex items-center gap-1.5">
+                {id === 'admin' && <Crown size={9} style={{ color: active ? semantic.warning : t.TEXT_DIM }} />}
+                {label}
+              </span>
               {active && (
                 <span
                   className="absolute bottom-0 left-2 right-2 h-[2px] rounded-t-sm"
-                  style={{ background: colors.teal }}
+                  style={{ background: id === 'admin' ? semantic.warning : colors.teal }}
                 />
               )}
             </button>

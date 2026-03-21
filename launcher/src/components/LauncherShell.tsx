@@ -11,6 +11,7 @@ import { HomeView }    from './HomeView'
 import { UpdatesView } from './UpdatesView'
 import { SettingsView } from './SettingsView'
 import { LibraryView } from './LibraryView'
+import { AdminView }   from './AdminView'
 import type { ThemeTokens } from '../hooks/useTheme'
 import type { LauncherView, AuthUser } from '../types'
 
@@ -76,6 +77,7 @@ export function LauncherShell({ t, user, onLogout, onToggleTheme }: LauncherShel
         {view === 'library'  && <LibraryView  t={t} />}
         {view === 'updates'  && <UpdatesView  t={t} />}
         {view === 'settings' && <SettingsView t={t} onToggleTheme={onToggleTheme} />}
+        {view === 'admin'    && <AdminView    t={t} user={currentUser} />}
       </div>
 
       <FooterBar t={t} />

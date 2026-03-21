@@ -14,6 +14,7 @@ const VIEW_LABELS: Record<LauncherView, string> = {
   library:  'Modules',
   updates:  'Mises à jour',
   settings: 'Configuration',
+  admin:    'Administration',
 }
 
 interface TitleBarProps {

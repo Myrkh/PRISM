@@ -7,6 +7,7 @@ import { useState, type FormEvent } from 'react'
 import { Eye, EyeOff, ArrowRight, Loader2, Shield, Lock } from 'lucide-react'
 import { colors, dark, semantic, alpha } from '../tokens'
 import type { AuthMode, AuthUser } from '../types'
+import logoSrc from '../assets/logo.png'
 
 // ── Input ─────────────────────────────────────────────────────────────────────
 
@@ -71,7 +72,7 @@ function PasswordInput({ value, onChange, placeholder }: {
 // ── Main ──────────────────────────────────────────────────────────────────────
 
 export function AuthScreen({ onAuth }: { onAuth: (user: AuthUser) => void }) {
-  const [mode,    setMode]    = useState<AuthMode>('login')
+  const [mode]                = useState<AuthMode>('login')
   const [email,   setEmail]   = useState('')
   const [pass,    setPass]    = useState('')
   const [confirm, setConfirm] = useState('')
@@ -82,45 +83,16 @@ export function AuthScreen({ onAuth }: { onAuth: (user: AuthUser) => void }) {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault()
     setError(null)
-    if (mode === 'signup' && pass !== confirm) {
-      setError('Les mots de passe ne correspondent pas.')
-      return
-    }
     setLoading(true)
     try {
-      const endpoint = mode === 'login' ? '/auth/login' : '/auth/signup'
-      const body = mode === 'login'
-        ? { email, password: pass }
-        : { email, password: pass, full_name: name }
-
-      const res = await fetch(`http://localhost:8000${endpoint}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        throw new Error(err.detail ?? 'Erreur de connexion')
-      }
-      const data = await res.json()
-      localStorage.setItem('prism_desktop_token', data.access_token)
-
-      const n = data.user?.full_name ?? data.user?.email ?? 'Utilisateur'
-      const parts = n.trim().split(/\s+/)
-      const initials = parts.length === 1
-        ? parts[0].slice(0, 2).toUpperCase()
-        : `${parts[0][0]}${parts[1][0]}`.toUpperCase()
-
-      onAuth({ email: data.user.email, fullName: n, initials })
+      const result = await window.electron?.login({ email, password: pass })
+      if (!result?.ok) throw new Error(result?.error ?? 'Connexion impossible')
+      onAuth(result.user!)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connexion impossible')
     } finally {
       setLoading(false)
     }
-  }
-
-  const switchMode = (m: AuthMode) => {
-    setMode(m); setError(null); setPass(''); setConfirm('')
   }
 
   return (
@@ -189,7 +161,7 @@ export function AuthScreen({ onAuth }: { onAuth: (user: AuthUser) => void }) {
                 boxShadow: `0 0 20px ${alpha(colors.teal, '20')}`,
               }}
             >
-              <img src="/logo.png" alt="PRISM" className="h-6 w-6 object-contain" />
+              <img src={logoSrc} alt="PRISM" className="h-6 w-6 object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -293,17 +265,8 @@ export function AuthScreen({ onAuth }: { onAuth: (user: AuthUser) => void }) {
             </button>
           </form>
 
-          {/* Switch mode */}
-          <p className="mt-5 text-center text-[11px]" style={{ color: dark.textDim }}>
-            {mode === 'login' ? 'Pas encore de compte ?' : 'Déjà un compte ?'}{' '}
-            <button
-              type="button"
-              className="font-bold transition-opacity hover:opacity-75"
-              style={{ color: colors.tealDim }}
-              onClick={() => switchMode(mode === 'login' ? 'signup' : 'login')}
-            >
-              {mode === 'login' ? 'Créer un compte' : 'Se connecter'}
-            </button>
+          <p className="mt-5 text-center text-[11px]" style={{ color: alpha(dark.textDim, '60') }}>
+            Contactez votre administrateur PRISM pour obtenir un accès.
           </p>
         </div>
 

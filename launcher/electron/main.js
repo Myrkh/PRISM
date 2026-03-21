@@ -14,6 +14,7 @@ const fs     = require('fs')
 const https  = require('https')
 const http   = require('http')
 const { spawn, execFile } = require('child_process')
+const auth   = require('./auth')
 
 // ─── Config ────────────────────────────────────────────────────────────────
 
@@ -21,7 +22,8 @@ const PRISM_GITHUB_REPO  = 'ton-org/prism'   // ← à adapter
 const PRISM_ASSET_NAME   = 'prism-desktop-win.zip'
 const IS_DEV             = !app.isPackaged
 
-let mainWindow = null
+let mainWindow  = null
+let splashWindow = null
 
 // ─── Chemin PRISM installé ────────────────────────────────────────────────
 
@@ -38,6 +40,24 @@ function isPrismInstalled() {
   return fs.existsSync(getPrismExe())
 }
 
+// ─── Splash screen ─────────────────────────────────────────────────────────
+
+function createSplash() {
+  splashWindow = new BrowserWindow({
+    width:           300,
+    height:          300,
+    frame:           false,
+    transparent:     false,
+    resizable:       false,
+    center:          true,
+    skipTaskbar:     true,
+    backgroundColor: '#0F1318',
+    icon:            path.join(__dirname, '../public/logo.png'),
+    webPreferences:  { nodeIntegration: false, contextIsolation: true },
+  })
+  splashWindow.loadFile(path.join(__dirname, 'splash.html'))
+}
+
 // ─── Fenêtre principale ────────────────────────────────────────────────────
 
 function createWindow() {
@@ -46,9 +66,9 @@ function createWindow() {
     height:          640,
     minWidth:        780,
     minHeight:       520,
-    frame:           false,        // Frameless — TitleBar React custom
+    frame:           false,
     titleBarStyle:   'hidden',
-    backgroundColor: '#0F1318',    // dark.rail — évite le flash blanc
+    backgroundColor: '#0F1318',
     show:            false,
     icon:            path.join(__dirname, '../public/logo.png'),
     webPreferences: {
@@ -67,6 +87,11 @@ function createWindow() {
   }
 
   mainWindow.once('ready-to-show', () => {
+    // Ferme la splash avant d'afficher la fenêtre principale
+    if (splashWindow && !splashWindow.isDestroyed()) {
+      splashWindow.close()
+      splashWindow = null
+    }
     mainWindow.show()
     mainWindow.focus()
   })
@@ -75,6 +100,16 @@ function createWindow() {
 }
 
 // ─── IPC handlers ──────────────────────────────────────────────────────────
+
+// Auth
+ipcMain.handle('auth:isSetup',    auth.handleIsSetup)
+ipcMain.handle('auth:login',      auth.handleLogin)
+ipcMain.handle('auth:createUser', auth.handleCreateUser)
+ipcMain.handle('auth:updateUser', auth.handleUpdateUser)
+ipcMain.handle('auth:getUsers',   auth.handleGetUsers)
+ipcMain.handle('auth:getAudit',   auth.handleGetAuditLog)
+ipcMain.handle('auth:getLicense', auth.handleGetLicense)
+ipcMain.handle('auth:setLicense', auth.handleSetLicense)
 
 // Window controls
 ipcMain.handle('win:minimize',  () => mainWindow?.minimize())
@@ -188,7 +223,10 @@ ipcMain.handle('update:install', async (event, downloadUrl) => {
 
 // ─── Lifecycle ─────────────────────────────────────────────────────────────
 
-app.whenReady().then(createWindow)
+app.whenReady().then(() => {
+  createSplash()
+  createWindow()
+})
 
 app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') app.quit()
