@@ -37,9 +37,9 @@ function daysUntil(iso: string | null): number | null {
 
 // ── Composant Modal utilisateur ───────────────────────────────────────────────
 
-function UserModal({ user, currentUser, t, onClose, onSave }: {
+function UserModal({ user, sessionToken, t, onClose, onSave }: {
   user: AdminUser | null
-  currentUser: AuthUser
+  sessionToken: string
   t: ThemeTokens
   onClose: () => void
   onSave: () => void
@@ -60,12 +60,12 @@ function UserModal({ user, currentUser, t, onClose, onSave }: {
     setLoading(true)
     try {
       if (isNew) {
-        const r = await window.electron?.createUser({ email, fullName, password: pass, role, requesterId: currentUser.id })
+        const r = await window.electron?.createUser({ token: sessionToken, email, fullName, password: pass, role })
         if (!r?.ok) throw new Error(r?.error)
       } else {
         const patches: Record<string, unknown> = { full_name: fullName, role }
         if (pass) patches.password = pass
-        const r = await window.electron?.updateUser({ requesterId: currentUser.id, userId: user!.id, patches })
+        const r = await window.electron?.updateUser({ token: sessionToken, userId: user!.id, patches })
         if (!r?.ok) throw new Error('Erreur de mise à jour')
       }
       onSave()
@@ -210,23 +210,23 @@ function UserModal({ user, currentUser, t, onClose, onSave }: {
 
 // ── Tab Utilisateurs ──────────────────────────────────────────────────────────
 
-function UsersTab({ currentUser, t }: { currentUser: AuthUser; t: ThemeTokens }) {
+function UsersTab({ currentUser, sessionToken, t }: { currentUser: AuthUser; sessionToken: string; t: ThemeTokens }) {
   const [users,   setUsers]   = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
   const [modal,   setModal]   = useState<AdminUser | null | 'new'>()
 
   const load = useCallback(async () => {
     setLoading(true)
-    const data = await window.electron?.getUsers()
+    const data = await window.electron?.getUsers(sessionToken)
     setUsers((data ?? []) as AdminUser[])
     setLoading(false)
-  }, [])
+  }, [sessionToken])
 
   useEffect(() => { void load() }, [load])
 
   const handleToggle = async (u: AdminUser) => {
     await window.electron?.updateUser({
-      requesterId: currentUser.id,
+      token: sessionToken,
       userId: u.id,
       patches: { active: u.active ? 0 : 1 },
     })
@@ -352,7 +352,7 @@ function UsersTab({ currentUser, t }: { currentUser: AuthUser; t: ThemeTokens })
       {modal && (
         <UserModal
           user={modal === 'new' ? null : modal}
-          currentUser={currentUser}
+          sessionToken={sessionToken}
           t={t}
           onClose={() => setModal(undefined)}
           onSave={load}
@@ -364,15 +364,15 @@ function UsersTab({ currentUser, t }: { currentUser: AuthUser; t: ThemeTokens })
 
 // ── Tab Licence ───────────────────────────────────────────────────────────────
 
-function LicenseTab({ t }: { t: ThemeTokens }) {
+function LicenseTab({ sessionToken, t }: { sessionToken: string; t: ThemeTokens }) {
   const [license, setLicense] = useState<LicenseInfo | null>(null)
   const [users,   setUsers]   = useState<AdminUser[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     Promise.all([
-      window.electron?.getLicense(),
-      window.electron?.getUsers(),
+      window.electron?.getLicense(sessionToken),
+      window.electron?.getUsers(sessionToken),
     ]).then(([lic, usr]) => {
       setLicense(lic as LicenseInfo ?? null)
       setUsers((usr ?? []) as AdminUser[])
@@ -515,18 +515,18 @@ const ACTION_CFG: Record<string, { icon: React.ElementType; color: string; label
   LICENSE_SET:  { icon: Key,      color: colors.tealDim,   label: 'Licence configurée' },
 }
 
-function AuditTab({ t }: { t: ThemeTokens }) {
+function AuditTab({ sessionToken, t }: { sessionToken: string; t: ThemeTokens }) {
   const [entries,  setEntries]  = useState<AuditEntry[]>([])
   const [loading,  setLoading]  = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
   const load = useCallback(async (refresh = false) => {
     if (refresh) setRefreshing(true)
-    const data = await window.electron?.getAudit()
+    const data = await window.electron?.getAudit(sessionToken)
     setEntries((data ?? []) as AuditEntry[])
     setLoading(false)
     setRefreshing(false)
-  }, [])
+  }, [sessionToken])
 
   useEffect(() => { void load() }, [load])
 
@@ -605,7 +605,7 @@ const TABS: Array<{ id: AdminTab; label: string; Icon: React.ElementType }> = [
   { id: 'audit',   label: 'Journal',      Icon: ScrollText },
 ]
 
-export function AdminView({ t, user }: { t: ThemeTokens; user: AuthUser }) {
+export function AdminView({ t, user, sessionToken }: { t: ThemeTokens; user: AuthUser; sessionToken: string }) {
   const [tab, setTab] = useState<AdminTab>('users')
 
   return (
@@ -654,9 +654,9 @@ export function AdminView({ t, user }: { t: ThemeTokens; user: AuthUser }) {
 
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden p-6">
-        {tab === 'users'   && <UsersTab   currentUser={user} t={t} />}
-        {tab === 'license' && <LicenseTab t={t} />}
-        {tab === 'audit'   && <AuditTab   t={t} />}
+        {tab === 'users'   && <UsersTab   currentUser={user} sessionToken={sessionToken} t={t} />}
+        {tab === 'license' && <LicenseTab sessionToken={sessionToken} t={t} />}
+        {tab === 'audit'   && <AuditTab   sessionToken={sessionToken} t={t} />}
       </div>
 
     </div>

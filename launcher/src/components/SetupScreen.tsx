@@ -61,7 +61,7 @@ export function SetupScreen({ onDone }: { onDone: () => void }) {
     setLoading(true)
     try {
       const result = await window.electron?.createUser({
-        email, fullName, password: pass, role: 'admin', requesterId: null,
+        email, fullName, password: pass, role: 'admin',
       })
       if (!result?.ok) throw new Error(result?.error ?? 'Erreur lors de la création')
       onDone()
@@ -106,7 +106,7 @@ export function SetupScreen({ onDone }: { onDone: () => void }) {
               className="flex h-11 w-11 items-center justify-center rounded-xl border"
               style={{ background: alpha(colors.teal, '12'), borderColor: alpha(colors.teal, '30') }}
             >
-              <img src={logoSrc} alt="PRISM" className="h-6 w-6 object-contain" />
+              <img src={logoSrc} alt="PRISM" className="h-11 w-11 object-contain" />
             </div>
             <div>
               <span className="text-[18px] font-black tracking-tight" style={{ color: dark.text }}>PRISM</span>

@@ -16,7 +16,9 @@ htmlcov/
 
 # IDE
 .vscode/
+.claude/
 .idea/
+.idx/
 
 # OS
 .DS_Store

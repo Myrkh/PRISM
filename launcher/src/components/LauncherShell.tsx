@@ -36,11 +36,12 @@ function useBackend(): BackendStatus {
 interface LauncherShellProps {
   t:             ThemeTokens
   user:          AuthUser
+  sessionToken:  string
   onLogout:      () => void
   onToggleTheme: () => void
 }
 
-export function LauncherShell({ t, user, onLogout, onToggleTheme }: LauncherShellProps) {
+export function LauncherShell({ t, user, sessionToken, onLogout, onToggleTheme }: LauncherShellProps) {
   const [view, setView]       = useState<LauncherView>('home')
   const [currentUser, setCurrentUser] = useState(user)
   const status = useBackend()
@@ -77,7 +78,7 @@ export function LauncherShell({ t, user, onLogout, onToggleTheme }: LauncherShel
         {view === 'library'  && <LibraryView  t={t} />}
         {view === 'updates'  && <UpdatesView  t={t} />}
         {view === 'settings' && <SettingsView t={t} onToggleTheme={onToggleTheme} />}
-        {view === 'admin'    && <AdminView    t={t} user={currentUser} />}
+        {view === 'admin'    && <AdminView    t={t} user={currentUser} sessionToken={sessionToken} />}
       </div>
 
       <FooterBar t={t} />

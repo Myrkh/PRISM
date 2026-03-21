@@ -71,7 +71,7 @@ function PasswordInput({ value, onChange, placeholder }: {
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export function AuthScreen({ onAuth }: { onAuth: (user: AuthUser) => void }) {
+export function AuthScreen({ onAuth }: { onAuth: (user: AuthUser, token: string) => void }) {
   const [mode]                = useState<AuthMode>('login')
   const [email,   setEmail]   = useState('')
   const [pass,    setPass]    = useState('')
@@ -87,7 +87,7 @@ export function AuthScreen({ onAuth }: { onAuth: (user: AuthUser) => void }) {
     try {
       const result = await window.electron?.login({ email, password: pass })
       if (!result?.ok) throw new Error(result?.error ?? 'Connexion impossible')
-      onAuth(result.user!)
+      onAuth(result.user!, result.sessionToken!)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Connexion impossible')
     } finally {
@@ -161,7 +161,7 @@ export function AuthScreen({ onAuth }: { onAuth: (user: AuthUser) => void }) {
                 boxShadow: `0 0 20px ${alpha(colors.teal, '20')}`,
               }}
             >
-              <img src={logoSrc} alt="PRISM" className="h-6 w-6 object-contain" />
+              <img src={logoSrc} alt="PRISM" className="h-11 w-11 object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">

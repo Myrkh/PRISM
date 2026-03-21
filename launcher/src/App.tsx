@@ -26,13 +26,14 @@ declare global {
       onProgress:    (cb: (d: unknown) => void) => void
       offProgress:   (cb: (d: unknown) => void) => void
       isSetup:     () => Promise<boolean>
-      login:       (p: { email: string; password: string }) => Promise<{ ok: boolean; user?: AuthUser; error?: string }>
-      createUser:  (p: { email: string; fullName: string; password: string; role?: string; requesterId?: number | null }) => Promise<{ ok: boolean; user?: AuthUser; error?: string }>
-      updateUser:  (p: { requesterId: number; userId: number; patches: Record<string, unknown> }) => Promise<{ ok: boolean; user?: AuthUser }>
-      getUsers:    () => Promise<AuthUser[]>
-      getAudit:    () => Promise<unknown[]>
-      getLicense:  () => Promise<unknown>
-      setLicense:  (p: unknown) => Promise<{ ok: boolean }>
+      login:       (p: { email: string; password: string }) => Promise<{ ok: boolean; user?: AuthUser; sessionToken?: string; error?: string }>
+      logout:      (token: string) => Promise<void>
+      createUser:  (p: { email?: string; fullName?: string; password?: string; role?: string; token?: string }) => Promise<{ ok: boolean; user?: AuthUser; error?: string }>
+      updateUser:  (p: { token: string; userId: number; patches: Record<string, unknown> }) => Promise<{ ok: boolean; user?: AuthUser }>
+      getUsers:    (token: string) => Promise<AuthUser[]>
+      getAudit:    (token: string) => Promise<unknown[]>
+      getLicense:  (token: string) => Promise<unknown>
+      setLicense:  (p: { token: string; [key: string]: unknown }) => Promise<{ ok: boolean }>
       isDesktop:   boolean
       platform:    string
     }
@@ -43,8 +44,9 @@ type AppPhase = 'loading' | 'setup' | 'auth' | 'app'
 
 export default function App() {
   const [theme, toggleTheme] = useTheme()
-  const [phase, setPhase]    = useState<AppPhase>('loading')
-  const [user,  setUser]     = useState<AuthUser | null>(null)
+  const [phase, setPhase]        = useState<AppPhase>('loading')
+  const [user,  setUser]         = useState<AuthUser | null>(null)
+  const [sessionToken, setToken] = useState<string | null>(null)
 
   useEffect(() => {
     if (!window.electron) {
@@ -59,13 +61,16 @@ export default function App() {
 
   const handleSetupDone = () => setPhase('auth')
 
-  const handleAuth = (u: AuthUser) => {
+  const handleAuth = (u: AuthUser, token: string) => {
     setUser(u)
+    setToken(token)
     setPhase('app')
   }
 
   const handleLogout = () => {
+    if (sessionToken) window.electron?.logout?.(sessionToken)
     setUser(null)
+    setToken(null)
     setPhase('auth')
   }
 
@@ -96,6 +101,7 @@ export default function App() {
       <LauncherShell
         t={theme}
         user={user!}
+        sessionToken={sessionToken!}
         onLogout={handleLogout}
         onToggleTheme={toggleTheme}
       />

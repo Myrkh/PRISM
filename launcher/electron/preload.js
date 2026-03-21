@@ -1,6 +1,7 @@
 /**
  * electron/preload.js — PRISM Launcher
  * Bridge sécurisé entre le process Electron et React.
+ * Les appels privilégiés (admin) passent un sessionToken validé côté main process.
  */
 
 const { contextBridge, ipcRenderer } = require('electron')
@@ -22,14 +23,20 @@ contextBridge.exposeInMainWorld('electron', {
   offProgress:   (cb)    => ipcRenderer.removeListener('update:progress', cb),
 
   // Auth locale (SQLite)
-  isSetup:      ()         => ipcRenderer.invoke('auth:isSetup'),
-  login:        (payload)  => ipcRenderer.invoke('auth:login', payload),
-  createUser:   (payload)  => ipcRenderer.invoke('auth:createUser', payload),
-  updateUser:   (payload)  => ipcRenderer.invoke('auth:updateUser', payload),
-  getUsers:     ()         => ipcRenderer.invoke('auth:getUsers'),
-  getAudit:     ()         => ipcRenderer.invoke('auth:getAudit'),
-  getLicense:   ()         => ipcRenderer.invoke('auth:getLicense'),
-  setLicense:   (payload)  => ipcRenderer.invoke('auth:setLicense', payload),
+  isSetup:    ()        => ipcRenderer.invoke('auth:isSetup'),
+  login:      (payload) => ipcRenderer.invoke('auth:login', payload),
+  logout:     (token)   => ipcRenderer.invoke('auth:logout', token),
+
+  // Appels privilégiés — token validé côté main process
+  createUser: (payload) => ipcRenderer.invoke('auth:createUser', payload),
+  // payload = { token?, email, fullName, password, role } — token absent en mode setup
+  updateUser: (payload) => ipcRenderer.invoke('auth:updateUser', payload),
+  // payload = { token, userId, patches }
+  getUsers:   (token)   => ipcRenderer.invoke('auth:getUsers',   token),
+  getAudit:   (token)   => ipcRenderer.invoke('auth:getAudit',   token),
+  getLicense: (token)   => ipcRenderer.invoke('auth:getLicense', token),
+  setLicense: (payload) => ipcRenderer.invoke('auth:setLicense', payload),
+  // payload = { token, ...licenseData }
 
   // Infos
   isDesktop: true,

@@ -86,6 +86,18 @@ function createWindow() {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 
+  // Bloquer DevTools en production (Ctrl+Shift+I, F12, etc.)
+  if (!IS_DEV) {
+    mainWindow.webContents.on('before-input-event', (event, input) => {
+      if (
+        input.key === 'F12' ||
+        (input.control && input.shift && ['i', 'I', 'j', 'J', 'c', 'C'].includes(input.key))
+      ) {
+        event.preventDefault()
+      }
+    })
+  }
+
   mainWindow.once('ready-to-show', () => {
     // Ferme la splash avant d'afficher la fenêtre principale
     if (splashWindow && !splashWindow.isDestroyed()) {
@@ -104,6 +116,7 @@ function createWindow() {
 // Auth
 ipcMain.handle('auth:isSetup',    auth.handleIsSetup)
 ipcMain.handle('auth:login',      auth.handleLogin)
+ipcMain.handle('auth:logout',     auth.handleLogout)
 ipcMain.handle('auth:createUser', auth.handleCreateUser)
 ipcMain.handle('auth:updateUser', auth.handleUpdateUser)
 ipcMain.handle('auth:getUsers',   auth.handleGetUsers)
@@ -175,7 +188,12 @@ ipcMain.handle('update:check', async () => {
 })
 
 // Télécharger + installer une mise à jour
+const ALLOWED_DOWNLOAD_PREFIX = 'https://github.com/Myrkh/PRISM/releases/download/'
+
 ipcMain.handle('update:install', async (event, downloadUrl) => {
+  if (typeof downloadUrl !== 'string' || !downloadUrl.startsWith(ALLOWED_DOWNLOAD_PREFIX)) {
+    return { ok: false, error: 'URL de téléchargement non autorisée.' }
+  }
   // Télécharge dans un fichier temp, extrait dans le dossier PRISM
   // Le renderer reçoit les événements de progression via mainWindow.webContents.send
   const tmpZip = path.join(app.getPath('temp'), 'prism-update.zip')
