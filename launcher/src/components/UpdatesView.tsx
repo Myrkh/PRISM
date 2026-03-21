@@ -475,7 +475,11 @@ export function UpdatesView({ t }: { t: ThemeTokens }) {
   useEffect(() => { void handleCheck() }, [handleCheck])
 
   const handleUpdate = useCallback(async () => {
-    if (!release?.downloadUrl) return
+    if (!release?.downloadUrl) {
+      setRelease(prev => prev ? { ...prev, error: 'URL de téléchargement introuvable. Vérifiez que le fichier prism-desktop-win.zip est bien attaché à la release GitHub.' } : prev)
+      return
+    }
+    setStatus({ phase: 'downloading', progress: 0, label: 'Connexion…' })
     const result = await window.electron?.installUpdate?.(release.downloadUrl) as { ok: boolean; error?: string } | undefined
     if (result && !result.ok) {
       setRelease(prev => prev ? { ...prev, error: result.error } : prev)
