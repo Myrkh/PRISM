@@ -5,6 +5,51 @@
 
 ---
 
+## Processus de release (V1 — en production)
+
+### Deux produits, deux tags
+
+| Produit | Tag | Workflow déclenché | Artefact produit |
+|---|---|---|---|
+| PRISM Desktop (backend + frontend) | `prism-v*` | `build-prism.yml` | `prism-desktop-win.zip` |
+| PRISM Launcher (Electron) | `launcher-v*` | `build-launcher.yml` | installeur `.exe` |
+
+### Publier une nouvelle version de PRISM
+
+```bash
+# Depuis la branche main, après avoir mergé les changements
+git tag prism-v0.2.0
+git push origin prism-v0.2.0
+```
+
+1. GitHub Actions build le backend (PyInstaller) + frontend (Vite)
+2. Crée `prism-desktop-win.zip` et l'attache à la GitHub Release
+3. Le Launcher installé chez le client détecte automatiquement la nouvelle version au démarrage
+4. L'utilisateur clique "Mettre à jour" → téléchargement + extraction automatique
+
+### Publier une nouvelle version du Launcher
+
+```bash
+git tag launcher-v1.0.2
+git push origin launcher-v1.0.2
+```
+
+1. GitHub Actions build l'Electron app
+2. Crée l'installeur `.exe` et l'attache à la GitHub Release
+3. **Mise à jour manuelle** : l'utilisateur réinstalle par-dessus (données conservées dans AppData)
+4. *(Auto-update du Launcher prévu en V1.1 via `electron-updater`)*
+
+### Convention de nommage des tags
+
+```
+prism-v{MAJOR}.{MINOR}.{PATCH}    ex: prism-v1.0.0
+launcher-v{MAJOR}.{MINOR}.{PATCH} ex: launcher-v1.2.0
+```
+
+Les deux tags coexistent dans l'onglet Releases de GitHub — le Launcher filtre automatiquement l'asset `prism-desktop-win.zip`.
+
+---
+
 ## État des lieux V1 (Production)
 
 ### Ce qui est implémenté
@@ -387,6 +432,187 @@ Avec l'Option C, le champ `seats` de la licence prend tout son sens :
 - `seats: 5` → le launcher autorise jusqu'à 5 installations actives
 - La vérification se fait localement sur chaque PC (pas de comptage centralisé en V1)
 - En V2, un système de "activation" par machine (machine fingerprint) pourrait limiter strictement le nombre de PCs
+
+---
+
+## Phase 2 — Déploiement entreprise
+
+> À implémenter lors de la commercialisation à des équipes de 5+ personnes.
+
+### Contexte
+
+En V1, chaque installation est autonome (Option C). C'est simple et ça fonctionne pour une petite équipe.
+Dès qu'une entreprise cliente veut gérer ses utilisateurs de manière centralisée, il faut passer en Phase 2.
+
+### Ce que veut le client entreprise
+
+- Un admin IT installe PRISM sur 10 PCs et configure les comptes **une seule fois**
+- Les employés ouvrent le Launcher → ils se connectent avec leur email entreprise → accès immédiat
+- Si un employé quitte l'entreprise, l'admin désactive son compte → bloqué sur tous les PCs
+- Un seul fichier de licence partagé sur le réseau interne
+
+### Option B — Export / Import de configuration (recommandée V2)
+
+**Principe** : l'admin génère un fichier `config.prism-setup` chiffré depuis son Launcher, le distribue une fois sur les PCs clients (clé USB, réseau, email).
+
+```
+PC Admin
+→ Panneau Admin → "Exporter configuration"
+→ Choisir : utilisateurs à inclure + licence
+→ Génère config.prism-setup (AES-256 chiffré, clé dérivée du domaine entreprise)
+
+PC Collègue (premier lancement)
+→ SetupScreen → "Importer une configuration"
+→ Sélectionne config.prism-setup
+→ Comptes recréés localement (hash des mots de passe inclus)
+→ Accès normal immédiat
+```
+
+**Ce qu'il faut implémenter :**
+- `electron/export.js` : sérialise `users.db` + licence → JSON → chiffrement AES-256 → fichier `.prism-setup`
+- `electron/import.js` : déchiffre → recrée les entrées dans `users.db` locale
+- UI dans `SettingsView` : bouton "Exporter configuration" (admin uniquement)
+- UI dans `SetupScreen` : bouton alternatif "Importer une configuration"
+- IPC : `config:export` / `config:import`
+
+**Limite** : si l'admin ajoute un utilisateur après la distribution initiale, il faut re-exporter et re-distribuer. Acceptable pour des équipes stables.
+
+### Option D — Auth centralisée Supabase (recommandée pour grandes équipes, V3)
+
+Pour les organisations avec un IT structuré, remplacer la `users.db` locale par une auth Supabase.
+
+```
+Admin → dashboard Supabase → crée/désactive comptes
+Launcher → login → appel Supabase Auth → token JWT → accès
+```
+
+**Avantages :**
+- Gestion centralisée réelle (un compte, N PCs)
+- Révocation instantanée
+- Audit log centralisé
+- SSO possible (SAML, OIDC, Google Workspace, Microsoft Entra)
+
+**Contraintes :**
+- Nécessite une connexion internet au login (pas 100% offline)
+- Coût Supabase selon le nombre d'utilisateurs actifs
+- Refactoring auth complet (supprimer `users.db` local ou mode hybride)
+
+**Mode hybride possible :** Supabase pour l'auth + cache local du token JWT (offline pendant 8h).
+
+### Recommandation selon la taille du client
+
+| Taille | Approche | Version |
+|---|---|---|
+| 1–4 postes | Option C — autonome (actuel) | V1 ✅ |
+| 5–20 postes | Option B — export/import config | V2 |
+| 20+ postes | Option D — Supabase centralisé | V3 |
+| Enterprise avec AD | Option D + SSO SAML/OIDC | V3+ |
+
+### Fingerprint machine (contrôle des sièges, V2)
+
+En V1, `seats: 5` dans la licence n'est pas vérifié strictement — chaque PC fait confiance à sa propre base locale.
+
+En V2, ajouter un **machine fingerprint** basé sur :
+- UUID machine Windows (`wmic csproduct get uuid`)
+- Nom d'hôte + adresse MAC
+
+Le fingerprint est envoyé au moment de l'activation de licence et stocké. Si le nombre de fingerprints uniques dépasse `seats`, l'activation est refusée.
+
+```js
+// electron/fingerprint.js
+const { execSync } = require('child_process')
+function getMachineId() {
+  const uuid = execSync('wmic csproduct get uuid').toString().split('\n')[1].trim()
+  return require('crypto').createHash('sha256').update(uuid).digest('hex').slice(0, 16)
+}
+```
+
+---
+
+## Gestion des données — Supabase Cloud vs Self-hosted
+
+### Architecture actuelle (V1)
+
+Les données métier (projets, SIF, campagnes, proof tests, audit log) sont stockées sur **Supabase Cloud** (supabase.io).
+
+```
+App PRISM (frontend Vite)
+    │
+    ▼
+Supabase Cloud (supabase.io)
+    ├─ Auth (utilisateurs Supabase)
+    ├─ PostgreSQL (projets, SIF, campagnes…)
+    └─ Storage (PDF, artefacts)
+```
+
+- Avantage : zéro infrastructure à gérer, gratuit jusqu'à ~500 MB et 50k requêtes/mois
+- Limite : données hébergées chez Supabase (USA/EU), pas acceptable pour certaines industries (défense, nucléaire, santé)
+
+### Version Entreprise — Supabase Self-hosted (Docker)
+
+**C'est la recommandation pro.** Même API, même code, zéro refactoring — seule l'URL change.
+
+```
+App PRISM (même code)
+    │
+    ▼
+Supabase Self-hosted (serveur interne client)
+    ├─ Docker Compose (supabase/supabase)
+    ├─ PostgreSQL local
+    ├─ Auth local
+    └─ Storage local
+```
+
+**Ce que le client installe sur son serveur :**
+```bash
+git clone --depth=1 https://github.com/supabase/supabase
+cd supabase/docker
+cp .env.example .env
+# Modifier .env : POSTGRES_PASSWORD, JWT_SECRET, ANON_KEY, SERVICE_ROLE_KEY
+docker compose up -d
+```
+
+**Ce qui change dans PRISM :**
+```env
+# Version cloud (actuel)
+VITE_SUPABASE_URL=https://xxxxx.supabase.co
+VITE_SUPABASE_ANON_KEY=eyJ...
+
+# Version self-hosted (entreprise)
+VITE_SUPABASE_URL=http://192.168.1.100:8000   ← IP du serveur interne
+VITE_SUPABASE_ANON_KEY=eyJ...                 ← clé générée localement
+```
+
+Le build GitHub Actions passera ces variables comme secrets → le ZIP produit sera pré-configuré pour pointer sur le Supabase du client.
+
+### Comparatif
+
+| | Cloud (V1) | Self-hosted (Entreprise) |
+|---|---|---|
+| Infrastructure | Aucune | Serveur Linux (4 Go RAM min) |
+| Données | Chez Supabase | Chez le client |
+| Offline | Non | Oui (réseau interne) |
+| Coût récurrent | Gratuit / ~$25/mois | Serveur interne uniquement |
+| Conformité (ISO, RGPD strict) | Limitée | Totale |
+| Migration cloud → self-hosted | Export PostgreSQL standard | ✅ |
+| Refactoring code PRISM | Aucun | Aucun |
+
+### Recommandation par contexte client
+
+| Client | Solution données |
+|---|---|
+| PME, usage standard | Supabase Cloud (actuel) |
+| Industrie réglementée (nucléaire, défense, santé) | Supabase Self-hosted |
+| Client sans IT / sans serveur | Cloud avec région EU (`supabase.co` EU West) |
+| Client avec serveur IT existant | Self-hosted Docker |
+
+### Processus de livraison entreprise (self-hosted)
+
+1. Client installe Supabase sur son serveur (guide fourni)
+2. Client communique son `SUPABASE_URL` et `ANON_KEY`
+3. PRISM Engineering déclenche un build dédié avec ces variables
+4. Le ZIP `prism-desktop-win.zip` généré est pré-configuré pour ce client
+5. Distribuer via le Launcher → onglet Updates → télécharge et installe
 
 ---
 
