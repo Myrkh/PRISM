@@ -262,35 +262,51 @@ ipcMain.handle('update:check', async () => {
 // Télécharger + installer une mise à jour
 const ALLOWED_DOWNLOAD_PREFIX = 'https://github.com/Myrkh/PRISM/releases/download/'
 
+function downloadFile(url, destPath, onProgress) {
+  return new Promise((resolve, reject) => {
+    const file = fs.createWriteStream(destPath)
+    const request = (reqUrl) => {
+      https.get(reqUrl, { headers: { 'User-Agent': 'PRISM-Launcher/1.0.0' } }, res => {
+        // Suivre les redirects (GitHub redirige les assets vers CDN)
+        if (res.statusCode === 301 || res.statusCode === 302 || res.statusCode === 307 || res.statusCode === 308) {
+          res.resume()
+          return request(res.headers.location)
+        }
+        if (res.statusCode !== 200) {
+          file.close()
+          reject(new Error(`Erreur HTTP ${res.statusCode}`))
+          return
+        }
+        const total = parseInt(res.headers['content-length'] ?? '0', 10)
+        let received = 0
+        res.on('data', chunk => {
+          received += chunk.length
+          file.write(chunk)
+          if (total > 0) onProgress(received / total)
+        })
+        res.on('end', () => { file.end(); resolve() })
+        res.on('error', reject)
+      }).on('error', reject)
+    }
+    request(url)
+  })
+}
+
 ipcMain.handle('update:install', async (event, downloadUrl) => {
   if (typeof downloadUrl !== 'string' || !downloadUrl.startsWith(ALLOWED_DOWNLOAD_PREFIX)) {
     return { ok: false, error: 'URL de téléchargement non autorisée.' }
   }
-  // Télécharge dans un fichier temp, extrait dans le dossier PRISM
-  // Le renderer reçoit les événements de progression via mainWindow.webContents.send
   const tmpZip = path.join(app.getPath('temp'), 'prism-update.zip')
 
-  return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(tmpZip)
-    https.get(downloadUrl, { headers: { 'User-Agent': 'PRISM-Launcher/1.0.0' } }, res => {
-      const total = parseInt(res.headers['content-length'] ?? '0', 10)
-      let received = 0
-
-      res.on('data', chunk => {
-        received += chunk.length
-        file.write(chunk)
-        if (total > 0) {
-          mainWindow?.webContents.send('update:progress', {
-            phase:    'downloading',
-            progress: (received / total) * 100,
-            label:    'Téléchargement…',
-          })
-        }
+  return new Promise((resolve) => {
+    downloadFile(downloadUrl, tmpZip, (ratio) => {
+      mainWindow?.webContents.send('update:progress', {
+        phase:    'downloading',
+        progress: ratio * 100,
+        label:    'Téléchargement…',
       })
-
-      res.on('end', () => {
-        file.end()
-        mainWindow?.webContents.send('update:progress', { phase: 'installing', progress: 50 })
+    }).then(() => {
+      mainWindow?.webContents.send('update:progress', { phase: 'installing', progress: 50, label: 'Installation…' })
 
         // Extraction avec PowerShell (Windows natif, pas de dépendance)
         const installDir = getPrismInstallDir()
@@ -306,8 +322,7 @@ ipcMain.handle('update:install', async (event, downloadUrl) => {
             resolve({ ok: true })
           }
         })
-      })
-    }).on('error', err => resolve({ ok: false, error: err.message }))
+    }).catch(err => resolve({ ok: false, error: err.message }))
   })
 })
 
