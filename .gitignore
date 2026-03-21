@@ -6,6 +6,9 @@ dist/
 
 # Python
 __pycache__/
+backend/frontend/
+backend/public/
+release/
 *.pyc
 .venv/
 .mypy_cache/
