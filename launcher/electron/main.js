@@ -218,9 +218,11 @@ ipcMain.handle('prism:openDataDir', async () => {
 // Vérifier les mises à jour (GitHub API)
 ipcMain.handle('update:check', async () => {
   return new Promise((resolve) => {
+    // On liste les releases pour trouver la dernière avec prism-desktop-win.zip
+    // (évite le problème si la release launcher-v* est plus récente que prism-v*)
     const options = {
       hostname: 'api.github.com',
-      path:     `/repos/${PRISM_GITHUB_REPO}/releases/latest`,
+      path:     `/repos/${PRISM_GITHUB_REPO}/releases?per_page=20`,
       headers:  { 'User-Agent': 'PRISM-Launcher/1.0.0' },
     }
     const req = https.get(options, res => {
@@ -228,14 +230,19 @@ ipcMain.handle('update:check', async () => {
       res.on('data', chunk => (data += chunk))
       res.on('end', () => {
         try {
-          const release = JSON.parse(data)
-          const asset   = release.assets?.find(a => a.name === PRISM_ASSET_NAME)
+          const releases = JSON.parse(data)
+          const release  = releases.find(r => r.assets?.some(a => a.name === PRISM_ASSET_NAME))
+          if (!release) {
+            resolve({ error: 'Aucune release PRISM trouvée sur GitHub.' })
+            return
+          }
+          const asset = release.assets.find(a => a.name === PRISM_ASSET_NAME)
           resolve({
             tag:         release.tag_name,
             name:        release.name,
             publishedAt: release.published_at,
-            downloadUrl: asset?.browser_download_url ?? null,
-            size:        asset ? Math.round(asset.size / 1024 / 1024) + ' Mo' : '—',
+            downloadUrl: asset.browser_download_url,
+            size:        Math.round(asset.size / 1024 / 1024) + ' Mo',
             body:        release.body ?? '',
           })
         } catch {
