@@ -2,6 +2,11 @@
   "name": "prism-launcher",
   "version": "1.0.0",
   "description": "PRISM Desktop Launcher",
+  "author": "PRISM Engineering",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Myrkh/PRISM.git"
+  },
   "main": "electron/main.js",
   "private": true,
   "scripts": {
