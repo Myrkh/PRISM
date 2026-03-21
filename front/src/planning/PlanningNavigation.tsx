@@ -171,7 +171,7 @@ export function PlanningNavigationProvider({ children }: { children: ReactNode }
         ;(sif.testCampaigns ?? []).forEach(campaign => {
           const planningMeta = parsePlanningMeta(
             campaign.procedureSnapshot && typeof campaign.procedureSnapshot === 'object'
-              ? (campaign.procedureSnapshot as Record<string, unknown>).planningMeta
+              ? (campaign.procedureSnapshot as unknown as Record<string, unknown>).planningMeta
               : null,
           )
           const startDate = campaign.date
@@ -215,7 +215,7 @@ export function PlanningNavigationProvider({ children }: { children: ReactNode }
         if (sif.status === 'archived') return
 
         const settings = loadSIFAnalysisSettings(sif.id)
-        const periodicity = settings?.general?.periodicityMonths ?? 12
+        const periodicity = (settings?.general as Record<string, unknown> | undefined)?.periodicityMonths as number ?? 12
         const sorted = [...(sif.testCampaigns ?? [])].sort(
           (left, right) => new Date(right.date).getTime() - new Date(left.date).getTime(),
         )

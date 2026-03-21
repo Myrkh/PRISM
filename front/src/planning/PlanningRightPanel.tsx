@@ -285,7 +285,7 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
           witnessedBy: '',
           reviewedBy: '',
           processLoad: '',
-        } as TestCampaign
+        } as unknown as TestCampaign
 
         await addTestCampaign(project.id, sif.id, payload)
       }
