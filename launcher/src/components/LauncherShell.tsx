@@ -55,6 +55,18 @@ export function LauncherShell({ t, user, sessionToken, onLogout, onToggleTheme }
   const running   = useBackendRunning()   // PRISM déjà lancé → glow
   const installed = usePrismInstalled()   // PRISM installé → bouton actif
   const ready     = running               // alias pour compatibilité composants enfants
+  const [installedPrismVersion, setInstalledPrismVersion] = useState<string | null>(null)
+  const [launchError, setLaunchError] = useState<string | null>(null)
+
+  useEffect(() => {
+    window.electron?.getVersions?.().then(v => setInstalledPrismVersion(v.prism)).catch(() => {})
+  }, [installed])
+
+  const handleLaunch = async () => {
+    setLaunchError(null)
+    const result = await window.electron?.launchPrism?.() as { ok: boolean; error?: string } | undefined
+    if (result && !result.ok) setLaunchError(result.error ?? 'Erreur inconnue')
+  }
 
   // Ctrl+L → lancer PRISM
   useEffect(() => {
@@ -66,7 +78,7 @@ export function LauncherShell({ t, user, sessionToken, onLogout, onToggleTheme }
     }
     window.addEventListener('keydown', handler)
     return () => window.removeEventListener('keydown', handler)
-  }, [])
+  }, [handleLaunch])
 
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
@@ -77,6 +89,8 @@ export function LauncherShell({ t, user, sessionToken, onLogout, onToggleTheme }
         user={currentUser}
         ready={ready}
         installed={installed}
+        launchError={launchError}
+        onLaunch={handleLaunch}
         onView={setView}
         onLogout={onLogout}
         onToggleTheme={onToggleTheme}
@@ -86,7 +100,7 @@ export function LauncherShell({ t, user, sessionToken, onLogout, onToggleTheme }
       <div className="flex flex-1 overflow-hidden" style={{ background: t.PAGE_BG }}>
         {view === 'home'     && <HomeView     t={t} ready={ready} />}
         {view === 'library'  && <LibraryView  t={t} />}
-        {view === 'updates'  && <UpdatesView  t={t} />}
+        {view === 'updates'  && <UpdatesView  t={t} installedVersion={installedPrismVersion} />}
         {view === 'settings' && <SettingsView t={t} onToggleTheme={onToggleTheme} />}
         {view === 'admin'    && <AdminView    t={t} user={currentUser} sessionToken={sessionToken} />}
       </div>

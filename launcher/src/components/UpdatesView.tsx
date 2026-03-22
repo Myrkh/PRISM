@@ -454,7 +454,7 @@ function ReleaseEntry({ release, isLatest, t, s }: { release: ReleaseHistoryEntr
 
 // ── Main ──────────────────────────────────────────────────────────────────────
 
-export function UpdatesView({ t }: { t: ThemeTokens }) {
+export function UpdatesView({ t, installedVersion }: { t: ThemeTokens; installedVersion: string | null }) {
   const s = useLocaleStrings(getLauncherStrings)
   const [status,   setStatus]   = useState<InstallStatus>({ phase: 'idle' })
   const [checking, setChecking] = useState(false)
@@ -500,7 +500,11 @@ export function UpdatesView({ t }: { t: ThemeTokens }) {
     }
   }, [release])
 
-  const showAvailable = release && !release.error && status.phase !== 'downloading' && status.phase !== 'installing' && status.phase !== 'done' && status.phase !== 'checking'
+  // Comparer le tag GitHub (ex: "prism-v0.1.3") avec la version installée (ex: "prism-v0.1.3")
+  const isUpToDate = release && installedVersion && release.tag === installedVersion
+  const showAvailable = release && !release.error && !isUpToDate
+    && status.phase !== 'downloading' && status.phase !== 'installing'
+    && status.phase !== 'done' && status.phase !== 'checking'
 
   return (
     <div className="flex flex-1 overflow-hidden" style={{ background: t.PAGE_BG }}>

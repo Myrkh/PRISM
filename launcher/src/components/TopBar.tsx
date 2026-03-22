@@ -20,15 +20,17 @@ interface TopBarProps {
   t:             ThemeTokens
   view:          LauncherView
   user:          AuthUser
-  ready:         boolean   // PRISM déjà en train de tourner → glow
-  installed:     boolean   // PRISM installé → bouton actif
+  ready:         boolean
+  installed:     boolean
+  launchError:   string | null
+  onLaunch:      () => void
   onView:        (v: LauncherView) => void
   onLogout:      () => void
   onToggleTheme: () => void
   onUpdate:      (u: Partial<AuthUser>) => void
 }
 
-export function TopBar({ t, view, user, ready, installed, onView, onLogout, onToggleTheme, onUpdate }: TopBarProps) {
+export function TopBar({ t, view, user, ready, installed, launchError, onLaunch, onView, onLogout, onToggleTheme, onUpdate }: TopBarProps) {
   const s = useLocaleStrings(getLauncherStrings)
   const [locale] = useLocale()
 
@@ -135,7 +137,8 @@ export function TopBar({ t, view, user, ready, installed, onView, onLogout, onTo
         <button
           type="button"
           disabled={!installed}
-          onClick={() => window.electron?.launchPrism?.()}
+          onClick={onLaunch}
+          title={launchError ?? undefined}
           className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 ${ready ? 'launch-glow' : ''}`}
           style={{
             background: ready
