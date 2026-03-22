@@ -181,15 +181,27 @@ function openPrismWindow() {
     height:   900,
     minWidth: 1024,
     minHeight: 600,
+    frame:    false,   // Frameless — le header PRISM fait office de titlebar
     icon:     path.join(__dirname, '../public/logo.png'),
     title:    'PRISM',
     webPreferences: {
       nodeIntegration:  false,
       contextIsolation: true,
       webSecurity:      true,
+      preload:          path.join(__dirname, 'preload-prism.js'),
     },
   })
   prismWindow.setMenuBarVisibility(false)
+
+  // Handlers de contrôle fenêtre pour le frontend PRISM
+  ipcMain.removeHandler('prism-win:minimize')
+  ipcMain.removeHandler('prism-win:maximize')
+  ipcMain.removeHandler('prism-win:close')
+  ipcMain.handle('prism-win:minimize', () => prismWindow?.minimize())
+  ipcMain.handle('prism-win:maximize', () => {
+    prismWindow?.isMaximized() ? prismWindow.unmaximize() : prismWindow?.maximize()
+  })
+  ipcMain.handle('prism-win:close', () => prismWindow?.close())
   prismWindow.loadURL('http://localhost:8000')
   prismWindow.on('closed', () => { prismWindow = null })
 }

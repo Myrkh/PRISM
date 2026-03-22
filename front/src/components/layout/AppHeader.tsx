@@ -2,7 +2,10 @@
  * AppHeader.tsx — PRISM v3 (refactored)
  */
 import { useRef, useState, useEffect } from 'react'
-import { LogOut, Moon, Settings, Sun, ChevronRight } from 'lucide-react'
+import { LogOut, Moon, Settings, Sun, ChevronRight, Minus, Square, X } from 'lucide-react'
+
+// Détection mode desktop Electron (fenêtre PRISM frameless)
+const isDesktop = typeof window !== 'undefined' && !!(window as { prismDesktop?: { isDesktop?: boolean } }).prismDesktop?.isDesktop
 import { Button } from '@/components/ui/button'
 import { useLocaleStrings } from '@/i18n/useLocale'
 import { getShellStrings } from '@/i18n/shell'
@@ -107,6 +110,8 @@ export function AppHeader() {
         background: RAIL_BG,
         borderColor: BORDER,
         boxShadow: `${SHADOW_TAB}, inset 0 1px 0 ${themeIsDark ? 'rgba(255,255,255,0.085)' : 'rgba(255,255,255,0.92)'}, inset 0 -1px 0 ${themeIsDark ? 'rgba(0,0,0,0.28)' : 'rgba(15,23,42,0.06)'}`,
+        // En mode desktop : toute la barre est draggable
+        ...(isDesktop && { WebkitAppRegion: 'drag' } as React.CSSProperties),
       }}
     >
       <div
@@ -114,6 +119,7 @@ export function AppHeader() {
         style={{
           borderColor: BORDER,
           boxShadow: `inset -1px 0 0 ${themeIsDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.82)'}, inset 0 1px 0 ${themeIsDark ? 'rgba(255,255,255,0.04)' : 'transparent'}`,
+          ...(isDesktop && { WebkitAppRegion: 'no-drag' } as React.CSSProperties),
         }}
       >
         <button
@@ -129,7 +135,10 @@ export function AppHeader() {
 
       <div className="flex min-w-0 items-center px-5">{breadcrumb}</div>
 
-      <div className="flex items-center gap-1.5 px-3">
+      <div
+        className="flex items-center gap-1.5 px-3"
+        style={isDesktop ? { WebkitAppRegion: 'no-drag' } as React.CSSProperties : undefined}
+      >
         <CommandPalette
           onOpenSettings={() => navigate({ type: 'settings', section: 'general' })}
           onOpenDocs={() => navigate({ type: 'docs' })}
@@ -226,6 +235,35 @@ export function AppHeader() {
             </div>
           )}
         </div>
+
+        {/* Boutons de contrôle fenêtre — desktop uniquement */}
+        {isDesktop && (
+          <div className="ml-2 flex items-center" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
+            {[
+              { icon: Minus, action: 'minimize', hover: themeIsDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
+              { icon: Square, action: 'maximize', hover: themeIsDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
+              { icon: X, action: 'close', hover: '#e81123' },
+            ].map(({ icon: Icon, action, hover }) => (
+              <button
+                key={action}
+                type="button"
+                className="flex h-12 w-11 items-center justify-center transition-colors"
+                style={{ color: TEXT_DIM }}
+                onMouseEnter={e => {
+                  e.currentTarget.style.background = hover
+                  if (action === 'close') e.currentTarget.style.color = '#fff'
+                }}
+                onMouseLeave={e => {
+                  e.currentTarget.style.background = 'transparent'
+                  e.currentTarget.style.color = TEXT_DIM
+                }}
+                onClick={() => (window as { prismDesktop?: Record<string, () => void> }).prismDesktop?.[action]?.()}
+              >
+                <Icon size={11} strokeWidth={1.5} />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </header>
   )
