@@ -10,17 +10,21 @@ uvicorn_datas, uvicorn_binaries, uvicorn_hiddenimports = collect_all('uvicorn')
 # Collecter anyio (backend async d'uvicorn)
 anyio_datas, anyio_binaries, anyio_hiddenimports = collect_all('anyio')
 
+# Collecter Pillow (requis par reportlab pour le rendu d'images)
+pil_datas, pil_binaries, pil_hiddenimports = collect_all('PIL')
+
 block_cipher = None
 
 a = Analysis(
     ['main.py'],
     pathex=['.'],
-    binaries=uvicorn_binaries + anyio_binaries,
+    binaries=uvicorn_binaries + anyio_binaries + pil_binaries,
     datas=[
         # Frontend buildé (copié dans backend/frontend/ par le CI)
         ('frontend', 'frontend'),
         *uvicorn_datas,
         *anyio_datas,
+        *pil_datas,
     ],
     hiddenimports=[
         # FastAPI / Starlette
@@ -46,13 +50,12 @@ a = Analysis(
         'reportlab',
         *collect_submodules('reportlab'),
         # Pillow (requis par reportlab)
-        'PIL',
-        *collect_submodules('PIL'),
+        *pil_hiddenimports,
     ],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['tkinter', 'matplotlib', 'PIL', 'cv2'],
+    excludes=['tkinter', 'matplotlib', 'cv2'],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,

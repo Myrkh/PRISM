@@ -16,6 +16,7 @@ contextBridge.exposeInMainWorld('electron', {
   launchPrism:     () => ipcRenderer.invoke('prism:launch'),
   openDataDir:     () => ipcRenderer.invoke('prism:openDataDir'),
   isPrismInstalled: () => ipcRenderer.invoke('prism:isInstalled'),
+  getVersions:      () => ipcRenderer.invoke('prism:versions'),
 
   // Updates
   checkUpdate:   ()      => ipcRenderer.invoke('update:check'),

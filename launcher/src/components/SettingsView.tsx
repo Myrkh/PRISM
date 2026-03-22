@@ -3,7 +3,7 @@
  * Préférences du launcher.
  */
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Sun, Moon, Folder, Shield, ExternalLink, Server, Database, Palette, Info } from 'lucide-react'
 import { colors, semantic, alpha } from '../tokens'
 import type { ThemeTokens } from '../hooks/useTheme'
@@ -115,8 +115,13 @@ export function SettingsView({ t, onToggleTheme }: { t: ThemeTokens; onToggleThe
   const [autoStart, setAutoStart] = useState(true)
   const [autoUpdate, setAutoUpdate] = useState(false)
   const [telemetry, setTelemetry]  = useState(false)
+  const [versions, setVersions] = useState<{ launcher: string; prism: string | null }>({ launcher: '…', prism: null })
   const s = useLocaleStrings(getLauncherStrings)
   const [locale] = useLocale()
+
+  useEffect(() => {
+    window.electron?.getVersions?.().then(setVersions).catch(() => {})
+  }, [])
 
   const LOCALES: { value: AppLocale; label: string }[] = [
     { value: 'fr', label: s.settings.language.fr },
@@ -219,10 +224,10 @@ export function SettingsView({ t, onToggleTheme }: { t: ThemeTokens; onToggleThe
         {/* À propos */}
         <Section title={s.settings.sections.about} Icon={Info} t={t}>
           <Row label={s.settings.about.desktop} t={t}>
-            <Badge value="v3.0.2" t={t} />
+            <Badge value={versions.prism ? `v${versions.prism}` : '—'} t={t} />
           </Row>
           <Row label={s.settings.about.launcher} t={t}>
-            <Badge value="v1.0.0" t={t} />
+            <Badge value={`v${versions.launcher}`} t={t} />
           </Row>
           <Row label={s.settings.about.standard} hint={s.settings.about.standardHint} t={t}>
             <div

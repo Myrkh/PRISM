@@ -134,6 +134,19 @@ ipcMain.handle('win:close',     () => mainWindow?.close())
 
 ipcMain.handle('prism:isInstalled', () => isPrismInstalled())
 
+ipcMain.handle('prism:versions', () => {
+  const launcherVersion = app.getVersion()
+  let prismVersion = null
+  try {
+    const versionFile = path.join(getPrismInstallDir(), 'version.json')
+    if (fs.existsSync(versionFile)) {
+      const data = JSON.parse(fs.readFileSync(versionFile, 'utf8'))
+      prismVersion = data.version ?? null
+    }
+  } catch { /* pas de version.json */ }
+  return { launcher: launcherVersion, prism: prismVersion }
+})
+
 // ── Helpers PRISM ──────────────────────────────────────────────────────────
 
 function waitForPrismBackend(timeoutMs = 30000) {
@@ -237,19 +250,29 @@ ipcMain.handle('update:check', async () => {
             resolve({ error: parsed?.message ?? 'Réponse GitHub inattendue.' })
             return
           }
-          const release = parsed.find(r => r.assets?.some(a => a.name === PRISM_ASSET_NAME))
-          if (!release) {
+          // Toutes les releases PRISM (avec prism-desktop-win.zip)
+          const prismReleases = parsed.filter(r => r.assets?.some(a => a.name === PRISM_ASSET_NAME))
+          if (!prismReleases.length) {
             resolve({ error: 'Aucune release PRISM trouvée sur GitHub.' })
             return
           }
-          const asset = release.assets.find(a => a.name === PRISM_ASSET_NAME)
+          // La plus récente = latest
+          const latest = prismReleases[0]
+          const asset  = latest.assets.find(a => a.name === PRISM_ASSET_NAME)
           resolve({
-            tag:         release.tag_name,
-            name:        release.name,
-            publishedAt: release.published_at,
+            tag:         latest.tag_name,
+            name:        latest.name,
+            publishedAt: latest.published_at,
             downloadUrl: asset.browser_download_url,
             size:        Math.round(asset.size / 1024 / 1024) + ' Mo',
-            body:        release.body ?? '',
+            body:        latest.body ?? '',
+            // Historique complet pour le changelog
+            history: prismReleases.map(r => ({
+              tag:         r.tag_name,
+              name:        r.name,
+              publishedAt: r.published_at,
+              body:        r.body ?? '',
+            })),
           })
         } catch (e) {
           resolve({ error: 'Impossible de parser la réponse GitHub : ' + e.message })

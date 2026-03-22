@@ -18,6 +18,13 @@ import type { LauncherStrings } from '../i18n/launcher'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface ReleaseHistoryEntry {
+  tag: string
+  name: string
+  publishedAt: string
+  body: string
+}
+
 interface GithubRelease {
   tag: string
   name: string
@@ -25,6 +32,7 @@ interface GithubRelease {
   downloadUrl: string | null
   size: string
   body: string
+  history?: ReleaseHistoryEntry[]
   error?: string
 }
 
@@ -373,8 +381,8 @@ function UpdateAvailableCard({ release, onUpdate, t, s, scheduleOpen, setSchedul
 
 // ── Right column — changelog ──────────────────────────────────────────────────
 
-function ReleaseEntry({ release, t, s }: { release: GithubRelease; t: ThemeTokens; s: LauncherStrings }) {
-  const [open, setOpen] = useState(true)
+function ReleaseEntry({ release, isLatest, t, s }: { release: ReleaseHistoryEntry; isLatest: boolean; t: ThemeTokens; s: LauncherStrings }) {
+  const [open, setOpen] = useState(isLatest)
   const notes = release.body
     ? release.body.split('\n').map(l => l.replace(/^[-*]\s*/, '').trim()).filter(Boolean)
     : []
@@ -382,7 +390,10 @@ function ReleaseEntry({ release, t, s }: { release: GithubRelease; t: ThemeToken
   return (
     <div
       className="overflow-hidden rounded-xl border transition-all"
-      style={{ borderColor: alpha(colors.teal, '28'), background: alpha(colors.teal, '03') }}
+      style={{
+        borderColor: isLatest ? alpha(colors.teal, '28') : t.BORDER,
+        background: isLatest ? alpha(colors.teal, '03') : t.CARD_BG,
+      }}
     >
       <button
         type="button"
@@ -394,12 +405,14 @@ function ReleaseEntry({ release, t, s }: { release: GithubRelease; t: ThemeToken
         <div className="flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <span className="text-[12px] font-bold" style={{ color: t.TEXT }}>{release.name || release.tag}</span>
-            <span
-              className="rounded-full border px-2 py-0.5 text-[8px] font-black tracking-wider"
-              style={{ background: alpha(colors.teal, '12'), borderColor: alpha(colors.teal, '28'), color: colors.teal }}
-            >
-              {s.updates.installedBadge}
-            </span>
+            {isLatest && (
+              <span
+                className="rounded-full border px-2 py-0.5 text-[8px] font-black tracking-wider"
+                style={{ background: alpha(colors.teal, '12'), borderColor: alpha(colors.teal, '28'), color: colors.teal }}
+              >
+                {s.updates.installedBadge}
+              </span>
+            )}
           </div>
           <div className="mt-1 flex items-center gap-3">
             <span className="flex items-center gap-1 text-[9px]" style={{ color: t.TEXT_DIM }}>
@@ -408,9 +421,9 @@ function ReleaseEntry({ release, t, s }: { release: GithubRelease; t: ThemeToken
             <span className="flex items-center gap-1 text-[9px]" style={{ color: t.TEXT_DIM }}>
               <Calendar size={8} /> {release.publishedAt ? new Date(release.publishedAt).toLocaleDateString('fr-FR') : '—'}
             </span>
-            {release.size && (
+            {'size' in release && (release as GithubRelease).size && (
               <span className="flex items-center gap-1 text-[9px]" style={{ color: t.TEXT_DIM }}>
-                <Download size={8} /> {release.size}
+                <Download size={8} /> {(release as GithubRelease).size}
               </span>
             )}
           </div>
@@ -522,12 +535,12 @@ export function UpdatesView({ t }: { t: ThemeTokens }) {
             {s.updates.changelogLabel}
           </p>
           <div className="space-y-2">
-            {release && !release.error && (
-              <ReleaseEntry release={release} t={t} s={s} />
-            )}
+            {release && !release.error && (release.history ?? [release]).map((r, i) => (
+              <ReleaseEntry key={r.tag} release={r} isLatest={i === 0} t={t} s={s} />
+            ))}
             {!release && (
               <p className="text-[11px]" style={{ color: t.TEXT_DIM }}>
-                {checking ? s.updates.checkingBody : s.updates.noReleaseInfo ?? 'Vérifiez les mises à jour pour voir le changelog.'}
+                {checking ? s.updates.checkingBody : s.updates.noReleaseInfo}
               </p>
             )}
           </div>

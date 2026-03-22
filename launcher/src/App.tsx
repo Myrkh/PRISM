@@ -22,6 +22,7 @@ declare global {
       launchPrism:      () => void
       openDataDir:      () => void
       isPrismInstalled: () => Promise<boolean>
+      getVersions:      () => Promise<{ launcher: string; prism: string | null }>
       checkUpdate:   () => Promise<unknown>
       installUpdate: (url: string) => Promise<unknown>
       onProgress:    (cb: (d: unknown) => void) => void
