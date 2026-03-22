@@ -1,7 +1,6 @@
 import type { ElementType } from 'react'
 import {
   Activity,
-  Archive,
   ChevronDown,
   Cpu,
   GripVertical,
@@ -34,7 +33,7 @@ export const LIBRARY_SUBSYSTEM_META: Record<SubsystemType, { color: string; labe
 }
 
 export const LIBRARY_ORIGIN_STYLE: Record<LibraryOriginBadge, { label: string }> = {
-  builtin: { label: 'std' },
+  builtin: { label: 'PRISM' },
   project: { label: 'projet' },
   user: { label: 'perso' },
 }
@@ -135,7 +134,6 @@ export function LibraryTemplateCard({
   origin,
   expanded,
   onToggleDetails,
-  onArchive,
   onDelete,
   selected = false,
   onSelect,
@@ -145,7 +143,6 @@ export function LibraryTemplateCard({
   origin: LibraryOriginBadge
   expanded: boolean
   onToggleDetails: (id: string) => void
-  onArchive?: (id: string) => void
   onDelete?: (id: string) => void
   selected?: boolean
   onSelect?: () => void
@@ -230,23 +227,8 @@ export function LibraryTemplateCard({
         >
           {originStyle.label}
         </span>
-        {(onArchive || onDelete) && (
+        {onDelete && (
           <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-            {onArchive && (
-              <button
-                type="button"
-                draggable={false}
-                onClick={event => {
-                  event.stopPropagation()
-                  onArchive(template.id)
-                }}
-                className="rounded p-1 transition-colors hover:bg-amber-900/30"
-                style={{ color: '#FBBF24' }}
-                title="Archiver"
-              >
-                <Archive size={10} />
-              </button>
-            )}
             {onDelete && (
               <button
                 type="button"

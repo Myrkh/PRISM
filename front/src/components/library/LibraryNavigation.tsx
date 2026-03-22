@@ -8,11 +8,11 @@ import {
   type ReactNode,
 } from 'react'
 import type { ComponentTemplate, SubsystemType } from '@/core/types'
-import { getTemplateLibraryName, useComponentLibrary } from '@/features/library'
+import { getTemplateLibraryName, useComponentLibrary, useLibraryCollections, type LibraryCollection } from '@/features/library'
 import { useAppStore } from '@/store/appStore'
 import type { LibraryOriginBadge } from './LibraryTemplateCard'
 
-export type LibrarySourceScope = 'all' | LibraryOriginBadge
+export type LibrarySourceScope = 'all' | 'builtin' | 'custom' | 'project' | 'user'
 export type LibrarySubsystemScope = 'all' | SubsystemType
 export type LibraryCollectionScope = 'user' | 'project' | 'mixed'
 
@@ -26,7 +26,10 @@ export type LibraryNamedFilter = {
   label: string
   count: number
   scope: LibraryCollectionScope
+  color: string
 }
+
+export { type LibraryCollection }
 
 export type LibraryEditorState =
   | { kind: 'empty' }
@@ -63,7 +66,6 @@ type LibraryNavigationContextValue = {
   error: string | null
   fetchTemplates: () => Promise<void>
   importTemplates: ReturnType<typeof useComponentLibrary>['importTemplates']
-  archiveTemplate: ReturnType<typeof useComponentLibrary>['archiveTemplate']
   deleteTemplate: ReturnType<typeof useComponentLibrary>['deleteTemplate']
   clearError: (value: string | null) => void
   editorState: LibraryEditorState
@@ -80,6 +82,12 @@ type LibraryNavigationContextValue = {
   setProjectFilter: (value: string | null) => void
   setLibraryFilter: (value: string | null) => void
   clearFilters: () => void
+  // Collections (local, Supabase-ready)
+  collections: LibraryCollection[]
+  createCollection: (name: string) => boolean
+  renameCollection: (oldName: string, newName: string) => void
+  deleteCollection: (name: string) => void
+  setCollectionColor: (name: string, color: string) => void
 }
 
 const LibraryNavigationContext = createContext<LibraryNavigationContextValue | null>(null)
@@ -148,7 +156,10 @@ function filterEntries(
 
   return entries.filter(entry => {
     if (!matchesQuery(entry, needle)) return false
-    if (sourceScope !== 'all' && entry.origin !== sourceScope) return false
+    if (sourceScope === 'builtin' && entry.origin !== 'builtin') return false
+    if (sourceScope === 'custom' && entry.origin === 'builtin') return false
+    if (sourceScope === 'project' && entry.origin !== 'project') return false
+    if (sourceScope === 'user' && entry.origin !== 'user') return false
     if (subsystemScope !== 'all' && entry.template.subsystemType !== subsystemScope) return false
     if (projectFilter && entry.origin === 'project' && entry.template.projectId !== projectFilter) return false
     if (libraryFilter && getTemplateLibraryName(entry.template) !== libraryFilter) return false
@@ -157,11 +168,15 @@ function filterEntries(
 }
 
 function countByOrigin(entries: LibraryCatalogEntry[]): Record<LibrarySourceScope, number> {
+  const builtin = entries.filter(entry => entry.origin === 'builtin').length
+  const project = entries.filter(entry => entry.origin === 'project').length
+  const user = entries.filter(entry => entry.origin === 'user').length
   return {
     all: entries.length,
-    builtin: entries.filter(entry => entry.origin === 'builtin').length,
-    project: entries.filter(entry => entry.origin === 'project').length,
-    user: entries.filter(entry => entry.origin === 'user').length,
+    builtin,
+    custom: project + user,
+    project,
+    user,
   }
 }
 
@@ -172,6 +187,12 @@ function countBySubsystem(entries: LibraryCatalogEntry[]): Record<LibrarySubsyst
     logic: entries.filter(entry => entry.template.subsystemType === 'logic').length,
     actuator: entries.filter(entry => entry.template.subsystemType === 'actuator').length,
   }
+}
+
+function collectionDefaultColor(scope: LibraryCollectionScope): string {
+  if (scope === 'project') return '#F59E0B'
+  if (scope === 'user') return '#0284C7'
+  return '#64748B'
 }
 
 export function LibraryNavigationProvider({ children }: { children: ReactNode }) {
@@ -185,10 +206,10 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
     error,
     fetchTemplates,
     importTemplates,
-    archiveTemplate,
     deleteTemplate,
     clearError,
   } = useComponentLibrary(null)
+  const { collections, createCollection, renameCollection, deleteCollection, setCollectionColor } = useLibraryCollections()
 
   const [query, setQuery] = useState('')
   const [sourceScope, setSourceScope] = useState<LibrarySourceScope>('all')
@@ -324,18 +345,20 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
           : value.hasProject
             ? 'project'
             : 'user'
+        const savedCollection = collections.find(c => c.name === name)
         return {
           id: name,
           label: name,
           count: value.count,
           scope,
+          color: savedCollection?.color ?? collectionDefaultColor(scope),
         }
       })
       .sort((left, right) => {
         if (right.count != left.count) return right.count - left.count
         return left.label.localeCompare(right.label, 'fr', { sensitivity: 'base' })
       })
-  }, [libraryUniverse])
+  }, [collections, libraryUniverse])
 
   const clearFilters = () => {
     setSourceScope('all')
@@ -387,7 +410,6 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
     error,
     fetchTemplates,
     importTemplates,
-    archiveTemplate,
     deleteTemplate,
     clearError,
     editorState,
@@ -404,14 +426,21 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
     setProjectFilter,
     setLibraryFilter,
     clearFilters,
+    collections,
+    createCollection,
+    renameCollection,
+    deleteCollection,
+    setCollectionColor,
   }), [
     allEntries.length,
     allProjectTemplates,
-    archiveTemplate,
     builtinTemplates,
     clearEditor,
     clearError,
+    collections,
+    createCollection,
     deferredQuery,
+    deleteCollection,
     deleteTemplate,
     editorMode,
     editorSelection,
@@ -429,7 +458,9 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
     projectFilter,
     projectFilters,
     query,
+    renameCollection,
     selectedEntryKey,
+    setCollectionColor,
     setLibraryFilter,
     setProjectFilter,
     setQuery,

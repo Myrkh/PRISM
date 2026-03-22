@@ -82,6 +82,46 @@ Usage : contrat / résultats / traçabilité.
 Capture terminal propre du backend démarré avec `./scripts/dev-backend.sh`, plus éventuellement un test `curl /health`.
 Usage : chapitre `Démarrer le backend et comprendre la chaîne d’appel`.
 
+## Library
+
+18. `front-library-overview.png`
+Vue complète de l'espace Library : sidebar 3 sections (CATALOGUE PRISM / MA BIBLIOTHÈQUE / FAMILLE), panneau central avec 3 cartes par famille (border-top colorée), right panel fermé ou neutre.
+Usage : chapitre `Bibliothèque — Vue d'ensemble`.
+
+19. `front-library-sidebar.png`
+Sidebar Library complète avec toutes les sections dépliées : CATALOGUE PRISM (filtre Standards), MA BIBLIOTHÈQUE (Tout, Mes templates, lignes projet), section FAMILLE (Toutes / Capteur / Logique / Actionneur). Sans collections pour bien voir la structure de base.
+Usage : chapitre `Bibliothèque — Navigation`.
+
+20. `front-library-collections.png`
+Sidebar Library — section MA BIBLIOTHÈQUE avec au moins 2 collections créées et la palette de 9 couleurs ouverte sur l'une d'elles. Montre bien l'interaction rename (double-clic) et color-picker.
+Usage : chapitre `Bibliothèque — Collections`.
+
+21. `front-library-families.png`
+Panneau central Library avec les 3 cartes famille côte à côte (Capteurs en bleu, Logique en violet, Actionneurs en orange), chaque carte contenant 2–3 templates. La border-top colorée doit être clairement visible.
+Usage : chapitre `Bibliothèque — Panel central`.
+
+22. `front-library-rightpanel.png`
+Right panel Library en mode création/édition de template : champs Nom, Famille, Description, tags, et éventuellement le sélecteur de Collection.
+Usage : chapitre `Bibliothèque — Créer et importer`.
+
+23. `front-library-menu-more.png`
+Menu ⋯ ouvert dans la toolbar du panneau central Library avec les 3 items visibles : Importer un JSON, Modèle JSON, Exporter tout.
+Usage : chapitre `Bibliothèque — Import / Export`.
+
+## Search
+
+24. `front-search-overview.png`
+Vue Recherche globale complète : barre de recherche en haut, sidebar gauche avec filtres scope + projet, résultats groupés par scope au centre avec badges colorés et compteurs. Requête active avec résultats dans au moins 3 scopes différents.
+Usage : chapitre `Recherche globale — Vue d'ensemble`.
+
+25. `front-search-palette.png`
+Palette de commandes ouverte (Ctrl+K) au-dessus d'une vue quelconque (Architecture ou Vérification). Requête active (ex. "XV-101" ou "bypass") avec 5–8 résultats listés : icône scope colorée, titre surligné, badge scope (Composant, SIF…), contexte projet.
+Usage : chapitre `Recherche globale — Palette de commandes`.
+
+26. `front-search-filters.png`
+Vue Recherche globale : sidebar avec le scope "Composants" (ou autre) sélectionné et un projet filtré. Les compteurs par ligne sont bien lisibles. Le bouton "Reset" est visible. Le panneau central n'affiche que les composants du projet filtré.
+Usage : chapitre `Recherche globale — Filtres`.
+
 ## Ordre recommandé de production
 
 1. shell + navigation
@@ -94,3 +134,12 @@ Usage : chapitre `Démarrer le backend et comprendre la chaîne d’appel`.
 8. exploitation
 9. rapport
 10. engine contrat + résultats + terminal
+11. library overview
+12. library sidebar
+13. library collections + color picker
+14. library families (3 cartes)
+15. library right panel création
+16. library menu ⋯
+17. search overview (résultats multi-scope)
+18. search palette (Ctrl+K ouverte)
+19. search filters (scope + projet actifs)

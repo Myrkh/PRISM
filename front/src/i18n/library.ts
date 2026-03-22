@@ -3,70 +3,51 @@ import { libraryStringsEn } from './locales/en/library'
 import { libraryStringsFr } from './locales/fr/library'
 
 export interface LibraryStrings {
-  sourceScopeLabels: Record<'all' | 'builtin' | 'project' | 'user', string>
-  sourceMeta: Record<'all' | 'builtin' | 'project' | 'user', { label: string; hint: string }>
-  subsystemHints: Record<'sensor' | 'logic' | 'actuator', string>
+  sourceScopeLabels: Record<'all' | 'builtin' | 'custom' | 'project' | 'user', string>
   header: {
-    eyebrow: string
-    title: string
-    description: string
     filteredCount: (count: number) => string
     availableCount: (count: number) => string
   }
   searchPlaceholder: string
   ctas: {
-    newSensor: string
-    newLogic: string
-    newActuator: string
     import: string
-    importModel: string
-    export: string
-    reload: string
     importModelTitle: string
+    export: string
     exportTitle: string
     reloadTitle: string
-    createTitle: (typeLabel: string) => string
   }
   importTarget: (projectLabel: string | null, libraryLabel: string | null) => string
-  chips: {
-    validatedStandards: (count: number) => string
-    projectTemplates: (count: number) => string
-    personalTemplates: (count: number) => string
-  }
   status: {
     noSelection: string
     imported: (count: number, created: number, updated: number) => string
     exported: (count: number) => string
     importModelDownloaded: string
-    archived: string
     deleted: string
   }
   family: {
-    templateCount: (count: number) => string
-    partLabel: Record<'sensor' | 'logic' | 'actuator', string>
     empty: string
     showMore: string
     showLess: string
   }
   sidebar: {
     title: string
-    summary: (query: string, totalVisible: number, totalIndexed: number) => string
     reset: string
-    originTitle: string
+    prismCatalogueTitle: string
+    prismCatalogueHint: string
+    myLibraryTitle: string
+    myLibraryAllLabel: string
+    myLibraryPersonalLabel: string
+    myLibraryPersonalHint: string
     familiesTitle: string
     allFamiliesLabel: string
-    allFamiliesHint: string
-    namedLibrariesTitle: string
-    allLibrariesLabel: string
-    allLibrariesHint: string
-    noNamedLibraries: string
-    projectsTitle: string
-    allProjectsLabel: string
-    allProjectsHint: string
-    usageTitle: string
-    usagePrimary: string
-    usageSecondary: string
-    collectionHint: Record<'project' | 'user' | 'mixed', string>
+    newSensorTitle: string
+    newLogicTitle: string
+    newActuatorTitle: string
+    newCollectionTitle: string
+    newCollectionPlaceholder: string
+    newCollectionConfirm: string
+    collectionColorTitle: string
+    collectionDeleteTitle: string
   }
 }
 

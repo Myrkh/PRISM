@@ -11,6 +11,7 @@ export type DocIconName =
   | 'FolderPlus'
   | 'LayoutDashboard'
   | 'Network'
+  | 'Search'
   | 'ShieldCheck'
   | 'TriangleAlert'
 

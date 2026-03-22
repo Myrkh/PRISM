@@ -80,12 +80,14 @@ function ResultRow({ result, query }: { result: SearchResult; query: string }) {
           >
             {getSearchResultKindLabel(locale, result.kind)}
           </span>
-          <span
-            className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em]"
-            style={{ color: TEXT_DIM, borderColor: `${BORDER}60`, background: PAGE_BG }}
-          >
-            {strings.tabLabels[result.tab] ?? result.tab}
-          </span>
+          {result.scope !== 'workspace' && (
+            <span
+              className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em]"
+              style={{ color: TEXT_DIM, borderColor: `${BORDER}60`, background: PAGE_BG }}
+            >
+              {strings.tabLabels[result.tab] ?? result.tab}
+            </span>
+          )}
         </div>
         <p className="mt-1 text-[12px] leading-relaxed" style={{ color: TEXT_DIM }}>
           <HighlightText text={result.subtitle} query={query} />

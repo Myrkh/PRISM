@@ -21,3 +21,4 @@ export {
   type ComponentTemplateImportPreviewEntry,
 } from './templateUtils'
 export { useComponentLibrary } from './useComponentLibrary'
+export { useLibraryCollections, COLLECTION_PRESET_COLORS, type LibraryCollection } from './useLibraryCollections'

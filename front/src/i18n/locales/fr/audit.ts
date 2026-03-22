@@ -8,6 +8,11 @@ export const auditStringsFr: AuditStrings = {
     operations: 'Opérations',
     engine: 'Engine',
   },
+  engineSubKinds: {
+    manual: 'Run',
+    compare: 'Compare',
+    batch: 'Batch',
+  },
   scopes: {
     all: {
       label: 'Tous les événements',
@@ -19,11 +24,11 @@ export const auditStringsFr: AuditStrings = {
     },
     governance: {
       label: 'Gouvernance',
-      hint: 'Création, mise à jour et statut des dossiers',
+      hint: 'Création et statut des dossiers',
     },
     'proof-tests': {
       label: 'Proof tests',
-      hint: 'Campagnes et verdicts d’exploitation',
+      hint: 'Campagnes et verdicts d\'exploitation',
     },
     operations: {
       label: 'Opérations',
@@ -37,9 +42,15 @@ export const auditStringsFr: AuditStrings = {
   header: {
     eyebrow: 'Traçabilité active',
     title: 'Audit Log',
-    description: 'Lecture transverse des événements utiles du workspace, des dossiers actifs jusqu’aux runs Engine.',
+    description: 'Lecture transverse des événements utiles du workspace, des dossiers actifs jusqu\'aux runs Engine.',
     visible: count => `${count} visible${count > 1 ? 's' : ''}`,
     warnings: count => `${count} warning${count > 1 ? 's' : ''} dans le périmètre`,
+    statVisibleLabel: 'événements',
+    statWarningsLabel: 'warnings',
+  },
+  toolbar: {
+    sortDesc: 'Plus récent en premier',
+    sortAsc: 'Plus ancien en premier',
   },
   search: {
     placeholder: 'Rechercher un projet, une SIF, une action ou un détail…',
@@ -47,7 +58,7 @@ export const auditStringsFr: AuditStrings = {
     visibleTotal: count => `${count} événements visibles`,
   },
   sidebar: {
-    title: 'Journal d’audit',
+    title: 'Journal d\'audit',
     summaryLoading: 'Synchronisation des runs Engine en cours…',
     summaryProjectFiltered: count => `${count} événement${count > 1 ? 's' : ''} dans le projet filtré`,
     summaryDefault: count => `${count} événements reconstruits depuis les dossiers actifs et les runs backend`,
@@ -70,7 +81,7 @@ export const auditStringsFr: AuditStrings = {
     contextSif: 'SIF',
     contextActor: 'Acteur',
     contextLinkedView: 'Vue liée',
-    contextEmpty: 'Le contexte projet et la vue liée apparaîtront ici dès qu’une ligne sera sélectionnée.',
+    contextEmpty: 'Le contexte projet et la vue liée apparaîtront ici dès qu\'une ligne sera sélectionnée.',
     actionTitle: 'Action',
     openEngine: 'Ouvrir Engine',
     openSif: 'Ouvrir la SIF liée',
@@ -81,7 +92,6 @@ export const auditStringsFr: AuditStrings = {
     linkedViewFallback: 'Contexte projet uniquement',
   },
   table: {
-    level: 'Niveau',
     date: 'Date',
     event: 'Événement',
     context: 'Contexte',
@@ -109,10 +119,6 @@ export const auditStringsFr: AuditStrings = {
     projectCreated: {
       action: 'Projet créé',
       details: projectName => `Le projet « ${projectName} » a été initialisé.`,
-    },
-    projectUpdated: {
-      action: 'Projet mis à jour',
-      details: projectName => `Les métadonnées du projet « ${projectName} » ont été modifiées.`,
     },
     sifDate: {
       action: 'Enregistrement SIF mis à jour',

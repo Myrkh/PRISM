@@ -1,4 +1,4 @@
-import type { EngineRun, Project } from '@/core/types'
+import type { EngineRun, EngineRunTriggerKind, Project } from '@/core/types'
 import type { SIFTab } from '@/store/types'
 import type { AuditModelStrings } from '@/i18n/audit'
 
@@ -11,6 +11,8 @@ export interface AuditEntry {
   id: string
   level: AuditLevel
   kind: AuditKind
+  /** For engine entries: the trigger kind (manual | compare | batch) */
+  subKind?: EngineRunTriggerKind
   timestamp: string
   action: string
   details: string
@@ -36,6 +38,13 @@ export const AUDIT_SCOPE_ORDER: AuditScope[] = [
 export const AUDIT_SCOPE_TONES: Record<AuditScope, string> = {
   all: '#0F9CA6',
   warnings: '#D97706',
+  governance: '#2563EB',
+  'proof-tests': '#0E9F6E',
+  operations: '#7C3AED',
+  engine: '#0F766E',
+}
+
+export const AUDIT_KIND_TONES: Record<AuditKind, string> = {
   governance: '#2563EB',
   'proof-tests': '#0E9F6E',
   operations: '#7C3AED',
@@ -115,6 +124,7 @@ function buildEngineRunAuditEntries(projects: Project[], engineRuns: EngineRun[]
       id: `engine-run-${run.id}`,
       level,
       kind: 'engine',
+      subKind: run.triggerKind,
       timestamp,
       action: formatEngineRunAction(run, strings),
       details: formatEngineRunDetails(run, strings),
@@ -146,22 +156,6 @@ export function buildAuditEntries(projects: Project[], engineRuns: EngineRun[] =
       targetView: 'sif',
       linkedViewLabel: strings.linkedViews.project,
     })
-
-    if (project.updatedAt && project.updatedAt !== project.createdAt) {
-      entries.push({
-        id: `project-updated-${project.id}-${project.updatedAt}`,
-        level: 'info',
-        kind: 'governance',
-        timestamp: project.updatedAt,
-        action: strings.projectUpdated.action,
-        details: strings.projectUpdated.details(project.name),
-        actor: strings.actors.system,
-        projectName: project.name,
-        projectId: project.id,
-        targetView: 'sif',
-        linkedViewLabel: strings.linkedViews.project,
-      })
-    }
 
     project.sifs.forEach(sif => {
       if (sif.date) {

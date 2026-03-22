@@ -8,6 +8,7 @@ import {
   FolderPlus,
   LayoutDashboard,
   Network,
+  Search,
   ShieldCheck,
   TriangleAlert,
 } from 'lucide-react'
@@ -18,6 +19,7 @@ import { projectsAndSifChapter } from '@/docs/chapters/front/projectsAndSif.chap
 import { contextChapter } from '@/docs/chapters/front/context.chapter'
 import { architectureChapter } from '@/docs/chapters/front/architecture.chapter'
 import { libraryChapter } from '@/docs/chapters/front/library.chapter'
+import { searchChapter } from '@/docs/chapters/front/search.chapter'
 import { verificationChapter } from '@/docs/chapters/front/verification.chapter'
 import { exploitationChapter } from '@/docs/chapters/front/exploitation.chapter'
 import { reportChapter } from '@/docs/chapters/front/report.chapter'
@@ -39,6 +41,7 @@ const ICONS: Record<DocIconName, ElementType> = {
   FolderPlus,
   LayoutDashboard,
   Network,
+  Search,
   ShieldCheck,
   TriangleAlert,
 }
@@ -46,13 +49,13 @@ const ICONS: Record<DocIconName, ElementType> = {
 export const DOC_GROUPS: DocGroupMeta[] = [
   {
     id: 'front',
-    label: 'Documentation front',
-    summary: 'Mode d’emploi complet de l’interface, du projet initial à la publication du rapport.',
+    label: 'Interface & workflow',
+    summary: "Mode d'emploi complet de l'interface, du projet initial \u00e0 la publication du rapport.",
   },
   {
     id: 'engine',
-    label: 'Documentation moteur',
-    summary: 'Fonctionnement du moteur, contrat de calcul, interprétation du modèle et limites de lecture.',
+    label: 'Moteur de calcul',
+    summary: "Fonctionnement du moteur, contrat de calcul, interpr\u00e9tation du mod\u00e8le et limites de lecture.",
   },
 ]
 
@@ -63,6 +66,7 @@ const CHAPTERS = [
   contextChapter,
   architectureChapter,
   libraryChapter,
+  searchChapter,
   verificationChapter,
   exploitationChapter,
   reportChapter,

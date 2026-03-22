@@ -8,6 +8,11 @@ export const auditStringsEn: AuditStrings = {
     operations: 'Operations',
     engine: 'Engine',
   },
+  engineSubKinds: {
+    manual: 'Run',
+    compare: 'Compare',
+    batch: 'Batch',
+  },
   scopes: {
     all: {
       label: 'All events',
@@ -19,7 +24,7 @@ export const auditStringsEn: AuditStrings = {
     },
     governance: {
       label: 'Governance',
-      hint: 'Project creation, updates, and status changes',
+      hint: 'Project creation and status changes',
     },
     'proof-tests': {
       label: 'Proof tests',
@@ -40,6 +45,12 @@ export const auditStringsEn: AuditStrings = {
     description: 'Cross-workspace reading of the useful events, from active dossiers to Engine runs.',
     visible: count => `${count} visible`,
     warnings: count => `${count} warning${count > 1 ? 's' : ''} in scope`,
+    statVisibleLabel: 'events',
+    statWarningsLabel: 'warnings',
+  },
+  toolbar: {
+    sortDesc: 'Newest first',
+    sortAsc: 'Oldest first',
   },
   search: {
     placeholder: 'Search for a project, SIF, action, or detail…',
@@ -81,7 +92,6 @@ export const auditStringsEn: AuditStrings = {
     linkedViewFallback: 'Project context only',
   },
   table: {
-    level: 'Level',
     date: 'Date',
     event: 'Event',
     context: 'Context',
@@ -108,11 +118,7 @@ export const auditStringsEn: AuditStrings = {
     },
     projectCreated: {
       action: 'Project created',
-      details: projectName => `Project “${projectName}” was initialized.`,
-    },
-    projectUpdated: {
-      action: 'Project updated',
-      details: projectName => `Project “${projectName}” metadata was updated.`,
+      details: projectName => `Project "${projectName}" was initialized.`,
     },
     sifDate: {
       action: 'SIF record updated',

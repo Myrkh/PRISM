@@ -1,10 +1,9 @@
-import { useMemo, useRef, useState, type ChangeEvent } from 'react'
-import { Download, RefreshCw, Search, Upload, X } from 'lucide-react'
+import { useEffect, useMemo, useRef, useState, type ChangeEvent } from 'react'
+import { Download, MoreHorizontal, RefreshCw, Search, Upload, X } from 'lucide-react'
 import {
   INITIAL_LIBRARY_VISIBLE_COUNT,
   LIBRARY_PREVIEW_COUNT,
   LIBRARY_SUBSYSTEM_META,
-  LibraryOriginLegend,
   LibraryTemplateCard,
 } from '@/components/library/LibraryTemplateCard'
 import { useLibraryNavigation, getLibraryEntryKey } from '@/components/library/LibraryNavigation'
@@ -37,19 +36,16 @@ export function LibraryWorkspace() {
     groupedEntries,
     totalIndexed,
     totalVisible,
-    builtinTemplates,
     allProjectTemplates,
     userTemplates,
     loading,
     error,
     fetchTemplates,
     importTemplates,
-    archiveTemplate,
     deleteTemplate,
     clearError,
     selectedEntryKey,
     openEntry,
-    startCreate,
     setQuery,
   } = useLibraryNavigation()
   const strings = useLocaleStrings(getLibraryStrings)
@@ -57,10 +53,21 @@ export function LibraryWorkspace() {
   const { profile } = useAppStore(state => ({ profile: state.profile }))
   const projects = useAppStore(state => state.projects)
   const setSyncError = useAppStore(state => state.setSyncError)
-  const { BORDER, CARD_BG, PAGE_BG, SHADOW_PANEL, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, SHADOW_PANEL, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
 
   const fileInputRef = useRef<HTMLInputElement | null>(null)
+  const moreMenuRef = useRef<HTMLDivElement | null>(null)
+  const [moreMenuOpen, setMoreMenuOpen] = useState(false)
   const [expandedTemplateId, setExpandedTemplateId] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!moreMenuOpen) return
+    const handle = (e: MouseEvent) => {
+      if (moreMenuRef.current && !moreMenuRef.current.contains(e.target as Node)) setMoreMenuOpen(false)
+    }
+    document.addEventListener('mousedown', handle)
+    return () => document.removeEventListener('mousedown', handle)
+  }, [moreMenuOpen])
   const [statusMessage, setStatusMessage] = useState<string | null>(null)
   const [visibleCountByType, setVisibleCountByType] = useState(INITIAL_LIBRARY_VISIBLE_COUNT)
   const [importPreview, setImportPreview] = useState<ComponentTemplateImportPreview | null>(null)
@@ -74,7 +81,6 @@ export function LibraryWorkspace() {
   )
   const selectedLibraryLabel = libraryFilter ?? null
   const sourceScopeLabels = strings.sourceScopeLabels
-  const subsystemHints = strings.subsystemHints
 
   const visibleSubsystems = subsystemScope === 'all'
     ? (['sensor', 'logic', 'actuator'] as const)
@@ -228,16 +234,6 @@ export function LibraryWorkspace() {
     setStatusMessage(strings.status.importModelDownloaded)
   }
 
-  const handleArchive = async (id: string) => {
-    resetFeedback()
-    try {
-      await archiveTemplate(id)
-      setStatusMessage(strings.status.archived)
-    } catch (err: unknown) {
-      setSyncError(err instanceof Error ? err.message : String(err))
-    }
-  }
-
   const handleDelete = async (id: string) => {
     resetFeedback()
     try {
@@ -252,12 +248,6 @@ export function LibraryWorkspace() {
   const openEntryInspector = (entry: (typeof entries)[number]) => {
     resetFeedback()
     openEntry(entry)
-    setRightPanelOpen(true)
-  }
-
-  const openCreateInspector = (type: keyof typeof LIBRARY_SUBSYSTEM_META) => {
-    resetFeedback()
-    startCreate(type)
     setRightPanelOpen(true)
   }
 
@@ -282,6 +272,8 @@ export function LibraryWorkspace() {
     })
   }
 
+  const hasAnyResults = visibleSubsystems.some(type => groupedEntries[type].length > 0)
+
   return (
     <div className="flex-1 min-h-0 overflow-y-auto">
       <input
@@ -292,266 +284,226 @@ export function LibraryWorkspace() {
         onChange={handleImportFile}
       />
 
-      <div className="mx-auto flex w-full max-w-[1460px] flex-col gap-5 px-6 py-6">
-        <section
-          className="overflow-hidden rounded-xl border"
-          style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}
-        >
-          <div className="border-b px-6 py-4" style={{ borderColor: `${BORDER}35` }}>
-            <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: TEAL_DIM }}>
-                  {strings.header.eyebrow}
-                </p>
-                <h1 className="mt-2 text-[28px] font-semibold tracking-tight" style={{ color: TEXT }}>
-                  {strings.header.title}
-                </h1>
-                <p className="mt-2 max-w-[820px] text-[14px] leading-[1.8]" style={{ color: TEXT_DIM }}>
-                  {strings.header.description}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 text-[11px]">
-                <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEAL, borderColor: `${TEAL}28`, background: `${TEAL}10` }}>
-                  {deferredQuery ? strings.header.filteredCount(totalVisible) : strings.header.availableCount(totalIndexed)}
-                </span>
-                <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEXT_DIM, borderColor: `${BORDER}70`, background: PAGE_BG }}>
-                  {sourceScopeLabels[sourceScope]}
-                </span>
-                {projectLabel && (
-                  <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEXT_DIM, borderColor: `${BORDER}70`, background: PAGE_BG }}>
-                    {projectLabel}
-                  </span>
-                )}
-                {selectedLibraryLabel && (
-                  <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEXT_DIM, borderColor: `${BORDER}70`, background: PAGE_BG }}>
-                    {selectedLibraryLabel}
-                  </span>
-                )}
-              </div>
-            </div>
+      <div className="mx-auto flex w-full max-w-[960px] flex-col gap-4 px-5 py-5">
+
+        {/* ── Search bar ── */}
+        <div className="flex gap-2">
+          <div className="relative min-w-0 flex-1">
+            <Search size={14} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: TEXT_DIM }} />
+            <Input
+              value={query}
+              onChange={event => setQuery(event.target.value)}
+              placeholder={strings.searchPlaceholder}
+              className="h-10 rounded-xl pl-9 pr-10 text-[13px]"
+            />
+            {query && (
+              <button
+                type="button"
+                onClick={() => setQuery('')}
+                className="absolute right-2.5 top-1/2 inline-flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border transition-colors"
+                style={{ borderColor: `${BORDER}70`, color: TEXT_DIM, background: PAGE_BG }}
+              >
+                <X size={11} />
+              </button>
+            )}
           </div>
 
-          <div className="px-6 py-5">
-            <div className="flex flex-col gap-3 xl:flex-row xl:items-center">
-              <div className="relative min-w-0 flex-1">
-                <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: TEXT_DIM }} />
-                <Input
-                  value={query}
-                  onChange={event => setQuery(event.target.value)}
-                  placeholder={strings.searchPlaceholder}
-                  className="h-12 rounded-xl pl-10 pr-11 text-[14px]"
-                />
-                {query && (
-                  <button
-                    type="button"
-                    onClick={() => setQuery('')}
-                    className="absolute right-3 top-1/2 inline-flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-full border transition-colors"
-                    style={{ borderColor: `${BORDER}70`, color: TEXT_DIM, background: PAGE_BG }}
-                  >
-                    <X size={13} />
-                  </button>
-                )}
-              </div>
+          {/* Reload */}
+          <button
+            type="button"
+            onClick={() => void fetchTemplates()}
+            className="prism-action inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border"
+            style={{ borderColor: `${BORDER}80`, color: TEXT_DIM, background: CARD_BG }}
+            title={strings.ctas.reloadTitle}
+          >
+            <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
+          </button>
 
-              <div className="flex flex-wrap gap-2">
-                {(['sensor', 'logic', 'actuator'] as const).map(type => {
-                  const meta = LIBRARY_SUBSYSTEM_META[type]
-                  return (
-                    <button
-                      key={type}
-                      type="button"
-                      onClick={() => openCreateInspector(type)}
-                      className="prism-action inline-flex h-11 items-center gap-2 rounded-xl border px-3 text-[12px] font-semibold"
-                      style={{ borderColor: `${meta.color}24`, color: meta.color, background: `${meta.color}10` }}
-                      title={strings.ctas.createTitle(meta.label)}
-                    >
-                      <meta.Icon size={14} />
-                      {type === 'sensor' ? strings.ctas.newSensor : type === 'logic' ? strings.ctas.newLogic : strings.ctas.newActuator}
-                    </button>
-                  )
-                })}
+          {/* ⋯ more actions */}
+          <div ref={moreMenuRef} className="relative">
+            <button
+              type="button"
+              onClick={() => setMoreMenuOpen(o => !o)}
+              className="prism-action inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border"
+              style={{ borderColor: moreMenuOpen ? `${BORDER}CC` : `${BORDER}80`, color: TEXT_DIM, background: CARD_BG }}
+              title="Plus d'actions"
+            >
+              <MoreHorizontal size={14} />
+            </button>
+            {moreMenuOpen && (
+              <div
+                className="absolute right-0 top-full z-50 mt-1.5 min-w-[200px] overflow-hidden rounded-xl border py-1"
+                style={{ background: CARD_BG, borderColor: BORDER, boxShadow: SHADOW_PANEL }}
+              >
                 <button
                   type="button"
-                  onClick={() => fileInputRef.current?.click()}
-                  className="prism-action inline-flex h-11 items-center gap-2 rounded-xl border px-3 text-[12px] font-semibold"
-                  style={{ borderColor: `${BORDER}80`, color: TEXT_DIM, background: PAGE_BG }}
+                  onClick={() => { fileInputRef.current?.click(); setMoreMenuOpen(false) }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[12px] transition-colors hover:opacity-80"
+                  style={{ color: TEXT }}
                   title={importTargetLabel}
                 >
-                  <Upload size={14} />
+                  <Upload size={13} style={{ color: TEXT_DIM }} />
                   {strings.ctas.import}
                 </button>
                 <button
                   type="button"
-                  onClick={handleDownloadImportModel}
-                  className="prism-action inline-flex h-11 items-center gap-2 rounded-xl border px-3 text-[12px] font-semibold"
-                  style={{ borderColor: `${BORDER}80`, color: TEXT_DIM, background: PAGE_BG }}
+                  onClick={() => { handleDownloadImportModel(); setMoreMenuOpen(false) }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[12px] transition-colors hover:opacity-80"
+                  style={{ color: TEXT }}
                   title={strings.ctas.importModelTitle}
                 >
-                  <Download size={14} />
-                  {strings.ctas.importModel}
+                  <Download size={13} style={{ color: TEXT_DIM }} />
+                  Modèle JSON
                 </button>
+                <div className="mx-3 my-1 border-t" style={{ borderColor: `${BORDER}60` }} />
                 <button
                   type="button"
-                  onClick={handleExport}
+                  onClick={() => { handleExport(); setMoreMenuOpen(false) }}
                   disabled={exportableTemplates.length === 0}
-                  className="prism-action inline-flex h-11 items-center gap-2 rounded-xl border px-3 text-[12px] font-semibold disabled:cursor-not-allowed disabled:opacity-40"
-                  style={{ borderColor: `${BORDER}80`, color: TEXT_DIM, background: PAGE_BG }}
+                  className="flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[12px] transition-colors hover:opacity-80 disabled:cursor-not-allowed disabled:opacity-40"
+                  style={{ color: TEXT }}
                   title={strings.ctas.exportTitle}
                 >
-                  <Download size={14} />
+                  <Download size={13} style={{ color: TEXT_DIM }} />
                   {strings.ctas.export}
                 </button>
-                <button
-                  type="button"
-                  onClick={() => void fetchTemplates()}
-                  className="prism-action inline-flex h-11 items-center gap-2 rounded-xl border px-3 text-[12px] font-semibold"
-                  style={{ borderColor: `${BORDER}80`, color: TEXT_DIM, background: PAGE_BG }}
-                  title={strings.ctas.reloadTitle}
-                >
-                  <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-                  {strings.ctas.reload}
-                </button>
               </div>
-            </div>
-
-            <div className="mt-4 flex flex-wrap gap-2 text-[11px]">
-              <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEAL_DIM, borderColor: `${TEAL}20`, background: `${TEAL}0D` }}>
-                {importTargetLabel}
-              </span>
-              <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEXT_DIM, borderColor: `${BORDER}70`, background: PAGE_BG }}>
-                {strings.chips.validatedStandards(builtinTemplates.length)}
-              </span>
-              <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEXT_DIM, borderColor: `${BORDER}70`, background: PAGE_BG }}>
-                {strings.chips.projectTemplates(allProjectTemplates.length)}
-              </span>
-              <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEXT_DIM, borderColor: `${BORDER}70`, background: PAGE_BG }}>
-                {strings.chips.personalTemplates(userTemplates.length)}
-              </span>
-            </div>
+            )}
           </div>
-        </section>
+        </div>
 
+        {/* ── Status chips ── */}
+        <div className="flex flex-wrap items-center gap-1.5">
+          <span
+            className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px] font-semibold"
+            style={{ color: TEAL, borderColor: `${TEAL}28`, background: `${TEAL}10` }}
+          >
+            {deferredQuery ? strings.header.filteredCount(totalVisible) : strings.header.availableCount(totalIndexed)}
+          </span>
+          {sourceScope !== 'all' && (
+            <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]" style={{ color: TEXT_DIM, borderColor: `${BORDER}60`, background: PAGE_BG }}>
+              {sourceScopeLabels[sourceScope]}
+            </span>
+          )}
+          {projectLabel && (
+            <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]" style={{ color: TEXT_DIM, borderColor: `${BORDER}60`, background: PAGE_BG }}>
+              {projectLabel}
+            </span>
+          )}
+          {selectedLibraryLabel && (
+            <span className="inline-flex items-center rounded-full border px-2 py-0.5 text-[10px]" style={{ color: TEXT_DIM, borderColor: `${BORDER}60`, background: PAGE_BG }}>
+              {selectedLibraryLabel}
+            </span>
+          )}
+        </div>
+
+        {/* ── Feedback ── */}
         {(statusMessage || error) && (
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             {statusMessage && (
-              <div
-                className="rounded-xl border px-4 py-3 text-[12px]"
-                style={{ background: `${TEAL}10`, color: TEAL_DIM, borderColor: `${TEAL}20` }}
-              >
+              <div className="rounded-xl border px-4 py-2.5 text-[12px]" style={{ background: `${TEAL}10`, color: TEAL, borderColor: `${TEAL}20` }}>
                 {statusMessage}
               </div>
             )}
             {error && (
-              <div
-                className="rounded-xl border px-4 py-3 text-[12px]"
-                style={{ background: `${semantic.error}15`, color: semantic.error, borderColor: `${semantic.error}30` }}
-              >
+              <div className="rounded-xl border px-4 py-2.5 text-[12px]" style={{ background: `${semantic.error}15`, color: semantic.error, borderColor: `${semantic.error}30` }}>
                 {error}
               </div>
             )}
           </div>
         )}
 
-        <div className="grid gap-5">
+        {/* ── Template list — one card per family ── */}
+        {!hasAnyResults && (
+          <div
+            className="overflow-hidden rounded-xl border px-5 py-12 text-center text-[12px]"
+            style={{ borderColor: BORDER, background: CARD_BG, color: TEXT_DIM, boxShadow: SHADOW_PANEL }}
+          >
+            {strings.family.empty}
+          </div>
+        )}
+
+        <div className="flex flex-col gap-3">
           {visibleSubsystems.map(type => {
             const meta = LIBRARY_SUBSYSTEM_META[type]
             const items = groupedEntries[type]
+            if (items.length === 0) return null
+
             const visibleCount = deferredQuery.trim() ? items.length : visibleCountByType[type]
             const visibleItems = items.slice(0, visibleCount)
             const remainingCount = Math.max(0, items.length - visibleItems.length)
             const canShowLess = !deferredQuery.trim() && visibleCountByType[type] > INITIAL_LIBRARY_VISIBLE_COUNT[type] && items.length > INITIAL_LIBRARY_VISIBLE_COUNT[type]
 
             return (
-              <section
+              <div
                 key={type}
                 className="overflow-hidden rounded-xl border"
-                style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}
+                style={{
+                  borderColor: BORDER,
+                  borderTopColor: meta.color,
+                  borderTopWidth: 2,
+                  background: CARD_BG,
+                  boxShadow: SHADOW_PANEL,
+                }}
               >
-                <div className="flex flex-col gap-3 border-b px-5 py-4 lg:flex-row lg:items-start lg:justify-between" style={{ borderColor: `${BORDER}35` }}>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-xl border"
-                        style={{ color: meta.color, borderColor: `${meta.color}20`, background: `${meta.color}10` }}
-                      >
-                        <meta.Icon size={17} />
-                      </span>
-                      <div>
-                        <p className="text-sm font-semibold" style={{ color: TEXT }}>{meta.label}</p>
-                        <p className="text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>{subsystemHints[type]}</p>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-[11px] font-semibold" style={{ color: TEXT }}>{strings.family.templateCount(items.length)}</p>
-                    <p className="mt-1 text-[10px]" style={{ color: TEXT_DIM }}>
-                      {strings.family.partLabel[type]}
-                    </p>
-                  </div>
+                {/* Compact family header */}
+                <div
+                  className="flex items-center gap-2 border-b px-4 py-2.5"
+                  style={{ borderColor: `${BORDER}40` }}
+                >
+                  <meta.Icon size={12} style={{ color: meta.color }} />
+                  <span className="text-[11px] font-bold uppercase tracking-wider" style={{ color: meta.color }}>
+                    {meta.label}
+                  </span>
+                  <span className="ml-auto font-mono text-[9px]" style={{ color: TEXT_DIM }}>
+                    {items.length}
+                  </span>
                 </div>
 
-                {items.length === 0 ? (
-                  <div className="px-5 py-8 text-center text-[12px]" style={{ color: TEXT_DIM }}>
-                    {strings.family.empty}
-                  </div>
-                ) : (
-                  <>
-                    <div>
-                      {visibleItems.map(entry => (
-                        <LibraryTemplateCard
-                          key={entry.template.id}
-                          template={entry.template}
-                          origin={entry.origin}
-                          expanded={expandedTemplateId === entry.template.id}
-                          selected={selectedEntryKey === getLibraryEntryKey(entry.origin, entry.template.id)}
-                          onSelect={() => openEntryInspector(entry)}
-                          onToggleDetails={id => setExpandedTemplateId(current => current === id ? null : id)}
-                          onArchive={entry.origin !== 'builtin' ? handleArchive : undefined}
-                          onDelete={entry.origin !== 'builtin' ? handleDelete : undefined}
-                        />
-                      ))}
-                    </div>
+                {/* Template rows */}
+                {visibleItems.map(entry => (
+                  <LibraryTemplateCard
+                    key={entry.template.id}
+                    template={entry.template}
+                    origin={entry.origin}
+                    expanded={expandedTemplateId === entry.template.id}
+                    selected={selectedEntryKey === getLibraryEntryKey(entry.origin, entry.template.id)}
+                    onSelect={() => openEntryInspector(entry)}
+                    onToggleDetails={id => setExpandedTemplateId(current => current === id ? null : id)}
+                    onDelete={entry.origin !== 'builtin' ? handleDelete : undefined}
+                  />
+                ))}
 
-                    {!deferredQuery.trim() && remainingCount > 0 && (
-                      <div style={{ borderTop: `1px solid ${BORDER}28`, background: PAGE_BG }}>
-                        <button
-                          type="button"
-                          onClick={() => showMore(type)}
-                          className="prism-action flex w-full items-center justify-between px-4 py-3 text-left transition-colors"
-                          style={{ color: meta.color }}
-                        >
-                          <span className="text-[11px] font-semibold">{strings.family.showMore}</span>
-                          <span className="text-[10px] font-mono" style={{ color: TEXT_DIM }}>+{remainingCount}</span>
-                        </button>
-                      </div>
-                    )}
-
-                    {canShowLess && (
-                      <div style={{ borderTop: `1px solid ${BORDER}28`, background: PAGE_BG }}>
-                        <button
-                          type="button"
-                          onClick={() => showLess(type)}
-                          className="prism-action flex w-full items-center justify-between px-4 py-3 text-left transition-colors"
-                          style={{ color: TEXT_DIM }}
-                        >
-                          <span className="text-[11px] font-semibold">{strings.family.showLess}</span>
-                          <span className="text-[10px] font-mono">{INITIAL_LIBRARY_VISIBLE_COUNT[type]}</span>
-                        </button>
-                      </div>
-                    )}
-                  </>
+                {/* Load more */}
+                {!deferredQuery.trim() && remainingCount > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => showMore(type)}
+                    className="prism-action flex w-full items-center justify-between border-t px-4 py-2 text-left transition-colors"
+                    style={{ borderColor: `${BORDER}30`, background: PAGE_BG, color: meta.color }}
+                  >
+                    <span className="text-[11px] font-semibold">{strings.family.showMore}</span>
+                    <span className="font-mono text-[10px]" style={{ color: TEXT_DIM }}>+{remainingCount}</span>
+                  </button>
                 )}
-              </section>
+
+                {/* Show less */}
+                {canShowLess && (
+                  <button
+                    type="button"
+                    onClick={() => showLess(type)}
+                    className="prism-action flex w-full items-center justify-between border-t px-4 py-2 text-left transition-colors"
+                    style={{ borderColor: `${BORDER}30`, background: PAGE_BG, color: TEXT_DIM }}
+                  >
+                    <span className="text-[11px] font-semibold">{strings.family.showLess}</span>
+                    <span className="font-mono text-[10px]">{INITIAL_LIBRARY_VISIBLE_COUNT[type]}</span>
+                  </button>
+                )}
+              </div>
             )
           })}
         </div>
 
-        <section
-          className="overflow-hidden rounded-xl border"
-          style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}
-        >
-          <LibraryOriginLegend />
-        </section>
       </div>
 
       {importPreview && (

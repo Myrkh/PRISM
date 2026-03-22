@@ -18,10 +18,6 @@ export interface AuditModelStrings {
     action: string
     details: (projectName: string) => string
   }
-  projectUpdated: {
-    action: string
-    details: (projectName: string) => string
-  }
   sifDate: {
     action: string
     details: string
@@ -61,6 +57,7 @@ export interface AuditModelStrings {
 export interface AuditStrings {
   localeTag: string
   kinds: Record<AuditKind, string>
+  engineSubKinds: Record<'manual' | 'compare' | 'batch', string>
   scopes: Record<AuditScope, { label: string; hint: string }>
   header: {
     eyebrow: string
@@ -68,6 +65,12 @@ export interface AuditStrings {
     description: string
     visible: (count: number) => string
     warnings: (count: number) => string
+    statVisibleLabel: string
+    statWarningsLabel: string
+  }
+  toolbar: {
+    sortDesc: string
+    sortAsc: string
   }
   search: {
     placeholder: string
@@ -109,7 +112,6 @@ export interface AuditStrings {
     linkedViewFallback: string
   }
   table: {
-    level: string
     date: string
     event: string
     context: string

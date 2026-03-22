@@ -23,7 +23,7 @@ import {
 import { computeCompliance } from '@/components/sif/complianceCalc'
 import { getOverviewMetrics } from '@/components/sif/overviewMetrics'
 import { calcSIF } from '@/core/math/pfdCalc'
-import { normalizeSIFTab } from '@/store/types'
+import { normalizeSIFTab, type SIFTab } from '@/store/types'
 import { useAppLocale } from '@/i18n/useLocale'
 
 interface Props {
@@ -39,7 +39,7 @@ export function SIFDashboard({ projectId, sifId, tabOverride, onTabChange }: Pro
   const view = useAppStore(s => s.view)
   const setTab = useAppStore(s => s.setTab)
   // In split mode, route tab changes to the secondary slot instead of the primary store
-  const handleTabChange = onTabChange ?? setTab
+  const handleTabChange = (tab: SIFTab) => (onTabChange ?? setTab)(normalizeSIFTab(tab))
   const openEditSIF = useAppStore(s => s.openEditSIF)
   const publishRevision = useAppStore(s => s.publishRevision)
   const startNextRevision = useAppStore(s => s.startNextRevision)
