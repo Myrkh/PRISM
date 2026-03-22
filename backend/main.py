@@ -76,3 +76,8 @@ def _get_frontend_dir() -> str:
 _frontend_dir = _get_frontend_dir()
 if os.path.isdir(_frontend_dir):
     app.mount("/", StaticFiles(directory=_frontend_dir, html=True), name="frontend")
+
+
+if __name__ == "__main__" or getattr(sys, "frozen", False):
+    import uvicorn
+    uvicorn.run(app, host="127.0.0.1", port=8000, log_level="warning")
