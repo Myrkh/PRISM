@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react'
-import { ArrowUpRight, Command, Search, X } from 'lucide-react'
+import { ArrowUpRight, Search, X } from 'lucide-react'
 import { useSearchNavigation } from '@/components/search/SearchNavigation'
 import { getSearchResultIcon, getSearchResultKindLabel, getSearchScopeMeta, getSearchScopeTone } from '@/components/search/searchMeta'
 import { Input } from '@/components/ui/input'
@@ -9,7 +9,23 @@ import { useAppLocale, useLocaleStrings } from '@/i18n/useLocale'
 import { useAppStore } from '@/store/appStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
-function ResultRow({ result }: { result: SearchResult }) {
+function HighlightText({ text, query }: { text: string; query: string }) {
+  const { TEAL } = usePrismTheme()
+  if (!query.trim()) return <>{text}</>
+  const escaped = query.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  const parts = text.split(new RegExp(`(${escaped})`, 'gi'))
+  return (
+    <>
+      {parts.map((part, index) =>
+        part.toLowerCase() === query.trim().toLowerCase()
+          ? <mark key={index} style={{ background: `${TEAL}30`, color: TEAL, borderRadius: '2px', padding: '0 1px' }}>{part}</mark>
+          : part
+      )}
+    </>
+  )
+}
+
+function ResultRow({ result, query }: { result: SearchResult; query: string }) {
   const locale = useAppLocale()
   const strings = useLocaleStrings(getSearchStrings)
   const navigate = useAppStore(s => s.navigate)
@@ -52,7 +68,7 @@ function ResultRow({ result }: { result: SearchResult }) {
       <div className="min-w-0 flex-1">
         <div className="flex flex-wrap items-center gap-2">
           <p className="truncate text-[14px] font-semibold" style={{ color: TEXT }}>
-            {result.title}
+            <HighlightText text={result.title} query={query} />
           </p>
           <span
             className="inline-flex items-center rounded-full border px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[0.12em]"
@@ -72,7 +88,7 @@ function ResultRow({ result }: { result: SearchResult }) {
           </span>
         </div>
         <p className="mt-1 text-[12px] leading-relaxed" style={{ color: TEXT_DIM }}>
-          {result.subtitle}
+          <HighlightText text={result.subtitle} query={query} />
         </p>
         <p className="mt-2 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
           {result.context}
@@ -87,9 +103,11 @@ function ResultRow({ result }: { result: SearchResult }) {
 function ResultGroupSection({
   group,
   preview,
+  query,
 }: {
   group: SearchResultGroup
   preview: boolean
+  query: string
 }) {
   const locale = useAppLocale()
   const strings = useLocaleStrings(getSearchStrings)
@@ -129,7 +147,7 @@ function ResultGroupSection({
       </div>
 
       <div>
-        {group.items.map(result => <ResultRow key={result.id} result={result} />)}
+        {group.items.map(result => <ResultRow key={result.id} result={result} query={query} />)}
       </div>
 
       {preview && (
@@ -158,7 +176,7 @@ export function SearchWorkspace() {
   const locale = useAppLocale()
   const strings = useLocaleStrings(getSearchStrings)
   const scopeMeta = getSearchScopeMeta(locale)
-  const { BORDER, CARD_BG, PAGE_BG, SHADOW_PANEL, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, PAGE_BG, SHADOW_PANEL, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const inputRef = useRef<HTMLInputElement | null>(null)
 
   useEffect(() => {
@@ -181,31 +199,6 @@ export function SearchWorkspace() {
           className="overflow-hidden rounded-xl border"
           style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}
         >
-          <div className="border-b px-6 py-4" style={{ borderColor: `${BORDER}35` }}>
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-              <div>
-                <p className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: TEAL_DIM }}>
-                  {strings.header.eyebrow}
-                </p>
-                <h1 className="mt-2 text-[28px] font-semibold tracking-tight" style={{ color: TEXT }}>
-                  {strings.header.title}
-                </h1>
-                <p className="mt-2 max-w-[780px] text-[14px] leading-[1.8]" style={{ color: TEXT_DIM }}>
-                  {strings.header.description}
-                </p>
-              </div>
-              <div className="flex flex-wrap gap-2 text-[11px]">
-                <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEAL, borderColor: `${TEAL}28`, background: `${TEAL}10` }}>
-                  {deferredQuery ? strings.header.filteredCount(totalVisible) : strings.header.indexedCount(totalIndexed)}
-                </span>
-                <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEXT_DIM, borderColor: `${BORDER}70`, background: PAGE_BG }}>
-                  <Command size={12} className="mr-1" />
-                  {strings.header.commandHint}
-                </span>
-              </div>
-            </div>
-          </div>
-
           <div className="px-6 py-5">
             <div className="relative">
               <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2" style={{ color: TEXT_DIM }} />
@@ -229,6 +222,9 @@ export function SearchWorkspace() {
             </div>
 
             <div className="mt-4 flex flex-wrap gap-2 text-[11px]">
+              <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEAL, borderColor: `${TEAL}28`, background: `${TEAL}10` }}>
+                {deferredQuery ? strings.header.filteredCount(totalVisible) : strings.header.indexedCount(totalIndexed)}
+              </span>
               <span className="inline-flex items-center rounded-full border px-2.5 py-1" style={{ color: TEAL, borderColor: `${TEAL}22`, background: `${TEAL}0C` }}>
                 {scopeMeta[scope].label}
               </span>
@@ -274,6 +270,7 @@ export function SearchWorkspace() {
                 key={group.scope}
                 group={group}
                 preview={showingPreview}
+                query={deferredQuery}
               />
             ))}
           </div>

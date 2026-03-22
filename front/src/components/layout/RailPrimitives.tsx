@@ -10,6 +10,7 @@ export function RailIconButton({
   active = false,
   badge,
   indicatorSide = 'left',
+  compact = false,
 }: {
   Icon: ElementType
   label: string
@@ -17,6 +18,7 @@ export function RailIconButton({
   active?: boolean
   badge?: RailBadge
   indicatorSide?: 'left' | 'right'
+  compact?: boolean
 }) {
   const { BORDER, CARD_BG, PAGE_BG, SHADOW_CARD, SHADOW_SOFT, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
   const [hovered, setHovered] = useState(false)
@@ -32,6 +34,8 @@ export function RailIconButton({
   const transform = pressed
     ? 'translateY(1px) scale(0.968)'
     : hovered ? 'translateY(-0.5px) scale(1)' : 'translateY(0) scale(1)'
+  const iconSize = compact ? 14 : 16
+  const sizeClass = compact ? 'h-8 w-8' : 'h-9 w-9'
 
   return (
     <button
@@ -47,7 +51,7 @@ export function RailIconButton({
       onPointerDown={() => setPressed(true)}
       onPointerUp={() => setPressed(false)}
       onPointerCancel={() => setPressed(false)}
-      className="relative flex h-9 w-9 items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow,transform] duration-150 ease-out"
+      className={`relative flex ${sizeClass} items-center justify-center rounded-lg transition-[background-color,color,border-color,box-shadow,transform] duration-150 ease-out`}
       style={{
         background: active ? CARD_BG : hovered ? PAGE_BG : 'transparent',
         color: active ? TEAL : hovered ? TEXT : TEXT_DIM,
@@ -67,7 +71,7 @@ export function RailIconButton({
         className="inline-flex items-center justify-center transition-transform duration-150 ease-out"
         style={{ transform: active ? 'scale(1.03)' : hovered ? 'scale(1.01)' : 'scale(1)' }}
       >
-        <Icon size={16} strokeWidth={active ? 2.15 : hovered ? 2.02 : 1.9} />
+        <Icon size={iconSize} strokeWidth={active ? 2.15 : hovered ? 2.02 : 1.9} />
       </span>
 
       {showDotBadge && (

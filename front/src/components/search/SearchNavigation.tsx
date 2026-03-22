@@ -10,6 +10,7 @@ import {
 } from 'react'
 import { useComponentLibrary } from '@/features/library'
 import { useAppStore } from '@/store/appStore'
+import { useWorkspaceStore } from '@/store/workspaceStore'
 import {
   buildSearchIndex,
   filterSearchResults,
@@ -63,6 +64,8 @@ export function SearchNavigationProvider({ children }: { children: ReactNode }) 
   const revisions = useAppStore(s => s.revisions)
   const fetchRevisions = useAppStore(s => s.fetchRevisions)
   const { builtinTemplates, allProjectTemplates, userTemplates } = useComponentLibrary(null)
+  const workspaceNodeMap = useWorkspaceStore(s => s.nodes)
+  const workspaceNodes = useMemo(() => Object.values(workspaceNodeMap), [workspaceNodeMap])
 
   const [query, setQuery] = useState('')
   const [scope, setScope] = useState<SearchScopeId>('all')
@@ -90,8 +93,8 @@ export function SearchNavigationProvider({ children }: { children: ReactNode }) 
   ), [allProjectTemplates, builtinTemplates, userTemplates])
 
   const index = useMemo(() => (
-    buildSearchIndex(projects, revisions, libraryTemplates)
-  ), [libraryTemplates, projects, revisions])
+    buildSearchIndex(projects, revisions, libraryTemplates, workspaceNodes)
+  ), [libraryTemplates, projects, revisions, workspaceNodes])
 
   const queryUniverse = useMemo(() => (
     filterSearchResults(index, deferredQuery)

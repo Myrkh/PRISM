@@ -26,11 +26,20 @@ import { calcSIF } from '@/core/math/pfdCalc'
 import { normalizeSIFTab } from '@/store/types'
 import { useAppLocale } from '@/i18n/useLocale'
 
-interface Props { projectId: string; sifId: string }
+interface Props {
+  projectId: string
+  sifId: string
+  /** When set, drives tab state from outside (secondary split slot). */
+  tabOverride?: import('@/store/types').CanonicalSIFTab
+  /** When set, tab changes update the caller instead of the primary store. */
+  onTabChange?: (tab: import('@/store/types').CanonicalSIFTab) => void
+}
 
-export function SIFDashboard({ projectId, sifId }: Props) {
+export function SIFDashboard({ projectId, sifId, tabOverride, onTabChange }: Props) {
   const view = useAppStore(s => s.view)
   const setTab = useAppStore(s => s.setTab)
+  // In split mode, route tab changes to the secondary slot instead of the primary store
+  const handleTabChange = onTabChange ?? setTab
   const openEditSIF = useAppStore(s => s.openEditSIF)
   const publishRevision = useAppStore(s => s.publishRevision)
   const startNextRevision = useAppStore(s => s.startNextRevision)
@@ -40,7 +49,8 @@ export function SIFDashboard({ projectId, sifId }: Props) {
   const project = useAppStore(s => s.projects.find(p => p.id === projectId))
   const sif = project?.sifs.find(s => s.id === sifId)
 
-  const activeTab = view.type === 'sif-dashboard' ? normalizeSIFTab(view.tab) : 'cockpit'
+  const storeTab = view.type === 'sif-dashboard' ? normalizeSIFTab(view.tab) : 'cockpit'
+  const activeTab = tabOverride ?? storeTab
   const resolvedTab = activeTab === 'history' ? 'cockpit' : activeTab
   const [analysisSettings, setAnalysisSettings] = useState(() =>
     sif ? loadSIFAnalysisSettings(sif.id) : DEFAULT_SIF_ANALYSIS_SETTINGS,
@@ -51,8 +61,8 @@ export function SIFDashboard({ projectId, sifId }: Props) {
 
   useEffect(() => {
     if (activeTab !== 'history') return
-    setTab('cockpit')
-  }, [activeTab, setTab])
+    handleTabChange('cockpit')
+  }, [activeTab, handleTabChange])
 
   useEffect(() => {
     if (!sif) return
@@ -154,7 +164,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
     setIsPublishingRevision(true)
     try {
       await publishRevision(projectId, sif.id, payload)
-      setTab('cockpit')
+      handleTabChange('cockpit')
     } finally {
       setIsPublishingRevision(false)
     }
@@ -164,7 +174,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
     setIsStartingNextRevision(true)
     try {
       await startNextRevision(projectId, sif.id)
-      setTab('cockpit')
+      handleTabChange('cockpit')
     } finally {
       setIsStartingNextRevision(false)
     }
@@ -230,7 +240,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
               compliance={compliance}
               overviewMetrics={overviewMetrics}
               isPublishingRevision={isPublishingRevision}
-              onSelectTab={setTab}
+              onSelectTab={handleTabChange}
               onCloseRevision={() => setIsCloseDialogOpen(true)}
             />
           )}
@@ -241,7 +251,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
               sif={sif}
               compliance={compliance}
               overviewMetrics={overviewMetrics}
-              onSelectTab={setTab}
+              onSelectTab={handleTabChange}
             />
           )}
 
@@ -253,7 +263,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
               settings={analysisSettings}
               onChangeSettings={setAnalysisSettings}
               onResetSettings={() => setAnalysisSettings(DEFAULT_SIF_ANALYSIS_SETTINGS)}
-              onSelectTab={setTab}
+              onSelectTab={handleTabChange}
               onSelectGap={() => {}}
               onSelectEvidence={() => {}}
             />
@@ -264,7 +274,7 @@ export function SIFDashboard({ projectId, sifId }: Props) {
               project={project}
               sif={sif}
             >
-              <ProofTestTab project={project} sif={sif} onSelectTab={setTab} />
+              <ProofTestTab project={project} sif={sif} onSelectTab={handleTabChange} />
             </ExploitationWorkspace>
           )}
 

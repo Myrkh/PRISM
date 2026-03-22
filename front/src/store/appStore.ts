@@ -279,6 +279,14 @@ export const useAppStore = create<AppState>()(
       editingSIFId: null,
       newSIFProjectId: null,
 
+      // Layout panels
+      leftPanelOpen: true,
+      rightPanelOpen: true,
+      focusMode: false,
+
+      // Split view
+      secondSlot: null,
+
       // ══════════════════════════════════════════════════════════════════════
       // NAVIGATION
       // ══════════════════════════════════════════════════════════════════════
@@ -349,6 +357,40 @@ export const useAppStore = create<AppState>()(
           s.isDark = nextPreferences.theme === 'dark'
         })
       },
+
+      // ── Layout panels ──────────────────────────────────────────────────────
+      toggleLeftPanel: () => set(s => { s.leftPanelOpen = !s.leftPanelOpen }),
+      toggleRightPanel: () => set(s => { s.rightPanelOpen = !s.rightPanelOpen }),
+      setRightPanelOpen: (open) => set(s => { s.rightPanelOpen = open }),
+      toggleFocusMode: () => set(s => {
+        s.focusMode = !s.focusMode
+        // Exit focus mode always restores both panels
+        if (!s.focusMode) {
+          s.leftPanelOpen = true
+          s.rightPanelOpen = true
+        }
+      }),
+
+      // ── Split view ─────────────────────────────────────────────────────────
+      openSecondSlot: () => set(s => {
+        s.secondSlot = { projectId: null, sifId: null, tab: 'cockpit' }
+      }),
+      closeSecondSlot: () => set(s => { s.secondSlot = null }),
+      resetSecondSlot: () => set(s => {
+        if (s.secondSlot) { s.secondSlot.projectId = null; s.secondSlot.sifId = null; s.secondSlot.tab = 'cockpit' }
+      }),
+      loadSIFInSecondSlot: (projectId, sifId) => set(s => {
+        if (s.secondSlot) {
+          s.secondSlot.projectId = projectId
+          s.secondSlot.sifId     = sifId
+          s.secondSlot.tab       = 'cockpit'
+        } else {
+          s.secondSlot = { projectId, sifId, tab: 'cockpit' }
+        }
+      }),
+      setSecondSlotTab: (tab) => set(s => {
+        if (s.secondSlot) s.secondSlot.tab = tab
+      }),
       initializeAuth: async () => {
         if (authInitPromise) return authInitPromise
 

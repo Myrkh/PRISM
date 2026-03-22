@@ -5,9 +5,10 @@
  * Groupés par client → projet → SIF(s).
  * Pinned SIFs en haut pour accès rapide.
  */
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import {
   FileText, ChevronRight, Folder, FolderOpen, Pencil, Pin, Plus,
+  MoreHorizontal, Download, Upload, Trash2,
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { calcSIF } from '@/core/math/pfdCalc'
@@ -15,7 +16,50 @@ import { cn } from '@/lib/utils'
 import { normalizeSIFTab } from '@/store/types'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { StatusIcon } from '@/shared/StatusIcon'
-import { SidebarBody, SidebarSectionTitle, sidebarHoverIn, sidebarHoverOut, sidebarPressDown, sidebarPressUp } from '@/components/layout/SidebarPrimitives'
+import { SidebarBody, sidebarHoverIn, sidebarHoverOut, sidebarPressDown, sidebarPressUp } from '@/components/layout/SidebarPrimitives'
+import { downloadSIF, downloadProject } from '@/lib/prismFormat'
+import { PrismImportModal } from '@/components/PrismImportModal'
+import type { Project, SIF } from '@/core/types/sif.types'
+
+// ─── Lightweight context menu (shared by project + SIF rows) ─────────────
+type TreeMenuItem =
+  | { kind: 'action'; label: string; icon: React.ReactNode; onClick: () => void; danger?: boolean }
+  | { kind: 'separator' }
+
+function TreeContextMenu({ items, onClose }: { items: TreeMenuItem[]; onClose: () => void }) {
+  const { CARD_BG, BORDER, TEXT, TEXT_DIM, SHADOW_SOFT } = usePrismTheme()
+  const ref = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const fn = (e: MouseEvent) => { if (ref.current && !ref.current.contains(e.target as Node)) onClose() }
+    document.addEventListener('mousedown', fn)
+    return () => document.removeEventListener('mousedown', fn)
+  }, [onClose])
+  return (
+    <div
+      ref={ref}
+      className="absolute z-50 right-0 top-full mt-0.5 rounded-lg py-1 min-w-[180px]"
+      style={{ background: CARD_BG, border: `1px solid ${BORDER}`, boxShadow: `0 8px 24px rgba(0,0,0,0.35), ${SHADOW_SOFT}` }}
+      onMouseDown={e => e.stopPropagation()}
+    >
+      {items.map((item, i) => {
+        if (item.kind === 'separator') return <div key={i} className="my-1 h-px" style={{ background: BORDER }} />
+        return (
+          <button
+            key={i} type="button"
+            className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-left"
+            style={{ color: item.danger ? '#EF4444' : TEXT }}
+            onMouseEnter={e => { e.currentTarget.style.background = item.danger ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.05)' }}
+            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+            onClick={() => { item.onClick(); onClose() }}
+          >
+            <span style={{ color: item.danger ? '#EF4444' : TEXT_DIM, flexShrink: 0 }}>{item.icon}</span>
+            {item.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
 
 interface Props {
   projectId: string
@@ -32,6 +76,11 @@ export function ProjectTree({ projectId, sifId }: Props) {
   const openNewSIF = useAppStore(s => s.openNewSIF)
   const activeTab = view.type === 'sif-dashboard' ? normalizeSIFTab(view.tab) : null
   const currentProject = projects.find(p => p.id === projectId)
+
+  const [importModal,     setImportModal]     = useState<{ open: boolean; projectId?: string }>({ open: false })
+  const [projectMenuOpen, setProjectMenuOpen] = useState<string | null>(null)
+  const deleteProject = useAppStore(s => s.deleteProject)
+  const deleteSIF     = useAppStore(s => s.deleteSIF)
 
   const [openProjects, setOpenProjects] = useState<Set<string>>(() => {
     const initialOpen = new Set<string>()
@@ -71,10 +120,6 @@ export function ProjectTree({ projectId, sifId }: Props) {
   }, [projects])
 
   const pinnedSet = useMemo(() => new Set(pinnedSIFIds), [pinnedSIFIds])
-  const pinnedItems = useMemo(
-    () => pinnedSIFIds.map(id => sifLookup.get(id)).filter((x): x is NonNullable<typeof x> => !!x),
-    [pinnedSIFIds, sifLookup],
-  )
 
   // ─── SIF row sub-component ───────────────────────────────────────────────
   const SIFRow = ({
@@ -85,6 +130,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
     showProject?: boolean
     inTree?: boolean
   }) => {
+    const [sifMenu, setSifMenu] = useState(false)
     const ok = sifLookup.get(s.id)?.ok ?? calcSIF(s, { projectStandard: proj.standard }).meetsTarget
     const cur = s.id === sifId && proj.id === projectId
     const isPinned = pinnedSet.has(s.id)
@@ -200,6 +246,36 @@ export function ProjectTree({ projectId, sifId }: Props) {
             }}>
             <Pin size={12} />
           </button>
+
+          {/* ⋯ SIF context menu */}
+          <div className="relative shrink-0">
+            <button
+              type="button" title="Actions"
+              className="flex h-6 w-6 items-center justify-center rounded transition-colors"
+              style={{ color: TEXT_DIM }}
+              onMouseEnter={e => { e.currentTarget.style.color = TEXT }}
+              onMouseLeave={e => { e.currentTarget.style.color = TEXT_DIM }}
+              onClick={e => { e.stopPropagation(); setSifMenu(v => !v) }}
+            >
+              <MoreHorizontal size={13} />
+            </button>
+            {sifMenu && (
+              <TreeContextMenu
+                onClose={() => setSifMenu(false)}
+                items={[
+                  {
+                    kind: 'action', label: 'Exporter (.prism)', icon: <Download size={12} />,
+                    onClick: () => downloadSIF(s as unknown as SIF, proj as unknown as Project),
+                  },
+                  { kind: 'separator' },
+                  {
+                    kind: 'action', label: 'Supprimer', icon: <Trash2 size={12} />, danger: true,
+                    onClick: () => { void deleteSIF(proj.id, s.id) },
+                  },
+                ]}
+              />
+            )}
+          </div>
         </div>
 
         {inTree && (
@@ -285,19 +361,14 @@ export function ProjectTree({ projectId, sifId }: Props) {
 
   // ─── Render ──────────────────────────────────────────────────────────────
   return (
+    <>
+    {importModal.open && (
+      <PrismImportModal
+        defaultProjectId={importModal.projectId}
+        onClose={() => setImportModal({ open: false })}
+      />
+    )}
     <SidebarBody>
-      <SidebarSectionTitle>Pinned SIFs</SidebarSectionTitle>
-      <div className="mb-3 space-y-0.5">
-        {pinnedItems.length === 0 ? (
-          <div className="px-2 py-1 text-xs italic" style={{ color: TEXT_DIM }}>Pin frequently used SIFs for quick access.</div>
-        ) : (
-          pinnedItems.map(({ project, sif }) => (
-            <SIFRow key={`pin-${sif.id}`} proj={project} s={sif} showProject />
-          ))
-        )}
-      </div>
-
-      <SidebarSectionTitle>Projects</SidebarSectionTitle>
       <div className="space-y-2">
         {sortedProjects.map((proj, index) => {
           const projOpen = openProjects.has(`p-${proj.id}`)
@@ -309,63 +380,100 @@ export function ProjectTree({ projectId, sifId }: Props) {
           const projectActive = projOpen || isCurProj
           return (
             <div key={proj.id} className={cn(index > 0 && 'pt-2')} style={index > 0 ? { borderTop: `1px solid ${BORDER}33` } : undefined}>
-              <button type="button" onClick={() => toggleProject(`p-${proj.id}`)}
-                className="relative flex w-full items-center gap-1.5 overflow-hidden rounded-md px-2 py-1.5 font-semibold transition-[background-color,color,border-color,box-shadow,transform] duration-150 ease-out"
-                style={{
-                  color: projectActive ? TEXT : TEXT_DIM,
-                  background: projectActive ? SURFACE : 'transparent',
-                  border: `1px solid ${projectActive ? (isCurProj ? `${TEAL}24` : `${BORDER}D0`) : 'transparent'}`,
-                  boxShadow: projectActive ? SHADOW_CARD : 'none',
-                  transform: 'translateY(0) scale(1)',
-                }}
-                onMouseEnter={e => {
-                  if (!projectActive) {
-                    sidebarHoverIn(e.currentTarget, {
-                      background: PAGE_BG,
-                      borderColor: `${BORDER}D0`,
-                      boxShadow: SHADOW_SOFT,
-                      color: TEXT,
-                    })
-                  }
-                }}
-                onMouseLeave={e => {
-                  if (!projectActive) {
-                    sidebarHoverOut(e.currentTarget, {
-                      background: 'transparent',
-                      borderColor: 'transparent',
-                      boxShadow: 'none',
-                      color: TEXT_DIM,
-                    })
-                  }
-                  sidebarPressUp(e.currentTarget, projectActive ? SHADOW_CARD : 'none')
-                }}
-                onPointerDown={e => sidebarPressDown(e.currentTarget, SHADOW_SOFT)}
-                onPointerUp={e => sidebarPressUp(e.currentTarget, projectActive ? SHADOW_CARD : SHADOW_SOFT)}
-                onPointerCancel={e => sidebarPressUp(e.currentTarget, projectActive ? SHADOW_CARD : 'none')}>
-                <div
-                  className="pointer-events-none absolute left-0 top-1 bottom-1 w-0.5 rounded-full transition-[opacity,transform] duration-150 ease-out"
+              {/* Project header row: toggle button + ⋯ menu */}
+              <div className="flex items-center gap-1">
+                <button type="button" onClick={() => toggleProject(`p-${proj.id}`)}
+                  className="relative flex flex-1 min-w-0 items-center gap-1.5 overflow-hidden rounded-md px-2 py-1.5 font-semibold transition-[background-color,color,border-color,box-shadow,transform] duration-150 ease-out"
                   style={{
-                    background: TEAL,
-                    opacity: projectActive ? 1 : 0,
-                    transform: `translateX(${projectActive ? '0px' : '-1px'}) scaleY(${projectActive ? 1 : 0.6})`,
+                    color: projectActive ? TEXT : TEXT_DIM,
+                    background: projectActive ? SURFACE : 'transparent',
+                    border: `1px solid ${projectActive ? (isCurProj ? `${TEAL}24` : `${BORDER}D0`) : 'transparent'}`,
+                    boxShadow: projectActive ? SHADOW_CARD : 'none',
+                    transform: 'translateY(0) scale(1)',
                   }}
-                />
-                <ChevronRight
-                  size={14}
-                  className="shrink-0 transition-transform duration-200"
-                  style={{ transform: projOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
-                />
-                {projOpen ? (
-                  <FolderOpen size={15} className="shrink-0" style={{ color: projectActive ? TEAL : TEXT_DIM }} />
-                ) : (
-                  <Folder size={15} className="shrink-0" style={{ color: projectActive ? TEAL : TEXT_DIM }} />
-                )}
-                <div className="min-w-0 flex-1 text-left">
-                  <p className="truncate">{proj.name}</p>
-                  <p className="truncate text-[10px]" style={{ color: TEXT_DIM }}>{[proj.client, proj.ref].filter(Boolean).join(' · ')}</p>
+                  onMouseEnter={e => {
+                    if (!projectActive) {
+                      sidebarHoverIn(e.currentTarget, {
+                        background: PAGE_BG,
+                        borderColor: `${BORDER}D0`,
+                        boxShadow: SHADOW_SOFT,
+                        color: TEXT,
+                      })
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!projectActive) {
+                      sidebarHoverOut(e.currentTarget, {
+                        background: 'transparent',
+                        borderColor: 'transparent',
+                        boxShadow: 'none',
+                        color: TEXT_DIM,
+                      })
+                    }
+                    sidebarPressUp(e.currentTarget, projectActive ? SHADOW_CARD : 'none')
+                  }}
+                  onPointerDown={e => sidebarPressDown(e.currentTarget, SHADOW_SOFT)}
+                  onPointerUp={e => sidebarPressUp(e.currentTarget, projectActive ? SHADOW_CARD : SHADOW_SOFT)}
+                  onPointerCancel={e => sidebarPressUp(e.currentTarget, projectActive ? SHADOW_CARD : 'none')}>
+                  <div
+                    className="pointer-events-none absolute left-0 top-1 bottom-1 w-0.5 rounded-full transition-[opacity,transform] duration-150 ease-out"
+                    style={{
+                      background: TEAL,
+                      opacity: projectActive ? 1 : 0,
+                      transform: `translateX(${projectActive ? '0px' : '-1px'}) scaleY(${projectActive ? 1 : 0.6})`,
+                    }}
+                  />
+                  <ChevronRight
+                    size={14}
+                    className="shrink-0 transition-transform duration-200"
+                    style={{ transform: projOpen ? 'rotate(90deg)' : 'rotate(0deg)' }}
+                  />
+                  {projOpen ? (
+                    <FolderOpen size={15} className="shrink-0" style={{ color: projectActive ? TEAL : TEXT_DIM }} />
+                  ) : (
+                    <Folder size={15} className="shrink-0" style={{ color: projectActive ? TEAL : TEXT_DIM }} />
+                  )}
+                  <div className="min-w-0 flex-1 text-left">
+                    <p className="truncate">{proj.name}</p>
+                    <p className="truncate text-[10px]" style={{ color: TEXT_DIM }}>{[proj.client, proj.ref].filter(Boolean).join(' · ')}</p>
+                  </div>
+                  <StatusIcon ok={projOk} />
+                </button>
+
+                {/* ⋯ project context menu */}
+                <div className="relative shrink-0">
+                  <button
+                    type="button" title="Actions projet"
+                    className="flex h-6 w-6 items-center justify-center rounded transition-colors"
+                    style={{ color: TEXT_DIM }}
+                    onMouseEnter={e => { e.currentTarget.style.color = TEXT }}
+                    onMouseLeave={e => { e.currentTarget.style.color = TEXT_DIM }}
+                    onClick={e => { e.stopPropagation(); setProjectMenuOpen(v => v === proj.id ? null : proj.id) }}
+                  >
+                    <MoreHorizontal size={13} />
+                  </button>
+                  {projectMenuOpen === proj.id && (
+                    <TreeContextMenu
+                      onClose={() => setProjectMenuOpen(null)}
+                      items={[
+                        {
+                          kind: 'action', label: 'Exporter projet (.prism)', icon: <Download size={12} />,
+                          onClick: () => downloadProject(proj as unknown as Project),
+                        },
+                        {
+                          kind: 'action', label: 'Importer une SIF…', icon: <Upload size={12} />,
+                          onClick: () => setImportModal({ open: true, projectId: proj.id }),
+                        },
+                        { kind: 'separator' },
+                        {
+                          kind: 'action', label: 'Supprimer le projet', icon: <Trash2 size={12} />, danger: true,
+                          onClick: () => { void deleteProject(proj.id) },
+                        },
+                      ]}
+                    />
+                  )}
                 </div>
-                <StatusIcon ok={projOk} />
-              </button>
+              </div>
               <div
                 className="overflow-hidden transition-[max-height,opacity,transform,padding] duration-200"
                 style={{
@@ -435,5 +543,6 @@ export function ProjectTree({ projectId, sifId }: Props) {
         })}
       </div>
     </SidebarBody>
+    </>
   )
 }

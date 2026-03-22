@@ -37,6 +37,9 @@ import { EngineNavigationProvider } from '@/components/engine/EngineNavigation'
 import { PlanningWorkspace } from '@/planning/PlanningWorkspace'
 import { PlanningNavigationProvider } from '@/planning/PlanningNavigation'
 import { fetchAllProjects } from '@/lib/db'
+import { NoteEditorWorkspace } from '@/components/workspace/NoteEditorWorkspace'
+import { FileViewerWorkspace } from '@/components/workspace/FileViewerWorkspace'
+import { useWorkspaceSync } from '@/store/useWorkspaceSync'
 
 // ─── Hash routing ─────────────────────────────────────────────────────────
 
@@ -60,6 +63,9 @@ function viewToHash(view: AppView): string {
   if (view.type === 'sif-history') return '#/history'
   if (view.type === 'engine') return '#/engine'
   if (view.type === 'hazop') return '#/hazop'
+  if (view.type === 'home') return '#/home'
+  if (view.type === 'note') return `#/note/${view.noteId}`
+  if (view.type === 'workspace-file') return `#/file/${view.nodeId}`
   return '#/'
 }
 
@@ -102,6 +108,9 @@ function hashToView(hash: string): AppView | null {
   if (path === '/history') return { type: 'sif-history' }
   if (path === '/engine') return { type: 'engine' }
   if (path === '/hazop') return { type: 'hazop' }
+  if (path === '/home') return { type: 'home' }
+  if (path.startsWith('/note/')) return { type: 'note', noteId: path.slice(6) }
+  if (path.startsWith('/file/')) return { type: 'workspace-file', nodeId: path.slice(6) }
   if (path === '/') return { type: 'projects' }
   return null
 }
@@ -174,8 +183,10 @@ function ErrorScreen({ error, onRetry }: { error: string; onRetry: () => void })
 // ─── App ──────────────────────────────────────────────────────────────────
 
 export default function App() {
-  const view        = useAppStore(s => s.view)
-  const navigate    = useAppStore(s => s.navigate)
+  const view           = useAppStore(s => s.view)
+  const navigate       = useAppStore(s => s.navigate)
+  const secondSlot     = useAppStore(s => s.secondSlot)
+  const setSecondSlotTab = useAppStore(s => s.setSecondSlotTab)
   const isDark      = useAppStore(s => s.isDark)
   const projects    = useAppStore(s => s.projects)
   const setProjects = useAppStore(s => s.setProjects)
@@ -191,6 +202,9 @@ export default function App() {
   const [loadError, setLoadError] = useState<string | null>(null)
   const lastNonSettingsViewRef = useRef<AppView>({ type: 'projects' })
   const authUserId = authUser?.id ?? null
+
+  // Workspace ↔ Supabase sync
+  useWorkspaceSync()
 
   // Dark mode
   useEffect(() => {
@@ -256,6 +270,18 @@ export default function App() {
 
   const shellProjectId = view.type === 'sif-dashboard' ? view.projectId : ''
   const shellSifId = view.type === 'sif-dashboard' ? view.sifId : ''
+
+  // Secondary split pane — built here to avoid circular imports with SIFWorkbenchLayout.
+  // null when no SIF is selected (secondary shows empty/welcome state).
+  const secondaryContent = (secondSlot?.projectId && secondSlot?.sifId) ? (
+    <SIFDashboard
+      projectId={secondSlot.projectId}
+      sifId={secondSlot.sifId}
+      tabOverride={secondSlot.tab}
+      onTabChange={setSecondSlotTab}
+    />
+  ) : null
+
   const shellContent = (
     <>
       {view.type === 'search' && (
@@ -291,6 +317,12 @@ export default function App() {
       )}
       {view.type === 'sif-dashboard' && (
         <SIFDashboard projectId={view.projectId} sifId={view.sifId} />
+      )}
+      {view.type === 'note' && (
+        <NoteEditorWorkspace noteId={view.noteId} />
+      )}
+      {view.type === 'workspace-file' && (
+        <FileViewerWorkspace nodeId={view.nodeId} />
       )}
     </>
   )
@@ -364,7 +396,7 @@ export default function App() {
           </SIFWorkbenchLayout>
         </EngineNavigationProvider>
       ) : (
-        <SIFWorkbenchLayout projectId={shellProjectId} sifId={shellSifId}>
+        <SIFWorkbenchLayout projectId={shellProjectId} sifId={shellSifId} secondaryContent={secondaryContent}>
           {shellContent}
         </SIFWorkbenchLayout>
       )}

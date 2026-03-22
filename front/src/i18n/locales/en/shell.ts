@@ -27,6 +27,8 @@ export const shellStringsEn: ShellStrings = {
     leftExpand: 'Show panel',
     rightCollapse: 'Collapse properties',
     rightExpand: 'Show properties',
+    focusEnter: 'Zen mode — hide rail, sidebar & panel',
+    focusExit: 'Exit Zen mode',
     home: 'Home — Projects',
     search: 'Global search',
     library: 'Master library',

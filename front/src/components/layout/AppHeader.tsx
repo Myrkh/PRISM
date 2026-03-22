@@ -1,19 +1,26 @@
 /**
- * AppHeader.tsx — PRISM v3 (refactored)
+ * AppHeader.tsx — PRISM v4
+ *
+ * Grid: [Logo 288px] | [CommandPaletteBar 1fr] | [UserMenu + WinControls auto]
+ *
+ * The center column IS the command palette:
+ *   • Inactive → shows current breadcrumb (Project › SIF · Title › Phase)
+ *   • Active   → becomes a search input, dropdown opens just below the header
  */
 import { useRef, useState, useEffect } from 'react'
-import { LogOut, Moon, Settings, Sun, ChevronRight, Minus, Square, X } from 'lucide-react'
+import { LogOut, Moon, Settings, Sun, Minus, Square, X } from 'lucide-react'
 
-// Détection mode desktop Electron (fenêtre PRISM frameless)
+// Desktop mode: PRISM running inside Electron frameless window
 const isDesktop = typeof window !== 'undefined' && !!(window as { prismDesktop?: { isDesktop?: boolean } }).prismDesktop?.isDesktop
+
 import { Button } from '@/components/ui/button'
 import { useLocaleStrings } from '@/i18n/useLocale'
 import { getShellStrings } from '@/i18n/shell'
 import { useAppStore } from '@/store/appStore'
-import { normalizeSIFTab } from '@/store/types'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
-import { CommandPalette } from './CommandPalette'
+import { CommandPalette } from './command-palette'
+import { LayoutControls } from './layout-controls'
 
 function getUserInitials(value: string | null | undefined): string {
   if (!value) return 'U'
@@ -24,15 +31,13 @@ function getUserInitials(value: string | null | undefined): string {
 }
 
 export function AppHeader() {
-  const { BORDER, RAIL_BG, PANEL_BG, PAGE_BG, SHADOW_SOFT, SHADOW_TAB, TEAL_DIM, TEXT, TEXT_DIM, isDark: themeIsDark } = usePrismTheme()
-  const strings = useLocaleStrings(getShellStrings)
+  const { BORDER, RAIL_BG, PANEL_BG, PAGE_BG, SHADOW_SOFT, SHADOW_TAB, TEXT, TEXT_DIM, isDark: themeIsDark } = usePrismTheme()
+  const strings  = useLocaleStrings(getShellStrings)
+  const navigate  = useAppStore(s => s.navigate)
   const toggleTheme = useAppStore(s => s.toggleTheme)
-  const view = useAppStore(s => s.view)
-  const navigate = useAppStore(s => s.navigate)
-  const projects = useAppStore(s => s.projects)
-  const authUser = useAppStore(s => s.authUser)
-  const profile = useAppStore(s => s.profile)
-  const signOut = useAppStore(s => s.signOut)
+  const authUser  = useAppStore(s => s.authUser)
+  const profile   = useAppStore(s => s.profile)
+  const signOut   = useAppStore(s => s.signOut)
 
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false)
   const userMenuRef = useRef<HTMLDivElement>(null)
@@ -57,8 +62,8 @@ export function AppHeader() {
 
   const displayName = profile?.fullName || authUser?.user_metadata?.full_name || authUser?.email || strings.header.fallbackUser
   const displayEmail = profile?.email || authUser?.email || ''
-  const avatarUrl = profile?.avatarUrl || authUser?.user_metadata?.avatar_url || authUser?.user_metadata?.picture || null
-  const initials = getUserInitials(displayName)
+  const avatarUrl    = profile?.avatarUrl || authUser?.user_metadata?.avatar_url || authUser?.user_metadata?.picture || null
+  const initials     = getUserInitials(displayName)
 
   const handleSignOut = async () => {
     try {
@@ -69,39 +74,6 @@ export function AppHeader() {
     }
   }
 
-  const breadcrumb = (() => {
-    if (view.type === 'sif-dashboard') {
-      const project = projects.find(p => p.id === view.projectId)
-      const sif = project?.sifs.find(s => s.id === view.sifId)
-      if (!project || !sif) return null
-
-      return (
-        <div className="flex min-w-0 items-center gap-1.5">
-          <button
-            onClick={() => navigate({ type: 'projects' })}
-            className="shrink-0 text-[13px] transition-colors hover:opacity-80"
-            style={{ color: TEXT_DIM }}
-          >
-            {project.name}
-          </button>
-          <ChevronRight size={13} style={{ color: TEXT_DIM, flexShrink: 0 }} />
-          <span className="truncate text-[13px] font-semibold" style={{ color: TEXT }}>
-            {sif.sifNumber}
-            {sif.title ? <span style={{ color: TEXT_DIM, fontWeight: 400 }}> · {sif.title}</span> : null}
-          </span>
-          <ChevronRight size={13} style={{ color: TEXT_DIM, flexShrink: 0 }} />
-          <span className="shrink-0 text-[13px] font-medium" style={{ color: TEAL_DIM }}>
-            {strings.sifTabLabels[normalizeSIFTab(view.tab)] ?? normalizeSIFTab(view.tab)}
-          </span>
-        </div>
-      )
-    }
-
-    const label = strings.viewLabels[view.type]
-    if (!label || view.type === 'projects') return null
-    return <span className="text-[13px] font-semibold" style={{ color: TEXT }}>{label}</span>
-  })()
-
   return (
     <header
       className="sticky top-0 z-50 grid h-12 items-center border-b"
@@ -110,10 +82,10 @@ export function AppHeader() {
         background: RAIL_BG,
         borderColor: BORDER,
         boxShadow: `${SHADOW_TAB}, inset 0 1px 0 ${themeIsDark ? 'rgba(255,255,255,0.085)' : 'rgba(255,255,255,0.92)'}, inset 0 -1px 0 ${themeIsDark ? 'rgba(0,0,0,0.28)' : 'rgba(15,23,42,0.06)'}`,
-        // En mode desktop : toute la barre est draggable
         ...(isDesktop && { WebkitAppRegion: 'drag' } as React.CSSProperties),
       }}
     >
+      {/* ── Logo ───────────────────────────────────────────────────────────── */}
       <div
         className="flex h-full items-center border-r px-2"
         style={{
@@ -133,10 +105,9 @@ export function AppHeader() {
         </button>
       </div>
 
-      <div className="flex min-w-0 items-center px-5">{breadcrumb}</div>
-
+      {/* ── Command Palette + Layout Controls (center) ─────────────────────── */}
       <div
-        className="flex items-center gap-1.5 px-3"
+        className="flex min-w-0 items-center gap-2 px-4"
         style={isDesktop ? { WebkitAppRegion: 'no-drag' } as React.CSSProperties : undefined}
       >
         <CommandPalette
@@ -146,6 +117,18 @@ export function AppHeader() {
           onOpenLibrary={() => navigate({ type: 'library' })}
         />
 
+        {/* Thin separator */}
+        <div className="h-4 w-px shrink-0" style={{ background: BORDER }} />
+
+        <LayoutControls />
+      </div>
+
+      {/* ── Right: user menu + window controls ─────────────────────────────── */}
+      <div
+        className="flex items-center gap-1.5 px-3"
+        style={isDesktop ? { WebkitAppRegion: 'no-drag' } as React.CSSProperties : undefined}
+      >
+        {/* User avatar button + dropdown */}
         <div className="relative" ref={userMenuRef}>
           <Button
             variant="ghost"
@@ -191,26 +174,18 @@ export function AppHeader() {
                 {
                   icon: Settings,
                   label: strings.header.userMenuSettings,
-                  onClick: () => {
-                    navigate({ type: 'settings', section: 'general' })
-                    setIsUserMenuOpen(false)
-                  },
+                  onClick: () => { navigate({ type: 'settings', section: 'general' }); setIsUserMenuOpen(false) },
                 },
                 {
                   icon: themeIsDark ? Sun : Moon,
                   label: themeIsDark ? strings.header.userMenuLight : strings.header.userMenuDark,
-                  onClick: () => {
-                    toggleTheme()
-                    setIsUserMenuOpen(false)
-                  },
+                  onClick: () => { toggleTheme(); setIsUserMenuOpen(false) },
                 },
                 {
                   icon: LogOut,
                   label: strings.header.userMenuSignOut,
                   danger: true,
-                  onClick: () => {
-                    void handleSignOut()
-                  },
+                  onClick: () => { void handleSignOut() },
                 },
               ].map(item => (
                 <button
@@ -236,13 +211,13 @@ export function AppHeader() {
           )}
         </div>
 
-        {/* Boutons de contrôle fenêtre — desktop uniquement */}
+        {/* Window controls — desktop (Electron frameless) only */}
         {isDesktop && (
           <div className="ml-2 flex items-center" style={{ WebkitAppRegion: 'no-drag' } as React.CSSProperties}>
             {[
-              { icon: Minus, action: 'minimize', hover: themeIsDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
+              { icon: Minus,  action: 'minimize', hover: themeIsDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
               { icon: Square, action: 'maximize', hover: themeIsDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)' },
-              { icon: X, action: 'close', hover: '#e81123' },
+              { icon: X,      action: 'close',    hover: '#e81123' },
             ].map(({ icon: Icon, action, hover }) => (
               <button
                 key={action}

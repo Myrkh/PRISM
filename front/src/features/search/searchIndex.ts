@@ -12,6 +12,7 @@ import type {
   TestCampaign,
 } from '@/core/types'
 import { getTemplateLibraryName } from '@/features/library'
+import type { WorkspaceNode } from '@/store/workspaceStore'
 import type { AppView, CanonicalSIFTab } from '@/store/types'
 
 export type SearchScopeId =
@@ -25,6 +26,7 @@ export type SearchScopeId =
   | 'proof'
   | 'revisions'
   | 'reports'
+  | 'workspace'
 
 export type SearchItemScope = Exclude<SearchScopeId, 'all'>
 
@@ -41,6 +43,8 @@ export type SearchResultKind =
   | 'event'
   | 'revision'
   | 'report'
+  | 'note'
+  | 'workspace-file'
 
 export interface SearchResult {
   id: string
@@ -59,6 +63,7 @@ export interface SearchResult {
   templateId?: string
   templateOrigin?: 'builtin' | 'project' | 'user' | null
   libraryName?: string | null
+  workspaceNodeId?: string
   sortDate?: string | null
 }
 
@@ -77,6 +82,7 @@ const SEARCH_SCOPE_ORDER: SearchItemScope[] = [
   'proof',
   'revisions',
   'reports',
+  'workspace',
 ]
 
 const SEARCH_SCOPE_RANK = new Map<SearchItemScope, number>(
@@ -562,10 +568,37 @@ function buildSearchResultsForSif(
   })
 }
 
+function pushWorkspaceNodeResult(results: SearchResult[], node: WorkspaceNode) {
+  if (node.type === 'folder') return
+  const kind: SearchResultKind = node.type === 'note' ? 'note' : 'workspace-file'
+  const subtitle = node.type === 'note'
+    ? (node.content.slice(0, 120).replace(/#+\s*/g, '').trim() || 'Note Markdown')
+    : node.type === 'pdf'
+      ? 'PDF'
+      : 'Image'
+
+  results.push({
+    id: `workspace:${node.id}`,
+    scope: 'workspace',
+    kind,
+    title: node.name,
+    subtitle,
+    context: 'Espace libre',
+    keywords: [node.name, node.type === 'note' ? node.content.slice(0, 500) : node.name].join(' '),
+    projectId: null,
+    projectName: '',
+    sifId: null,
+    sifLabel: '',
+    tab: 'cockpit',
+    workspaceNodeId: node.id,
+  })
+}
+
 export function buildSearchIndex(
   projects: Project[],
   revisions: Record<string, SIFRevision[]>,
   libraryTemplates: ComponentTemplate[] = [],
+  workspaceNodes: WorkspaceNode[] = [],
 ): SearchResult[] {
   const results: SearchResult[] = []
   const projectNameById = new Map(projects.map(project => [project.id, project.name]))
@@ -601,6 +634,7 @@ export function buildSearchIndex(
   })
 
   libraryTemplates.forEach(template => pushLibraryTemplateResult(results, template, projectNameById))
+  workspaceNodes.forEach(node => pushWorkspaceNodeResult(results, node))
 
   return results.sort((left, right) => {
     const scopeDelta = (SEARCH_SCOPE_RANK.get(left.scope) ?? 99) - (SEARCH_SCOPE_RANK.get(right.scope) ?? 99)
@@ -707,6 +741,7 @@ export function getSearchScopeCounts(results: SearchResult[]): Record<SearchItem
     proof: 0,
     revisions: 0,
     reports: 0,
+    workspace: 0,
   })
 }
 
@@ -726,6 +761,15 @@ export function openSearchResult(
   },
 ) {
   const { navigate, selectComponent } = helpers
+
+  if (result.workspaceNodeId) {
+    if (result.kind === 'note') {
+      navigate({ type: 'note', noteId: result.workspaceNodeId })
+    } else {
+      navigate({ type: 'workspace-file', nodeId: result.workspaceNodeId })
+    }
+    return
+  }
 
   if (result.componentId && result.projectId && result.sifId) {
     selectComponent(result.componentId)

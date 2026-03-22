@@ -24,6 +24,8 @@ export const searchStringsEn: SearchStrings = {
     event: 'Event',
     revision: 'Revision',
     report: 'Report',
+    note: 'Note',
+    'workspace-file': 'File',
   },
   scopeMeta: {
     all: { label: 'All', hint: 'All indexed objects' },
@@ -36,14 +38,11 @@ export const searchStringsEn: SearchStrings = {
     proof: { label: 'Proof tests', hint: 'Procedures, campaigns, and events' },
     revisions: { label: 'Revisions', hint: 'History and publication' },
     reports: { label: 'Reports', hint: 'Published packages and PDFs' },
+    workspace: { label: 'Free workspace', hint: 'Markdown notes, PDFs and images' },
   },
   header: {
-    eyebrow: 'Cross-workspace search',
-    title: 'Find the right object quickly',
-    description: 'Project, SIF, component, template, assumption, action, proof test, revision, or report.',
     filteredCount: count => `${count} filtered results`,
     indexedCount: count => `${count} indexed objects`,
-    commandHint: 'Ctrl/Cmd + K for quick access',
   },
   searchPlaceholder: 'Ex. XV-101, SIF-204, bypass, proof test, revision B, Safety PLC…',
   previewBadge: 'Preview of the main occurrences by category',
@@ -57,15 +56,13 @@ export const searchStringsEn: SearchStrings = {
   sidebar: {
     title: 'Global search',
     summary: (query, totalVisible, totalIndexed) => query
-      ? `${totalVisible} result${totalVisible > 1 ? 's' : ''} for “${query}”`
-      : `${totalIndexed} indexed objects in the workspace`,
+      ? `${totalVisible} result${totalVisible > 1 ? 's' : ''} for "${query}"`
+      : `${totalIndexed} indexed objects`,
     reset: 'Reset',
     scopeTitle: 'Scope',
     projectsTitle: 'Projects',
     allProjectsLabel: 'All projects',
     allProjectsHint: 'Cross-project search without restriction',
-    usageTitle: 'Usage',
-    usageBody: 'Type an instrument tag, SIF, template, assumption, campaign, or revision. Each result opens the right view directly.',
-    backgroundLoading: count => `Revision history for ${count} SIF${count > 1 ? 's' : ''} is still loading in the background.`,
+    backgroundLoading: count => `Revision history for ${count} SIF${count > 1 ? 's' : ''} is still loading.`,
   },
 }

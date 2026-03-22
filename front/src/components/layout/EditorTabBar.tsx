@@ -6,6 +6,7 @@
  * EditorContent   : wrapper zone principale.
  */
 import { useState, type ReactNode } from 'react'
+import { ArrowLeftRight } from 'lucide-react'
 import type { CanonicalSIFTab } from '@/store/types'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { cn } from '@/lib/utils'
@@ -191,33 +192,79 @@ export function SIFLifecycleBar({
 export function SIFWorkbenchBar({
   active,
   onSelect,
+  sifTooltip,
+  onReset,
+  onSwitch,
 }: {
   active: CanonicalSIFTab
   onSelect: (id: CanonicalSIFTab) => void
+  /** Tooltip text for the action button (project › SIF name). */
+  sifTooltip?: string
+  /** × button — reset secondary pane to empty state. */
+  onReset?: () => void
+  /** ⇄ button — open primary SIF picker (split mode). */
+  onSwitch?: () => void
 }) {
-  const { BORDER, SHADOW_SOFT, TEXT_DIM, PANEL_BG } = usePrismTheme()
+  const { BORDER, SHADOW_SOFT, TEXT, TEXT_DIM, PANEL_BG } = usePrismTheme()
   const cockpit = LIFECYCLE_PHASES[0]
   const report  = LIFECYCLE_PHASES[LIFECYCLE_PHASES.length - 1]
 
   return (
     <div
-      className="flex shrink-0 justify-center border-b px-4"
+      className="flex shrink-0 items-center border-b px-2"
       style={{ borderColor: BORDER, background: PANEL_BG, height: 40, boxShadow: SHADOW_SOFT }}
     >
-      <div className="flex min-w-0 max-w-full items-center gap-0.5 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
-        <PhaseBtn phase={cockpit} isActive={active === 'cockpit'} onClick={() => onSelect('cockpit')} />
-        <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
-        {PHASES_STEPS.map((phase, index) => (
-          <div key={phase.id} className="flex items-center">
-            {index > 0 && (
-              <span className="mx-1 text-[11px] select-none shrink-0" style={{ color: TEXT_DIM }}>›</span>
-            )}
-            <PhaseBtn phase={phase} isActive={active === phase.id} onClick={() => onSelect(phase.id)} />
-          </div>
-        ))}
-        <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
-        <PhaseBtn phase={report} isActive={active === 'report'} onClick={() => onSelect('report')} />
+      {/* Lifecycle tabs — centered when fits, scrollable at both edges when not */}
+      <div className="flex-1 min-w-0 overflow-x-auto" style={{ scrollbarWidth: 'none' }}>
+        <div className="flex w-max mx-auto items-center gap-0.5 px-2">
+          <PhaseBtn phase={cockpit} isActive={active === 'cockpit'} onClick={() => onSelect('cockpit')} />
+          <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
+          {PHASES_STEPS.map((phase, index) => (
+            <div key={phase.id} className="flex items-center">
+              {index > 0 && (
+                <span className="mx-1 text-[11px] select-none shrink-0" style={{ color: TEXT_DIM }}>›</span>
+              )}
+              <PhaseBtn phase={phase} isActive={active === phase.id} onClick={() => onSelect(phase.id)} />
+            </div>
+          ))}
+          <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
+          <PhaseBtn phase={report} isActive={active === 'report'} onClick={() => onSelect('report')} />
+        </div>
       </div>
+
+      {/* Action buttons — right side of bar, only in split mode */}
+      {(onReset ?? onSwitch) && (
+        <div className="flex shrink-0 items-center pl-1">
+          {/* Primary: switch SIF (⇄) */}
+          {onSwitch && (
+            <button
+              type="button"
+              onClick={onSwitch}
+              title={sifTooltip ? `${sifTooltip} — Changer de SIF` : 'Changer de SIF'}
+              className="flex h-6 w-6 items-center justify-center rounded transition-colors"
+              style={{ color: TEXT_DIM }}
+              onMouseEnter={e => { e.currentTarget.style.color = TEXT }}
+              onMouseLeave={e => { e.currentTarget.style.color = TEXT_DIM }}
+            >
+              <ArrowLeftRight size={11} />
+            </button>
+          )}
+          {/* Secondary: reset to empty (×) */}
+          {onReset && (
+            <button
+              type="button"
+              onClick={onReset}
+              title={sifTooltip ? `${sifTooltip} — Revenir à la sélection` : 'Revenir à la sélection'}
+              className="flex h-6 w-6 items-center justify-center rounded text-[13px] transition-colors"
+              style={{ color: TEXT_DIM }}
+              onMouseEnter={e => { e.currentTarget.style.color = TEXT }}
+              onMouseLeave={e => { e.currentTarget.style.color = TEXT_DIM }}
+            >
+              ×
+            </button>
+          )}
+        </div>
+      )}
     </div>
   )
 }

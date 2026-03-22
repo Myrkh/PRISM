@@ -11,10 +11,10 @@
  *   – Moins de props drilling sur IconRail
  */
 import {
-  useState, useRef,
+  useState, useRef, useEffect,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
-  createContext, useContext, useEffect,
+  createContext, useContext,
 } from 'react'
 import { GripVertical, SlidersHorizontal } from 'lucide-react'
 import { useAppStore, selectSIFCalc } from '@/store/appStore'
@@ -30,7 +30,9 @@ import {
 } from '@/core/models/appPreferences'
 
 import { IconRail } from '@/components/layout/IconRail'
-import { ProjectTree } from '@/components/layout/ProjectTree'
+import { SecondaryEmptyState } from '@/components/layout/split-view/SecondaryEmptyState'
+import { PrimaryPickerOverlay } from '@/components/layout/split-view/PrimaryPickerOverlay'
+import { ProjectSidebar } from '@/components/layout/ProjectSidebar'
 import { DocsSidebar } from '@/components/docs/DocsSidebar'
 import { SearchSidebar } from '@/components/search/SearchSidebar'
 import { LibrarySidebar } from '@/components/library/LibrarySidebar'
@@ -39,6 +41,7 @@ import { PlanningSidebar } from '@/planning/PlanningSidebar'
 import { EngineSidebar } from '@/components/engine/EngineSidebar'
 import { LibraryInspector } from '@/components/library/LibraryInspector'
 import { HomeScreen } from '@/components/layout/HomeScreen'
+import { SIFBrowserWelcome } from '@/components/layout/SIFBrowserWelcome'
 import { SIFWorkbenchBar, EditorContent } from '@/components/layout/EditorTabBar'
 import { RightPanelShell } from '@/components/layout/RightPanelShell'
 
@@ -215,15 +218,82 @@ function ResizeDivider({
   )
 }
 
+// ─── Split divider — center drag handle ──────────────────────────────────
+function SplitDivider({
+  isResizing,
+  onPointerDown,
+}: {
+  isResizing: boolean
+  onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => void
+}) {
+  const { BORDER, TEAL, TEXT_DIM } = usePrismTheme()
+  const [hovered, setHovered] = useState(false)
+  const active = isResizing || hovered
+
+  return (
+    <div
+      role="separator"
+      aria-orientation="vertical"
+      className="relative flex shrink-0 cursor-col-resize items-center justify-center transition-colors"
+      style={{ width: 6, background: active ? `${TEAL}28` : BORDER, touchAction: 'none' }}
+      onPointerDown={onPointerDown}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
+    >
+      <div
+        className="h-10 w-0.5 rounded-full transition-all"
+        style={{ background: active ? TEAL : TEXT_DIM, opacity: active ? 0.9 : 0.25 }}
+      />
+    </div>
+  )
+}
+
+// ─── Secondary slot empty bar — shown when no SIF is loaded ─────────────
+function SecondaryEmptyBar({ onClose }: { onClose: () => void }) {
+  const { BORDER, PANEL_BG, SHADOW_SOFT, TEXT, TEXT_DIM } = usePrismTheme()
+  return (
+    <div
+      className="flex shrink-0 items-center justify-between border-b px-3"
+      style={{ borderColor: BORDER, background: PANEL_BG, height: 40, boxShadow: SHADOW_SOFT }}
+    >
+      <span className="text-[12px]" style={{ color: TEXT_DIM }}>Sélectionner une SIF…</span>
+      <button
+        type="button"
+        onClick={onClose}
+        title="Fermer le split"
+        className="flex h-5 w-5 items-center justify-center rounded text-[13px] transition-colors"
+        style={{ color: TEXT_DIM }}
+        onMouseEnter={e => { e.currentTarget.style.color = TEXT }}
+        onMouseLeave={e => { e.currentTarget.style.color = TEXT_DIM }}
+      >
+        ×
+      </button>
+    </div>
+  )
+}
+
+// ─── Secondary slot boundary — isolates right-panel context ──────────────
+// Prevents the secondary SIFDashboard from overwriting the primary's right panel.
+const NOOP_LAYOUT_VALUE = {
+  setRightPanelOverride: () => {},
+  setRightPanelOpen: () => {},
+  isRightPanelOpen: false,
+}
+function SecondarySlotBoundary({ children }: { children: ReactNode }) {
+  return <LayoutContext.Provider value={NOOP_LAYOUT_VALUE}>{children}</LayoutContext.Provider>
+}
+
 // ─── MAIN LAYOUT ──────────────────────────────────────────────────────────
 interface Props {
   projectId?: string
   sifId?: string
   children: ReactNode
   rightPanelContent?: ReactNode
+  /** Content for the secondary split pane — built by App.tsx to avoid circular imports. */
+  secondaryContent?: ReactNode
 }
 
-export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelContent }: Props) {
+export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelContent, secondaryContent }: Props) {
   const { BORDER, PAGE_BG, PANEL_BG, SHADOW_DOCK, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const view = useAppStore(s => s.view)
   const setTab = useAppStore(s => s.setTab)
@@ -234,8 +304,43 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
   const project = projectId ? projects.find(p => p.id === projectId) : undefined
   const sif     = project && sifId ? project.sifs.find(s => s.id === sifId) : undefined
 
-  const [leftOpen, setLeftOpen] = useState(true)
-  const [rightOpen, setRightOpen] = useState(true)
+  const leftPanelOpen    = useAppStore(s => s.leftPanelOpen)
+  const rightPanelOpen   = useAppStore(s => s.rightPanelOpen)
+  const focusMode        = useAppStore(s => s.focusMode)
+  const setRightPanelOpen = useAppStore(s => s.setRightPanelOpen)
+  const secondSlot        = useAppStore(s => s.secondSlot)
+  const closeSecondSlot   = useAppStore(s => s.closeSecondSlot)
+  const resetSecondSlot   = useAppStore(s => s.resetSecondSlot)
+  const setSecondSlotTab  = useAppStore(s => s.setSecondSlotTab)
+
+  // Split is only active on SIF dashboard views
+  const isSplitActive = secondSlot !== null && view.type === 'sif-dashboard'
+
+  // Effective open state — focus mode and split mode both collapse panels
+  const leftOpen  = leftPanelOpen  && !focusMode && !isSplitActive
+  const rightOpen = rightPanelOpen && !focusMode && !isSplitActive
+
+  // Tooltip labels for split action buttons
+  const secondProject = secondSlot?.projectId ? projects.find(p => p.id === secondSlot.projectId) : undefined
+  const secondSif     = secondProject?.sifs.find(s => s.id === secondSlot?.sifId)
+  const secondSifTooltip = secondSif
+    ? `${secondProject?.name ? secondProject.name + ' › ' : ''}${secondSif.sifNumber}${secondSif.title ? ` · ${secondSif.title}` : ''}`
+    : undefined
+
+  const primarySifTooltip = project && sif
+    ? `${project.name} › ${sif.sifNumber}${sif.title ? ` · ${sif.title}` : ''}`
+    : undefined
+
+  // Primary picker overlay — lets user switch primary SIF without exiting split
+  const [primaryPickerOpen, setPrimaryPickerOpen] = useState(false)
+
+  // Split pane resize state
+  const [splitWidth, setSplitWidth] = useState<number | null>(null)
+  const [isResizingSplit, setIsResizingSplit] = useState(false)
+  const splitResizeStartX = useRef<number | null>(null)
+  const splitResizeStartWidth = useRef<number | null>(null)
+  const splitContainerRef = useRef<HTMLDivElement>(null)
+
   const [rightPanelOverride, setRightPanelOverride] = useState<ReactNode | null>(null)
   const [rightPanelWidth, setRightPanelWidth] = useState(() => clampPanelWidth(preferences.workspaceRightPanelWidth, MIN_RIGHT_PANEL_WIDTH, MAX_RIGHT_PANEL_WIDTH))
   const [isResizingRightPanel, setIsResizingRightPanel] = useState(false)
@@ -258,13 +363,16 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
   const showEngine    = view.type === 'engine'
   const showHazop     = view.type === 'hazop'
   const showGlobal    = showAudit || showHistory || showPlanning || showEngine || showHazop
-  const showDashboard = view.type === 'sif-dashboard' && !!project && !!sif
-  const showHome      = !showSettings && !showDocs && !showSearch && !showLibrary && !showDashboard && !showGlobal
+  const showDashboard    = view.type === 'sif-dashboard' && !!project && !!sif
+  const showSIFBrowser   = view.type === 'home'
+  const showNote         = view.type === 'note'
+  const showFile         = view.type === 'workspace-file'
+  const showHome         = !showSettings && !showDocs && !showSearch && !showLibrary && !showDashboard && !showGlobal && !showNote && !showFile
 
   // Auto-open right panel for global views
   useEffect(() => {
-    if (showGlobal || showLibrary) setRightOpen(true)
-  }, [showGlobal, showLibrary])
+    if (showGlobal || showLibrary) setRightPanelOpen(true)
+  }, [showGlobal, showLibrary, setRightPanelOpen])
 
   useEffect(() => {
     const nextWidth = clampPanelWidth(preferences.workspaceRightPanelWidth, MIN_RIGHT_PANEL_WIDTH, MAX_RIGHT_PANEL_WIDTH)
@@ -323,18 +431,54 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
     e.preventDefault()
   }
 
+  // Reset split width when split closes
+  useEffect(() => {
+    if (!isSplitActive) setSplitWidth(null)
+  }, [isSplitActive])
+
+  // Split pane drag-to-resize
+  useEffect(() => {
+    if (!isResizingSplit) return
+    const MIN_PANE = 280
+    const onMove = (e: PointerEvent) => {
+      if (splitResizeStartX.current === null || splitResizeStartWidth.current === null) return
+      const containerWidth = splitContainerRef.current?.offsetWidth ?? 0
+      const delta = e.clientX - splitResizeStartX.current
+      setSplitWidth(Math.max(MIN_PANE, Math.min(containerWidth - MIN_PANE, splitResizeStartWidth.current + delta)))
+    }
+    const onStop = () => {
+      setIsResizingSplit(false)
+      splitResizeStartX.current = null
+      splitResizeStartWidth.current = null
+    }
+    document.body.style.cursor     = 'col-resize'
+    document.body.style.userSelect = 'none'
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup',   onStop)
+    window.addEventListener('pointercancel', onStop)
+    return () => {
+      document.body.style.cursor     = ''
+      document.body.style.userSelect = ''
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup',   onStop)
+      window.removeEventListener('pointercancel', onStop)
+    }
+  }, [isResizingSplit])
+
+  const startSplitResize = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const containerWidth = splitContainerRef.current?.offsetWidth ?? 0
+    splitResizeStartX.current     = e.clientX
+    splitResizeStartWidth.current = splitWidth ?? containerWidth / 2
+    setIsResizingSplit(true)
+    e.preventDefault()
+  }
+
 
   return (
-    <LayoutContext.Provider value={{ setRightPanelOverride, setRightPanelOpen: setRightOpen, isRightPanelOpen: rightOpen }}>
+    <LayoutContext.Provider value={{ setRightPanelOverride, setRightPanelOpen, isRightPanelOpen: rightOpen }}>
       <div className="flex h-[calc(100vh-48px)] min-h-0 overflow-hidden" style={{ background: PAGE_BG }}>
-        {/* ── Activity Bar ── */}
-        <IconRail
-          leftOpen={leftOpen}
-          rightOpen={rightOpen}
-          onToggleLeft={() => setLeftOpen(v => !v)}
-          onToggleRight={() => setRightOpen(v => !v)}
-          showRightToggle={showDashboard || showGlobal || showLibrary}
-        />
+        {/* ── Activity Bar — hidden in Zen mode ── */}
+        {!focusMode && <IconRail />}
 
         {/* ── Main area ── */}
         <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">
@@ -364,12 +508,25 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                             ? <PlanningSidebar />
                             : showEngine
                               ? <EngineSidebar />
-                              : <ProjectTree projectId={projectId ?? ''} sifId={sifId ?? ''} />
+                              : <ProjectSidebar projectId={projectId ?? ''} sifId={sifId ?? ''} />
                 )}
               </div>
 
-              {/* Home */}
-              {showHome && <HomeScreen />}
+              {/* SIF browser (Layers rail button) */}
+              {showSIFBrowser && <SIFBrowserWelcome />}
+
+              {/* Home / LifecycleCockpit (PRISM logo in header) */}
+              {showHome && !showSIFBrowser && <HomeScreen />}
+
+              {/* Note editor */}
+              {showNote && (
+                <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{children}</div>
+              )}
+
+              {/* File viewer (PDF / Image) */}
+              {showFile && (
+                <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{children}</div>
+              )}
 
               {/* Settings — full width, no panels */}
               {showSettings && (
@@ -436,7 +593,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
           {showDashboard && (
             <>
               <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">
-                {/* ── Sidebar ── */}
+                {/* ── Sidebar — hidden in split mode ── */}
                 <div
                   className="flex shrink-0 flex-col border-r overflow-hidden"
                   style={{
@@ -448,26 +605,75 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                   }}
                 >
                   {leftOpen && (
-                    <ProjectTree projectId={projectId ?? ''} sifId={sifId ?? ''} />
+                    <ProjectSidebar projectId={projectId ?? ''} sifId={sifId ?? ''} />
                   )}
                 </div>
 
-                {/* Editor column */}
-                <div className="flex flex-1 min-w-0 min-h-0 flex-col overflow-hidden">
-                  {!leftOpen && (
-                    <SIFWorkbenchBar
-                      active={visibleTab}
-                      onSelect={(id) => setTab(id)}
-                    />
-                  )}
+                {isSplitActive ? (
+                  // ── SPLIT MODE: two panes side-by-side ──────────────────
+                  <div ref={splitContainerRef} className="flex flex-1 min-w-0 min-h-0 overflow-hidden">
+                    {/* Primary pane */}
+                    <div
+                      className="relative flex min-h-0 flex-col overflow-hidden"
+                      style={{ width: splitWidth ?? '50%', minWidth: 280, flexShrink: 0 }}
+                    >
+                      <SIFWorkbenchBar
+                        active={visibleTab}
+                        onSelect={(id) => setTab(id)}
+                        sifTooltip={primarySifTooltip}
+                        onSwitch={() => setPrimaryPickerOpen(true)}
+                      />
+                      <EditorContent className="flex flex-col">
+                        {children}
+                      </EditorContent>
+                      {primaryPickerOpen && (
+                        <PrimaryPickerOverlay onClose={() => setPrimaryPickerOpen(false)} />
+                      )}
+                    </div>
 
-                  <EditorContent className="flex flex-col">
-                    {children}
-                  </EditorContent>
-                </div>
+                    {/* Resizable center divider */}
+                    <SplitDivider isResizing={isResizingSplit} onPointerDown={startSplitResize} />
+
+                    {/* Secondary pane */}
+                    <div className="flex flex-1 min-h-0 min-w-0 flex-col overflow-hidden">
+                      {secondaryContent ? (
+                        <SIFWorkbenchBar
+                          active={secondSlot!.tab}
+                          onSelect={setSecondSlotTab}
+                          sifTooltip={secondSifTooltip}
+                          onReset={resetSecondSlot}
+                        />
+                      ) : (
+                        <SecondaryEmptyBar onClose={closeSecondSlot} />
+                      )}
+                      <EditorContent className="flex flex-col">
+                        {secondaryContent ? (
+                          <SecondarySlotBoundary>
+                            {secondaryContent}
+                          </SecondarySlotBoundary>
+                        ) : (
+                          <SecondaryEmptyState />
+                        )}
+                      </EditorContent>
+                    </div>
+                  </div>
+                ) : (
+                  // ── SINGLE MODE ──────────────────────────────────────────
+                  <div className="flex flex-1 min-w-0 min-h-0 flex-col overflow-hidden">
+                    {!leftOpen && (
+                      <SIFWorkbenchBar
+                        active={visibleTab}
+                        onSelect={(id) => setTab(id)}
+                      />
+                    )}
+                    <EditorContent className="flex flex-col">
+                      {children}
+                    </EditorContent>
+                  </div>
+                )}
               </div>
 
-              {/* Right dock */}
+              {/* Right dock — hidden in split mode */}
               <div
                 className="relative min-h-0 shrink-0 overflow-hidden"
                 style={{

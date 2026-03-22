@@ -7,10 +7,12 @@ import {
   FileClock,
   FileSearch,
   FileText,
+  Files,
   FlaskConical,
   FolderKanban,
   FolderOpen,
   GitBranch,
+  NotebookText,
   Search,
   ShieldCheck,
   Sparkles,
@@ -78,6 +80,11 @@ export function getSearchScopeMeta(locale: AppLocale): Record<SearchScopeId, {
       hint: strings.scopeMeta.reports.hint,
       Icon: FileText,
     },
+    workspace: {
+      label: strings.scopeMeta.workspace.label,
+      hint: strings.scopeMeta.workspace.hint,
+      Icon: Files,
+    },
   }
 }
 
@@ -105,6 +112,8 @@ export function getSearchScopeTone(scope: SearchItemScope) {
       return '#8D9CB8'
     case 'reports':
       return '#D07C43'
+    case 'workspace':
+      return '#9E7FD4'
     default:
       return '#49B8C3'
   }
@@ -120,6 +129,7 @@ export const SEARCH_SCOPE_ORDER: SearchItemScope[] = [
   'proof',
   'revisions',
   'reports',
+  'workspace',
 ]
 
 export function getSearchResultIcon(kind: SearchResultKind): ElementType {
@@ -148,6 +158,10 @@ export function getSearchResultIcon(kind: SearchResultKind): ElementType {
       return FileClock
     case 'report':
       return FileText
+    case 'note':
+      return NotebookText
+    case 'workspace-file':
+      return Files
     default:
       return Search
   }

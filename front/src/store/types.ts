@@ -117,7 +117,10 @@ export function normalizeSIFTab(tab: SIFTab | string | null | undefined): Canoni
 }
 
 export type AppView =
+  | { type: 'home' }
   | { type: 'projects' }
+  | { type: 'note'; noteId: string }
+  | { type: 'workspace-file'; nodeId: string }
   | { type: 'search' }
   | { type: 'planning' }
   | {
@@ -174,6 +177,15 @@ export interface AppState {
   editingSIFId: string | null
   newSIFProjectId: string | null
 
+  // ── Layout panels ──
+  leftPanelOpen: boolean
+  rightPanelOpen: boolean
+  focusMode: boolean
+
+  // ── Split view ──
+  // null = split closed  |  projectId/sifId null = split open, no SIF selected yet
+  secondSlot: { projectId: string | null; sifId: string | null; tab: CanonicalSIFTab } | null
+
   // ── Actions: Navigation ──
   navigate: (view: AppView) => void
   setTab: (tab: SIFTab) => void
@@ -183,6 +195,19 @@ export interface AppState {
   setTheme: (isDark: boolean) => void
   updateAppPreferences: (patch: Partial<AppPreferences>) => void
   resetAppPreferences: () => void
+
+  // ── Actions: Layout panels ──
+  toggleLeftPanel: () => void
+  toggleRightPanel: () => void
+  setRightPanelOpen: (open: boolean) => void
+  toggleFocusMode: () => void
+
+  // ── Actions: Split view ──
+  openSecondSlot: () => void
+  closeSecondSlot: () => void
+  resetSecondSlot: () => void
+  loadSIFInSecondSlot: (projectId: string, sifId: string) => void
+  setSecondSlotTab: (tab: CanonicalSIFTab) => void
   initializeAuth: () => Promise<void>
   refreshProfile: () => Promise<void>
   signInWithOAuth: (provider: OAuthProviderName) => Promise<void>

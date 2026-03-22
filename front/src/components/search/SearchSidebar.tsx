@@ -1,4 +1,4 @@
-import { FilterX, Search } from 'lucide-react'
+import { FilterX } from 'lucide-react'
 import { useSearchNavigation } from '@/components/search/SearchNavigation'
 import { SEARCH_SCOPE_ORDER, getSearchScopeMeta, getSearchScopeTone } from '@/components/search/searchMeta'
 import {
@@ -218,13 +218,6 @@ export function SearchSidebar() {
           </div>
         </div>
 
-        <div className="border-t pt-4" style={{ borderColor: `${BORDER}33` }}>
-          <SidebarSectionTitle>{strings.sidebar.usageTitle}</SidebarSectionTitle>
-          <div className="flex items-start gap-2 px-2 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-            <Search size={13} className="mt-[2px] shrink-0" />
-            <p>{strings.sidebar.usageBody}</p>
-          </div>
-        </div>
       </div>
     </SidebarBody>
   )

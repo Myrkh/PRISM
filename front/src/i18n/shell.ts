@@ -10,6 +10,8 @@ export interface ShellStrings {
     leftExpand: string
     rightCollapse: string
     rightExpand: string
+    focusEnter: string
+    focusExit: string
     home: string
     search: string
     library: string

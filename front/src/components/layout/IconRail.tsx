@@ -1,13 +1,12 @@
 /**
- * layout/IconRail.tsx — PRISM v3
+ * layout/IconRail.tsx — PRISM v4
  *
  * VS Code Activity Bar style.
- * Les vues globales restent accessibles directement dans le rail.
+ * Panel toggles live in the AppHeader (LayoutControls) — not here.
  */
 import {
-  Home, Search, BookOpen, BookOpenText,
-  History, CalendarDays, Cpu,
-  Settings, PanelLeftClose, PanelLeftOpen, PanelRightClose, PanelRightOpen,
+  Layers, Search, BookOpen, BookOpenText,
+  History, CalendarDays, Cpu, Settings,
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { useLocaleStrings } from '@/i18n/useLocale'
@@ -16,41 +15,25 @@ import { usePrismTheme } from '@/styles/usePrismTheme'
 import { RailDivider, RailIconButton } from '@/components/layout/RailPrimitives'
 
 const GLOBAL_TOOLS = [
-  { id: 'search' as const, Icon: Search, labelKey: 'search' as const },
-  { id: 'library' as const, Icon: BookOpen, labelKey: 'library' as const },
-  { id: 'audit-log' as const, Icon: History, labelKey: 'audit' as const },
-  { id: 'planning' as const, Icon: CalendarDays, labelKey: 'planning' as const },
-  { id: 'engine' as const, Icon: Cpu, labelKey: 'engine' as const },
+  { id: 'search'    as const, Icon: Search,      labelKey: 'search'   as const },
+  { id: 'library'   as const, Icon: BookOpen,     labelKey: 'library'  as const },
+  { id: 'audit-log' as const, Icon: History,      labelKey: 'audit'    as const },
+  { id: 'planning'  as const, Icon: CalendarDays, labelKey: 'planning' as const },
+  { id: 'engine'    as const, Icon: Cpu,          labelKey: 'engine'   as const },
 ] as const
 
 type GlobalToolId = typeof GLOBAL_TOOLS[number]['id']
+const GLOBAL_TOOL_IDS = new Set<string>(GLOBAL_TOOLS.map(t => t.id))
 
-const GLOBAL_TOOL_IDS = new Set<string>(GLOBAL_TOOLS.map(tool => tool.id))
-
-interface IconRailProps {
-  leftOpen: boolean
-  rightOpen: boolean
-  onToggleLeft: () => void
-  onToggleRight: () => void
-  showRightToggle: boolean
-  showPanelToggles?: boolean
-}
-
-export function IconRail({
-  leftOpen,
-  rightOpen,
-  onToggleLeft,
-  onToggleRight,
-  showRightToggle,
-  showPanelToggles = true,
-}: IconRailProps) {
+export function IconRail() {
   const { BORDER, RAIL_BG, SHADOW_TAB, isDark } = usePrismTheme()
   const strings = useLocaleStrings(getShellStrings)
-  const navigate = useAppStore(state => state.navigate)
-  const view = useAppStore(state => state.view)
 
-  const showHome = view.type === 'projects'
-  const showDocs = view.type === 'docs'
+  const navigate = useAppStore(s => s.navigate)
+  const view     = useAppStore(s => s.view)
+
+  const showHome     = view.type === 'home'
+  const showDocs     = view.type === 'docs'
   const showSettings = view.type === 'settings'
   const activeGlobalToolId: GlobalToolId | null = GLOBAL_TOOL_IDS.has(view.type)
     ? (view.type as GlobalToolId)
@@ -66,31 +49,10 @@ export function IconRail({
         boxShadow: `${SHADOW_TAB}, inset -1px 0 0 ${isDark ? 'rgba(255,255,255,0.06)' : 'rgba(255,255,255,0.7)'}, inset 0 1px 0 ${isDark ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.9)'}, inset 0 -1px 0 ${isDark ? 'rgba(0,0,0,0.26)' : 'rgba(15,23,42,0.05)'}`,
       }}
     >
-      {showPanelToggles && (
-        <>
-          <RailIconButton
-            Icon={leftOpen ? PanelLeftClose : PanelLeftOpen}
-            label={leftOpen ? strings.iconRail.leftCollapse : strings.iconRail.leftExpand}
-            onClick={onToggleLeft}
-            active={leftOpen}
-          />
-          {showRightToggle && (
-            <RailIconButton
-              Icon={rightOpen ? PanelRightClose : PanelRightOpen}
-              label={rightOpen ? strings.iconRail.rightCollapse : strings.iconRail.rightExpand}
-              onClick={onToggleRight}
-              active={rightOpen}
-            />
-          )}
-
-          <RailDivider />
-        </>
-      )}
-
       <RailIconButton
-        Icon={Home}
+        Icon={Layers}
         label={strings.iconRail.home}
-        onClick={() => navigate({ type: 'projects' })}
+        onClick={() => navigate({ type: 'home' })}
         active={showHome}
       />
 

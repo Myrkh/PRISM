@@ -8,12 +8,8 @@ export interface SearchStrings {
   resultKindLabels: Record<SearchResultKind, string>
   scopeMeta: Record<SearchScopeId, { label: string; hint: string }>
   header: {
-    eyebrow: string
-    title: string
-    description: string
     filteredCount: (count: number) => string
     indexedCount: (count: number) => string
-    commandHint: string
   }
   searchPlaceholder: string
   previewBadge: string
@@ -32,8 +28,6 @@ export interface SearchStrings {
     projectsTitle: string
     allProjectsLabel: string
     allProjectsHint: string
-    usageTitle: string
-    usageBody: string
     backgroundLoading: (count: number) => string
   }
 }
