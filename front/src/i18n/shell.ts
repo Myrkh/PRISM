@@ -40,6 +40,9 @@ export interface ShellStrings {
       sifs: string
       general: string
       searchResults: string
+      layout: string
+      symbols: string
+      help: string
     }
     labels: {
       untitled: string
@@ -68,6 +71,18 @@ export interface ShellStrings {
       navigate: string
       select: string
       close: string
+      // Layout toggles
+      toggleLeftPanel: string
+      toggleRightPanel: string
+      toggleStatusBar: string
+      toggleActivityBar: string
+      invertPanels: string
+      zenMode: string
+      splitView: string
+      customizeLayout: string
+      centeredLayout: string
+      commandPaletteTop: string
+      commandPaletteCenter: string
     }
     meta: {
       continueSearch: (query: string) => string
@@ -75,6 +90,15 @@ export interface ShellStrings {
       library: string
       docs: string
     }
+    modes: {
+      /** Appended to the keyboard hint footer: e.g. "  |  > commandes  # SIF  @ symboles  ? aide" */
+      hintSuffix: string
+    }
+  }
+  statusBar: {
+    noSIF: string
+    pass: string
+    fail: string
   }
 }
 

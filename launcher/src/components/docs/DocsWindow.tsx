@@ -519,7 +519,7 @@ function DocsToc() {
                   paddingBottom:          groupOpen ? '4px' : '0px',
                   transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
                 }}>
-                <div className="relative pl-7">
+                <div className="relative pl-3">
                   {/* Vertical rail */}
                   <div className="absolute left-[13px] top-0 bottom-0 w-px"
                     style={{ background: `${t.BORDER}55` }} />

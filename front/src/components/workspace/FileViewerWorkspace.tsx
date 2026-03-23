@@ -6,7 +6,8 @@
  * - Image: native <img>, centered, max-width 900px
  * Files are served via short-lived Supabase signed URLs (1h).
  */
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, Component } from 'react'
+import type { ReactNode } from 'react'
 import { Document, Page, pdfjs } from 'react-pdf'
 import 'react-pdf/dist/Page/AnnotationLayer.css'
 import 'react-pdf/dist/Page/TextLayer.css'
@@ -15,11 +16,36 @@ import { useWorkspaceStore } from '@/store/workspaceStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { getWorkspaceFileUrl } from '@/lib/workspaceStorage'
 import { WorkspaceTabBar } from './WorkspaceTabBar'
+import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
-pdfjs.GlobalWorkerOptions.workerSrc = new URL(
-  'pdfjs-dist/build/pdf.worker.min.mjs',
-  import.meta.url,
-).toString()
+// ?url lets Vite emit the worker file into dist/assets and gives a resolved URL,
+// which is required for Electron's file:// origin (new URL(..., import.meta.url)
+// can fail in packaged apps when the worker chunk hash changes).
+pdfjs.GlobalWorkerOptions.workerSrc = pdfWorkerUrl
+
+// ─── Error boundary — prevents a pdfjs crash from taking down the whole app ─
+class PDFErrorBoundary extends Component<{ children: ReactNode }, { error: string | null }> {
+  state = { error: null }
+  static getDerivedStateFromError(e: unknown) {
+    return { error: e instanceof Error ? e.message : 'Erreur PDF' }
+  }
+  render() {
+    if (this.state.error) {
+      return (
+        <div className="flex flex-1 flex-col items-center justify-center gap-2" style={{ flex: '1 1 0' }}>
+          <AlertCircle size={20} style={{ color: '#F87171' }} />
+          <p className="text-[13px]" style={{ color: '#F87171' }}>{this.state.error}</p>
+          <button type="button" onClick={() => this.setState({ error: null })}
+            className="mt-1 rounded px-3 py-1 text-[12px]"
+            style={{ background: 'rgba(248,113,113,0.1)', color: '#F87171', border: '1px solid rgba(248,113,113,0.3)' }}>
+            Réessayer
+          </button>
+        </div>
+      )
+    }
+    return this.props.children
+  }
+}
 
 const PDF_BASE_WIDTH = 760  // px at scale 1.0
 
@@ -255,6 +281,6 @@ export function FileViewerWorkspace({ nodeId }: { nodeId: string }) {
     )
   }
 
-  if (node.type === 'pdf') return wrap(<PDFViewer url={url} name={node.name} />)
+  if (node.type === 'pdf') return wrap(<PDFErrorBoundary><PDFViewer url={url} name={node.name} /></PDFErrorBoundary>)
   return wrap(<ImageViewer url={url} name={node.name} />)
 }

@@ -47,7 +47,7 @@ import {
   serializeComponentTemplates,
   useComponentLibrary,
 } from '@/features/library'
-import { RightPanelBody, RightPanelShell } from '@/components/layout/RightPanelShell'
+import { RightPanelBody, RightPanelSection, RightPanelShell } from '@/components/layout/RightPanelShell'
 import { DEFAULT_CHANNEL, DEFAULT_COMPONENT } from '@/core/models/defaults'
 import { createDefaultSubComponent } from '@/core/models/subComponents'
 import { semantic } from '@/styles/tokens'
@@ -61,14 +61,6 @@ const SUB_META: Record<SubsystemType, { color: string; label: string; Icon: Reac
   logic:    { color: '#7C3AED', label: 'Logique',      Icon: Cpu      },
   actuator: { color: '#EA580C', label: 'Actionneurs',  Icon: Zap      },
 }
-
-type PanelMode = 'architecture' | 'component' | 'library'
-
-const MODES: { id: PanelMode; Icon: React.ElementType; label: string }[] = [
-  { id: 'architecture', Icon: Network,   label: 'Architecture' },
-  { id: 'component',    Icon: Settings2, label: 'Composant'    },
-  { id: 'library',      Icon: BookOpen,  label: 'Bibliothèque' },
-]
 
 // Architecture valide selon le nombre de voies
 const ARCH_OPTIONS: { value: Architecture; label: string; channels: number | null }[] = [
@@ -1247,8 +1239,8 @@ function LibraryContent({ projectId }: { projectId: string }) {
 
 // ─── Empty component state ────────────────────────────────────────────────────
 
-function EmptyComponentState({ onGoToLibrary }: { onGoToLibrary: () => void }) {
-  const { BORDER, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+function EmptyComponentState() {
+  const { TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
       <div
@@ -1263,15 +1255,6 @@ function EmptyComponentState({ onGoToLibrary }: { onGoToLibrary: () => void }) {
           Cliquez sur un composant ou un sous-composant dans le canvas.
         </p>
       </div>
-      <button
-        type="button"
-        onClick={onGoToLibrary}
-        className="prism-action flex items-center gap-2 rounded-lg border px-3 py-1.5 text-xs font-semibold"
-        style={{ borderColor: BORDER, color: TEXT_DIM }}
-      >
-        <BookOpen size={11} />
-        Ouvrir la bibliothèque
-      </button>
     </div>
   )
 }
@@ -1288,11 +1271,6 @@ export function LoopEditorRightPanel({ sif, projectId, onOpenCcfBeta }: Props) {
   const { PANEL_BG } = usePrismTheme()
   const selectedId      = useAppStore(state => state.selectedComponentId)
   const selectComponent = useAppStore(state => state.selectComponent)
-  const [mode, setMode] = useState<PanelMode>('architecture')
-
-  useEffect(() => {
-    if (selectedId) setMode('component')
-  }, [selectedId])
 
   // Find selected component or selected sub-component
   let found: {
@@ -1317,58 +1295,43 @@ export function LoopEditorRightPanel({ sif, projectId, onOpenCcfBeta }: Props) {
   }
 
   return (
-    <RightPanelShell
-      items={MODES.map(item => ({
-        id: item.id,
-        label: item.label,
-        Icon: item.Icon,
-        badge: item.id === 'component' ? Boolean(selectedId) : undefined,
-      }))}
-      active={mode}
-      onSelect={setMode}
-      contentBg={PANEL_BG}
-    >
-      {/* ── Content ── */}
-      <div className="flex h-full min-h-0 min-w-0 flex-col overflow-hidden">
-        {mode === 'architecture' && (
-          <ArchitectureConfigPanel sif={sif} projectId={projectId} onOpenCcfBeta={onOpenCcfBeta} />
-        )}
-        {mode === 'component' && (
-          found ? (
-            found.subComponent ? (
-              <SubComponentParamsPanel
-                component={found.comp}
-                subComponent={found.subComponent}
-                subsystemType={found.subsystemType}
-                projectId={projectId}
-                sifId={sif.id}
-                subsystemId={found.subsystemId}
-                channelId={found.channelId}
-                onClose={() => {
-                  selectComponent(null)
-                  setMode('architecture')
-                }}
-              />
-            ) : (
-              <ComponentParamsPanel
-                component={found.comp}
-                subsystemType={found.subsystemType}
-                projectId={projectId}
-                sifId={sif.id}
-                subsystemId={found.subsystemId}
-                channelId={found.channelId}
-                onClose={() => {
-                  selectComponent(null)
-                  setMode('architecture')
-                }}
-              />
-            )
+    <RightPanelShell contentBg={PANEL_BG} openSectionId={selectedId ? 'component' : undefined}>
+      <RightPanelSection id="architecture" label="Architecture" Icon={Network} noPadding>
+        <ArchitectureConfigPanel sif={sif} projectId={projectId} onOpenCcfBeta={onOpenCcfBeta} />
+      </RightPanelSection>
+
+      <RightPanelSection id="component" label="Composant" Icon={Settings2} noPadding>
+        {found ? (
+          found.subComponent ? (
+            <SubComponentParamsPanel
+              component={found.comp}
+              subComponent={found.subComponent}
+              subsystemType={found.subsystemType}
+              projectId={projectId}
+              sifId={sif.id}
+              subsystemId={found.subsystemId}
+              channelId={found.channelId}
+              onClose={() => selectComponent(null)}
+            />
           ) : (
-            <EmptyComponentState onGoToLibrary={() => setMode('library')} />
+            <ComponentParamsPanel
+              component={found.comp}
+              subsystemType={found.subsystemType}
+              projectId={projectId}
+              sifId={sif.id}
+              subsystemId={found.subsystemId}
+              channelId={found.channelId}
+              onClose={() => selectComponent(null)}
+            />
           )
+        ) : (
+          <EmptyComponentState />
         )}
-        {mode === 'library' && <LibraryContent projectId={projectId} />}
-      </div>
+      </RightPanelSection>
+
+      <RightPanelSection id="library" label="Bibliothèque" Icon={BookOpen} noPadding>
+        <LibraryContent projectId={projectId} />
+      </RightPanelSection>
     </RightPanelShell>
   )
 }

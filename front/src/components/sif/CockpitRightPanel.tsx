@@ -1,13 +1,12 @@
-import { Lock, ShieldCheck } from 'lucide-react'
+import { BookOpen, Lock, Package, ShieldCheck, Users } from 'lucide-react'
 import type { SIF, SIFCalcResult } from '@/core/types'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
 import type { OverviewMetrics } from '@/components/sif/overviewMetrics'
 import {
-  InspectorBlock,
   InspectorReferenceRow,
   InspectorStatusBadge,
   InspectorSurface,
-  RightPanelBody,
+  RightPanelSection,
   RightPanelShell,
 } from '@/components/layout/RightPanelShell'
 import { semantic } from '@/styles/tokens'
@@ -97,105 +96,92 @@ export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: 
   ]
 
   return (
-    <RightPanelShell
-      items={[{ id: 'dossier', label: 'Cockpit', Icon: ShieldCheck }]}
-      active="dossier"
-      onSelect={() => {}}
-      contentBg={PANEL_BG}
-    >
-      <RightPanelBody compact>
-        <div className="space-y-3">
-          <InspectorBlock
-            title="Ready"
-            hint="État de défense du dossier sans répéter le cockpit central."
-          >
-            <div className="space-y-2">
-              {[
-                { label: 'Readiness', value: `${readiness}%`, tone: readinessColor },
-                { label: 'Calcul', value: result.meetsTarget ? 'Tenu' : 'Sous cible', tone: result.meetsTarget ? semantic.success : semantic.error },
-                { label: 'Trace', value: `${overviewMetrics.tracePct}%`, tone: overviewMetrics.tracePct === 100 ? semantic.success : TEXT },
-                { label: 'Preuves', value: `${overviewMetrics.evidenceCompleteCount}/${overviewMetrics.evidenceTotalCount}`, tone: TEAL_DIM },
-                { label: 'Approbations', value: `${overviewMetrics.approvalFilledCount}/3`, tone: overviewMetrics.approvalFilledCount === 3 ? semantic.success : TEXT },
-                { label: 'Hypothèses', value: String(overviewMetrics.pendingAssumptions), tone: overviewMetrics.pendingAssumptions === 0 ? semantic.success : semantic.warning },
-              ].map(item => (
-                <InspectorSurface key={item.label} className="flex items-center justify-between gap-3 rounded-lg px-2.5 py-2">
-                  <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{item.label}</p>
-                  <p className="text-sm font-semibold font-mono" style={{ color: item.tone }}>{item.value}</p>
-                </InspectorSurface>
-              ))}
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]" style={{ color: TEXT_DIM }}>
-              <span style={{ color: TEXT }}>{sif.sifNumber}</span>
-              <span>·</span>
-              <span>{result.meetsTarget ? 'Base calcul cohérente' : 'Base calcul à reprendre'}</span>
-              <InspectorStatusBadge
-                label={sif.revisionLockedAt ? `Rév. ${sif.revision} publiée` : `Rév. ${sif.revision} en travail`}
-                color={sif.revisionLockedAt ? semantic.success : TEAL_DIM}
-                background={sif.revisionLockedAt ? `${semantic.success}10` : `${TEAL}10`}
-                borderColor={sif.revisionLockedAt ? `${semantic.success}32` : `${TEAL}35`}
-                icon={<Lock size={10} />}
-              />
-            </div>
-          </InspectorBlock>
-
-          <InspectorBlock title="Gouvernance">
-            <div className="space-y-2">
-              {governanceSummary.map(item => (
-                <ChecklistRow
-                  key={item.label}
-                  label={item.label}
-                  value={item.value}
-                  status={item.status}
-                />
-              ))}
-            </div>
-          </InspectorBlock>
-
-          <InspectorBlock title="Package preuve">
-            <div className="space-y-2">
-              <ChecklistRow
-                label="Procédure proof test"
-                value={proofProcedureItem?.summary || 'Non documentée'}
-                status={(proofProcedureItem?.status ?? 'missing') as ItemStatus}
-              />
-              <ChecklistRow
-                label="Campagnes enregistrées"
-                value={proofEvidenceItem?.summary || 'Aucune campagne'}
-                status={(proofEvidenceItem?.status ?? 'missing') as ItemStatus}
-              />
-              <ChecklistRow
-                label="Package rapport"
-                value={reportPackageItem?.summary || 'À compléter'}
-                status={(reportPackageItem?.status ?? 'review') as ItemStatus}
-              />
-            </div>
-          </InspectorBlock>
-
-          <InspectorBlock title="Références">
-            <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-              Ce panneau garde les points utiles pour audit et relecture, sans répéter le cockpit central.
-            </p>
-
-            <InspectorSurface className="mt-3">
-              <InspectorReferenceRow label="Scenario ID" value={sif.hazopTrace?.scenarioId || 'Non renseigné'} />
-              <InspectorReferenceRow label="HAZOP node" value={sif.hazopTrace?.hazopNode || 'Non renseigné'} />
-              <InspectorReferenceRow label="LOPA ref." value={sif.hazopTrace?.lopaRef || 'Non renseigné'} />
-              <InspectorReferenceRow label="Proof test ref." value={sif.proofTestProcedure?.ref || 'Non renseigné'} />
-              <InspectorReferenceRow
-                label="Révision"
-                value={sif.revisionLockedAt ? `Publiée le ${new Date(sif.revisionLockedAt).toLocaleDateString()}` : `Révision ${sif.revision} en travail`}
-              />
+    <RightPanelShell contentBg={PANEL_BG}>
+      <RightPanelSection id="ready" label="Ready" Icon={ShieldCheck}>
+        <p className="mb-3 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+          État de défense du dossier sans répéter le cockpit central.
+        </p>
+        <div className="space-y-2">
+          {[
+            { label: 'Readiness', value: `${readiness}%`, tone: readinessColor },
+            { label: 'Calcul', value: result.meetsTarget ? 'Tenu' : 'Sous cible', tone: result.meetsTarget ? semantic.success : semantic.error },
+            { label: 'Trace', value: `${overviewMetrics.tracePct}%`, tone: overviewMetrics.tracePct === 100 ? semantic.success : TEXT },
+            { label: 'Preuves', value: `${overviewMetrics.evidenceCompleteCount}/${overviewMetrics.evidenceTotalCount}`, tone: TEAL_DIM },
+            { label: 'Approbations', value: `${overviewMetrics.approvalFilledCount}/3`, tone: overviewMetrics.approvalFilledCount === 3 ? semantic.success : TEXT },
+            { label: 'Hypothèses', value: String(overviewMetrics.pendingAssumptions), tone: overviewMetrics.pendingAssumptions === 0 ? semantic.success : semantic.warning },
+          ].map(item => (
+            <InspectorSurface key={item.label} className="flex items-center justify-between gap-3 rounded-lg px-2.5 py-2">
+              <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{item.label}</p>
+              <p className="text-sm font-semibold font-mono" style={{ color: item.tone }}>{item.value}</p>
             </InspectorSurface>
-
-            <InspectorSurface className="mt-3 text-[11px]" background={SURFACE}>
-              <span style={{ color: TEXT_DIM }}>
-                L’historique des révisions et les téléchargements PDF restent dans le cockpit central.
-              </span>
-            </InspectorSurface>
-          </InspectorBlock>
+          ))}
         </div>
-      </RightPanelBody>
+
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px]" style={{ color: TEXT_DIM }}>
+          <span style={{ color: TEXT }}>{sif.sifNumber}</span>
+          <span>·</span>
+          <span>{result.meetsTarget ? 'Base calcul cohérente' : 'Base calcul à reprendre'}</span>
+          <InspectorStatusBadge
+            label={sif.revisionLockedAt ? `Rév. ${sif.revision} publiée` : `Rév. ${sif.revision} en travail`}
+            color={sif.revisionLockedAt ? semantic.success : TEAL_DIM}
+            background={sif.revisionLockedAt ? `${semantic.success}10` : `${TEAL}10`}
+            borderColor={sif.revisionLockedAt ? `${semantic.success}32` : `${TEAL}35`}
+            icon={<Lock size={10} />}
+          />
+        </div>
+      </RightPanelSection>
+
+      <RightPanelSection id="gouvernance" label="Gouvernance" Icon={Users}>
+        <div className="space-y-2">
+          {governanceSummary.map(item => (
+            <ChecklistRow
+              key={item.label}
+              label={item.label}
+              value={item.value}
+              status={item.status}
+            />
+          ))}
+        </div>
+      </RightPanelSection>
+
+      <RightPanelSection id="package" label="Package Preuve" Icon={Package}>
+        <div className="space-y-2">
+          <ChecklistRow
+            label="Procédure proof test"
+            value={proofProcedureItem?.summary || 'Non documentée'}
+            status={(proofProcedureItem?.status ?? 'missing') as ItemStatus}
+          />
+          <ChecklistRow
+            label="Campagnes enregistrées"
+            value={proofEvidenceItem?.summary || 'Aucune campagne'}
+            status={(proofEvidenceItem?.status ?? 'missing') as ItemStatus}
+          />
+          <ChecklistRow
+            label="Package rapport"
+            value={reportPackageItem?.summary || 'À compléter'}
+            status={(reportPackageItem?.status ?? 'review') as ItemStatus}
+          />
+        </div>
+      </RightPanelSection>
+
+      <RightPanelSection id="references" label="Références" Icon={BookOpen}>
+        <p className="mb-3 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+          Points utiles pour audit et relecture, sans répéter le cockpit central.
+        </p>
+        <InspectorSurface>
+          <InspectorReferenceRow label="Scenario ID" value={sif.hazopTrace?.scenarioId || 'Non renseigné'} />
+          <InspectorReferenceRow label="HAZOP node" value={sif.hazopTrace?.hazopNode || 'Non renseigné'} />
+          <InspectorReferenceRow label="LOPA ref." value={sif.hazopTrace?.lopaRef || 'Non renseigné'} />
+          <InspectorReferenceRow label="Proof test ref." value={sif.proofTestProcedure?.ref || 'Non renseigné'} />
+          <InspectorReferenceRow
+            label="Révision"
+            value={sif.revisionLockedAt ? `Publiée le ${new Date(sif.revisionLockedAt).toLocaleDateString()}` : `Révision ${sif.revision} en travail`}
+          />
+        </InspectorSurface>
+        <p className="mt-3 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
+          L'historique des révisions et les téléchargements PDF restent dans le cockpit central.
+        </p>
+      </RightPanelSection>
     </RightPanelShell>
   )
 }

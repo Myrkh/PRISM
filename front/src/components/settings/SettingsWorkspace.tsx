@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState, type ElementType, type ReactNode } from 'react'
-import { Cpu, Moon, Settings2, SlidersHorizontal, Sun } from 'lucide-react'
+import { Cpu, Keyboard, Moon, Settings2, SlidersHorizontal, Sun } from 'lucide-react'
+import { KeyboardShortcutsSettings } from './KeyboardShortcutsSettings'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -88,9 +89,10 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
     hint: string
     Icon: ElementType
   }[] = useMemo(() => [
-    { id: 'general', label: strings.sections.general.label, hint: strings.sections.general.hint, Icon: Settings2 },
+    { id: 'general',   label: strings.sections.general.label,   hint: strings.sections.general.hint,   Icon: Settings2       },
     { id: 'workspace', label: strings.sections.workspace.label, hint: strings.sections.workspace.hint, Icon: SlidersHorizontal },
-    { id: 'engine', label: strings.sections.engine.label, hint: strings.sections.engine.hint, Icon: Cpu },
+    { id: 'engine',    label: strings.sections.engine.label,    hint: strings.sections.engine.hint,    Icon: Cpu             },
+    { id: 'shortcuts', label: strings.sections.shortcuts.label, hint: strings.sections.shortcuts.hint, Icon: Keyboard        },
   ], [strings])
 
   const currentSection = sections.find(item => item.id === section) ?? sections[0]
@@ -213,7 +215,13 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
               <h1 className="text-base font-bold" style={{ color: TEXT }}>{currentSection.label}</h1>
             </header>
 
-            <div className="flex-1 min-h-0 overflow-y-auto p-5" style={{ background: CARD_BG }}>
+            <div
+              className={section === 'shortcuts' ? 'flex-1 min-h-0 overflow-hidden' : 'flex-1 min-h-0 overflow-y-auto p-5'}
+              style={{ background: CARD_BG }}
+            >
+              {section === 'shortcuts' ? (
+                <KeyboardShortcutsSettings strings={strings.shortcuts} locale={draft.language} />
+              ) : (
               <div className="space-y-4">
                 {section === 'general' && (
                   <>
@@ -351,8 +359,10 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
                   </SettingRow>
                 )}
               </div>
+              )}
             </div>
 
+            {section !== 'shortcuts' && (
             <footer className="flex items-center justify-between border-t px-5 py-3" style={{ borderColor: BORDER, background: CARD_BG }}>
               <p className="text-xs" style={{ color: TEXT_DIM }}>
                 {isDirty ? strings.footer.dirty : strings.footer.saved} · {strings.footer.esc}
@@ -369,6 +379,7 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
                 </Button>
               </div>
             </footer>
+            )}
           </section>
         </div>
       </div>

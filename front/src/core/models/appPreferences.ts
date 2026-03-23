@@ -9,6 +9,18 @@ export interface AppPreferences {
   engineCompareTolerancePct: number
   workspaceLeftPanelWidth: number
   workspaceRightPanelWidth: number
+  /** Whether the 22px status bar at the bottom of the window is visible. */
+  statusBarVisible: boolean
+  /** Whether the activity bar (left icon rail) is visible. */
+  activityBarVisible: boolean
+  /** Whether the sidebar (left) and properties (right) panels are swapped. */
+  panelsInverted: boolean
+  /** Centers the editor column with a max-width, like VS Code Centered Layout. */
+  centeredLayout: boolean
+  /** Where the command palette dropdown appears: 'top' (under header) or 'center' (floating). */
+  commandPalettePosition: 'top' | 'center'
+  /** User-defined keybinding overrides: shortcut id → keybinding string (empty = unbound). */
+  userKeybindings: Record<string, string>
 }
 
 export const APP_PREFERENCES_STORAGE_KEY = 'prism-app-preferences'
@@ -27,6 +39,12 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   engineCompareTolerancePct: 0.1,
   workspaceLeftPanelWidth: WORKSPACE_LEFT_PANEL_WIDTH_DEFAULT,
   workspaceRightPanelWidth: WORKSPACE_RIGHT_PANEL_WIDTH_DEFAULT,
+  statusBarVisible: false,
+  activityBarVisible: true,
+  panelsInverted: false,
+  centeredLayout: false,
+  commandPalettePosition: 'top',
+  userKeybindings: {},
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -51,12 +69,38 @@ export function resolveAppPreferences(input?: Partial<AppPreferences> | null): A
     ? Math.round(clamp(source.workspaceRightPanelWidth, WORKSPACE_RIGHT_PANEL_WIDTH_MIN, WORKSPACE_RIGHT_PANEL_WIDTH_MAX))
     : DEFAULT_APP_PREFERENCES.workspaceRightPanelWidth
 
+  const statusBarVisible = typeof source.statusBarVisible === 'boolean'
+    ? source.statusBarVisible
+    : DEFAULT_APP_PREFERENCES.statusBarVisible
+
+  const activityBarVisible = typeof source.activityBarVisible === 'boolean'
+    ? source.activityBarVisible : DEFAULT_APP_PREFERENCES.activityBarVisible
+  const panelsInverted = typeof source.panelsInverted === 'boolean'
+    ? source.panelsInverted : DEFAULT_APP_PREFERENCES.panelsInverted
+  const centeredLayout = typeof source.centeredLayout === 'boolean'
+    ? source.centeredLayout : DEFAULT_APP_PREFERENCES.centeredLayout
+  const commandPalettePosition = source.commandPalettePosition === 'center' ? 'center' as const
+    : DEFAULT_APP_PREFERENCES.commandPalettePosition
+
+  const userKeybindings: Record<string, string> = {}
+  if (isRecord(source.userKeybindings)) {
+    for (const [k, v] of Object.entries(source.userKeybindings)) {
+      if (typeof k === 'string' && typeof v === 'string') userKeybindings[k] = v
+    }
+  }
+
   return {
     language,
     theme,
     engineCompareTolerancePct: Number(tolerance.toFixed(2)),
     workspaceLeftPanelWidth,
     workspaceRightPanelWidth,
+    statusBarVisible,
+    activityBarVisible,
+    panelsInverted,
+    centeredLayout,
+    commandPalettePosition,
+    userKeybindings,
   }
 }
 

@@ -23,7 +23,7 @@ import {
   InspectorSection,
   InspectorStatusBadge,
   InspectorSurface,
-  RightPanelBody,
+  RightPanelSection,
   RightPanelShell,
 } from '@/components/layout/RightPanelShell'
 import { Input } from '@/components/ui/input'
@@ -92,13 +92,11 @@ function AuditRightPanel({
   strings: ReturnType<typeof getAuditStrings>
 }) {
   const { TEXT, TEXT_DIM } = usePrismTheme()
-  const tabs = useMemo(() => [
-    { id: 'event' as const, label: strings.rightPanel.eventTab, Icon: FileClock },
-  ], [strings.rightPanel.eventTab])
 
   return (
-    <RightPanelShell items={tabs} active="event" onSelect={() => {}}>
-      <RightPanelBody compact className="space-y-4">
+    <RightPanelShell>
+      <RightPanelSection id="event" label={strings.rightPanel.eventTab} Icon={FileClock}>
+        <div className="space-y-4">
         <InspectorSection title={strings.rightPanel.selectionTitle}>
           {selected ? (
             <div className="space-y-3">
@@ -170,7 +168,8 @@ function AuditRightPanel({
             </p>
           )}
         </InspectorSection>
-      </RightPanelBody>
+        </div>
+      </RightPanelSection>
     </RightPanelShell>
   )
 }

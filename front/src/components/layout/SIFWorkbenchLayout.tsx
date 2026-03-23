@@ -179,9 +179,11 @@ function GlobalRightPanelPlaceholder({ mode }: { mode: 'audit' | 'history' | 'pl
 function ResizeDivider({
   isResizing,
   onPointerDown,
+  side = 'left',
 }: {
   isResizing: boolean
   onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => void
+  side?: 'left' | 'right'
 }) {
   const { BORDER, PANEL_BG, TEAL, TEXT_DIM } = usePrismTheme()
   const [hovered, setHovered] = useState(false)
@@ -192,7 +194,9 @@ function ResizeDivider({
       role="separator"
       aria-orientation="vertical"
       aria-label="Resize panel"
-      className="absolute inset-y-0 left-0 z-20 flex -translate-x-1/2 cursor-col-resize items-center justify-center"
+      className={`absolute inset-y-0 z-20 flex cursor-col-resize items-center justify-center ${
+        side === 'left' ? 'left-0 -translate-x-1/2' : 'right-0 translate-x-1/2'
+      }`}
       style={{ width: 18, touchAction: 'none' }}
       onPointerDown={onPointerDown}
       onPointerEnter={() => setHovered(true)}
@@ -391,12 +395,29 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
     }
   }, [rightOpen])
 
+  const panelsInverted    = preferences.panelsInverted    ?? false
+  const activityBarVisible = preferences.activityBarVisible ?? true
+  const centeredLayout    = preferences.centeredLayout    ?? false
+
+  // Helper: wraps content with a max-width centered column when centeredLayout is on.
+  const wrapCentered = (content: ReactNode): ReactNode =>
+    centeredLayout ? (
+      <div className="flex flex-1 min-h-0 overflow-hidden justify-center w-full">
+        <div className="flex flex-col w-full min-h-0" style={{ maxWidth: 900 }}>
+          {content}
+        </div>
+      </div>
+    ) : content
+
   // Pointer drag for resize
   useEffect(() => {
     if (!isResizingRightPanel) return
     const onMove = (e: PointerEvent) => {
       if (rightPanelResizeStartX.current === null) return
-      const delta = rightPanelResizeStartX.current - e.clientX
+      // When panels are inverted the right panel is on the left — flip direction
+      const delta = panelsInverted
+        ? e.clientX - rightPanelResizeStartX.current
+        : rightPanelResizeStartX.current - e.clientX
       setRightPanelWidth(
         Math.max(MIN_RIGHT_PANEL_WIDTH, Math.min(MAX_RIGHT_PANEL_WIDTH, rightPanelResizeStartWidth.current + delta))
       )
@@ -421,7 +442,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
       window.removeEventListener('pointerup',   onStop)
       window.removeEventListener('pointercancel', onStop)
     }
-  }, [isResizingRightPanel, preferences.workspaceRightPanelWidth, updateAppPreferences])
+  }, [isResizingRightPanel, panelsInverted, preferences.workspaceRightPanelWidth, updateAppPreferences])
 
   const startResize = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!rightOpen) return
@@ -476,17 +497,17 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
 
   return (
     <LayoutContext.Provider value={{ setRightPanelOverride, setRightPanelOpen, isRightPanelOpen: rightOpen }}>
-      <div className="flex h-[calc(100vh-48px)] min-h-0 overflow-hidden" style={{ background: PAGE_BG }}>
-        {/* ── Activity Bar — hidden in Zen mode ── */}
-        {!focusMode && <IconRail />}
+      <div className="flex flex-1 min-h-0 overflow-hidden" style={{ background: PAGE_BG }}>
+        {/* ── Activity Bar — hidden in Zen mode or when toggled off ── */}
+        {!focusMode && activityBarVisible && <IconRail />}
 
-        {/* ── Main area ── */}
-        <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">
+        {/* ── Main area — optionally inverted (sidebar↔right panel swap) ── */}
+        <div className={`flex flex-1 min-w-0 min-h-0 overflow-hidden${panelsInverted ? ' flex-row-reverse' : ''}`}>
           {!showDashboard && (
             <>
               {/* ── Sidebar ── */}
               <div
-                className="flex shrink-0 flex-col border-r overflow-hidden"
+                className={`flex shrink-0 flex-col overflow-hidden ${panelsInverted ? 'border-l' : 'border-r'}`}
                 style={{
                   width:       leftOpen && !showSettings ? leftPanelWidth : 0,
                   opacity:     leftOpen && !showSettings ? 1 : 0,
@@ -520,42 +541,42 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
 
               {/* Note editor */}
               {showNote && (
-                <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{children}</div>
+                <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{wrapCentered(children)}</div>
               )}
 
               {/* File viewer (PDF / Image) */}
               {showFile && (
-                <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{children}</div>
+                <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{wrapCentered(children)}</div>
               )}
 
               {/* Settings — full width, no panels */}
               {showSettings && (
-                <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{children}</div>
+                <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{wrapCentered(children)}</div>
               )}
 
               {/* Docs — shell with left outline, no right panel */}
               {showDocs && (
-                <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{children}</div>
+                <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{wrapCentered(children)}</div>
               )}
 
               {showSearch && (
-                <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{children}</div>
+                <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{wrapCentered(children)}</div>
               )}
 
               {showLibrary && (
-                <div className="flex flex-1 min-h-0 overflow-hidden">
-                  <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">{children}</div>
+                <div className={`flex flex-1 min-h-0 overflow-hidden${panelsInverted ? ' flex-row-reverse' : ''}`}>
+                  <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">{wrapCentered(children)}</div>
                   {rightOpen && (
                     <div
                       className="relative min-h-0 shrink-0 overflow-hidden"
                       style={{
                         width: rightPanelWidth,
                         background: PANEL_BG,
-                        borderLeft: `1px solid ${BORDER}`,
+                        [panelsInverted ? 'borderRight' : 'borderLeft']: `1px solid ${BORDER}`,
                         boxShadow: SHADOW_DOCK,
                       }}
                     >
-                      <ResizeDivider isResizing={isResizingRightPanel} onPointerDown={startResize} />
+                      <ResizeDivider isResizing={isResizingRightPanel} onPointerDown={startResize} side={panelsInverted ? 'right' : 'left'} />
                       <LibraryInspector />
                     </div>
                   )}
@@ -564,19 +585,19 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
 
               {/* Global tools — editor + right panel */}
               {showGlobal && (
-                <div className="flex flex-1 min-h-0 overflow-hidden">
-                  <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">{children}</div>
+                <div className={`flex flex-1 min-h-0 overflow-hidden${panelsInverted ? ' flex-row-reverse' : ''}`}>
+                  <div className="flex flex-1 min-h-0 min-w-0 overflow-hidden">{wrapCentered(children)}</div>
                   {rightOpen && (
                     <div
                       className="relative min-h-0 shrink-0 overflow-hidden"
                       style={{
                         width: rightPanelWidth,
                         background: PANEL_BG,
-                        borderLeft: `1px solid ${BORDER}`,
+                        [panelsInverted ? 'borderRight' : 'borderLeft']: `1px solid ${BORDER}`,
                         boxShadow: SHADOW_DOCK,
                       }}
                     >
-                      <ResizeDivider isResizing={isResizingRightPanel} onPointerDown={startResize} />
+                      <ResizeDivider isResizing={isResizingRightPanel} onPointerDown={startResize} side={panelsInverted ? 'right' : 'left'} />
                       {rightPanelOverride || (
                         <GlobalRightPanelPlaceholder
                           mode={showAudit ? 'audit' : showHistory ? 'history' : showPlanning ? 'planning' : showEngine ? 'engine' : 'hazop'}
@@ -592,23 +613,23 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
           {/* SIF Dashboard — center stack + right dock */}
           {showDashboard && (
             <>
-              <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">
-                {/* ── Sidebar — hidden in split mode ── */}
-                <div
-                  className="flex shrink-0 flex-col border-r overflow-hidden"
-                  style={{
-                    width:       leftOpen ? leftPanelWidth : 0,
-                    opacity:     leftOpen ? 1 : 0,
-                    borderColor: BORDER,
-                    background:  PANEL_BG,
-                    transition:  'width 0.2s ease, opacity 0.15s ease',
-                  }}
-                >
-                  {leftOpen && (
-                    <ProjectSidebar projectId={projectId ?? ''} sifId={sifId ?? ''} />
-                  )}
-                </div>
+              {/* ── Sidebar — direct sibling so flex-row-reverse inverts correctly ── */}
+              <div
+                className={`flex shrink-0 flex-col overflow-hidden ${panelsInverted ? 'border-l' : 'border-r'}`}
+                style={{
+                  width:       leftOpen ? leftPanelWidth : 0,
+                  opacity:     leftOpen ? 1 : 0,
+                  borderColor: BORDER,
+                  background:  PANEL_BG,
+                  transition:  'width 0.2s ease, opacity 0.15s ease',
+                }}
+              >
+                {leftOpen && (
+                  <ProjectSidebar projectId={projectId ?? ''} sifId={sifId ?? ''} />
+                )}
+              </div>
 
+              <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">
                 {isSplitActive ? (
                   // ── SPLIT MODE: two panes side-by-side ──────────────────
                   <div ref={splitContainerRef} className="flex flex-1 min-w-0 min-h-0 overflow-hidden">
@@ -667,7 +688,13 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                       />
                     )}
                     <EditorContent className="flex flex-col">
-                      {children}
+                      {centeredLayout ? (
+                        <div className="flex flex-1 min-h-0 overflow-hidden justify-center">
+                          <div className="flex flex-col w-full min-h-0" style={{ maxWidth: 900 }}>
+                            {children}
+                          </div>
+                        </div>
+                      ) : children}
                     </EditorContent>
                   </div>
                 )}
@@ -678,16 +705,17 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                 className="relative min-h-0 shrink-0 overflow-hidden"
                 style={{
                   width: rightOpen ? rightPanelWidth : 0,
-                  borderLeftWidth: rightOpen ? 1 : 0,
-                  borderLeftStyle: 'solid',
+                  ...(panelsInverted
+                    ? { borderRightWidth: rightOpen ? 1 : 0, borderRightStyle: 'solid' as const }
+                    : { borderLeftWidth:  rightOpen ? 1 : 0, borderLeftStyle:  'solid' as const }),
                   borderColor: BORDER,
                   background: PANEL_BG,
                   boxShadow: rightOpen ? SHADOW_DOCK : 'none',
-                  transition: 'width 0.2s ease, border-left-width 0.2s ease',
+                  transition: 'width 0.2s ease',
                 }}
               >
                 {rightOpen && (
-                  <ResizeDivider isResizing={isResizingRightPanel} onPointerDown={startResize} />
+                  <ResizeDivider isResizing={isResizingRightPanel} onPointerDown={startResize} side={panelsInverted ? 'right' : 'left'} />
                 )}
                 {rightPanelOverride || rightPanelContent || (
                   <RightPanel projectId={projectId ?? ''} sifId={sifId ?? ''} />

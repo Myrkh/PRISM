@@ -21,6 +21,10 @@ export const settingsStringsFr: SettingsStrings = {
       label: 'Engine',
       hint: 'Tolérance de comparaison',
     },
+    shortcuts: {
+      label: 'Raccourcis clavier',
+      hint: 'Personnaliser les raccourcis',
+    },
   },
   general: {
     language: {
@@ -53,6 +57,32 @@ export const settingsStringsFr: SettingsStrings = {
       hint: 'Seuil d’écart avant alerte de mismatch.',
       unit: '%',
     },
+  },
+  shortcuts: {
+    searchPlaceholder: 'Filtrer par commande ou raccourci…',
+    jsonToggle: 'Basculer en JSON',
+    tableToggle: 'Basculer en tableau',
+    resetAll: 'Réinitialiser tout',
+    pressKey: 'Appuyer sur un raccourci…',
+    pressKeyCancel: 'Échap pour annuler',
+    reset: 'Réinitialiser',
+    columns: {
+      command: 'Commande',
+      keybinding: 'Raccourci',
+      when: 'Contexte',
+      source: 'Source',
+    },
+    categories: {
+      palette: 'Palette de commandes',
+      layout: 'Disposition',
+      navigation: 'Navigation',
+    },
+    sources: {
+      default: 'Par défaut',
+      user: 'Personnalisé',
+    },
+    unbound: '—',
+    jsonHint: 'Seuls vos raccourcis personnalisés sont affichés ici. Modifiez-les directement dans le tableau.',
   },
   footer: {
     dirty: 'Modifications non enregistrées',

@@ -6,7 +6,7 @@ import {
   InspectorMetricRow,
   InspectorSection,
   InspectorSurface,
-  RightPanelBody,
+  RightPanelSection,
   RightPanelShell,
 } from '@/components/layout/RightPanelShell'
 import { calcSIF, calcSIFEngine, formatPFD, formatRRF } from '@/core/math/pfdCalc'
@@ -31,7 +31,6 @@ import { useEngineNavigation } from '@/components/engine/EngineNavigation'
 import { getEngineStrings } from '@/i18n/engine'
 import { useLocaleStrings } from '@/i18n/useLocale'
 
-type EngineRightTab = 'payload' | 'backend'
 type BackendRunState =
   | { status: 'idle' }
   | { status: 'running' }
@@ -760,15 +759,6 @@ function EngineRightPanel({
 }) {
   const strings = useLocaleStrings(getEngineStrings)
   const { TEXT, TEXT_DIM, TEAL, BORDER, semantic } = usePrismTheme()
-  const [activeTab, setActiveTab] = useState<EngineRightTab>('payload')
-  const rightTabs = useMemo(() => ([
-    { id: 'payload' as const, label: strings.rightPanel.tabs.payload, Icon: Braces },
-    { id: 'backend' as const, label: strings.rightPanel.tabs.backend, Icon: Sigma },
-  ]), [strings])
-
-  useEffect(() => {
-    if (backendStatus === 'done') setActiveTab('backend')
-  }, [backendStatus])
 
   const summaryLines = row
     ? [
@@ -780,123 +770,121 @@ function EngineRightPanel({
     : []
 
   return (
-    <RightPanelShell items={rightTabs} active={activeTab} onSelect={setActiveTab}>
-      <RightPanelBody compact className="space-y-4">
-        {activeTab === 'payload' && (
-          <>
-            <InspectorSection title={strings.rightPanel.selectionTitle}>
-              {row ? (
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: TEXT }}>{row.sifNumber}</p>
-                    <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{row.projectName} · {row.title}</p>
-                  </div>
-                  <InspectorSurface className="space-y-0">
-                    {summaryLines.map(([label, value]) => (
-                      <div
-                        key={label}
-                        className="flex items-start justify-between gap-3 border-b py-2 last:border-b-0"
-                        style={{ borderColor: `${BORDER}99` }}
+    <RightPanelShell>
+      <RightPanelSection id="payload" label={strings.rightPanel.tabs.payload} Icon={Braces}>
+        <div className="space-y-4">
+          <InspectorSection title={strings.rightPanel.selectionTitle}>
+            {row ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: TEXT }}>{row.sifNumber}</p>
+                  <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{row.projectName} · {row.title}</p>
+                </div>
+                <InspectorSurface className="space-y-0">
+                  {summaryLines.map(([label, value]) => (
+                    <div
+                      key={label}
+                      className="flex items-start justify-between gap-3 border-b py-2 last:border-b-0"
+                      style={{ borderColor: `${BORDER}99` }}
+                    >
+                      <span className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{label}</span>
+                      <span
+                        className="max-w-[170px] text-right text-[12px] font-semibold leading-relaxed"
+                        style={{ color: label === strings.shared.mode ? TEAL : TEXT }}
                       >
-                        <span className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{label}</span>
-                        <span
-                          className="max-w-[170px] text-right text-[12px] font-semibold leading-relaxed"
-                          style={{ color: label === strings.shared.mode ? TEAL : TEXT }}
-                        >
-                          {value}
+                        {value}
+                      </span>
+                    </div>
+                  ))}
+                </InspectorSurface>
+                <p className="text-[10px] leading-relaxed" style={{ color: TEXT_DIM }}>
+                  {strings.rightPanel.selectionHint}
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+                {strings.rightPanel.selectionEmpty}
+              </p>
+            )}
+          </InspectorSection>
+
+          <InspectorSection title={strings.rightPanel.payloadTitle}>
+            <JsonPreview value={payload} emptyLabel={strings.rightPanel.payloadEmpty} />
+          </InspectorSection>
+        </div>
+      </RightPanelSection>
+
+      <RightPanelSection id="backend" label={strings.rightPanel.tabs.backend} Icon={Sigma}>
+        <div className="space-y-4">
+          <InspectorSection title={strings.rightPanel.backendStateTitle}>
+            {backendStatus === 'idle' && (
+              <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+                {strings.rightPanel.backendIdle}
+              </p>
+            )}
+            {backendStatus === 'running' && (
+              <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+                {strings.rightPanel.backendRunning}
+              </p>
+            )}
+            {backendStatus === 'error' && (
+              <InspectorSurface background={`${semantic.error}10`} borderColor={`${semantic.error}33`}>
+                <p className="text-xs font-semibold" style={{ color: semantic.error }}>{strings.rightPanel.backendErrorTitle}</p>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{backendMessage ?? strings.rightPanel.backendUnknownError}</p>
+              </InspectorSurface>
+            )}
+            {backendStatus === 'done' && backendResponse && (
+              <InspectorSurface className="space-y-0">
+                <InspectorMetricRow label="PFDavg" value={formatPFD(backendResponse.result.pfdavg)} color={TEXT} />
+                <InspectorMetricRow label="PFH" value={formatPFD(backendResponse.result.pfh)} color={TEXT} />
+                <InspectorMetricRow label="SIL" value={formatSil(backendResponse.result.silAchieved)} color={TEAL} />
+                <InspectorMetricRow label="Runtime" value={backendResponse.backend.runtimeMs.toFixed(2)} suffix=" ms" color={TEXT} />
+                <InspectorMetricRow label="Warnings" value={backendResponse.result.warnings.length} color={backendResponse.result.warnings.length > 0 ? semantic.warning : semantic.success} />
+              </InspectorSurface>
+            )}
+          </InspectorSection>
+
+          {compareState && (
+            <InspectorSection title={strings.rightPanel.compareTitle}>
+              <InspectorSurface className="space-y-0">
+                <InspectorMetricRow label="Verdict" value={verdictMeta(compareState.summary.verdict, strings).label} color={verdictMeta(compareState.summary.verdict, strings).color} />
+                <InspectorMetricRow label="Delta PFD" value={formatDeltaPct(compareState.summary.pfd.deltaPct)} color={TEXT} />
+                <InspectorMetricRow label="Delta PFH" value={formatDeltaPct(compareState.summary.pfh.deltaPct)} color={TEXT} />
+                <InspectorMetricRow label="Delta RRF" value={formatDeltaPct(compareState.summary.rrf.deltaPct)} color={TEXT} />
+              </InspectorSurface>
+            </InspectorSection>
+          )}
+
+          {backendResponse && (
+            <InspectorSection title={strings.rightPanel.backendRouteTitle}>
+              <div className="space-y-3">
+                {SUBSYSTEM_ORDER.map(key => {
+                  const meta = backendResponse.backend.subsystems[key]
+                  return (
+                    <InspectorSurface key={key} className="space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <p className="text-xs font-semibold" style={{ color: TEXT }}>{strings.subsystems[key]}</p>
+                        <span className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: meta.markovTriggered ? semantic.warning : TEAL }}>
+                          {meta.markovTriggered ? strings.routeBadges.markov : meta.pfdEngine ?? strings.shared.backend}
                         </span>
                       </div>
-                    ))}
-                  </InspectorSurface>
-                  <p className="text-[10px] leading-relaxed" style={{ color: TEXT_DIM }}>
-                    {strings.rightPanel.selectionHint}
-                  </p>
-                </div>
-              ) : (
-                <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-                  {strings.rightPanel.selectionEmpty}
-                </p>
-              )}
+                      <div className="space-y-1 text-[10px] leading-relaxed" style={{ color: TEXT_DIM }}>
+                        {describeRoute(meta).slice(0, 3).map(line => (
+                          <p key={line}>{line}</p>
+                        ))}
+                      </div>
+                    </InspectorSurface>
+                  )
+                })}
+              </div>
             </InspectorSection>
+          )}
 
-            <InspectorSection title={strings.rightPanel.payloadTitle}>
-              <JsonPreview value={payload} emptyLabel={strings.rightPanel.payloadEmpty} />
-            </InspectorSection>
-          </>
-        )}
-
-        {activeTab === 'backend' && (
-          <>
-            <InspectorSection title={strings.rightPanel.backendStateTitle}>
-              {backendStatus === 'idle' && (
-                <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-                  {strings.rightPanel.backendIdle}
-                </p>
-              )}
-              {backendStatus === 'running' && (
-                <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-                  {strings.rightPanel.backendRunning}
-                </p>
-              )}
-              {backendStatus === 'error' && (
-                <InspectorSurface background={`${semantic.error}10`} borderColor={`${semantic.error}33`}>
-                  <p className="text-xs font-semibold" style={{ color: semantic.error }}>{strings.rightPanel.backendErrorTitle}</p>
-                  <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{backendMessage ?? strings.rightPanel.backendUnknownError}</p>
-                </InspectorSurface>
-              )}
-              {backendStatus === 'done' && backendResponse && (
-                <InspectorSurface className="space-y-0">
-                  <InspectorMetricRow label="PFDavg" value={formatPFD(backendResponse.result.pfdavg)} color={TEXT} />
-                  <InspectorMetricRow label="PFH" value={formatPFD(backendResponse.result.pfh)} color={TEXT} />
-                  <InspectorMetricRow label="SIL" value={formatSil(backendResponse.result.silAchieved)} color={TEAL} />
-                  <InspectorMetricRow label="Runtime" value={backendResponse.backend.runtimeMs.toFixed(2)} suffix=" ms" color={TEXT} />
-                  <InspectorMetricRow label="Warnings" value={backendResponse.result.warnings.length} color={backendResponse.result.warnings.length > 0 ? semantic.warning : semantic.success} />
-                </InspectorSurface>
-              )}
-            </InspectorSection>
-
-            {compareState && (
-              <InspectorSection title={strings.rightPanel.compareTitle}>
-                <InspectorSurface className="space-y-0">
-                  <InspectorMetricRow label="Verdict" value={verdictMeta(compareState.summary.verdict, strings).label} color={verdictMeta(compareState.summary.verdict, strings).color} />
-                  <InspectorMetricRow label="Delta PFD" value={formatDeltaPct(compareState.summary.pfd.deltaPct)} color={TEXT} />
-                  <InspectorMetricRow label="Delta PFH" value={formatDeltaPct(compareState.summary.pfh.deltaPct)} color={TEXT} />
-                  <InspectorMetricRow label="Delta RRF" value={formatDeltaPct(compareState.summary.rrf.deltaPct)} color={TEXT} />
-                </InspectorSurface>
-              </InspectorSection>
-            )}
-
-            {backendResponse && (
-              <InspectorSection title={strings.rightPanel.backendRouteTitle}>
-                <div className="space-y-3">
-                  {SUBSYSTEM_ORDER.map(key => {
-                    const meta = backendResponse.backend.subsystems[key]
-                    return (
-                      <InspectorSurface key={key} className="space-y-2">
-                        <div className="flex items-center justify-between gap-3">
-                          <p className="text-xs font-semibold" style={{ color: TEXT }}>{strings.subsystems[key]}</p>
-                          <span className="text-[10px] font-semibold uppercase tracking-[0.12em]" style={{ color: meta.markovTriggered ? semantic.warning : TEAL }}>
-                            {meta.markovTriggered ? strings.routeBadges.markov : meta.pfdEngine ?? strings.shared.backend}
-                          </span>
-                        </div>
-                        <div className="space-y-1 text-[10px] leading-relaxed" style={{ color: TEXT_DIM }}>
-                          {describeRoute(meta).slice(0, 3).map(line => (
-                            <p key={line}>{line}</p>
-                          ))}
-                        </div>
-                      </InspectorSurface>
-                    )
-                  })}
-                </div>
-              </InspectorSection>
-            )}
-
-            <InspectorSection title={strings.rightPanel.rawPreviewTitle}>
-              <JsonPreview value={backendResponse} emptyLabel={strings.rightPanel.backendPreviewEmpty} />
-            </InspectorSection>
-          </>
-        )}
-      </RightPanelBody>
+          <InspectorSection title={strings.rightPanel.rawPreviewTitle}>
+            <JsonPreview value={backendResponse} emptyLabel={strings.rightPanel.backendPreviewEmpty} />
+          </InspectorSection>
+        </div>
+      </RightPanelSection>
     </RightPanelShell>
   )
 }
@@ -904,15 +892,6 @@ function EngineRightPanel({
 function EngineHistoryRightPanel({ row }: { row: HistoryRow | null }) {
   const strings = useLocaleStrings(getEngineStrings)
   const { TEXT, TEXT_DIM, TEAL, semantic } = usePrismTheme()
-  const [activeTab, setActiveTab] = useState<EngineRightTab>('backend')
-  const rightTabs = useMemo(() => ([
-    { id: 'payload' as const, label: strings.rightPanel.tabs.payload, Icon: Braces },
-    { id: 'backend' as const, label: strings.rightPanel.tabs.backend, Icon: Sigma },
-  ]), [strings])
-
-  useEffect(() => {
-    setActiveTab('backend')
-  }, [row?.run.id])
 
   const summary = row ? asObject(row.run.resultSummary) : null
   const compare = summary ? asObject(summary.compare) : null
@@ -932,88 +911,86 @@ function EngineHistoryRightPanel({ row }: { row: HistoryRow | null }) {
     : []
 
   return (
-    <RightPanelShell items={rightTabs} active={activeTab} onSelect={setActiveTab}>
-      <RightPanelBody compact className="space-y-4">
-        {activeTab === 'payload' && (
-          <>
-            <InspectorSection title={strings.rightPanel.historySelectionTitle}>
-              {row ? (
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm font-semibold" style={{ color: TEXT }}>{row.sifNumber}</p>
-                    <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{row.projectName} · {row.title}</p>
-                  </div>
-                  <InspectorSurface className="space-y-0">
-                    {summaryLines.map(([label, value]) => (
-                      <div key={label} className="flex items-start justify-between gap-3 border-b py-2 last:border-b-0">
-                        <span className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{label}</span>
-                        <span className="max-w-[170px] text-right text-[12px] font-semibold leading-relaxed" style={{ color: TEXT }}>{value}</span>
-                      </div>
-                    ))}
-                  </InspectorSurface>
-                  <p className="text-[10px] leading-relaxed" style={{ color: TEXT_DIM }}>
-                    {strings.rightPanel.historySelectionHint}
-                  </p>
+    <RightPanelShell>
+      <RightPanelSection id="payload" label={strings.rightPanel.tabs.payload} Icon={Braces}>
+        <div className="space-y-4">
+          <InspectorSection title={strings.rightPanel.historySelectionTitle}>
+            {row ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm font-semibold" style={{ color: TEXT }}>{row.sifNumber}</p>
+                  <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{row.projectName} · {row.title}</p>
                 </div>
-              ) : (
-                <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-                  {strings.rightPanel.historySelectionEmpty}
-                </p>
-              )}
-            </InspectorSection>
-
-            <InspectorSection title={strings.rightPanel.historyPayloadTitle}>
-              <JsonPreview value={row?.run.requestPayload ?? null} emptyLabel={strings.rightPanel.historyPayloadEmpty} />
-            </InspectorSection>
-          </>
-        )}
-
-        {activeTab === 'backend' && (
-          <>
-            <InspectorSection title={strings.rightPanel.historyRunSummaryTitle}>
-              {row ? (
                 <InspectorSurface className="space-y-0">
-                  <InspectorMetricRow label={strings.shared.status} value={row.run.status} color={row.run.status === 'error' ? semantic.error : row.run.status === 'done' ? semantic.success : TEAL} />
-                  <InspectorMetricRow label={strings.shared.runtime} value={row.run.runtimeMs != null ? row.run.runtimeMs.toFixed(2) : '—'} suffix={row.run.runtimeMs != null ? ' ms' : ''} color={TEXT} />
-                  <InspectorMetricRow label={strings.shared.warnings} value={row.run.warningCount} color={row.run.warningCount > 0 ? semantic.warning : semantic.success} />
-                  <InspectorMetricRow label={strings.shared.backend} value={row.run.backendVersion ?? '—'} color={TEXT} />
-                  {pfdavg != null && <InspectorMetricRow label="PFDavg" value={formatPFD(pfdavg)} color={TEXT} />}
-                  {pfh != null && <InspectorMetricRow label="PFH" value={formatPFD(pfh)} color={TEXT} />}
-                  {sil != null && <InspectorMetricRow label="SIL" value={formatSil(sil)} color={TEAL} />}
+                  {summaryLines.map(([label, value]) => (
+                    <div key={label} className="flex items-start justify-between gap-3 border-b py-2 last:border-b-0">
+                      <span className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{label}</span>
+                      <span className="max-w-[170px] text-right text-[12px] font-semibold leading-relaxed" style={{ color: TEXT }}>{value}</span>
+                    </div>
+                  ))}
                 </InspectorSurface>
-              ) : (
-                <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-                  {strings.rightPanel.historyRunSummaryEmpty}
+                <p className="text-[10px] leading-relaxed" style={{ color: TEXT_DIM }}>
+                  {strings.rightPanel.historySelectionHint}
                 </p>
-              )}
-            </InspectorSection>
-
-            {verdictTone && compare && (
-              <InspectorSection title={strings.rightPanel.historyCompareTitle}>
-                <InspectorSurface className="space-y-0">
-                  <InspectorMetricRow label="Verdict" value={verdictTone.label} color={verdictTone.color} />
-                  <InspectorMetricRow label="Delta PFD" value={formatDeltaPct(asNumberValue(compare.pfdDeltaPct))} color={TEXT} />
-                  <InspectorMetricRow label="Delta PFH" value={formatDeltaPct(asNumberValue(compare.pfhDeltaPct))} color={TEXT} />
-                  <InspectorMetricRow label="Delta RRF" value={formatDeltaPct(asNumberValue(compare.rrfDeltaPct))} color={TEXT} />
-                </InspectorSurface>
-              </InspectorSection>
+              </div>
+            ) : (
+              <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+                {strings.rightPanel.historySelectionEmpty}
+              </p>
             )}
+          </InspectorSection>
 
-            {row?.run.errorMessage && (
-              <InspectorSection title={strings.rightPanel.historyBackendErrorTitle}>
-                <InspectorSurface background={`${semantic.error}10`} borderColor={`${semantic.error}33`}>
-                  <p className="text-xs font-semibold" style={{ color: semantic.error }}>{strings.rightPanel.backendErrorTitle}</p>
-                  <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{row.run.errorMessage}</p>
-                </InspectorSurface>
-              </InspectorSection>
+          <InspectorSection title={strings.rightPanel.historyPayloadTitle}>
+            <JsonPreview value={row?.run.requestPayload ?? null} emptyLabel={strings.rightPanel.historyPayloadEmpty} />
+          </InspectorSection>
+        </div>
+      </RightPanelSection>
+
+      <RightPanelSection id="backend" label={strings.rightPanel.tabs.backend} Icon={Sigma}>
+        <div className="space-y-4">
+          <InspectorSection title={strings.rightPanel.historyRunSummaryTitle}>
+            {row ? (
+              <InspectorSurface className="space-y-0">
+                <InspectorMetricRow label={strings.shared.status} value={row.run.status} color={row.run.status === 'error' ? semantic.error : row.run.status === 'done' ? semantic.success : TEAL} />
+                <InspectorMetricRow label={strings.shared.runtime} value={row.run.runtimeMs != null ? row.run.runtimeMs.toFixed(2) : '—'} suffix={row.run.runtimeMs != null ? ' ms' : ''} color={TEXT} />
+                <InspectorMetricRow label={strings.shared.warnings} value={row.run.warningCount} color={row.run.warningCount > 0 ? semantic.warning : semantic.success} />
+                <InspectorMetricRow label={strings.shared.backend} value={row.run.backendVersion ?? '—'} color={TEXT} />
+                {pfdavg != null && <InspectorMetricRow label="PFDavg" value={formatPFD(pfdavg)} color={TEXT} />}
+                {pfh != null && <InspectorMetricRow label="PFH" value={formatPFD(pfh)} color={TEXT} />}
+                {sil != null && <InspectorMetricRow label="SIL" value={formatSil(sil)} color={TEAL} />}
+              </InspectorSurface>
+            ) : (
+              <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+                {strings.rightPanel.historyRunSummaryEmpty}
+              </p>
             )}
+          </InspectorSection>
 
-            <InspectorSection title={strings.rightPanel.historyBackendPayloadTitle}>
-              <JsonPreview value={row?.run.responsePayload ?? null} emptyLabel={strings.rightPanel.historyBackendPayloadEmpty} />
+          {verdictTone && compare && (
+            <InspectorSection title={strings.rightPanel.historyCompareTitle}>
+              <InspectorSurface className="space-y-0">
+                <InspectorMetricRow label="Verdict" value={verdictTone.label} color={verdictTone.color} />
+                <InspectorMetricRow label="Delta PFD" value={formatDeltaPct(asNumberValue(compare.pfdDeltaPct))} color={TEXT} />
+                <InspectorMetricRow label="Delta PFH" value={formatDeltaPct(asNumberValue(compare.pfhDeltaPct))} color={TEXT} />
+                <InspectorMetricRow label="Delta RRF" value={formatDeltaPct(asNumberValue(compare.rrfDeltaPct))} color={TEXT} />
+              </InspectorSurface>
             </InspectorSection>
-          </>
-        )}
-      </RightPanelBody>
+          )}
+
+          {row?.run.errorMessage && (
+            <InspectorSection title={strings.rightPanel.historyBackendErrorTitle}>
+              <InspectorSurface background={`${semantic.error}10`} borderColor={`${semantic.error}33`}>
+                <p className="text-xs font-semibold" style={{ color: semantic.error }}>{strings.rightPanel.backendErrorTitle}</p>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{row.run.errorMessage}</p>
+              </InspectorSurface>
+            </InspectorSection>
+          )}
+
+          <InspectorSection title={strings.rightPanel.historyBackendPayloadTitle}>
+            <JsonPreview value={row?.run.responsePayload ?? null} emptyLabel={strings.rightPanel.historyBackendPayloadEmpty} />
+          </InspectorSection>
+        </div>
+      </RightPanelSection>
     </RightPanelShell>
   )
 }

@@ -386,6 +386,40 @@ export const useAppStore = create<AppState>()(
           s.rightPanelOpen = true
         }
       }),
+      toggleStatusBar: () => set(s => {
+        s.preferences.statusBarVisible = !s.preferences.statusBarVisible
+        saveAppPreferences(s.preferences)
+      }),
+
+      toggleActivityBar: () => set(s => {
+        s.preferences.activityBarVisible = !s.preferences.activityBarVisible
+        saveAppPreferences(s.preferences)
+      }),
+
+      togglePanelsInverted: () => set(s => {
+        s.preferences.panelsInverted = !s.preferences.panelsInverted
+        saveAppPreferences(s.preferences)
+      }),
+
+      toggleCenteredLayout: () => set(s => {
+        s.preferences.centeredLayout = !s.preferences.centeredLayout
+        saveAppPreferences(s.preferences)
+      }),
+
+      setCommandPalettePosition: (pos) => set(s => {
+        s.preferences.commandPalettePosition = pos
+        saveAppPreferences(s.preferences)
+      }),
+
+      setKeybinding: (id, keybinding) => set(s => {
+        s.preferences.userKeybindings[id] = keybinding
+        saveAppPreferences(s.preferences)
+      }),
+
+      resetKeybinding: (id) => set(s => {
+        delete s.preferences.userKeybindings[id]
+        saveAppPreferences(s.preferences)
+      }),
 
       // ── Split view ─────────────────────────────────────────────────────────
       openSecondSlot: () => set(s => {

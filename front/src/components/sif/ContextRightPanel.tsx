@@ -1,13 +1,12 @@
-import { ArrowRight, CheckCircle2, AlertTriangle, FileText } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CheckCircle2, FileText, ShieldCheck, Sparkles } from 'lucide-react'
 import type { SIF } from '@/core/types'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
 import type { OverviewMetrics } from '@/components/sif/overviewMetrics'
 import type { SIFTab } from '@/store/types'
 import {
   InspectorActionButton,
-  InspectorBlock,
   InspectorSurface,
-  RightPanelBody,
+  RightPanelSection,
   RightPanelShell,
 } from '@/components/layout/RightPanelShell'
 import { semantic } from '@/styles/tokens'
@@ -50,84 +49,72 @@ export function ContextRightPanel({
   ]
 
   return (
-    <RightPanelShell
-      items={[{ id: 'context', label: 'Contexte', Icon: FileText }]}
-      active="context"
-      onSelect={() => {}}
-      contentBg={PANEL_BG}
-    >
-      <RightPanelBody compact>
-        <div className="space-y-3">
-          <InspectorBlock
-            title="Ready"
-            hint="Lecture du contexte avant le passage vers l’architecture."
-          >
-            <div className="space-y-2">
-              {[
-                { label: 'Readiness', value: `${readiness}%`, tone: readinessColor },
-                { label: 'Trace HAZOP', value: `${overviewMetrics.tracePct}%`, tone: overviewMetrics.tracePct === 100 ? semantic.success : TEXT },
-                { label: 'Metadata', value: `${Math.round(compliance.metadataCompletion * 100)}%`, tone: compliance.metadataCompletion >= 0.85 ? semantic.success : TEXT },
-                { label: 'Signataires', value: `${overviewMetrics.approvalFilledCount}/3`, tone: overviewMetrics.approvalFilledCount === 3 ? semantic.success : TEXT },
-              ].map(item => (
-                <InspectorSurface key={item.label} className="flex items-center justify-between gap-3 rounded-lg px-2.5 py-2">
-                  <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{item.label}</p>
-                  <p className="text-sm font-semibold font-mono" style={{ color: item.tone }}>{item.value}</p>
-                </InspectorSurface>
-              ))}
-            </div>
-          </InspectorBlock>
-
-          <InspectorBlock title="Blockers">
-            <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-              {missingItems.length > 0
-                ? `${missingItems.length} élément${missingItems.length > 1 ? 's restent' : ' reste'} à documenter avant une lecture propre du contexte.`
-                : 'Contexte, traçabilité et signataires sont alignés pour la suite.'}
-            </p>
-
-            <div className="mt-3 space-y-2">
-              {missingItems.length > 0 ? missingItems.slice(0, 6).map(item => (
-                <InspectorSurface
-                  key={item.key}
-                  className="flex items-center gap-2 text-[11px]"
-                  borderColor={`${semantic.warning}30`}
-                  background={`${semantic.warning}08`}
-                >
-                  <AlertTriangle size={10} style={{ color: semantic.warning, flexShrink: 0 }} />
-                  {item.label}
-                </InspectorSurface>
-              )) : (
-                <InspectorSurface
-                  className="flex items-center gap-2 py-2.5 text-[11px]"
-                  borderColor={`${semantic.success}30`}
-                  background={`${semantic.success}08`}
-                >
-                  <CheckCircle2 size={11} style={{ color: semantic.success }} />
-                  <span style={{ color: semantic.success }}>Contexte et traçabilité complets</span>
-                </InspectorSurface>
-              )}
-            </div>
-          </InspectorBlock>
-
-          <InspectorBlock title="CTA">
-            <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-              {missingItems.length > 0
-                ? 'Le contexte doit d’abord fermer les manques documentaires avant le passage architecture.'
-                : 'Le contexte est suffisamment propre pour poursuivre la construction de l’architecture SIF.'}
-            </p>
-
-            <InspectorActionButton
-              onClick={missingItems.length > 0 ? onOpenEditSheet : () => onSelectTab('architecture')}
-              color={TEAL_DIM}
-              background={`${TEAL}08`}
-              borderColor={`${TEAL}35`}
-              className="mt-3"
-            >
-              <span>{missingItems.length > 0 ? 'Compléter le contexte' : 'Continuer vers Architecture'}</span>
-              <ArrowRight size={12} />
-            </InspectorActionButton>
-          </InspectorBlock>
+    <RightPanelShell contentBg={PANEL_BG}>
+      <RightPanelSection id="ready" label="Ready" Icon={ShieldCheck}>
+        <p className="mb-3 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+          Lecture du contexte avant le passage vers l'architecture.
+        </p>
+        <div className="space-y-2">
+          {[
+            { label: 'Readiness', value: `${readiness}%`, tone: readinessColor },
+            { label: 'Trace HAZOP', value: `${overviewMetrics.tracePct}%`, tone: overviewMetrics.tracePct === 100 ? semantic.success : TEXT },
+            { label: 'Metadata', value: `${Math.round(compliance.metadataCompletion * 100)}%`, tone: compliance.metadataCompletion >= 0.85 ? semantic.success : TEXT },
+            { label: 'Signataires', value: `${overviewMetrics.approvalFilledCount}/3`, tone: overviewMetrics.approvalFilledCount === 3 ? semantic.success : TEXT },
+          ].map(item => (
+            <InspectorSurface key={item.label} className="flex items-center justify-between gap-3 rounded-lg px-2.5 py-2">
+              <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{item.label}</p>
+              <p className="text-sm font-semibold font-mono" style={{ color: item.tone }}>{item.value}</p>
+            </InspectorSurface>
+          ))}
         </div>
-      </RightPanelBody>
+      </RightPanelSection>
+
+      <RightPanelSection id="blockers" label="Blockers" Icon={AlertTriangle}>
+        <p className="mb-3 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+          {missingItems.length > 0
+            ? `${missingItems.length} élément${missingItems.length > 1 ? 's restent' : ' reste'} à documenter avant une lecture propre du contexte.`
+            : 'Contexte, traçabilité et signataires sont alignés pour la suite.'}
+        </p>
+        <div className="space-y-2">
+          {missingItems.length > 0 ? missingItems.slice(0, 6).map(item => (
+            <InspectorSurface
+              key={item.key}
+              className="flex items-center gap-2 text-[11px]"
+              borderColor={`${semantic.warning}30`}
+              background={`${semantic.warning}08`}
+            >
+              <AlertTriangle size={10} style={{ color: semantic.warning, flexShrink: 0 }} />
+              {item.label}
+            </InspectorSurface>
+          )) : (
+            <InspectorSurface
+              className="flex items-center gap-2 py-2.5 text-[11px]"
+              borderColor={`${semantic.success}30`}
+              background={`${semantic.success}08`}
+            >
+              <CheckCircle2 size={11} style={{ color: semantic.success }} />
+              <span style={{ color: semantic.success }}>Contexte et traçabilité complets</span>
+            </InspectorSurface>
+          )}
+        </div>
+      </RightPanelSection>
+
+      <RightPanelSection id="next" label="Prochaine étape" Icon={Sparkles}>
+        <p className="mb-3 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
+          {missingItems.length > 0
+            ? "Le contexte doit d'abord fermer les manques documentaires avant le passage architecture."
+            : "Le contexte est suffisamment propre pour poursuivre la construction de l'architecture SIF."}
+        </p>
+        <InspectorActionButton
+          onClick={missingItems.length > 0 ? onOpenEditSheet : () => onSelectTab('architecture')}
+          color={TEAL_DIM}
+          background={`${TEAL}08`}
+          borderColor={`${TEAL}35`}
+        >
+          <span>{missingItems.length > 0 ? 'Compléter le contexte' : 'Continuer vers Architecture'}</span>
+          <ArrowRight size={12} />
+        </InspectorActionButton>
+      </RightPanelSection>
     </RightPanelShell>
   )
 }

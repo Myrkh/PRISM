@@ -191,7 +191,7 @@ export function DocsSidebar() {
                   transitionTimingFunction: 'cubic-bezier(0.22, 1, 0.36, 1)',
                 }}
               >
-                <div className="relative pl-7">
+                <div className="relative pl-3">
                   {/* vertical rail */}
                   <div className="absolute left-[13px] top-0 bottom-0 w-px" style={{ background: `${BORDER}55` }} />
 
@@ -281,7 +281,7 @@ export function DocsSidebar() {
 
                           {/* ── Block sub-list (active chapter only) ── */}
                           <div
-                            className="ml-5 overflow-hidden border-l pl-2.5 transition-[max-height,opacity,transform,padding] duration-200"
+                            className="overflow-hidden border-l pl-2.5 transition-[max-height,opacity,transform,padding] duration-200"
                             style={{
                               borderColor: `${TEAL}30`,
                               maxHeight: blocksVisible ? `${chapter.blocks.length * 36 + 12}px` : '0px',

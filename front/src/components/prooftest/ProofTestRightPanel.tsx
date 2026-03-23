@@ -13,17 +13,17 @@
  *  📋 Statut   — IEC 61511 · Échéance · Équipements · SIL context · CTA
  *  ⚗  En cours — Progression · Non-conformités · Verdict · Signatures · Clôturer
  */
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import {
   CheckCircle2, XCircle, AlertTriangle, FlaskConical,
   ClipboardCheck, Activity, Cpu, Zap, Plus,
 } from 'lucide-react'
 import {
+  RightPanelSection,
   RightPanelShell,
 } from '@/components/layout/RightPanelShell'
 import { calcSIF, formatPFD } from '@/core/math/pfdCalc'
 import type { SIF } from '@/core/types'
-import { useAppStore } from '@/store/appStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { getSifExploitationStrings } from '@/i18n/sifExploitation'
 import { useLocaleStrings } from '@/i18n/useLocale'
@@ -81,12 +81,6 @@ export interface ProofTestRightPanelProps {
   onNewCampaign: () => PTCampaign
 }
 
-// ─── Onglets intercalaires ────────────────────────────────────────────────
-const PANEL_TABS = [
-  { id: 'status'   as const, Icon: ClipboardCheck },
-  { id: 'campaign' as const, Icon: FlaskConical },
-] as const
-type PanelTab = typeof PANEL_TABS[number]['id']
 
 // ─── Micro-composants ─────────────────────────────────────────────────────
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -405,44 +399,15 @@ function CampaignContent(props: ProofTestRightPanelProps) {
 export function ProofTestRightPanel(props: ProofTestRightPanelProps) {
   const strings = useLocaleStrings(getSifExploitationStrings)
   const { PANEL_BG } = usePrismTheme()
-  const [activeTab, setActiveTab] = useState<PanelTab>('status')
-  const selectedRightPanelTab = useAppStore(s => s.rightPanelTabs.prooftest)
-  const setRightPanelTab = useAppStore(s => s.setRightPanelTab)
-  // Auto-switch to campaign tab when a new test is started from the procedure view
-  // We detect this by checking if the activeCampaign prop is new.
-  const isNewCampaign = props.activeCampaign && props.activeCampaign.stepResults.length === 0
-
-  useEffect(() => {
-    if (selectedRightPanelTab && PANEL_TABS.some(tab => tab.id === selectedRightPanelTab)) {
-      setActiveTab(selectedRightPanelTab as PanelTab)
-    }
-  }, [selectedRightPanelTab])
-
-  useEffect(() => {
-    if (isNewCampaign) {
-      setActiveTab('campaign')
-      setRightPanelTab('prooftest', 'campaign')
-    }
-  }, [isNewCampaign, setRightPanelTab])
 
   return (
-    <RightPanelShell
-      items={PANEL_TABS.map(tab => ({
-        ...tab,
-        label: strings.rightPanel.tabs[tab.id],
-        badge: tab.id === 'campaign' ? Boolean(props.activeCampaign) : undefined,
-      }))}
-      active={activeTab}
-      onSelect={tab => {
-        setActiveTab(tab)
-        setRightPanelTab('prooftest', tab)
-      }}
-      contentBg={PANEL_BG}
-    >
-      <div className="flex-1 overflow-y-auto" style={{ minHeight: '100%' }}>
-          {activeTab === 'status'   && <StatusContent   {...props} />}
-          {activeTab === 'campaign' && <CampaignContent {...props} />}
-      </div>
+    <RightPanelShell contentBg={PANEL_BG}>
+      <RightPanelSection id="status" label={strings.rightPanel.tabs.status} Icon={ClipboardCheck}>
+        <StatusContent {...props} />
+      </RightPanelSection>
+      <RightPanelSection id="campaign" label={strings.rightPanel.tabs.campaign} Icon={FlaskConical}>
+        <CampaignContent {...props} />
+      </RightPanelSection>
     </RightPanelShell>
   )
 }

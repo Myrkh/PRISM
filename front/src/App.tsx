@@ -40,6 +40,8 @@ import { fetchAllProjects } from '@/lib/db'
 import { NoteEditorWorkspace } from '@/components/workspace/NoteEditorWorkspace'
 import { FileViewerWorkspace } from '@/components/workspace/FileViewerWorkspace'
 import { useWorkspaceSync } from '@/store/useWorkspaceSync'
+import { StatusBar } from '@/components/layout/StatusBar'
+import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts'
 
 // ─── Hash routing ─────────────────────────────────────────────────────────
 
@@ -185,6 +187,7 @@ function ErrorScreen({ error, onRetry }: { error: string; onRetry: () => void })
 export default function App() {
   const view           = useAppStore(s => s.view)
   const navigate       = useAppStore(s => s.navigate)
+  const focusMode      = useAppStore(s => s.focusMode)
   const secondSlot     = useAppStore(s => s.secondSlot)
   const setSecondSlotTab = useAppStore(s => s.setSecondSlotTab)
   const isDark      = useAppStore(s => s.isDark)
@@ -205,11 +208,22 @@ export default function App() {
 
   // Workspace ↔ Supabase sync
   useWorkspaceSync()
+  // Global keyboard shortcuts (Ctrl+B, Ctrl+J, Ctrl+Shift+Z, etc.)
+  useGlobalShortcuts()
 
   // Dark mode
   useEffect(() => {
     document.documentElement.classList.toggle('dark', isDark)
   }, [isDark])
+
+  // Zen mode → OS fullscreen (hides Windows taskbar)
+  useEffect(() => {
+    if (focusMode) {
+      document.documentElement.requestFullscreen?.().catch(() => {})
+    } else if (document.fullscreenElement) {
+      document.exitFullscreen?.().catch(() => {})
+    }
+  }, [focusMode])
 
   // Initial data load from Supabase
   const loadData = async () => {
@@ -328,7 +342,7 @@ export default function App() {
   )
 
   return (
-    <div className="h-screen overflow-hidden bg-background text-foreground antialiased">
+    <div className="h-screen flex flex-col overflow-hidden bg-background text-foreground antialiased">
       <AppHeader />
 
       {/* Bannière d'erreur de sync (mutations) */}
@@ -400,6 +414,9 @@ export default function App() {
           {shellContent}
         </SIFWorkbenchLayout>
       )}
+
+      {/* Status bar — 22px footer, toggled by preferences.statusBarVisible */}
+      <StatusBar />
 
       {/* Modales à la racine — disponibles depuis toutes les vues */}
       <ProjectModal />

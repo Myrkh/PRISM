@@ -13,7 +13,7 @@ import {
 import { nanoid } from 'nanoid'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
-import { InspectorBlock, RightPanelBody, RightPanelShell } from '@/components/layout/RightPanelShell'
+import { InspectorBlock, RightPanelSection, RightPanelShell } from '@/components/layout/RightPanelShell'
 import { normalizeSIFAssumptions } from '@/core/models/sifAssumptions'
 import type { SIFAnalysisSettings } from '@/core/models/analysisSettings'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
@@ -34,13 +34,6 @@ import { AssumptionsPDFExport } from '@/components/report/AssumptionsPDFExport'
 import { getSifVerificationStrings } from '@/i18n/sifVerification'
 import { useLocaleStrings } from '@/i18n/useLocale'
 
-type PanelTab = 'summary' | 'graph' | 'assumptions'
-
-const PANEL_TABS: { id: PanelTab; Icon: React.ElementType }[] = [
-  { id: 'summary', Icon: ShieldCheck },
-  { id: 'graph', Icon: LineChart },
-  { id: 'assumptions', Icon: Lightbulb },
-]
 
 interface Props {
   sif: SIF
@@ -382,10 +375,7 @@ export function VerificationRightPanel({
 }: Props) {
   const strings = useLocaleStrings(getSifVerificationStrings)
   const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
-  const selectedRightPanelTab = useAppStore(s => s.rightPanelTabs.verification)
-  const setRightPanelTab = useAppStore(s => s.setRightPanelTab)
   const project = useAppStore(s => s.projects.find(projectItem => projectItem.id === sif.projectId) ?? null)
-  const [activeTab, setActiveTab] = useState<PanelTab>('summary')
   const [assumptionDrafts, setAssumptionDrafts] = useState<SIFAssumption[]>(() => normalizeSIFAssumptions(sif.assumptions))
   const [assumptionsDirty, setAssumptionsDirty] = useState(false)
   const [assumptionsSaving, setAssumptionsSaving] = useState(false)
@@ -395,7 +385,6 @@ export function VerificationRightPanel({
   const openGaps = Math.max(0, compliance.totalChecks - compliance.passedChecks)
   const evidenceComplete = compliance.evidenceItems.filter(item => item.status === 'complete').length
   const assumptionsInReview = sif.assumptions.filter(item => item.status !== 'validated').length
-  const panelItems = PANEL_TABS.map(tab => ({ id: tab.id, label: strings.rightPanel.tabs[tab.id], Icon: tab.Icon }))
   const assumptionStatusOptions: { value: SIFAssumptionStatus; label: string }[] = [
     { value: 'draft', label: strings.rightPanel.assumptions.statusOptions.draft },
     { value: 'review', label: strings.rightPanel.assumptions.statusOptions.review },
@@ -417,12 +406,6 @@ export function VerificationRightPanel({
     { value: 'exploitation', label: strings.rightPanel.assumptions.linkedTabOptions.exploitation },
     { value: 'report', label: strings.rightPanel.assumptions.linkedTabOptions.report },
   ]
-
-  useEffect(() => {
-    if (selectedRightPanelTab && PANEL_TABS.some(tab => tab.id === selectedRightPanelTab)) {
-      setActiveTab(selectedRightPanelTab as PanelTab)
-    }
-  }, [selectedRightPanelTab])
 
   useEffect(() => {
     setAssumptionDrafts(normalizeSIFAssumptions(sif.assumptions))
@@ -499,19 +482,9 @@ export function VerificationRightPanel({
 
   return (
     <>
-      <RightPanelShell
-      items={panelItems}
-      active={activeTab}
-      onSelect={nextTab => {
-        setActiveTab(nextTab)
-        setRightPanelTab('verification', nextTab)
-      }}
-      contentBg={PANEL_BG}
-    >
-      <RightPanelBody compact>
-        <div className="space-y-3">
-          {activeTab === 'summary' && (
-            <>
+      <RightPanelShell contentBg={PANEL_BG}>
+        <RightPanelSection id="summary" label={strings.rightPanel.tabs.summary} Icon={ShieldCheck}>
+          <div className="space-y-3">
               <InspectorBlock title={strings.rightPanel.summary.readyTitle}>
                 <div className="space-y-2">
                   {[
@@ -558,11 +531,11 @@ export function VerificationRightPanel({
                   <ArrowRight size={12} />
                 </Button>
               </InspectorBlock>
-            </>
-          )}
+          </div>
+        </RightPanelSection>
 
-          {activeTab === 'graph' && (
-            <>
+        <RightPanelSection id="graph" label={strings.rightPanel.tabs.graph} Icon={LineChart}>
+          <div className="space-y-3">
               <SectionCard
                 title={strings.rightPanel.graph.mission.title}
                 hint={strings.rightPanel.graph.mission.hint}
@@ -704,11 +677,11 @@ export function VerificationRightPanel({
                   {strings.rightPanel.graph.pie.reset}
                 </button>
               </div>
-            </>
-          )}
+          </div>
+        </RightPanelSection>
 
-          {activeTab === 'assumptions' && (
-            <>
+        <RightPanelSection id="assumptions" label={strings.rightPanel.tabs.assumptions} Icon={Lightbulb}>
+          <div className="space-y-3">
               <InspectorBlock title={strings.rightPanel.assumptions.title} hint={strings.rightPanel.assumptions.hint}>
                 <div className="flex items-start justify-between gap-3">
                   <div />
@@ -877,11 +850,9 @@ export function VerificationRightPanel({
                   </div>
                 )}
               </div>
-            </>
-          )}
-        </div>
-      </RightPanelBody>
-    </RightPanelShell>
+          </div>
+        </RightPanelSection>
+      </RightPanelShell>
     {assumptionsPdfOpen && project && (
       <AssumptionsPDFExport
         project={project}

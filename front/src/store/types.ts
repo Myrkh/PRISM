@@ -18,9 +18,9 @@ import type {
 import type { AppPreferences } from '@/core/models/appPreferences'
 
 // ─── Navigation ───────────────────────────────────────────────────────────
-export type SettingsSection = 'general' | 'workspace' | 'engine'
+export type SettingsSection = 'general' | 'workspace' | 'engine' | 'shortcuts'
 
-export const SETTINGS_SECTIONS: readonly SettingsSection[] = ['general', 'workspace', 'engine']
+export const SETTINGS_SECTIONS: readonly SettingsSection[] = ['general', 'workspace', 'engine', 'shortcuts']
 
 export type CanonicalSIFTab =
   | 'cockpit'
@@ -201,6 +201,13 @@ export interface AppState {
   toggleRightPanel: () => void
   setRightPanelOpen: (open: boolean) => void
   toggleFocusMode: () => void
+  toggleStatusBar: () => void
+  toggleActivityBar: () => void
+  togglePanelsInverted: () => void
+  toggleCenteredLayout: () => void
+  setCommandPalettePosition: (pos: 'top' | 'center') => void
+  setKeybinding: (id: string, keybinding: string) => void
+  resetKeybinding: (id: string) => void
 
   // ── Actions: Split view ──
   openSecondSlot: () => void

@@ -1,8 +1,69 @@
-import type { ElementType, ReactNode } from 'react'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ElementType,
+  type ReactNode,
+} from 'react'
+import React from 'react'
+import { ChevronRight } from 'lucide-react'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { IntercalaireCard, IntercalaireTabBar } from '@/components/layout/IntercalaireTabBar'
 import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { cn } from '@/lib/utils'
+
+// ─── Constants ────────────────────────────────────────────────────────────────
+
+const HEADER_H     = 36   // px — section header height
+const MIN_CONTENT_H = 48  // px — minimum visible content when section is open
+
+// ─── SectionDivider (drag handle between two open sections) ──────────────────
+
+function SectionDivider({
+  isActive,
+  onPointerDown,
+}: {
+  isActive: boolean
+  onPointerDown: (e: React.PointerEvent<HTMLDivElement>) => void
+}) {
+  const { BORDER, TEAL } = usePrismTheme()
+  const [hovered, setHovered] = useState(false)
+  const active = isActive || hovered
+  return (
+    <div
+      role="separator"
+      aria-orientation="horizontal"
+      className="relative flex shrink-0 cursor-row-resize items-center justify-center transition-colors"
+      style={{ height: 5, background: active ? `${TEAL}18` : 'transparent', touchAction: 'none' }}
+      onPointerDown={onPointerDown}
+      onPointerEnter={() => setHovered(true)}
+      onPointerLeave={() => setHovered(false)}
+    >
+      <div
+        className="h-0.5 w-8 rounded-full transition-all"
+        style={{ background: active ? TEAL : `${BORDER}88`, opacity: active ? 0.9 : 0.5 }}
+      />
+    </div>
+  )
+}
+
+// ─── Section context ──────────────────────────────────────────────────────────
+
+interface SectionCtxValue {
+  closedIds: Set<string>
+  toggle: (id: string) => void
+  flexSizes: Map<string, number>
+  resizingPair: { topId: string; bottomId: string } | null
+  startResize: (topId: string, bottomId: string, e: React.PointerEvent) => void
+}
+
+const SectionCtx = createContext<SectionCtxValue | null>(null)
+
+// ─── Legacy tab API ───────────────────────────────────────────────────────────
 
 export interface RightPanelRailItem<T extends string = string> {
   id: T
@@ -11,29 +72,244 @@ export interface RightPanelRailItem<T extends string = string> {
   badge?: boolean | number | string | null
 }
 
-export function RightPanelShell<T extends string>({
+// ─── RightPanelSection ────────────────────────────────────────────────────────
+
+interface SectionProps {
+  id: string
+  label: string
+  Icon: ElementType
+  children: ReactNode
+  noPadding?: boolean
+}
+
+export function RightPanelSection({ id, label, Icon, children, noPadding }: SectionProps) {
+  const { BORDER, TEAL, TEXT_DIM } = usePrismTheme()
+  const ctx = useContext(SectionCtx)
+  const isOpen = ctx ? !ctx.closedIds.has(id) : true
+  const flexGrow = ctx ? (ctx.flexSizes.get(id) ?? 1) : 1
+
+  return (
+    <div
+      className="flex flex-col overflow-hidden"
+      style={
+        isOpen
+          ? { flex: `${flexGrow} 1 0px`, minHeight: HEADER_H + MIN_CONTENT_H }
+          : { flex: '0 0 auto' }
+      }
+    >
+      {/* Header */}
+      <button
+        type="button"
+        className="flex w-full shrink-0 items-center gap-2 px-3 transition-colors"
+        style={{
+          height: HEADER_H,
+          background: isOpen ? `${TEAL}0C` : 'transparent',
+          borderBottom: `1px solid ${BORDER}`,
+          flexShrink: 0,
+        }}
+        onClick={() => ctx?.toggle(id)}
+      >
+        <Icon size={13} style={{ color: isOpen ? TEAL : TEXT_DIM, flexShrink: 0 }} />
+        <span
+          className="flex-1 text-left text-[10px] font-bold uppercase tracking-widest"
+          style={{ color: isOpen ? TEAL : TEXT_DIM }}
+        >
+          {label}
+        </span>
+        <ChevronRight
+          size={11}
+          style={{
+            color: isOpen ? TEAL : TEXT_DIM,
+            transform: isOpen ? 'rotate(90deg)' : 'rotate(0deg)',
+            transition: 'transform 0.15s ease',
+            flexShrink: 0,
+          }}
+        />
+      </button>
+
+      {/* Content */}
+      {isOpen && (
+        noPadding
+          ? <div className="min-h-0 flex-1 flex flex-col overflow-hidden">{children}</div>
+          : (
+            <div className="min-h-0 flex-1 overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
+              <div className="px-3 py-3">{children}</div>
+            </div>
+          )
+      )}
+    </div>
+  )
+}
+
+// ─── RightPanelShell ──────────────────────────────────────────────────────────
+
+export function RightPanelShell<T extends string = string>({
   items,
   active,
   onSelect,
   children,
   contentBg,
+  openSectionId,
 }: {
-  items: readonly RightPanelRailItem<T>[]
-  active: T
-  onSelect: (id: T) => void
+  items?: readonly RightPanelRailItem<T>[]
+  active?: T
+  onSelect?: (id: T) => void
   children: ReactNode
   contentBg?: string
+  openSectionId?: string | null
 }) {
   const { BORDER, CARD_BG, PANEL_BG, SHADOW_DOCK, SHADOW_PANEL, SHADOW_SOFT, isDark } = usePrismTheme()
   const { isRightPanelOpen } = useLayout()
   const resolvedContentBg = contentBg ?? PANEL_BG
-  const activeIdx = Math.max(0, items.findIndex(item => item.id === active))
-  const tabs = items.map(item => ({
-    id: item.id,
-    label: item.label,
-    Icon: item.Icon,
-    badge: item.badge,
-  }))
+  const isLegacy = items && items.length > 0
+
+  // ── Accordion state ──────────────────────────────────────────────────────
+  const containerRef  = useRef<HTMLDivElement>(null)
+  const [closedIds,   setClosedIds]   = useState<Set<string>>(() => new Set())
+  const [flexSizes,   setFlexSizes]   = useState<Map<string, number>>(() => new Map())
+  const [isResizing,  setIsResizing]  = useState(false)
+  const [resizingPair, setResizingPair] = useState<{ topId: string; bottomId: string } | null>(null)
+
+  const resizeData = useRef<{
+    topId: string; bottomId: string
+    startY: number
+    startTopFlex: number; startBottomFlex: number
+    combinedFlex: number
+    pixPerFlex: number; minFlex: number
+  } | null>(null)
+
+  const toggle = useCallback((id: string) => {
+    setClosedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  }, [])
+
+  useEffect(() => {
+    if (!openSectionId) return
+    setClosedIds(prev => {
+      if (!prev.has(openSectionId)) return prev
+      const next = new Set(prev)
+      next.delete(openSectionId)
+      return next
+    })
+  }, [openSectionId])
+
+  const startResize = useCallback((
+    topId: string,
+    bottomId: string,
+    e: React.PointerEvent,
+  ) => {
+    if (!containerRef.current) return
+
+    // Collect open section IDs from children at the time of drag start
+    const sectionEls = React.Children.toArray(children)
+      .filter((c): c is React.ReactElement<SectionProps> =>
+        React.isValidElement(c) && c.type === RightPanelSection,
+      )
+
+    const openIds   = sectionEls.map(s => s.props.id).filter(id => !closedIds.has(id))
+    const totalFlex = openIds.reduce((sum, id) => sum + (flexSizes.get(id) ?? 1), 0)
+    const closedCnt = sectionEls.length - openIds.length
+    const containerH = containerRef.current.offsetHeight
+    const availableH = Math.max(1, containerH - closedCnt * HEADER_H)
+    const pixPerFlex = availableH / totalFlex
+    const minFlex    = (HEADER_H + MIN_CONTENT_H) / pixPerFlex
+
+    const startTopFlex    = flexSizes.get(topId)    ?? 1
+    const startBottomFlex = flexSizes.get(bottomId) ?? 1
+
+    resizeData.current = {
+      topId, bottomId,
+      startY: e.clientY,
+      startTopFlex, startBottomFlex,
+      combinedFlex: startTopFlex + startBottomFlex,
+      pixPerFlex, minFlex,
+    }
+    setIsResizing(true)
+    setResizingPair({ topId, bottomId })
+    e.preventDefault()
+  }, [children, closedIds, flexSizes])
+
+  useEffect(() => {
+    if (!isResizing || !resizeData.current) return
+    const d = resizeData.current
+
+    const onMove = (e: PointerEvent) => {
+      const deltaFlex  = (e.clientY - d.startY) / d.pixPerFlex
+      const newTopFlex = Math.max(d.minFlex, Math.min(d.combinedFlex - d.minFlex, d.startTopFlex + deltaFlex))
+      const newBotFlex = d.combinedFlex - newTopFlex
+      setFlexSizes(prev => {
+        const next = new Map(prev)
+        next.set(d.topId, newTopFlex)
+        next.set(d.bottomId, newBotFlex)
+        return next
+      })
+    }
+
+    const onStop = () => {
+      setIsResizing(false)
+      setResizingPair(null)
+      resizeData.current = null
+    }
+
+    document.body.style.cursor     = 'row-resize'
+    document.body.style.userSelect = 'none'
+    window.addEventListener('pointermove', onMove)
+    window.addEventListener('pointerup',   onStop)
+    window.addEventListener('pointercancel', onStop)
+    return () => {
+      document.body.style.cursor     = ''
+      document.body.style.userSelect = ''
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup',   onStop)
+      window.removeEventListener('pointercancel', onStop)
+    }
+  }, [isResizing])
+
+  const ctxValue = useMemo<SectionCtxValue>(() => ({
+    closedIds,
+    toggle,
+    flexSizes,
+    resizingPair,
+    startResize,
+  }), [closedIds, toggle, flexSizes, resizingPair, startResize])
+
+  // ── Accordion render: pass non-section children through, inject SectionDividers
+  //    between adjacent open sections
+  function renderAccordion() {
+    const rendered: ReactNode[] = []
+    let prevOpenSectionId: string | null = null
+
+    React.Children.toArray(children).forEach(child => {
+      if (!React.isValidElement(child) || child.type !== RightPanelSection) {
+        // Non-section child (e.g. pinned header): render as-is
+        rendered.push(child)
+        return
+      }
+
+      const el     = child as React.ReactElement<SectionProps>
+      const id     = el.props.id
+      const isOpen = !closedIds.has(id)
+
+      if (isOpen && prevOpenSectionId !== null) {
+        rendered.push(
+          <SectionDivider
+            key={`divider-${prevOpenSectionId}-${id}`}
+            isActive={resizingPair?.topId === prevOpenSectionId && resizingPair?.bottomId === id}
+            onPointerDown={e => startResize(prevOpenSectionId!, id, e)}
+          />,
+        )
+      }
+
+      rendered.push(el)
+      if (isOpen) prevOpenSectionId = id
+    })
+
+    return rendered
+  }
 
   return (
     <div
@@ -55,46 +331,67 @@ export function RightPanelShell<T extends string>({
           pointerEvents: isRightPanelOpen ? 'auto' : 'none',
         }}
       >
-        <div
-          className="shrink-0 px-3 pt-3"
-          style={{
-            background: resolvedContentBg,
-            backgroundImage: isDark ? 'linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0) 100%)' : 'none',
-            boxShadow: `${SHADOW_SOFT}, inset 0 1px 0 ${isDark ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.9)'}`,
-          }}
-        >
-          <IntercalaireTabBar
-            tabs={tabs}
-            active={active}
-            onSelect={onSelect}
-            cardBg={CARD_BG}
-            stretch={tabs.length > 1}
-            align="start"
-            labelSize="md"
-            showHints={false}
-          />
-        </div>
-
-        <div className="min-h-0 flex-1 px-3 pb-3">
-          <IntercalaireCard
-            tabCount={tabs.length}
-            activeIdx={activeIdx}
-            cardBg={CARD_BG}
-            className="flex h-full min-h-0 flex-col overflow-hidden border"
-            style={{
-              borderColor: BORDER,
-              background: CARD_BG,
-              backgroundImage: isDark ? 'linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0) 100%)' : 'none',
-              boxShadow: `${SHADOW_PANEL}, inset 0 1px 0 ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.9)'}`,
-            }}
-          >
-            {children}
-          </IntercalaireCard>
-        </div>
+        {isLegacy ? (
+          // ── Legacy tab mode ────────────────────────────────────────────
+          <>
+            <div
+              className="shrink-0 px-3 pt-3"
+              style={{
+                background: resolvedContentBg,
+                backgroundImage: isDark ? 'linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0) 100%)' : 'none',
+                boxShadow: `${SHADOW_SOFT}, inset 0 1px 0 ${isDark ? 'rgba(255,255,255,0.035)' : 'rgba(255,255,255,0.9)'}`,
+              }}
+            >
+              <IntercalaireTabBar
+                tabs={items.map(item => ({
+                  id: item.id,
+                  label: item.label,
+                  Icon: item.Icon,
+                  badge: item.badge,
+                }))}
+                active={active!}
+                onSelect={id => onSelect?.(id as T)}
+                cardBg={CARD_BG}
+                stretch={items.length > 1}
+                align="start"
+                labelSize="md"
+                showHints={false}
+              />
+            </div>
+            <div className="min-h-0 flex-1 px-3 pb-3">
+              <IntercalaireCard
+                tabCount={items.length}
+                activeIdx={Math.max(0, items.findIndex(item => item.id === active))}
+                cardBg={CARD_BG}
+                className="flex h-full min-h-0 flex-col overflow-hidden border"
+                style={{
+                  borderColor: BORDER,
+                  background: CARD_BG,
+                  backgroundImage: isDark ? 'linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0) 100%)' : 'none',
+                  boxShadow: `${SHADOW_PANEL}, inset 0 1px 0 ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.9)'}`,
+                }}
+              >
+                {children}
+              </IntercalaireCard>
+            </div>
+          </>
+        ) : (
+          // ── Accordion mode ─────────────────────────────────────────────
+          <SectionCtx.Provider value={ctxValue}>
+            <div
+              ref={containerRef}
+              className="flex flex-col flex-1 min-h-0 overflow-hidden"
+            >
+              {renderAccordion()}
+            </div>
+          </SectionCtx.Provider>
+        )}
       </div>
     </div>
   )
 }
+
+// ─── Helper components ────────────────────────────────────────────────────────
 
 export function RightPanelBody({
   children,

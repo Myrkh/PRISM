@@ -2,7 +2,7 @@ import type { AppLocale } from './types'
 import { settingsStringsEn } from './locales/en/settings'
 import { settingsStringsFr } from './locales/fr/settings'
 
-export type SettingsSectionKey = 'general' | 'workspace' | 'engine'
+export type SettingsSectionKey = 'general' | 'workspace' | 'engine' | 'shortcuts'
 
 export interface SettingsStrings {
   sidebarTitle: string
@@ -13,6 +13,32 @@ export interface SettingsStrings {
     confirm: string
   }
   sections: Record<SettingsSectionKey, { label: string; hint: string }>
+  shortcuts: {
+    searchPlaceholder: string
+    jsonToggle: string
+    tableToggle: string
+    resetAll: string
+    pressKey: string
+    pressKeyCancel: string
+    reset: string
+    columns: {
+      command: string
+      keybinding: string
+      when: string
+      source: string
+    }
+    categories: {
+      palette: string
+      layout: string
+      navigation: string
+    }
+    sources: {
+      default: string
+      user: string
+    }
+    unbound: string
+    jsonHint: string
+  }
   general: {
     language: {
       label: string

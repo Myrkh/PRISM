@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ElementType, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
+import { useEffect, useMemo, useState, type InputHTMLAttributes, type ReactNode, type TextareaHTMLAttributes } from 'react'
 import {
   AlertTriangle,
   ArrowRight,
@@ -14,6 +14,7 @@ import {
 } from 'lucide-react'
 import { nanoid } from 'nanoid'
 import {
+  RightPanelSection,
   RightPanelShell,
 } from '@/components/layout/RightPanelShell'
 import { normalizeSIFAssumptions } from '@/core/models/sifAssumptions'
@@ -33,18 +34,9 @@ import type {
   ComplianceResult,
   ComplianceTechnicalFinding,
 } from './complianceCalc'
-import { useAppStore } from '@/store/appStore'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
-type PanelTab = 'summary' | 'gap' | 'assumptions' | 'evidence'
-
-const PANEL_TABS: { id: PanelTab; label: string; Icon: ElementType }[] = [
-  { id: 'summary', label: 'Summary', Icon: ClipboardCheck },
-  { id: 'gap', label: 'Gap', Icon: FileWarning },
-  { id: 'assumptions', label: 'Assumptions', Icon: Lightbulb },
-  { id: 'evidence', label: 'Evidence', Icon: ShieldCheck },
-]
 
 const ASSUMPTION_STATUS_OPTIONS: { value: SIFAssumptionStatus; label: string }[] = [
   { value: 'draft', label: 'Draft' },
@@ -314,9 +306,6 @@ export function ComplianceRightPanel({
   onUpdateAssumptions,
 }: Props) {
   const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
-  const [activeTab, setActiveTab] = useState<PanelTab>('summary')
-  const selectedRightPanelTab = useAppStore(s => s.rightPanelTabs.compliance)
-  const setRightPanelTab = useAppStore(s => s.setRightPanelTab)
   const [assumptionDrafts, setAssumptionDrafts] = useState<SIFAssumption[]>(() => normalizeSIFAssumptions(sif.assumptions))
   const [assumptionsDirty, setAssumptionsDirty] = useState(false)
   const [assumptionsSaving, setAssumptionsSaving] = useState(false)
@@ -333,30 +322,10 @@ export function ComplianceRightPanel({
     'Compliant'
 
   useEffect(() => {
-    if (selectedRightPanelTab && PANEL_TABS.some(tab => tab.id === selectedRightPanelTab)) {
-      setActiveTab(selectedRightPanelTab as PanelTab)
-    }
-  }, [selectedRightPanelTab])
-
-  useEffect(() => {
     setAssumptionDrafts(normalizeSIFAssumptions(sif.assumptions))
     setAssumptionsDirty(false)
     setAssumptionsError(null)
   }, [sif.assumptions])
-
-  useEffect(() => {
-    if (selectedGapId) {
-      setActiveTab('gap')
-      setRightPanelTab('compliance', 'gap')
-    }
-  }, [selectedGapId, setRightPanelTab])
-
-  useEffect(() => {
-    if (selectedEvidenceId) {
-      setActiveTab('evidence')
-      setRightPanelTab('compliance', 'evidence')
-    }
-  }, [selectedEvidenceId, setRightPanelTab])
 
   const updateAssumption = <K extends keyof SIFAssumption>(
     assumptionId: string,
@@ -408,19 +377,9 @@ export function ComplianceRightPanel({
   }
 
   return (
-    <RightPanelShell
-      items={PANEL_TABS}
-      active={activeTab}
-      onSelect={nextTab => {
-        setActiveTab(nextTab)
-        setRightPanelTab('compliance', nextTab)
-      }}
-      contentBg={PANEL_BG}
-    >
-      <div className="flex-1 overflow-y-auto px-3 py-3" style={{ scrollbarGutter: 'stable' }}>
+    <RightPanelShell contentBg={PANEL_BG}>
+      <RightPanelSection id="summary" label="Summary" Icon={ClipboardCheck}>
         <div className="space-y-3">
-          {activeTab === 'summary' && (
-            <>
               <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                 <SectionLabel>Compliance Summary</SectionLabel>
                 <div className="mt-2 flex items-start justify-between gap-3">
@@ -474,11 +433,11 @@ export function ComplianceRightPanel({
                   />
                 </div>
               </div>
-            </>
-          )}
+        </div>
+      </RightPanelSection>
 
-          {activeTab === 'gap' && (
-            <>
+      <RightPanelSection id="gap" label="Gap" Icon={FileWarning}>
+        <div className="space-y-3">
               {selectedGap ? (
                 <div className="space-y-3">
                   <FindingRow finding={selectedGap} selected />
@@ -520,11 +479,11 @@ export function ComplianceRightPanel({
                   )}
                 </div>
               </div>
-            </>
-          )}
+        </div>
+      </RightPanelSection>
 
-          {activeTab === 'assumptions' && (
-            <>
+      <RightPanelSection id="assumptions" label="Assumptions" Icon={Lightbulb}>
+        <div className="space-y-3">
               <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                 <div className="flex items-start justify-between gap-3">
                   <SectionLabel>Assumption Register</SectionLabel>
@@ -719,11 +678,11 @@ export function ComplianceRightPanel({
                   </div>
                 ))}
               </div>
-            </>
-          )}
+        </div>
+      </RightPanelSection>
 
-          {activeTab === 'evidence' && (
-            <>
+      <RightPanelSection id="evidence" label="Evidence" Icon={ShieldCheck}>
+        <div className="space-y-3">
               {selectedEvidence ? (
                 <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>
                   <SectionLabel>Selected Evidence</SectionLabel>
@@ -758,10 +717,8 @@ export function ComplianceRightPanel({
                   ))}
                 </div>
               </div>
-            </>
-          )}
         </div>
-      </div>
+      </RightPanelSection>
     </RightPanelShell>
   )
 }

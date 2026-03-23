@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useMemo } from 'react'
 import { ArrowRight, FileText, ShieldCheck, Sparkles } from 'lucide-react'
 import type { SIF, SIFCalcResult } from '@/core/types'
 import type { SIFTab } from '@/store/types'
@@ -10,7 +10,7 @@ import {
   InspectorSection,
   InspectorStatusBadge,
   InspectorSurface,
-  RightPanelBody,
+  RightPanelSection,
   RightPanelShell,
 } from '@/components/layout/RightPanelShell'
 import { SILBadge } from '@/components/shared/SILBadge'
@@ -19,12 +19,6 @@ import { getOverviewMetrics } from '@/components/sif/overviewMetrics'
 import { getOverviewOperationalHealthMeta, getOverviewPanelCta } from '@/components/sif/overviewUi'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
-
-const OVERVIEW_RIGHT_TABS = [
-  { id: 'snapshot' as const, label: 'Snapshot', Icon: ShieldCheck },
-  { id: 'actions' as const, label: 'Actions', Icon: Sparkles },
-  { id: 'context' as const, label: 'Context', Icon: FileText },
-]
 
 interface Props {
   sif: SIF
@@ -35,22 +29,39 @@ interface Props {
 
 export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Props) {
   const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, SHADOW_SOFT, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
-  const [activeTab, setActiveTab] = useState<(typeof OVERVIEW_RIGHT_TABS)[number]['id']>('snapshot')
   const metrics = useMemo(() => getOverviewMetrics(sif, result, compliance), [compliance, result, sif])
   const health = getOverviewOperationalHealthMeta(TEXT_DIM)[metrics.operationalHealth]
 
   return (
-    <RightPanelShell
-      items={OVERVIEW_RIGHT_TABS}
-      active={activeTab}
-      onSelect={tab => setActiveTab(tab)}
-      contentBg={PANEL_BG}
-    >
-      <RightPanelBody compact>
+    <RightPanelShell contentBg={PANEL_BG}>
+      {/* Always-visible SIF reference */}
+      <div className="px-3 py-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
+        <InspectorSurface background={PAGE_BG} borderColor={BORDER}>
+          <div className="flex items-start gap-2">
+            <ShieldCheck size={14} style={{ color: TEAL, flexShrink: 0, marginTop: 2 }} />
+            <div>
+              <p className="text-xs font-semibold" style={{ color: TEAL }}>Current SIF</p>
+              <p className="text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
+                {sif.sifNumber} · {sif.title || 'Untitled SIF'}
+              </p>
+            </div>
+          </div>
+
+          <div className="mt-3 flex items-center justify-between rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
+            <div>
+              <p className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>Result</p>
+              <p className="text-sm font-bold" style={{ color: result.meetsTarget ? semantic.success : semantic.error }}>
+                {result.meetsTarget ? 'On target' : 'Below target'}
+              </p>
+            </div>
+            <SILBadge sil={result.SIL} size="sm" />
+          </div>
+        </InspectorSurface>
+      </div>
+
+      <RightPanelSection id="snapshot" label="Snapshot" Icon={ShieldCheck}>
         <div className="space-y-3">
-          {activeTab === 'snapshot' && (
-            <>
-              <InspectorHero
+          <InspectorHero
                 title="Operational confidence"
                 description="Vue condensée de la tenue calcul, exploitation et gouvernance de la SIF."
                 aside={
@@ -102,91 +113,65 @@ export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Pro
                   </InspectorSurface>
                 ))}
               </InspectorSection>
-            </>
-          )}
-
-          {activeTab === 'actions' && (
-            <InspectorSection title="Actions">
-              {metrics.actions.map((action, index) => (
-                <InspectorSurface key={action.id} className="mb-2 space-y-3" background={PAGE_BG} borderColor={BORDER}>
-                  <div className="flex items-start gap-3">
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-[11px] font-bold" style={{ borderColor: BORDER, background: CARD_BG, color: TEAL_DIM }}>
-                      {index + 1}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-semibold" style={{ color: TEXT }}>{action.title}</p>
-                      <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{action.hint}</p>
-                    </div>
-                  </div>
-
-                  <InspectorActionButton
-                    onClick={() => onSelectTab(action.tab)}
-                    color={TEAL_DIM}
-                    background={`${TEAL}12`}
-                    borderColor={`${TEAL}55`}
-                    className="text-xs"
-                  >
-                    <span>{getOverviewPanelCta(action.tab)}</span>
-                    <ArrowRight size={12} />
-                  </InspectorActionButton>
-                </InspectorSurface>
-              ))}
-            </InspectorSection>
-          )}
-
-          {activeTab === 'context' && (
-            <div className="space-y-3">
-              <InspectorSection title="Identification">
-                {[
-                  ['P&ID', sif.pid],
-                  ['Location', sif.location],
-                  ['Process tag', sif.processTag],
-                  ['Hazardous event', sif.hazardousEvent],
-                  ['Demand rate', sif.demandRate ? `${sif.demandRate} yr⁻¹` : '—'],
-                  ['Required RRF', sif.rrfRequired ? String(sif.rrfRequired) : '—'],
-                ].map(([label, value]) => (
-                  <InspectorReferenceRow key={String(label)} label={String(label)} value={String(value || '—')} />
-                ))}
-              </InspectorSection>
-
-              <InspectorSection title="Accountability">
-                {[
-                  ['Made by', sif.madeBy],
-                  ['Verified by', sif.verifiedBy],
-                  ['Approved by', sif.approvedBy],
-                  ['Scenario ID', sif.hazopTrace?.scenarioId],
-                  ['HAZOP node', sif.hazopTrace?.hazopNode],
-                  ['LOPA ref.', sif.hazopTrace?.lopaRef],
-                ].map(([label, value]) => (
-                  <InspectorReferenceRow key={String(label)} label={String(label)} value={String(value || '—')} />
-                ))}
-              </InspectorSection>
-            </div>
-          )}
-
-          <InspectorSurface background={PAGE_BG} borderColor={BORDER}>
-            <div className="flex items-start gap-2">
-              <ShieldCheck size={14} style={{ color: TEAL, flexShrink: 0, marginTop: 2 }} />
-              <div>
-                <p className="text-xs font-semibold" style={{ color: TEAL }}>Current SIF</p>
-                <p className="text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-                  {sif.sifNumber} · {sif.title || 'Untitled SIF'}
-                </p>
-              </div>
-            </div>
-
-            <div className="mt-3 flex items-center justify-between rounded-lg border px-2.5 py-2" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
-              <div>
-                <p className="text-[9px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>Result</p>
-                <p className="text-sm font-bold" style={{ color: result.meetsTarget ? semantic.success : semantic.error }}>
-                  {result.meetsTarget ? 'On target' : 'Below target'}
-                </p>
-              </div>
-              <SILBadge sil={result.SIL} size="sm" />
-            </div>
-          </InspectorSurface>
         </div>
-      </RightPanelBody>
+      </RightPanelSection>
+
+      <RightPanelSection id="actions" label="Actions" Icon={Sparkles}>
+        {metrics.actions.map((action, index) => (
+          <InspectorSurface key={action.id} className="mb-2 space-y-3" background={PAGE_BG} borderColor={BORDER}>
+            <div className="flex items-start gap-3">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border text-[11px] font-bold" style={{ borderColor: BORDER, background: CARD_BG, color: TEAL_DIM }}>
+                {index + 1}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold" style={{ color: TEXT }}>{action.title}</p>
+                <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>{action.hint}</p>
+              </div>
+            </div>
+
+            <InspectorActionButton
+              onClick={() => onSelectTab(action.tab)}
+              color={TEAL_DIM}
+              background={`${TEAL}12`}
+              borderColor={`${TEAL}55`}
+              className="text-xs"
+            >
+              <span>{getOverviewPanelCta(action.tab)}</span>
+              <ArrowRight size={12} />
+            </InspectorActionButton>
+          </InspectorSurface>
+        ))}
+      </RightPanelSection>
+
+      <RightPanelSection id="context" label="Contexte" Icon={FileText}>
+        <div className="space-y-3">
+          <InspectorSection title="Identification">
+            {[
+              ['P&ID', sif.pid],
+              ['Location', sif.location],
+              ['Process tag', sif.processTag],
+              ['Hazardous event', sif.hazardousEvent],
+              ['Demand rate', sif.demandRate ? `${sif.demandRate} yr⁻¹` : '—'],
+              ['Required RRF', sif.rrfRequired ? String(sif.rrfRequired) : '—'],
+            ].map(([label, value]) => (
+              <InspectorReferenceRow key={String(label)} label={String(label)} value={String(value || '—')} />
+            ))}
+          </InspectorSection>
+
+          <InspectorSection title="Accountability">
+            {[
+              ['Made by', sif.madeBy],
+              ['Verified by', sif.verifiedBy],
+              ['Approved by', sif.approvedBy],
+              ['Scenario ID', sif.hazopTrace?.scenarioId],
+              ['HAZOP node', sif.hazopTrace?.hazopNode],
+              ['LOPA ref.', sif.hazopTrace?.lopaRef],
+            ].map(([label, value]) => (
+              <InspectorReferenceRow key={String(label)} label={String(label)} value={String(value || '—')} />
+            ))}
+          </InspectorSection>
+        </div>
+      </RightPanelSection>
     </RightPanelShell>
   )
 }

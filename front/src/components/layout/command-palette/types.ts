@@ -9,6 +9,10 @@ export type CommandItem = {
   isActive: boolean
   meta?: string
   level?: 0 | 1
+  /** Keyboard shortcut hint displayed on the right (e.g. "Ctrl+B") */
+  shortcut?: string
+  /** Render a thin separator line above this item to start a new sub-category */
+  separator?: boolean
 }
 
 export type CommandGroup = {

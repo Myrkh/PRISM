@@ -21,6 +21,10 @@ export const settingsStringsEn: SettingsStrings = {
       label: 'Engine',
       hint: 'Comparison tolerance',
     },
+    shortcuts: {
+      label: 'Keyboard Shortcuts',
+      hint: 'Customize key bindings',
+    },
   },
   general: {
     language: {
@@ -53,6 +57,32 @@ export const settingsStringsEn: SettingsStrings = {
       hint: 'Delta threshold before mismatch warning.',
       unit: '%',
     },
+  },
+  shortcuts: {
+    searchPlaceholder: 'Filter by command or keybinding…',
+    jsonToggle: 'Switch to JSON',
+    tableToggle: 'Switch to table',
+    resetAll: 'Reset all',
+    pressKey: 'Press a shortcut…',
+    pressKeyCancel: 'Escape to cancel',
+    reset: 'Reset',
+    columns: {
+      command: 'Command',
+      keybinding: 'Keybinding',
+      when: 'When',
+      source: 'Source',
+    },
+    categories: {
+      palette: 'Command Palette',
+      layout: 'Layout',
+      navigation: 'Navigation',
+    },
+    sources: {
+      default: 'Default',
+      user: 'User',
+    },
+    unbound: '—',
+    jsonHint: 'Only your custom keybindings are shown here. Edit them directly in the table.',
   },
   footer: {
     dirty: 'Unsaved changes',

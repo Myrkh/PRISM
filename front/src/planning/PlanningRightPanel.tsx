@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import { createDefaultProofTestCampaignArtifact } from '@/core/models/proofTestCampaignWorkflow'
 import type { TestCampaign } from '@/core/types'
-import { RightPanelShell } from '@/components/layout/RightPanelShell'
+import { RightPanelSection, RightPanelShell } from '@/components/layout/RightPanelShell'
 import { useAppStore } from '@/store/appStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import {
@@ -518,10 +518,6 @@ function EmptyRightPanel() {
   )
 }
 
-const RIGHT_PANEL_ITEMS = [
-  { id: 'detail' as const, label: 'Campagne', Icon: ClipboardList },
-] as const
-
 export function PlanningRightPanel() {
   const { PANEL_BG } = usePrismTheme()
   const { campaigns } = usePlanningData()
@@ -529,17 +525,14 @@ export function PlanningRightPanel() {
   const selected = selectedId ? campaigns.find(campaign => campaign.id === selectedId) ?? null : null
 
   return (
-    <RightPanelShell
-      items={RIGHT_PANEL_ITEMS}
-      active="detail"
-      onSelect={() => {}}
-      contentBg={PANEL_BG}
-    >
-      {isCreating && draft
-        ? <NewCampaignForm draft={draft} />
-        : selected
-          ? <CampaignDetailPanel campaign={selected} />
-          : <EmptyRightPanel />}
+    <RightPanelShell contentBg={PANEL_BG}>
+      <RightPanelSection id="detail" label="Campagne" Icon={ClipboardList} noPadding>
+        {isCreating && draft
+          ? <NewCampaignForm draft={draft} />
+          : selected
+            ? <CampaignDetailPanel campaign={selected} />
+            : <EmptyRightPanel />}
+      </RightPanelSection>
     </RightPanelShell>
   )
 }

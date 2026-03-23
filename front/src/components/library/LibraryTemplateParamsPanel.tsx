@@ -56,13 +56,12 @@ import {
 } from '@/components/architecture/ComponentParamsPanel'
 import { CAT_LABELS, INSTRUMENT_CATEGORIES, INSTRUMENT_TYPES } from '@/components/architecture/componentCatalog'
 import { InstrumentationIcon } from '@/components/architecture/InstrumentationIcons'
-import { InspectorBlock, RightPanelBody, RightPanelShell } from '@/components/layout/RightPanelShell'
+import { RightPanelSection, RightPanelShell } from '@/components/layout/RightPanelShell'
 import { useAppStore } from '@/store/appStore'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import type { LibraryOriginBadge } from './LibraryTemplateCard'
 
-type PanelTab = 'identification' | 'parameters' | 'test' | 'advanced'
 type FactorizedLambdaUnit = 'FIT' | 'PER_HOUR'
 type DevelopedLambdaUnit = 'FIT' | 'PER_HOUR'
 type TimeDisplayUnit = 'hr' | 'yr'
@@ -73,13 +72,6 @@ const TYPE_META: Record<SubsystemType, { color: string; label: string; Icon: Ele
   logic: { color: '#7C3AED', label: 'Logique', Icon: Cpu },
   actuator: { color: '#EA580C', label: 'Actionneur', Icon: Zap },
 }
-
-const PANEL_TABS: { id: PanelTab; label: string; Icon: ElementType }[] = [
-  { id: 'identification', label: 'ID', Icon: Tag },
-  { id: 'parameters', label: 'Params', Icon: FlaskConical },
-  { id: 'test', label: 'Test', Icon: ClipboardList },
-  { id: 'advanced', label: 'Avancé', Icon: Settings2 },
-]
 
 const TEST_TYPES: { value: TestType; label: string; desc: string }[] = [
   { value: 'stopped', label: 'Arrêt unité', desc: 'Testé lors d\'un arrêt unité' },
@@ -194,7 +186,6 @@ export function LibraryTemplateParamsPanel({
   const saveComponentTemplate = useAppStore(state => state.saveComponentTemplate)
   const setSyncError = useAppStore(state => state.setSyncError)
 
-  const [activeTab, setActiveTab] = useState<PanelTab>('identification')
   const [local, setLocal] = useState<SIFComponent>(() => synchronizeComponentParams(buildInitialComponent(subsystemType, template)))
   const [factorizedLambdaUnit, setFactorizedLambdaUnit] = useState<FactorizedLambdaUnit>('FIT')
   const [developedLambdaUnit, setDevelopedLambdaUnit] = useState<DevelopedLambdaUnit>('FIT')
@@ -223,7 +214,6 @@ export function LibraryTemplateParamsPanel({
     setDevelopedLambdaUnit('FIT')
     setLambdaStarUnit('PER_HOUR')
     setLifetimeUnit(nextComponent.advanced.lifetime && nextComponent.advanced.lifetime < 8760 ? 'hr' : 'yr')
-    setActiveTab('identification')
     setTemplateScope(template?.scope === 'project' ? 'project' : defaultProjectId ? 'project' : 'user')
     setTemplateProjectId(template?.projectId ?? defaultProjectId ?? null)
     setTemplateName(template?.name ?? (nextComponent.instrumentType || nextComponent.tagName))
@@ -330,13 +320,9 @@ export function LibraryTemplateParamsPanel({
   }
 
   return (
-    <RightPanelShell
-      items={PANEL_TABS}
-      active={activeTab}
-      onSelect={setActiveTab}
-    >
-      <div className="flex h-full min-h-0 flex-col">
-        <div className="shrink-0 border-b px-3 py-3" style={{ borderColor: `${BORDER}A6` }}>
+    <RightPanelShell>
+      {/* ── Pinned header — always visible ── */}
+      <div className="shrink-0 border-b px-3 py-3" style={{ borderColor: `${BORDER}A6` }}>
           <div className="mb-3 flex items-start justify-between gap-3">
             <div className="flex min-w-0 items-center gap-2.5">
               <div
@@ -402,12 +388,12 @@ export function LibraryTemplateParamsPanel({
           <div className="grid gap-2">
             <LibraryLiveMetric label="PFD" value={formatPFD(componentPFD)} />
           </div>
-        </div>
+      </div>
 
-        <RightPanelBody compact className="space-y-3">
-          <InspectorBlock title="Template" hint="Définit la bibliothèque cible et les métadonnées du composant réutilisable.">
-            <div className="space-y-3">
-              {mode === 'clone' && (
+      {/* ── Template metadata ── */}
+      <RightPanelSection id="template" label="Template" Icon={Tag}>
+        <div className="space-y-3">
+          {mode === 'clone' && (
                 <div
                   className="rounded-lg border px-3 py-2 text-[11px] leading-relaxed"
                   style={{ borderColor: `${meta.color}28`, background: `${meta.color}08`, color: TEXT_DIM }}
@@ -476,12 +462,11 @@ export function LibraryTemplateParamsPanel({
                   placeholder="Contexte d'usage, hypothèses, source de validation…"
                 />
               </FieldRow>
-            </div>
-          </InspectorBlock>
+        </div>
+      </RightPanelSection>
 
-          {activeTab === 'identification' && (
-            <InspectorBlock title="Identification">
-              <div className="space-y-3">
+      <RightPanelSection id="identification" label="Identification" Icon={Tag}>
+        <div className="space-y-3">
                 <div className="grid gap-3" style={{ gridTemplateColumns: PANEL_FORM_GRID }}>
                   <FieldRow label="Tag">
                     <StyledInput value={local.tagName} onChange={v => upd({ tagName: v })} placeholder="PT-001" />
@@ -535,13 +520,11 @@ export function LibraryTemplateParamsPanel({
                     placeholder="Description technique optionnelle…"
                   />
                 </FieldRow>
-              </div>
-            </InspectorBlock>
-          )}
+        </div>
+      </RightPanelSection>
 
-          {activeTab === 'parameters' && (
-            <InspectorBlock title="Paramètres">
-              <div className="space-y-3">
+      <RightPanelSection id="parameters" label="Paramètres" Icon={FlaskConical}>
+        <div className="space-y-3">
                 <div className="flex gap-1 rounded-lg p-0.5" style={{ background: BG }}>
                   {(['factorized', 'developed'] as ParamMode[]).map(nextMode => (
                     <button
@@ -679,13 +662,11 @@ export function LibraryTemplateParamsPanel({
                 <SectionTitle>Métriques calculées</SectionTitle>
                 <ComputedRow label="SFF" value={formatPct(sff)} ok={sffOk} />
                 <ComputedRow label="DC eff" value={formatPct(dc)} ok={dcOk} />
-              </div>
-            </InspectorBlock>
-          )}
+        </div>
+      </RightPanelSection>
 
-          {activeTab === 'test' && (
-            <InspectorBlock title="Test de preuve">
-              <div className="space-y-3">
+      <RightPanelSection id="test" label="Test" Icon={ClipboardList}>
+        <div className="space-y-3">
                 <SectionTitle>Intervalle de test de preuve</SectionTitle>
                 <div className="grid gap-3" style={{ gridTemplateColumns: PANEL_WIDE_GRID }}>
                   <FieldRow label="T1">
@@ -765,13 +746,11 @@ export function LibraryTemplateParamsPanel({
                         : local.test.testType,
                   })}
                 />
-              </div>
-            </InspectorBlock>
-          )}
+        </div>
+      </RightPanelSection>
 
-          {activeTab === 'advanced' && (
-            <InspectorBlock title="Avancé">
-              <div className="space-y-3">
+      <RightPanelSection id="advanced" label="Avancé" Icon={Settings2}>
+        <div className="space-y-3">
                 <SectionTitle>Réparation</SectionTitle>
                 <div className="grid gap-3" style={{ gridTemplateColumns: PANEL_WIDE_GRID }}>
                   <FieldRow label="MTTR [heures]">
@@ -966,11 +945,8 @@ export function LibraryTemplateParamsPanel({
                     </div>
                   )}
                 </div>
-              </div>
-            </InspectorBlock>
-          )}
-        </RightPanelBody>
-      </div>
+        </div>
+      </RightPanelSection>
     </RightPanelShell>
   )
 }

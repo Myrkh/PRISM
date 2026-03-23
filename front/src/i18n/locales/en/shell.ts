@@ -49,7 +49,7 @@ export const shellStringsEn: ShellStrings = {
   commandPalette: {
     buttonLabel: 'Quick actions',
     placeholder: 'Search for an action, SIF, or project…',
-    noResults: query => `No results for “${query}”`,
+    noResults: query => `No results for "${query}"`,
     groups: {
       currentView: (sifNumber, title) => `${sifNumber} — ${title || 'Untitled'}`,
       create: 'Create',
@@ -57,6 +57,9 @@ export const shellStringsEn: ShellStrings = {
       sifs: 'SIFs',
       general: 'General',
       searchResults: 'Search results',
+      layout: 'Layout & Visibility',
+      symbols: 'Symbols — Current SIF',
+      help: 'Help — Available modes',
     },
     labels: {
       untitled: 'Untitled',
@@ -85,12 +88,31 @@ export const shellStringsEn: ShellStrings = {
       navigate: 'navigate',
       select: 'select',
       close: 'close',
+      toggleLeftPanel: 'Left Panel (Sidebar)',
+      toggleRightPanel: 'Right Panel (Properties)',
+      toggleStatusBar: 'SIL Status Bar',
+      toggleActivityBar: 'Activity Bar',
+      invertPanels: 'Invert Panels',
+      zenMode: 'Zen Mode (Fullscreen)',
+      splitView: 'Split view',
+      customizeLayout: 'Customize layout',
+      centeredLayout: 'Centered Layout',
+      commandPaletteTop: 'Palette: Top position',
+      commandPaletteCenter: 'Palette: Center position',
     },
     meta: {
-      continueSearch: query => `Continue searching for “${query}”`,
+      continueSearch: query => `Continue searching for "${query}"`,
       exploreSearch: 'Explore all indexed content',
       library: 'Manage standards, project templates, and personal references',
       docs: 'Open product documentation',
     },
+    modes: {
+      hintSuffix: '  |  > commands  # SIF  @ symbols  ? help',
+    },
+  },
+  statusBar: {
+    noSIF: 'No SIF open',
+    pass: 'PASS',
+    fail: 'FAIL',
   },
 }
