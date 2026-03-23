@@ -290,13 +290,29 @@ export const useAppStore = create<AppState>()(
       // ══════════════════════════════════════════════════════════════════════
       // NAVIGATION
       // ══════════════════════════════════════════════════════════════════════
-      navigate: view => set(s => {
+      navigate: view => {
+        set(s => {
+          if (view.type === 'sif-dashboard') {
+            s.view = { ...view, tab: normalizeSIFTab(view.tab) }
+            return
+          }
+          s.view = view
+        })
+        // Desktop mode: signal the Launcher to record this project access
         if (view.type === 'sif-dashboard') {
-          s.view = { ...view, tab: normalizeSIFTab(view.tab) }
-          return
+          const project = get().projects.find(p => p.id === view.projectId)
+          if (project) {
+            ;(window as { prismDesktop?: { recordRecentProject?: (d: unknown) => void } })
+              .prismDesktop?.recordRecentProject?.({
+                id:       project.id,
+                name:     project.name,
+                standard: project.standard,
+                sifCount: project.sifs.length,
+                openedAt: new Date().toISOString(),
+              })
+          }
         }
-        s.view = view
-      }),
+      },
 
       setTab: tab => set(s => {
         if (s.view.type === 'sif-dashboard') s.view.tab = normalizeSIFTab(tab)

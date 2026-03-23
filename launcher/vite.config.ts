@@ -7,12 +7,21 @@ export default defineConfig({
   base: './',
   server: { port: 5174 },
   resolve: {
-    alias: { '@': path.resolve(__dirname, './src') },
+    alias: [
+      // @/docs → front docs data (more specific, must come first)
+      { find: /^@\/docs/, replacement: path.resolve(__dirname, '../front/src/docs') },
+      // @/ → launcher src
+      { find: '@', replacement: path.resolve(__dirname, './src') },
+    ],
   },
   build: {
-    outDir:    'dist',
+    outDir: 'dist',
     emptyOutDir: true,
     rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'index.html'),
+        docs: path.resolve(__dirname, 'docs.html'),
+      },
       output: { manualChunks: undefined },
     },
   },

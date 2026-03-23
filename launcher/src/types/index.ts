@@ -44,8 +44,26 @@ export type InstallStatus =
   | { phase: 'up_to_date' }
   | { phase: 'downloading'; progress: number; label: string }
   | { phase: 'installing';  progress: number; label?: string }
+  | { phase: 'ready' }   // Launcher only: installer downloaded, pending quitAndInstall
   | { phase: 'done' }
   | { phase: 'error'; message: string }
+
+export interface LauncherSettings {
+  prismWindow: {
+    rememberBounds:         boolean
+    defaultSize:            'last_used' | '1280x800' | '1440x900' | '1920x1080' | 'maximized'
+    rememberPosition:       boolean
+    minimizeLauncherOnOpen: boolean
+  }
+  backend: {
+    startupTimeoutSecs: number
+    autoStartPrism:     boolean
+    autoUpdatePrism:    boolean
+  }
+  session: {
+    durationHours: 1 | 4 | 8 | 24
+  }
+}
 
 export interface Release {
   tag:         string

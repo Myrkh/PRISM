@@ -12,4 +12,5 @@ contextBridge.exposeInMainWorld('prismDesktop', {
   minimize:  () => ipcRenderer.invoke('prism-win:minimize'),
   maximize:  () => ipcRenderer.invoke('prism-win:maximize'),
   close:     () => ipcRenderer.invoke('prism-win:close'),
+  recordRecentProject: (data) => ipcRenderer.invoke('prism:recent:record', data),
 })

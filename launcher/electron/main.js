@@ -14,7 +14,8 @@ const fs     = require('fs')
 const https  = require('https')
 const http   = require('http')
 const { spawn, execFile } = require('child_process')
-const auth   = require('./auth')
+const auth    = require('./auth')
+const session = require('./session')
 
 // ─── Config ────────────────────────────────────────────────────────────────
 
@@ -25,6 +26,7 @@ const IS_DEV             = !app.isPackaged
 let mainWindow   = null
 let splashWindow = null
 let prismWindow  = null
+let docsWindow   = null
 
 // ─── Chemin PRISM installé ────────────────────────────────────────────────
 
@@ -112,6 +114,135 @@ function createWindow() {
   mainWindow.on('closed', () => { mainWindow = null })
 }
 
+// ─── Docs window ──────────────────────────────────────────────────────────────
+
+function openDocsWindow() {
+  if (docsWindow && !docsWindow.isDestroyed()) {
+    docsWindow.focus()
+    return
+  }
+  docsWindow = new BrowserWindow({
+    width:           1200,
+    height:          820,
+    minWidth:        900,
+    minHeight:       600,
+    frame:           false,
+    titleBarStyle:   'hidden',
+    backgroundColor: '#0F1318',
+    icon:            path.join(__dirname, '../public/logo.png'),
+    webPreferences: {
+      preload:          path.join(__dirname, 'preload-docs.js'),
+      nodeIntegration:  false,
+      contextIsolation: true,
+      webSecurity:      true,
+    },
+  })
+
+  if (IS_DEV) {
+    docsWindow.loadURL('http://localhost:5174/docs.html')
+  } else {
+    docsWindow.loadFile(path.join(__dirname, '../dist/docs.html'))
+  }
+
+  ipcMain.removeHandler('docs-win:minimize')
+  ipcMain.removeHandler('docs-win:close')
+  ipcMain.handle('docs-win:minimize', () => docsWindow?.minimize())
+  ipcMain.handle('docs-win:close',    () => docsWindow?.close())
+
+  docsWindow.on('closed', () => {
+    docsWindow = null
+    ipcMain.removeHandler('docs-win:minimize')
+    ipcMain.removeHandler('docs-win:close')
+  })
+}
+
+// ─── Launcher settings (JSON persistence) ────────────────────────────────
+
+const DEFAULT_SETTINGS = {
+  prismWindow: {
+    rememberBounds:         true,
+    defaultSize:            'last_used',
+    rememberPosition:       true,
+    minimizeLauncherOnOpen: false,
+  },
+  backend: {
+    startupTimeoutSecs: 30,
+    autoStartPrism:     false,
+    autoUpdatePrism:    false,
+  },
+  session: {
+    durationHours: 8,
+  },
+}
+
+function getSettingsPath() {
+  return path.join(app.getPath('userData'), 'launcher-settings.json')
+}
+
+function readSettings() {
+  try {
+    if (!fs.existsSync(getSettingsPath())) return structuredClone(DEFAULT_SETTINGS)
+    const saved = JSON.parse(fs.readFileSync(getSettingsPath(), 'utf8'))
+    return {
+      prismWindow: { ...DEFAULT_SETTINGS.prismWindow, ...saved.prismWindow },
+      backend:     { ...DEFAULT_SETTINGS.backend,     ...saved.backend     },
+      session:     { ...DEFAULT_SETTINGS.session,     ...saved.session     },
+    }
+  } catch {
+    return structuredClone(DEFAULT_SETTINGS)
+  }
+}
+
+function writeSettings(settings) {
+  try {
+    fs.writeFileSync(getSettingsPath(), JSON.stringify(settings, null, 2), 'utf8')
+  } catch { /* non-critical */ }
+}
+
+// ─── PRISM window bounds (JSON persistence) ───────────────────────────────
+
+function getPrismBoundsPath() {
+  return path.join(app.getPath('userData'), 'prism-window-bounds.json')
+}
+
+function readPrismBounds() {
+  try {
+    const p = getPrismBoundsPath()
+    if (!fs.existsSync(p)) return null
+    return JSON.parse(fs.readFileSync(p, 'utf8'))
+  } catch { return null }
+}
+
+function writePrismBounds(bounds) {
+  try {
+    fs.writeFileSync(getPrismBoundsPath(), JSON.stringify(bounds), 'utf8')
+  } catch { /* non-critical */ }
+}
+
+// ─── Recent projects (JSON persistence) ───────────────────────────────────
+
+const MAX_RECENT_PROJECTS = 8
+
+function getRecentProjectsPath() {
+  return path.join(app.getPath('userData'), 'recent-projects.json')
+}
+
+function readRecentProjects() {
+  try {
+    const filePath = getRecentProjectsPath()
+    if (!fs.existsSync(filePath)) return []
+    return JSON.parse(fs.readFileSync(filePath, 'utf8'))
+  } catch {
+    return []
+  }
+}
+
+function writeRecentProjects(entries) {
+  try {
+    fs.writeFileSync(getRecentProjectsPath(), JSON.stringify(entries, null, 2), 'utf8')
+  } catch { /* silent — non-critical */ }
+}
+
 // ─── IPC handlers ──────────────────────────────────────────────────────────
 
 // Auth
@@ -149,7 +280,8 @@ ipcMain.handle('prism:versions', () => {
 
 // ── Helpers PRISM ──────────────────────────────────────────────────────────
 
-function waitForPrismBackend(timeoutMs = 30000) {
+function waitForPrismBackend(timeoutMs) {
+  const ms = timeoutMs ?? (readSettings().backend.startupTimeoutSecs * 1000)
   return new Promise((resolve, reject) => {
     const start = Date.now()
     const attempt = () => {
@@ -161,7 +293,7 @@ function waitForPrismBackend(timeoutMs = 30000) {
       req.setTimeout(1000, () => { req.destroy(); schedule() })
     }
     const schedule = () => {
-      if (Date.now() - start > timeoutMs) {
+      if (Date.now() - start > ms) {
         reject(new Error('PRISM backend timeout — vérifiez l\'installation.'))
       } else {
         setTimeout(attempt, 600)
@@ -176,12 +308,34 @@ function openPrismWindow() {
     prismWindow.focus()
     return
   }
+
+  const settings = readSettings()
+  const { defaultSize, rememberBounds, rememberPosition, minimizeLauncherOnOpen } = settings.prismWindow
+
+  // Résoudre les dimensions initiales
+  const SIZE_PRESETS = {
+    '1280x800':  { width: 1280, height: 800  },
+    '1440x900':  { width: 1440, height: 900  },
+    '1920x1080': { width: 1920, height: 1080 },
+    'maximized': { width: 1440, height: 900  },
+  }
+  let initialBounds = { width: 1440, height: 900, x: undefined, y: undefined }
+
+  if (defaultSize === 'last_used' && rememberBounds) {
+    const saved = readPrismBounds()
+    if (saved) initialBounds = saved
+  } else if (defaultSize in SIZE_PRESETS) {
+    Object.assign(initialBounds, SIZE_PRESETS[defaultSize])
+  }
+
   prismWindow = new BrowserWindow({
-    width:    1440,
-    height:   900,
+    width:    initialBounds.width,
+    height:   initialBounds.height,
+    x:        rememberPosition ? initialBounds.x : undefined,
+    y:        rememberPosition ? initialBounds.y : undefined,
     minWidth: 1024,
     minHeight: 600,
-    frame:    false,   // Frameless — le header PRISM fait office de titlebar
+    frame:    false,
     icon:     path.join(__dirname, '../public/logo.png'),
     title:    'PRISM',
     webPreferences: {
@@ -193,6 +347,15 @@ function openPrismWindow() {
   })
   prismWindow.setMenuBarVisibility(false)
 
+  if (defaultSize === 'maximized') prismWindow.maximize()
+
+  // Sauvegarder bounds à la fermeture
+  prismWindow.on('close', () => {
+    if (prismWindow && !prismWindow.isDestroyed()) {
+      writePrismBounds(prismWindow.getBounds())
+    }
+  })
+
   // Handlers de contrôle fenêtre pour le frontend PRISM
   ipcMain.removeHandler('prism-win:minimize')
   ipcMain.removeHandler('prism-win:maximize')
@@ -202,8 +365,12 @@ function openPrismWindow() {
     prismWindow?.isMaximized() ? prismWindow.unmaximize() : prismWindow?.maximize()
   })
   ipcMain.handle('prism-win:close', () => prismWindow?.close())
+
   prismWindow.loadURL('http://localhost:8000')
   prismWindow.on('closed', () => { prismWindow = null })
+
+  // Réduire le Launcher si le setting est activé
+  if (minimizeLauncherOnOpen) mainWindow?.minimize()
 }
 
 // Lancer PRISM
@@ -234,6 +401,128 @@ ipcMain.handle('prism:launch', async () => {
   } catch (err) {
     return { ok: false, error: err.message }
   }
+})
+
+// Recent projects
+ipcMain.handle('prism:recent:get', () => readRecentProjects())
+
+ipcMain.handle('prism:recent:record', (_event, data) => {
+  if (!data?.id || typeof data.id !== 'string') return
+  const sanitized = {
+    id:       data.id,
+    name:     typeof data.name     === 'string' ? data.name     : '—',
+    standard: typeof data.standard === 'string' ? data.standard : '—',
+    sifCount: typeof data.sifCount === 'number' ? data.sifCount : 0,
+    openedAt: typeof data.openedAt === 'string' ? data.openedAt : new Date().toISOString(),
+  }
+  const entries = readRecentProjects().filter(e => e.id !== sanitized.id)
+  entries.unshift(sanitized)
+  writeRecentProjects(entries.slice(0, MAX_RECENT_PROJECTS))
+})
+
+// Docs window
+ipcMain.handle('docs:open', () => openDocsWindow())
+
+// Settings
+ipcMain.handle('settings:get', () => readSettings())
+ipcMain.handle('settings:set', (_event, patch) => {
+  const current = readSettings()
+  const merged = {
+    prismWindow: { ...current.prismWindow, ...patch?.prismWindow },
+    backend:     { ...current.backend,     ...patch?.backend     },
+    session:     { ...current.session,     ...patch?.session     },
+  }
+  writeSettings(merged)
+  // Appliquer la durée de session immédiatement
+  if (patch?.session?.durationHours) {
+    session.setSessionTTL(merged.session.durationHours)
+  }
+  return merged
+})
+
+// Launcher auto-update
+const LAUNCHER_ASSET_PREFIX = 'PRISM-Launcher-Setup-'
+
+ipcMain.handle('launcher:update:check', () => {
+  return new Promise((resolve) => {
+    const options = {
+      hostname: 'api.github.com',
+      path:     `/repos/${PRISM_GITHUB_REPO}/releases?per_page=20`,
+      headers:  { 'User-Agent': 'PRISM-Launcher/1.0.0' },
+    }
+    const req = https.get(options, res => {
+      let data = ''
+      res.on('data', chunk => (data += chunk))
+      res.on('end', () => {
+        try {
+          const parsed = JSON.parse(data)
+          if (!Array.isArray(parsed)) {
+            resolve({ error: parsed?.message ?? 'Réponse GitHub inattendue.' })
+            return
+          }
+          const releases = parsed.filter(r =>
+            r.tag_name?.startsWith('launcher-v') &&
+            r.assets?.some(a => a.name?.startsWith(LAUNCHER_ASSET_PREFIX))
+          )
+          if (!releases.length) {
+            resolve({ error: 'Aucune release Launcher trouvée sur GitHub.' })
+            return
+          }
+          const latest = releases[0]
+          const asset  = latest.assets.find(a => a.name?.startsWith(LAUNCHER_ASSET_PREFIX))
+          resolve({
+            tag:         latest.tag_name,
+            name:        latest.name,
+            publishedAt: latest.published_at,
+            downloadUrl: asset.browser_download_url,
+            size:        Math.round(asset.size / 1024 / 1024) + ' Mo',
+            body:        latest.body ?? '',
+            history: releases.map(r => ({
+              tag:         r.tag_name,
+              name:        r.name,
+              publishedAt: r.published_at,
+              body:        r.body ?? '',
+            })),
+          })
+        } catch (e) {
+          resolve({ error: 'Impossible de parser la réponse GitHub : ' + e.message })
+        }
+      })
+    })
+    req.on('error', err => resolve({ error: err.message }))
+    req.setTimeout(8000, () => { req.destroy(); resolve({ error: 'Timeout' }) })
+  })
+})
+
+ipcMain.handle('launcher:update:download', async (event, downloadUrl) => {
+  if (typeof downloadUrl !== 'string' || !downloadUrl.startsWith(ALLOWED_DOWNLOAD_PREFIX)) {
+    return { ok: false, error: 'URL de téléchargement non autorisée.' }
+  }
+  const tmpExe = path.join(app.getPath('temp'), 'prism-launcher-setup.exe')
+
+  return new Promise((resolve) => {
+    downloadFile(downloadUrl, tmpExe, (ratio) => {
+      mainWindow?.webContents.send('launcher:update:progress', {
+        phase:    'downloading',
+        progress: ratio * 100,
+        label:    'Téléchargement du Launcher…',
+      })
+    }).then(() => {
+      mainWindow?.webContents.send('launcher:update:progress', { phase: 'ready' })
+      resolve({ ok: true })
+    }).catch(err => resolve({ ok: false, error: err.message }))
+  })
+})
+
+ipcMain.handle('launcher:update:apply', () => {
+  const tmpExe = path.join(app.getPath('temp'), 'prism-launcher-setup.exe')
+  if (!fs.existsSync(tmpExe)) {
+    return { ok: false, error: 'Fichier d\'installation introuvable.' }
+  }
+  // Lance l'installateur en mode silencieux, puis quitte le Launcher
+  execFile(tmpExe, ['/S'], { detached: true, stdio: 'ignore' })
+  setTimeout(() => app.quit(), 500)
+  return { ok: true }
 })
 
 // Ouvrir le dossier de données
@@ -366,6 +655,10 @@ ipcMain.handle('update:install', async (event, downloadUrl) => {
 // ─── Lifecycle ─────────────────────────────────────────────────────────────
 
 app.whenReady().then(() => {
+  // Appliquer la durée de session configurée
+  const settings = readSettings()
+  session.setSessionTTL(settings.session.durationHours)
+
   createSplash()
   createWindow()
 })

@@ -6,7 +6,7 @@
 
 const { randomUUID } = require('crypto')
 
-const SESSION_TTL = 8 * 60 * 60 * 1000 // 8 h
+let   SESSION_TTL = 8 * 60 * 60 * 1000 // 8 h (configurable via setSessionTTL)
 const sessions    = new Map()            // token → { userId, role, createdAt }
 
 function createSession(userId, role) {
@@ -34,4 +34,8 @@ function deleteSession(token) {
   if (token) sessions.delete(token)
 }
 
-module.exports = { createSession, getSession, deleteSession }
+function setSessionTTL(hours) {
+  SESSION_TTL = Math.max(1, hours) * 60 * 60 * 1000
+}
+
+module.exports = { createSession, getSession, deleteSession, setSessionTTL }

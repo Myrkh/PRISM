@@ -3,26 +3,44 @@
  * Deux colonnes : branding hero (gauche) + récemment ouverts (droite).
  */
 
-import { useState } from 'react'
-import { FolderOpen, Clock, Plus, ArrowUpRight, Shield } from 'lucide-react'
-import { colors, semantic, alpha } from '../tokens'
+import { useState, useEffect } from 'react'
+import { FolderOpen, Clock, Plus, ArrowUpRight, Shield, FolderDot } from 'lucide-react'
+import { colors, alpha } from '../tokens'
 import logoSrc from '../assets/logo.png'
 import { useLocaleStrings } from '../i18n/useLocale'
 import { getLauncherStrings } from '../i18n/launcher'
 import type { ThemeTokens } from '../hooks/useTheme'
 
-// ── Mock data ─────────────────────────────────────────────────────────────────
+// ── Types & helpers ───────────────────────────────────────────────────────────
 
-const RECENT = [
-  { id: '1', name: 'Plateforme Nord — Mer du Nord', standard: 'IEC 61511', sifCount: 14, openedAt: 'Il y a 14 min', hasAlert: false },
-  { id: '2', name: 'Raffinerie Texas — Train B',    standard: 'IEC 61511', sifCount: 8,  openedAt: 'Il y a 1h',     hasAlert: true  },
-  { id: '3', name: 'Unité Ammoniac V2',             standard: 'ISA 84',    sifCount: 21, openedAt: 'Hier',           hasAlert: false },
-  { id: '4', name: 'Site Lacq — Compression',       standard: 'IEC 61511', sifCount: 6,  openedAt: 'Il y a 3 jours', hasAlert: false },
-]
+interface RecentProject {
+  id:       string
+  name:     string
+  standard: string
+  sifCount: number
+  openedAt: string // ISO 8601
+}
+
+function formatStandard(raw: string): string {
+  return raw.replace('IEC61511', 'IEC 61511').replace('IEC61508', 'IEC 61508').replace('ISA84', 'ISA 84')
+}
+
+function formatRelativeTime(iso: string): string {
+  const diff  = Date.now() - new Date(iso).getTime()
+  const mins  = Math.floor(diff / 60_000)
+  const hours = Math.floor(diff / 3_600_000)
+  const days  = Math.floor(diff / 86_400_000)
+  if (mins  <  1) return 'À l\'instant'
+  if (mins  < 60) return `Il y a ${mins} min`
+  if (hours < 24) return `Il y a ${hours}h`
+  if (days === 1) return 'Hier'
+  if (days  <  7) return `Il y a ${days} jours`
+  return new Date(iso).toLocaleDateString('fr-FR')
+}
 
 // ── Recent row ────────────────────────────────────────────────────────────────
 
-function RecentRow({ item, t, last }: { item: typeof RECENT[0]; t: ThemeTokens; last: boolean }) {
+function RecentRow({ item, t, last }: { item: RecentProject; t: ThemeTokens; last: boolean }) {
   const [hovered, setHovered] = useState(false)
 
   return (
@@ -50,17 +68,14 @@ function RecentRow({ item, t, last }: { item: typeof RECENT[0]; t: ThemeTokens; 
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2">
           <p className="truncate text-[13px] font-semibold" style={{ color: t.TEXT }}>{item.name}</p>
-          {item.hasAlert && (
-            <span className="shrink-0 h-1.5 w-1.5 rounded-full" style={{ background: semantic.warning, boxShadow: `0 0 5px ${semantic.warning}` }} />
-          )}
         </div>
         <div className="mt-0.5 flex items-center gap-2">
-          <span className="text-[10px]" style={{ color: t.TEXT_DIM }}>{item.standard}</span>
+          <span className="text-[10px]" style={{ color: t.TEXT_DIM }}>{formatStandard(item.standard)}</span>
           <span style={{ color: alpha(t.BORDER, 'FF') }}>·</span>
-          <span className="text-[10px]" style={{ color: t.TEXT_DIM }}>{item.sifCount} SIFs</span>
+          <span className="text-[10px]" style={{ color: t.TEXT_DIM }}>{item.sifCount} SIF{item.sifCount !== 1 ? 's' : ''}</span>
           <span style={{ color: alpha(t.BORDER, 'FF') }}>·</span>
           <span className="flex items-center gap-1 text-[10px]" style={{ color: t.TEXT_DIM }}>
-            <Clock size={9} />{item.openedAt}
+            <Clock size={9} />{formatRelativeTime(item.openedAt)}
           </span>
         </div>
       </div>
@@ -151,6 +166,15 @@ function BrandingHero({ t, ready }: { t: ThemeTokens; ready: boolean }) {
 
 export function HomeView({ t, ready }: { t: ThemeTokens; ready: boolean }) {
   const s = useLocaleStrings(getLauncherStrings)
+  const [recents, setRecents] = useState<RecentProject[]>([])
+
+  useEffect(() => {
+    window.electron?.getRecentProjects?.()
+      .then((data: unknown) => {
+        if (Array.isArray(data)) setRecents(data as RecentProject[])
+      })
+      .catch(() => { /* non-critical */ })
+  }, [])
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -166,16 +190,35 @@ export function HomeView({ t, ready }: { t: ThemeTokens; ready: boolean }) {
             <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: t.TEXT_DIM }}>
               {s.home.recentlyOpened}
             </p>
-            <span className="text-[10px]" style={{ color: alpha(t.TEXT_DIM, '55') }}>
-              {RECENT.length} {s.home.projects}
-            </span>
+            {recents.length > 0 && (
+              <span className="text-[10px]" style={{ color: alpha(t.TEXT_DIM, '55') }}>
+                {recents.length} {s.home.projects}
+              </span>
+            )}
           </div>
 
-          <div className="card overflow-hidden rounded-xl border" style={{ borderColor: t.BORDER, background: t.CARD_BG }}>
-            {RECENT.map((item, i) => (
-              <RecentRow key={item.id} item={item} t={t} last={i === RECENT.length - 1} />
-            ))}
-          </div>
+          {recents.length > 0 ? (
+            <div className="card overflow-hidden rounded-xl border" style={{ borderColor: t.BORDER, background: t.CARD_BG }}>
+              {recents.map((item, i) => (
+                <RecentRow key={item.id} item={item} t={t} last={i === recents.length - 1} />
+              ))}
+            </div>
+          ) : (
+            <div
+              className="flex flex-col items-center justify-center gap-3 rounded-xl border py-10"
+              style={{ borderColor: t.BORDER, borderStyle: 'dashed', background: alpha(t.TEXT, '01') }}
+            >
+              <div
+                className="flex h-10 w-10 items-center justify-center rounded-xl border"
+                style={{ background: alpha(t.TEXT, '04'), borderColor: t.BORDER }}
+              >
+                <FolderDot size={18} style={{ color: t.TEXT_DIM }} />
+              </div>
+              <p className="text-[11px]" style={{ color: alpha(t.TEXT_DIM, '70') }}>
+                {s.home.openInPrism}
+              </p>
+            </div>
+          )}
 
           <button
             type="button"
@@ -187,9 +230,6 @@ export function HomeView({ t, ready }: { t: ThemeTokens; ready: boolean }) {
             {s.home.newProject}
           </button>
 
-          <p className="mt-4 text-center text-[10px]" style={{ color: alpha(t.TEXT_DIM, '45') }}>
-            {s.home.openInPrism}
-          </p>
         </div>
       </div>
     </div>

@@ -32,6 +32,12 @@ export const launcherStringsEn: LauncherStrings = {
   updates: {
     stateLabel:     'Status',
     changelogLabel: 'Release notes',
+    // Product labels
+    prismLabel:    'PRISM Desktop',
+    launcherLabel: 'Launcher',
+    // Changelog tabs
+    tabPrism:    'PRISM',
+    tabLauncher: 'Launcher',
     // Sim switcher
     simUpToDate:    'Up to date',
     simAvailable:   'Available',
@@ -39,7 +45,7 @@ export const launcherStringsEn: LauncherStrings = {
     simDone:        'Done',
     // Up-to-date card
     upToDateBadge:  'Up to date',
-    upToDateTitle:  'PRISM is up to date',
+    upToDateTitle:  '{product} is up to date',
     upToDateBody:   'Version {version} — you have the latest release.',
     checkNow:       'Check now',
     checking:       'Checking…',
@@ -51,14 +57,19 @@ export const launcherStringsEn: LauncherStrings = {
     downloadingBadge:  'Downloading',
     installingBadge:   'Installing',
     inProgressTitle:   'Update in progress',
-    // Done card
+    // Done card (PRISM)
     doneBadge:      'Done',
     doneTitle:      'Installation complete',
     doneBody:       'Restart PRISM to apply the update.',
     restartBtn:     'Restart PRISM',
+    // Ready card (Launcher)
+    readyBadge:     'Ready to install',
+    readyTitle:     'Launcher downloaded',
+    readyBody:      'The Launcher will be updated on restart.',
+    readyBtn:       'Restart and install',
     // Available card
     availableBadge: 'Update available',
-    availableTitle: 'PRISM {tag} is available',
+    availableTitle: '{product} {tag} is available',
     currentVersion: 'You have v{version}',
     updateNowBtn:   'Update now',
     scheduleBtn:    'Schedule for later',
@@ -104,7 +115,9 @@ export const launcherStringsEn: LauncherStrings = {
     subtitle: 'PRISM Desktop launcher preferences',
     sections: {
       appearance: 'Appearance',
+      window:     'PRISM window',
       backend:    'Engine connection',
+      session:    'Session',
       data:       'Local data',
       about:      'About',
       danger:     'Danger zone',
@@ -121,13 +134,38 @@ export const launcherStringsEn: LauncherStrings = {
       fr:    'Français',
       en:    'English',
     },
+    window: {
+      defaultSize:          'Default size',
+      defaultSizeHint:      'PRISM window size on open',
+      rememberPosition:     'Remember position',
+      rememberPositionHint: 'Restore exact position (useful for multi-monitor setups)',
+      minimizeOnOpen:       'Minimize Launcher',
+      minimizeOnOpenHint:   'Minimize the Launcher when PRISM opens',
+      sizes: {
+        lastUsed:  'Last used',
+        s1280:     '1280 × 800',
+        s1440:     '1440 × 900',
+        s1920:     '1920 × 1080',
+        maximized: 'Maximized',
+      },
+    },
     backend: {
-      url:            'Backend URL',
-      urlHint:        'PRISM Desktop local FastAPI server',
-      autoStart:      'Auto-start',
-      autoStartHint:  'Start the Python engine when launcher opens',
-      autoUpdate:     'Auto-update',
-      autoUpdateHint: 'Download and install updates silently',
+      url:                'Backend URL',
+      urlHint:            'PRISM Desktop local FastAPI server',
+      autoStart:          'Auto-start',
+      autoStartHint:      'Start the Python engine when launcher opens',
+      autoUpdate:         'Auto-update',
+      autoUpdateHint:     'Download and install updates silently',
+      startupTimeout:     'Startup timeout',
+      startupTimeoutHint: 'Seconds before declaring the backend offline',
+    },
+    session: {
+      duration:     'Session duration',
+      durationHint: 'Automatic sign-out after this period of inactivity',
+      hours1:       '1 hour',
+      hours4:       '4 hours',
+      hours8:       '8 hours',
+      hours24:      '24 hours',
     },
     data: {
       sqlite:        'SQLite database',

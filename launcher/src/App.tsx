@@ -23,10 +23,18 @@ declare global {
       openDataDir:      () => void
       isPrismInstalled: () => Promise<boolean>
       getVersions:      () => Promise<{ launcher: string; prism: string | null }>
-      checkUpdate:   () => Promise<unknown>
-      installUpdate: (url: string) => Promise<unknown>
-      onProgress:    (cb: (d: unknown) => void) => void
-      offProgress:   (cb: (d: unknown) => void) => void
+      getRecentProjects: () => Promise<unknown[]>
+      getSettings:       () => Promise<unknown>
+      setSettings:       (patch: unknown) => Promise<unknown>
+      checkUpdate:            () => Promise<unknown>
+      installUpdate:          (url: string) => Promise<unknown>
+      onProgress:             (cb: (d: unknown) => void) => void
+      offProgress:            (cb: (d: unknown) => void) => void
+      checkLauncherUpdate:    () => Promise<unknown>
+      downloadLauncherUpdate: (url: string) => Promise<unknown>
+      applyLauncherUpdate:    () => Promise<unknown>
+      onLauncherProgress:     (cb: (d: unknown) => void) => void
+      offLauncherProgress:    (cb: (d: unknown) => void) => void
       isSetup:     () => Promise<boolean>
       login:       (p: { email: string; password: string }) => Promise<{ ok: boolean; user?: AuthUser; sessionToken?: string; error?: string }>
       logout:      (token: string) => Promise<void>
@@ -36,6 +44,7 @@ declare global {
       getAudit:    (token: string) => Promise<unknown[]>
       getLicense:  (token: string) => Promise<unknown>
       setLicense:  (p: { token: string; [key: string]: unknown }) => Promise<{ ok: boolean }>
+      openDocs:    () => Promise<void>
       isDesktop:   boolean
       platform:    string
     }

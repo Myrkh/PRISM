@@ -18,11 +18,25 @@ contextBridge.exposeInMainWorld('electron', {
   isPrismInstalled: () => ipcRenderer.invoke('prism:isInstalled'),
   getVersions:      () => ipcRenderer.invoke('prism:versions'),
 
-  // Updates
+  // Recent projects
+  getRecentProjects: () => ipcRenderer.invoke('prism:recent:get'),
+
+  // Settings
+  getSettings: ()      => ipcRenderer.invoke('settings:get'),
+  setSettings: (patch) => ipcRenderer.invoke('settings:set', patch),
+
+  // PRISM updates
   checkUpdate:   ()      => ipcRenderer.invoke('update:check'),
   installUpdate: (url)   => ipcRenderer.invoke('update:install', url),
   onProgress:    (cb)    => ipcRenderer.on('update:progress', (_e, d) => cb(d)),
   offProgress:   (cb)    => ipcRenderer.removeListener('update:progress', cb),
+
+  // Launcher updates
+  checkLauncherUpdate:    ()      => ipcRenderer.invoke('launcher:update:check'),
+  downloadLauncherUpdate: (url)   => ipcRenderer.invoke('launcher:update:download', url),
+  applyLauncherUpdate:    ()      => ipcRenderer.invoke('launcher:update:apply'),
+  onLauncherProgress:     (cb)    => ipcRenderer.on('launcher:update:progress', (_e, d) => cb(d)),
+  offLauncherProgress:    (cb)    => ipcRenderer.removeListener('launcher:update:progress', cb),
 
   // Auth locale (SQLite)
   isSetup:    ()        => ipcRenderer.invoke('auth:isSetup'),
@@ -39,6 +53,9 @@ contextBridge.exposeInMainWorld('electron', {
   getLicense: (token)   => ipcRenderer.invoke('auth:getLicense', token),
   setLicense: (payload) => ipcRenderer.invoke('auth:setLicense', payload),
   // payload = { token, ...licenseData }
+
+  // Docs window
+  openDocs: () => ipcRenderer.invoke('docs:open'),
 
   // Infos
   isDesktop: true,

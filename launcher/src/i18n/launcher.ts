@@ -36,6 +36,12 @@ export interface LauncherStrings {
   updates: {
     stateLabel:     string
     changelogLabel: string
+    // Product labels
+    prismLabel:     string
+    launcherLabel:  string
+    // Changelog tabs
+    tabPrism:       string
+    tabLauncher:    string
     // Sim switcher labels
     simUpToDate:    string
     simAvailable:   string
@@ -43,8 +49,8 @@ export interface LauncherStrings {
     simDone:        string
     // Up-to-date card
     upToDateBadge:  string
-    upToDateTitle:  string
-    upToDateBody:   string   // use {version} placeholder
+    upToDateTitle:  string          // {product} est à jour
+    upToDateBody:   string          // {version} placeholder
     checkNow:       string
     checking:       string
     // Checking card
@@ -55,22 +61,27 @@ export interface LauncherStrings {
     downloadingBadge:  string
     installingBadge:   string
     inProgressTitle:   string
-    // Done card
+    // Done card (PRISM — redémarrer PRISM)
     doneBadge:      string
     doneTitle:      string
     doneBody:       string
     restartBtn:     string
+    // Ready card (Launcher — quitter + installer)
+    readyBadge:     string
+    readyTitle:     string
+    readyBody:      string
+    readyBtn:       string
     // Available card
     availableBadge: string
-    availableTitle: string   // use {tag} placeholder
-    currentVersion: string   // use {version} placeholder
+    availableTitle: string          // {product} {tag} disponible
+    currentVersion: string          // {version} placeholder
     updateNowBtn:   string
     scheduleBtn:    string
     // Inline schedule picker
     pickerMonth:    string
     pickerDay:      string
     pickerHour:     string
-    scheduleConfirm: string  // use {month} {day} {hour} placeholders
+    scheduleConfirm: string         // {month} {day} {hour} placeholders
     months:         string[]
     // Changelog
     installedBadge:  string
@@ -109,7 +120,9 @@ export interface LauncherStrings {
     subtitle: string
     sections: {
       appearance: string
+      window:     string
       backend:    string
+      session:    string
       data:       string
       about:      string
       danger:     string
@@ -126,13 +139,38 @@ export interface LauncherStrings {
       fr:    string
       en:    string
     }
+    window: {
+      defaultSize:          string
+      defaultSizeHint:      string
+      rememberPosition:     string
+      rememberPositionHint: string
+      minimizeOnOpen:       string
+      minimizeOnOpenHint:   string
+      sizes: {
+        lastUsed:  string
+        s1280:     string
+        s1440:     string
+        s1920:     string
+        maximized: string
+      }
+    }
     backend: {
-      url:            string
-      urlHint:        string
-      autoStart:      string
-      autoStartHint:  string
-      autoUpdate:     string
-      autoUpdateHint: string
+      url:                  string
+      urlHint:              string
+      autoStart:            string
+      autoStartHint:        string
+      autoUpdate:           string
+      autoUpdateHint:       string
+      startupTimeout:       string
+      startupTimeoutHint:   string
+    }
+    session: {
+      duration:     string
+      durationHint: string
+      hours1:       string
+      hours4:       string
+      hours8:       string
+      hours24:      string
     }
     data: {
       sqlite:        string
