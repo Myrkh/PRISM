@@ -12,6 +12,10 @@ export default defineConfig({
       { find: /^@\/docs/, replacement: path.resolve(__dirname, '../front/src/docs') },
       // @/ → launcher src
       { find: '@', replacement: path.resolve(__dirname, './src') },
+      // Pin deps to launcher's node_modules so cross-project imports (front/src/docs/)
+      // resolve correctly on CI where front/node_modules/ is not installed.
+      { find: /^lucide-react(\/|$)/, replacement: path.resolve(__dirname, 'node_modules/lucide-react') + '/' },
+      { find: /^react(\/|$)/, replacement: path.resolve(__dirname, 'node_modules/react') + '/' },
     ],
   },
   build: {
