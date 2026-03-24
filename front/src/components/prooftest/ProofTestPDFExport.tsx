@@ -1,5 +1,6 @@
 import { useCallback, useState } from 'react'
 import { Download, Printer, X } from 'lucide-react'
+import { toast } from '@/components/ui/toast'
 import type { Project, SIF } from '@/core/types'
 import {
   ProofTestPdfDocument,
@@ -47,7 +48,9 @@ export function ProofTestPDFExport({ sif, project, procedure, campaigns, onClose
       anchor.click()
       anchor.remove()
       URL.revokeObjectURL(url)
+      toast.success('PDF téléchargé', fileName)
     } catch {
+      toast.error('Export PDF échoué', 'Vérifiez la console pour plus de détails.')
       window.print()
     } finally {
       setExporting(false)

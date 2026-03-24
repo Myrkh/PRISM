@@ -320,7 +320,7 @@ export function LibraryTemplateParamsPanel({
   }
 
   return (
-    <RightPanelShell>
+    <RightPanelShell persistKey="library">
       {/* ── Pinned header — always visible ── */}
       <div className="shrink-0 border-b px-3 py-3" style={{ borderColor: `${BORDER}A6` }}>
           <div className="mb-3 flex items-start justify-between gap-3">

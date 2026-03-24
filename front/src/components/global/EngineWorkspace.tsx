@@ -770,7 +770,7 @@ function EngineRightPanel({
     : []
 
   return (
-    <RightPanelShell>
+    <RightPanelShell persistKey="engine">
       <RightPanelSection id="payload" label={strings.rightPanel.tabs.payload} Icon={Braces}>
         <div className="space-y-4">
           <InspectorSection title={strings.rightPanel.selectionTitle}>
@@ -911,7 +911,7 @@ function EngineHistoryRightPanel({ row }: { row: HistoryRow | null }) {
     : []
 
   return (
-    <RightPanelShell>
+    <RightPanelShell persistKey="engine">
       <RightPanelSection id="payload" label={strings.rightPanel.tabs.payload} Icon={Braces}>
         <div className="space-y-4">
           <InspectorSection title={strings.rightPanel.historySelectionTitle}>

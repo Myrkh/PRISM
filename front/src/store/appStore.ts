@@ -10,11 +10,18 @@
 import { create } from 'zustand'
 import { devtools } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
+import { toast } from '@/components/ui/toast'
 import { DEFAULT_CHANNEL, DEFAULT_PROJECT, DEFAULT_SIF } from '@/core/models/defaults'
 import {
   clearLocalSIFAssumptions,
   saveLocalSIFAssumptions,
 } from '@/core/models/sifAssumptions'
+import {
+  DEFAULT_SIF_ANALYSIS_SETTINGS,
+  saveSIFAnalysisSettings,
+  analysisSettingsToMissionTimeHours,
+  loadSIFAnalysisSettings,
+} from '@/core/models/analysisSettings'
 import {
   dbCreateProject, dbUpdateProject, dbDeleteProject,
   dbCreateSIF, dbUpdateSIF, dbDeleteSIF,
@@ -34,17 +41,15 @@ import {
 } from '@/core/models/proofTestCampaignWorkflow'
 import { calcSIF } from '@/core/math/pfdCalc'
 import {
-  DEFAULT_SIF_ANALYSIS_SETTINGS,
-  analysisSettingsToMissionTimeHours,
-  loadSIFAnalysisSettings,
-} from '@/core/models/analysisSettings'
-import {
   DEFAULT_APP_PREFERENCES,
   applyAppPreferencesToDocument,
   loadAppPreferences,
   resolveAppPreferences,
   saveAppPreferences,
+  APP_PREFERENCES_STORAGE_KEY,
 } from '@/core/models/appPreferences'
+import { pushRecentItem } from '@/core/models/recentItems'
+import type { RecentItem } from '@/core/models/recentItems'
 import { buildSILReportPdfBlob } from '@/components/report/silReportPdf'
 import { buildProofTestPdfBlob } from '@/components/prooftest/proofTestPdf'
 import {
@@ -311,6 +316,49 @@ export const useAppStore = create<AppState>()(
                 openedAt: new Date().toISOString(),
               })
           }
+        }
+
+        // Track recent items for meaningful views
+        let recentItem: Omit<RecentItem, 'timestamp'> | null = null
+
+        if (view.type === 'sif-dashboard') {
+          const project = get().projects.find(p => p.id === view.projectId)
+          const sif = project?.sifs.find(sf => sf.id === view.sifId)
+          if (sif && project) {
+            recentItem = {
+              id: sif.id,
+              kind: 'sif',
+              label: `${sif.sifNumber}${sif.title ? ` — ${sif.title}` : ''}`,
+              subtitle: project.name,
+              view,
+            }
+          }
+        } else if (view.type === 'note') {
+          recentItem = {
+            id: view.noteId,
+            kind: 'note',
+            label: 'Note',
+            view,
+          }
+        } else if (view.type === 'workspace-file') {
+          recentItem = {
+            id: view.nodeId,
+            kind: 'workspace-file',
+            label: 'File',
+            view,
+          }
+        }
+
+        if (recentItem) {
+          set(s => {
+            s.preferences.recentItems = pushRecentItem(s.preferences.recentItems, recentItem!)
+          })
+          try {
+            localStorage.setItem(
+              APP_PREFERENCES_STORAGE_KEY,
+              JSON.stringify(get().preferences),
+            )
+          } catch { /* ignore */ }
         }
       },
 
@@ -905,6 +953,7 @@ export const useAppStore = create<AppState>()(
         } catch (err: unknown) {
           set(s => { s.projects = s.projects.filter(p => p.id !== id) })
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          toast.error('Sync error', err instanceof Error ? err.message : String(err))
           throw err
         }
         return project
@@ -918,6 +967,7 @@ export const useAppStore = create<AppState>()(
         try { await dbUpdateProject(id, data) }
         catch (err: unknown) {
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          toast.error('Sync error', err instanceof Error ? err.message : String(err))
           throw err
         }
       },
@@ -934,6 +984,7 @@ export const useAppStore = create<AppState>()(
         catch (err: unknown) {
           if (snapshot) set(s => { s.projects.push(snapshot); s.pinnedSIFIds = pinnedSnapshot })
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          toast.error('Sync error', err instanceof Error ? err.message : String(err))
           throw err
         }
       },
@@ -952,6 +1003,14 @@ export const useAppStore = create<AppState>()(
         const id = crypto.randomUUID()
         const sif = { ...DEFAULT_SIF(projectId, `SIF-${nextNum}`), ...data, id, projectId }
         saveLocalSIFAssumptions(id, sif.assumptions)
+        const prefMT = get().preferences.defaultMissionTimeTH
+        const initMT = prefMT % 8760 === 0
+          ? { missionTime: prefMT / 8760, missionTimeUnit: 'yr' as const }
+          : { missionTime: prefMT, missionTimeUnit: 'hr' as const }
+        saveSIFAnalysisSettings(id, {
+          ...DEFAULT_SIF_ANALYSIS_SETTINGS,
+          general: { ...DEFAULT_SIF_ANALYSIS_SETTINGS.general, ...initMT },
+        })
         set(s => {
           const p = s.projects.find(p => p.id === projectId)
           if (p) { p.sifs.push(sif); p.updatedAt = new Date().toISOString() }
@@ -961,6 +1020,7 @@ export const useAppStore = create<AppState>()(
           clearLocalSIFAssumptions(id)
           set(s => { const p = s.projects.find(p => p.id === projectId); if (p) p.sifs = p.sifs.filter(sf => sf.id !== id) })
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          toast.error('Sync error', err instanceof Error ? err.message : String(err))
           throw err
         }
         return sif
@@ -977,6 +1037,7 @@ export const useAppStore = create<AppState>()(
         try { await dbUpdateSIF(sifId, data) }
         catch (err: unknown) {
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          toast.error('Sync error', err instanceof Error ? err.message : String(err))
           throw err
         }
       },
@@ -1000,6 +1061,7 @@ export const useAppStore = create<AppState>()(
             set(s => { const p = s.projects.find(p => p.id === projectId); if (p) p.sifs.push(snapshot); s.pinnedSIFIds = pinnedSnapshot })
           }
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          toast.error('Sync error', err instanceof Error ? err.message : String(err))
           throw err
         }
       },
@@ -1130,6 +1192,7 @@ export const useAppStore = create<AppState>()(
         } catch (err: unknown) {
           set(s => { const sif = findSIF(s, projectId, sifId); if (sif) sif.proofTestProcedure = snapshot })
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          toast.error('Sync error', err instanceof Error ? err.message : String(err))
           throw err
         }
       },
@@ -1233,6 +1296,7 @@ export const useAppStore = create<AppState>()(
           }
           set(s => { const sif = findSIF(s, projectId, sifId); if (sif) sif.testCampaigns = previousCampaigns })
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          toast.error('Sync error', err instanceof Error ? err.message : String(err))
           throw err
         }
       },
@@ -1299,6 +1363,7 @@ export const useAppStore = create<AppState>()(
         } catch (err: unknown) {
           set(s => { const sif = findSIF(s, projectId, sifId); if (sif) sif.testCampaigns = previousCampaigns })
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          toast.error('Sync error', err instanceof Error ? err.message : String(err))
           throw err
         }
       },
@@ -1317,6 +1382,7 @@ export const useAppStore = create<AppState>()(
         } catch (err: unknown) {
           set(s => { const sif = findSIF(s, projectId, sifId); if (sif) sif.testCampaigns = previousCampaigns })
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          toast.error('Sync error', err instanceof Error ? err.message : String(err))
           throw err
         }
       },
@@ -1357,6 +1423,7 @@ export const useAppStore = create<AppState>()(
           set(s => { s.revisions[sifId] = revs })
         } catch (err: unknown) {
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          toast.error('Sync error', err instanceof Error ? err.message : String(err))
         }
       },
 
@@ -1381,6 +1448,7 @@ export const useAppStore = create<AppState>()(
         catch (err: unknown) {
           set(s => { s.revisions[sifId] = (s.revisions[sifId] ?? []).filter(r => r.id !== id) })
           set(s => { s.syncError = err instanceof Error ? err.message : String(err) })
+          toast.error('Sync error', err instanceof Error ? err.message : String(err))
           throw err
         }
       },
@@ -1508,6 +1576,7 @@ export const useAppStore = create<AppState>()(
             applySIFPatch(s, projectId, sifId, previousSIF)
             s.syncError = err instanceof Error ? err.message : String(err)
           })
+          toast.error('Sync error', err instanceof Error ? err.message : String(err))
           throw err
         }
       },
@@ -1552,6 +1621,7 @@ export const useAppStore = create<AppState>()(
             applySIFPatch(s, projectId, sifId, previousSIF)
             s.syncError = err instanceof Error ? err.message : String(err)
           })
+          toast.error('Sync error', err instanceof Error ? err.message : String(err))
           throw err
         }
       },

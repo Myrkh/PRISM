@@ -128,6 +128,7 @@ export type AppView =
       templateId?: string
       origin?: 'builtin' | 'project' | 'user'
       libraryName?: string | null
+      action?: 'create-sensor' | 'create-logic' | 'create-actuator'
     }
   | { type: 'settings'; section: SettingsSection }
   | { type: 'docs' }

@@ -42,6 +42,7 @@ import { FileViewerWorkspace } from '@/components/workspace/FileViewerWorkspace'
 import { useWorkspaceSync } from '@/store/useWorkspaceSync'
 import { StatusBar } from '@/components/layout/StatusBar'
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts'
+import { ToastStack } from '@/components/ui/toast'
 
 // ─── Hash routing ─────────────────────────────────────────────────────────
 
@@ -117,6 +118,17 @@ function hashToView(hash: string): AppView | null {
   return null
 }
 
+function landingViewToAppView(landing: string): AppView {
+  switch (landing) {
+    case 'library':   return { type: 'library' }
+    case 'engine':    return { type: 'engine' }
+    case 'audit-log': return { type: 'audit-log' }
+    case 'planning':  return { type: 'planning' }
+    case 'hazop':     return { type: 'hazop' }
+    default:          return { type: 'projects' }
+  }
+}
+
 // ─── Loading screen ───────────────────────────────────────────────────────
 
 function LoadingScreen() {
@@ -190,8 +202,9 @@ export default function App() {
   const focusMode      = useAppStore(s => s.focusMode)
   const secondSlot     = useAppStore(s => s.secondSlot)
   const setSecondSlotTab = useAppStore(s => s.setSecondSlotTab)
-  const isDark      = useAppStore(s => s.isDark)
-  const projects    = useAppStore(s => s.projects)
+  const isDark         = useAppStore(s => s.isDark)
+  const preferences    = useAppStore(s => s.preferences)
+  const projects       = useAppStore(s => s.projects)
   const setProjects = useAppStore(s => s.setProjects)
   const initializeAuth = useAppStore(s => s.initializeAuth)
   const authLoading = useAppStore(s => s.authLoading)
@@ -203,7 +216,9 @@ export default function App() {
 
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState<string | null>(null)
-  const lastNonSettingsViewRef = useRef<AppView>({ type: 'projects' })
+  const lastNonSettingsViewRef = useRef<AppView>(landingViewToAppView(
+    useAppStore.getState().preferences.defaultLandingView,
+  ))
   const authUserId = authUser?.id ?? null
 
   // Workspace ↔ Supabase sync
@@ -263,11 +278,11 @@ export default function App() {
   useEffect(() => {
     const sync = () => {
       const parsed = hashToView(window.location.hash)
-      if (!parsed) { navigate({ type: 'projects' }); return }
+      if (!parsed) { navigate(landingViewToAppView(preferences.defaultLandingView)); return }
       if (parsed.type === 'sif-dashboard') {
         const proj = projects.find(p => p.id === parsed.projectId)
         const sif  = proj?.sifs.find(s => s.id === parsed.sifId)
-        if (!proj || !sif) { navigate({ type: 'projects' }); return }
+        if (!proj || !sif) { navigate(landingViewToAppView(preferences.defaultLandingView)); return }
       }
       navigate(parsed)
     }
@@ -422,6 +437,7 @@ export default function App() {
       <ProjectModal />
       <ProjectAccessDialog />
       <SIFModal />
+      <ToastStack />
     </div>
   )
 }

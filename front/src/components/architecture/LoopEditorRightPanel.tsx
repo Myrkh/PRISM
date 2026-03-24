@@ -1295,7 +1295,7 @@ export function LoopEditorRightPanel({ sif, projectId, onOpenCcfBeta }: Props) {
   }
 
   return (
-    <RightPanelShell contentBg={PANEL_BG} openSectionId={selectedId ? 'component' : undefined}>
+    <RightPanelShell contentBg={PANEL_BG} openSectionId={selectedId ? 'component' : undefined} persistKey="architecture">
       <RightPanelSection id="architecture" label="Architecture" Icon={Network} noPadding>
         <ArchitectureConfigPanel sif={sif} projectId={projectId} onOpenCcfBeta={onOpenCcfBeta} />
       </RightPanelSection>

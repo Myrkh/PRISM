@@ -7,13 +7,17 @@
  */
 import { useAppStore, selectSIFCalc } from '@/store/appStore'
 import { normalizeSIFTab } from '@/store/types'
-import { calcSIF, formatPFD } from '@/core/math/pfdCalc'
+import { calcSIF } from '@/core/math/pfdCalc'
+import { useFormatValue } from '@/utils/formatValue'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { useLocaleStrings } from '@/i18n/useLocale'
 import { getShellStrings } from '@/i18n/shell'
+import { useSIFDiagnostics } from '@/core/diagnostics'
+import { DiagnosticsBadge } from '@/components/sif/DiagnosticsPanel'
 
 export function StatusBar() {
   const { BORDER, PANEL_BG, TEXT, TEXT_DIM, TEAL } = usePrismTheme()
+  const { fmt } = useFormatValue()
   const strings  = useLocaleStrings(getShellStrings)
 
   const view       = useAppStore(s => s.view)
@@ -26,13 +30,14 @@ export function StatusBar() {
 
   const calc = useAppStore(s => isSif ? selectSIFCalc(s, projectId, sifId) : null)
 
-  if (!visible) return null
-
   const project = projects.find(p => p.id === projectId)
   const sif     = project?.sifs.find(s => s.id === sifId)
+  const diagnostics  = useSIFDiagnostics(sif ?? null)
 
-  const derivedCalc = calc ?? (sif ? calcSIF(sif) : null)
-  const tabLabel    = isSif ? (strings.sifTabLabels[normalizeSIFTab(view.tab)] ?? normalizeSIFTab(view.tab)) : null
+  if (!visible) return null
+
+  const derivedCalc  = calc ?? (sif ? calcSIF(sif) : null)
+  const tabLabel     = isSif ? (strings.sifTabLabels[normalizeSIFTab(view.tab)] ?? normalizeSIFTab(view.tab)) : null
 
   const passColor = '#4ADE80'
   const failColor = '#F87171'
@@ -71,7 +76,7 @@ export function StatusBar() {
             <>
               <Divider color={BORDER} />
               <span style={{ color: TEAL }}>
-                PFD {formatPFD(derivedCalc.PFD_avg)}
+                PFD {fmt(derivedCalc.PFD_avg)}
               </span>
               <Divider color={BORDER} />
               <span style={{ fontWeight: 700, color: derivedCalc.meetsTarget ? passColor : failColor }}>
@@ -83,6 +88,14 @@ export function StatusBar() {
               </span>
             </>
           )}
+        </>
+      )}
+
+      {/* Diagnostics badge */}
+      {isSif && sif && (
+        <>
+          <Divider color={BORDER} />
+          <DiagnosticsBadge diagnostics={diagnostics} />
         </>
       )}
 

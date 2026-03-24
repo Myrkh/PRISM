@@ -11,15 +11,15 @@ export const settingsStringsEn: SettingsStrings = {
   sections: {
     general: {
       label: 'General',
-      hint: 'Language and appearance',
+      hint: 'Language, appearance & startup',
     },
     workspace: {
       label: 'Workspace',
-      hint: 'Panels and widths',
+      hint: 'Panels, widths & export',
     },
     engine: {
       label: 'Engine',
-      hint: 'Comparison tolerance',
+      hint: 'Calculations & SIF defaults',
     },
     shortcuts: {
       label: 'Keyboard Shortcuts',
@@ -39,6 +39,18 @@ export const settingsStringsEn: SettingsStrings = {
       dark: 'Dark',
       light: 'Light',
     },
+    landingView: {
+      label: 'Default landing screen',
+      hint: 'Screen shown when the application starts.',
+      views: {
+        projects: 'Projects',
+        library: 'Master Library',
+        engine: 'Engine',
+        'audit-log': 'Audit Log',
+        planning: 'Test Planning',
+        hazop: 'HAZOP / LOPA',
+      },
+    },
   },
   workspace: {
     unit: 'px',
@@ -50,12 +62,43 @@ export const settingsStringsEn: SettingsStrings = {
       label: 'Right panel width',
       hint: (min, max) => `Default right panel width. ${min} to ${max}px.`,
     },
+    rightPanelDefaultState: {
+      label: 'Panel sections at startup',
+      hint: 'Default open/closed state for accordion sections when opening a panel for the first time.',
+      open: 'Open',
+      closed: 'Closed',
+    },
+    pdfPageSize: {
+      label: 'PDF page size',
+      hint: 'Page format used when exporting SIL reports.',
+      a4: 'A4',
+      letter: 'Letter',
+    },
   },
   engine: {
     tolerance: {
       label: 'Comparison tolerance',
       hint: 'Delta threshold before mismatch warning.',
       unit: '%',
+    },
+    scientificNotation: {
+      label: 'Scientific notation',
+      hint: 'Display PFD/λ values in scientific notation (e.g. 1.23e-4).',
+    },
+    decimalRounding: {
+      label: 'Significant digits',
+      hint: 'Number of digits shown for PFD/λ numeric values.',
+      unit: 'digits',
+    },
+    defaultMissionTime: {
+      label: 'Default mission time (TH)',
+      hint: 'Pre-filled when creating a new SIF. Overridable per SIF.',
+      unit: 'h',
+    },
+    defaultProofTestInterval: {
+      label: 'Default proof-test interval (TI)',
+      hint: 'Pre-filled when creating a new SIF. Overridable per SIF.',
+      unit: 'h',
     },
   },
   shortcuts: {

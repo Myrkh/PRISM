@@ -1,4 +1,4 @@
-import { AlertTriangle, ArrowRight, CheckCircle2, FileText, ShieldCheck, Sparkles } from 'lucide-react'
+import { Activity, AlertTriangle, ArrowRight, CheckCircle2, FileText, ShieldCheck, Sparkles } from 'lucide-react'
 import type { SIF } from '@/core/types'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
 import type { OverviewMetrics } from '@/components/sif/overviewMetrics'
@@ -11,6 +11,8 @@ import {
 } from '@/components/layout/RightPanelShell'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import { useSIFDiagnostics } from '@/core/diagnostics'
+import { DiagnosticsPanel } from '@/components/sif/DiagnosticsPanel'
 
 interface Props {
   sif: SIF
@@ -28,6 +30,7 @@ export function ContextRightPanel({
   onSelectTab,
 }: Props) {
   const { PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const diagnostics = useSIFDiagnostics(sif)
   const readiness = Math.round(((compliance.metadataCompletion * 100) + overviewMetrics.tracePct) / 2)
   const readinessColor = readiness >= 85 ? semantic.success : readiness >= 50 ? semantic.warning : semantic.error
 
@@ -49,7 +52,7 @@ export function ContextRightPanel({
   ]
 
   return (
-    <RightPanelShell contentBg={PANEL_BG}>
+    <RightPanelShell contentBg={PANEL_BG} persistKey="context">
       <RightPanelSection id="ready" label="Ready" Icon={ShieldCheck}>
         <p className="mb-3 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
           Lecture du contexte avant le passage vers l'architecture.
@@ -97,6 +100,10 @@ export function ContextRightPanel({
             </InspectorSurface>
           )}
         </div>
+      </RightPanelSection>
+
+      <RightPanelSection id="diagnostics" label="Diagnostics" Icon={Activity}>
+        <DiagnosticsPanel diagnostics={diagnostics} filterPhase="context" />
       </RightPanelSection>
 
       <RightPanelSection id="next" label="Prochaine étape" Icon={Sparkles}>

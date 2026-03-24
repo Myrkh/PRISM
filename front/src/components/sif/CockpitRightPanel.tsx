@@ -1,4 +1,4 @@
-import { BookOpen, Lock, Package, ShieldCheck, Users } from 'lucide-react'
+import { Activity, BookOpen, Lock, Package, ShieldCheck, Users } from 'lucide-react'
 import type { SIF, SIFCalcResult } from '@/core/types'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
 import type { OverviewMetrics } from '@/components/sif/overviewMetrics'
@@ -11,6 +11,8 @@ import {
 } from '@/components/layout/RightPanelShell'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import { useSIFDiagnostics } from '@/core/diagnostics'
+import { DiagnosticsPanel } from '@/components/sif/DiagnosticsPanel'
 
 interface Props {
   sif: SIF
@@ -78,6 +80,7 @@ function ChecklistRow({
 
 export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: Props) {
   const { PANEL_BG, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const diagnostics = useSIFDiagnostics(sif)
   const evidenceById = new Map(compliance.evidenceItems.map(item => [item.id, item]))
   const proofProcedureItem = evidenceById.get('proof-procedure')
   const proofEvidenceItem = evidenceById.get('proof-evidence')
@@ -96,7 +99,7 @@ export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: 
   ]
 
   return (
-    <RightPanelShell contentBg={PANEL_BG}>
+    <RightPanelShell contentBg={PANEL_BG} persistKey="cockpit">
       <RightPanelSection id="ready" label="Ready" Icon={ShieldCheck}>
         <p className="mb-3 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
           État de défense du dossier sans répéter le cockpit central.
@@ -129,6 +132,10 @@ export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: 
             icon={<Lock size={10} />}
           />
         </div>
+      </RightPanelSection>
+
+      <RightPanelSection id="diagnostics" label="Diagnostics" Icon={Activity}>
+        <DiagnosticsPanel diagnostics={diagnostics} limit={6} />
       </RightPanelSection>
 
       <RightPanelSection id="gouvernance" label="Gouvernance" Icon={Users}>

@@ -37,7 +37,7 @@ function EmptyLibraryInspector() {
     : null
 
   return (
-    <RightPanelShell>
+    <RightPanelShell persistKey="library">
       <RightPanelSection id="template" label="Template" Icon={BookTemplate}>
         <div className="space-y-3">
           <InspectorBlock title="Bibliothèque" hint="La bibliothèque maître sert à créer, qualifier et réutiliser les composants standards du produit.">

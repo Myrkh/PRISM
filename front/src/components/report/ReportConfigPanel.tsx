@@ -67,7 +67,7 @@ export function ReportConfigPanel({
   const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, semantic } = usePrismTheme()
 
   return (
-    <RightPanelShell contentBg={PANEL_BG}>
+    <RightPanelShell contentBg={PANEL_BG} persistKey="report">
       {/* Export actions — always visible */}
       <div className="shrink-0 border-b px-3 py-3" style={{ borderColor: BORDER }}>
         <div className="flex flex-wrap gap-2">

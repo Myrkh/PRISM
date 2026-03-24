@@ -13,7 +13,8 @@ import type { ComplianceResult } from '@/components/sif/complianceCalc'
 import type { SIFAnalysisSettings } from '@/core/models/analysisSettings'
 import type { SIF, SIFCalcResult } from '@/core/types'
 import type { SIFTab } from '@/store/types'
-import { formatPFD, formatRRF, formatPct } from '@/core/math/pfdCalc'
+import { formatRRF, formatPct } from '@/core/math/pfdCalc'
+import { useFormatValue } from '@/utils/formatValue'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { getSifVerificationStrings } from '@/i18n/sifVerification'
@@ -102,6 +103,7 @@ export function VerificationWorkspace({
   onSelectEvidence,
 }: Props) {
   const strings = useLocaleStrings(getSifVerificationStrings)
+  const { fmt } = useFormatValue()
   const { BORDER, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
   const openGaps = Math.max(0, compliance.totalChecks - compliance.passedChecks)
   const evidenceComplete = compliance.evidenceItems.filter(item => item.status === 'complete').length
@@ -114,7 +116,7 @@ export function VerificationWorkspace({
         <SurfaceCard title={strings.workspace.sections.calculationResults} icon={<BarChart3 size={12} />}>
           <div className="space-y-4">
             <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
-              <MetricTile label={strings.workspace.metrics.pfdavg} value={formatPFD(result.PFD_avg)} tone={TEXT} />
+              <MetricTile label={strings.workspace.metrics.pfdavg} value={fmt(result.PFD_avg)} tone={TEXT} />
               <MetricTile label={strings.workspace.metrics.rrf} value={formatRRF(result.RRF)} tone={TEXT} />
               <MetricTile label={strings.workspace.metrics.achievedSil} value={`SIL ${result.SIL}`} tone={result.meetsTarget ? semantic.success : semantic.warning} />
               <MetricTile label={strings.workspace.metrics.checks} value={`${compliance.passedChecks}/${compliance.totalChecks}`} tone={openGaps === 0 ? semantic.success : TEXT} />
@@ -144,7 +146,7 @@ export function VerificationWorkspace({
                     <tr key={sub.subsystemId} className="border-t" style={{ borderColor: `${BORDER}80` }}>
                       <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: TEXT }}>{subsystem?.label ?? sub.type}</td>
                       <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT_DIM }}>{subsystem?.architecture ?? '—'}</td>
-                      <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT }}>{formatPFD(sub.PFD_avg)}</td>
+                      <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT }}>{fmt(sub.PFD_avg)}</td>
                       <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT }}>{formatRRF(sub.RRF)}</td>
                       <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT }}>{formatPct(sub.SFF)}</td>
                       <td className="px-3 py-2.5 text-xs font-mono" style={{ color: TEXT }}>{formatPct(sub.DC)}</td>

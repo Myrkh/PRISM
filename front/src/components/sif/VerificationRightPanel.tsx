@@ -13,7 +13,10 @@ import {
 import { nanoid } from 'nanoid'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import { Activity } from 'lucide-react'
 import { InspectorBlock, RightPanelSection, RightPanelShell } from '@/components/layout/RightPanelShell'
+import { useSIFDiagnostics } from '@/core/diagnostics'
+import { DiagnosticsPanel } from '@/components/sif/DiagnosticsPanel'
 import { normalizeSIFAssumptions } from '@/core/models/sifAssumptions'
 import type { SIFAnalysisSettings } from '@/core/models/analysisSettings'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
@@ -33,6 +36,7 @@ import { usePrismTheme } from '@/styles/usePrismTheme'
 import { AssumptionsPDFExport } from '@/components/report/AssumptionsPDFExport'
 import { getSifVerificationStrings } from '@/i18n/sifVerification'
 import { useLocaleStrings } from '@/i18n/useLocale'
+import { toast } from '@/components/ui/toast'
 
 
 interface Props {
@@ -375,6 +379,7 @@ export function VerificationRightPanel({
 }: Props) {
   const strings = useLocaleStrings(getSifVerificationStrings)
   const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  const diagnostics = useSIFDiagnostics(sif)
   const project = useAppStore(s => s.projects.find(projectItem => projectItem.id === sif.projectId) ?? null)
   const [assumptionDrafts, setAssumptionDrafts] = useState<SIFAssumption[]>(() => normalizeSIFAssumptions(sif.assumptions))
   const [assumptionsDirty, setAssumptionsDirty] = useState(false)
@@ -462,8 +467,11 @@ export function VerificationRightPanel({
       await onUpdateAssumptions(normalized)
       setAssumptionDrafts(normalized)
       setAssumptionsDirty(false)
+      toast.success('Hypothèses sauvegardées')
     } catch (error) {
-      setAssumptionsError(error instanceof Error ? error.message : strings.rightPanel.assumptions.saveFallback)
+      const msg = error instanceof Error ? error.message : strings.rightPanel.assumptions.saveFallback
+      setAssumptionsError(msg)
+      toast.error('Échec de la sauvegarde', msg)
     } finally {
       setAssumptionsSaving(false)
     }
@@ -482,7 +490,7 @@ export function VerificationRightPanel({
 
   return (
     <>
-      <RightPanelShell contentBg={PANEL_BG}>
+      <RightPanelShell contentBg={PANEL_BG} persistKey="verification">
         <RightPanelSection id="summary" label={strings.rightPanel.tabs.summary} Icon={ShieldCheck}>
           <div className="space-y-3">
               <InspectorBlock title={strings.rightPanel.summary.readyTitle}>
@@ -532,6 +540,10 @@ export function VerificationRightPanel({
                 </Button>
               </InspectorBlock>
           </div>
+        </RightPanelSection>
+
+        <RightPanelSection id="diagnostics" label="Diagnostics" Icon={Activity}>
+          <DiagnosticsPanel diagnostics={diagnostics} filterPhase="verification" />
         </RightPanelSection>
 
         <RightPanelSection id="graph" label={strings.rightPanel.tabs.graph} Icon={LineChart}>

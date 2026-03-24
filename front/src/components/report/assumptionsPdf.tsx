@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { renderPdfPagesToBlob } from '@/lib/pdf'
+import { useAppStore } from '@/store/appStore'
 import { normalizeSIFAssumptions } from '@/core/models/sifAssumptions'
 import type { Project, SIF, SIFAssumption } from '@/core/types'
 
@@ -463,7 +464,9 @@ export async function buildAssumptionsPdfBlob(input: {
 }): Promise<{ blob: Blob; fileName: string }> {
   const assumptions = normalizeSIFAssumptions(input.assumptions ?? input.sif.assumptions)
   const fileName = `${getAssumptionsPdfFileName(input.project, input.sif)}.pdf`
+  const pageFormat = useAppStore.getState().preferences.pdfPageSize
   const blob = await renderPdfPagesToBlob({
+    pageFormat,
     element: (
       <div className="mx-auto shadow-2xl" style={{ maxWidth: 794 }}>
         <AssumptionsPdfDocument

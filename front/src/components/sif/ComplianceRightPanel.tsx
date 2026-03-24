@@ -377,7 +377,7 @@ export function ComplianceRightPanel({
   }
 
   return (
-    <RightPanelShell contentBg={PANEL_BG}>
+    <RightPanelShell contentBg={PANEL_BG} persistKey="compliance">
       <RightPanelSection id="summary" label="Summary" Icon={ClipboardCheck}>
         <div className="space-y-3">
               <div className="rounded-xl border p-3" style={{ borderColor: BORDER, background: PAGE_BG }}>

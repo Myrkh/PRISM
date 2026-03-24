@@ -16,7 +16,10 @@ import {
 import { cn } from '@/lib/utils'
 import { useAppStore, type SettingsSection } from '@/store/appStore'
 import {
+  DECIMAL_ROUNDING_MAX,
+  DECIMAL_ROUNDING_MIN,
   DEFAULT_APP_PREFERENCES,
+  LANDING_VIEWS,
   WORKSPACE_LEFT_PANEL_WIDTH_MAX,
   WORKSPACE_LEFT_PANEL_WIDTH_MIN,
   WORKSPACE_RIGHT_PANEL_WIDTH_MAX,
@@ -278,6 +281,24 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
                         </button>
                       </div>
                     </SettingRow>
+
+                    <SettingRow label={strings.general.landingView.label} hint={strings.general.landingView.hint}>
+                      <div className="flex flex-wrap gap-1.5">
+                        {LANDING_VIEWS.map(view => (
+                          <button
+                            key={view}
+                            type="button"
+                            onClick={() => setDraft(current => ({ ...current, defaultLandingView: view }))}
+                            className="rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors"
+                            style={draft.defaultLandingView === view
+                              ? { borderColor: TEAL, background: TEAL, color: '#fff' }
+                              : { borderColor: BORDER, background: 'transparent', color: TEXT_DIM }}
+                          >
+                            {strings.general.landingView.views[view] ?? view}
+                          </button>
+                        ))}
+                      </div>
+                    </SettingRow>
                   </>
                 )}
 
@@ -332,31 +353,156 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
                         <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.workspace.unit}</span>
                       </div>
                     </SettingRow>
+
+                    <SettingRow
+                      label={strings.workspace.rightPanelDefaultState.label}
+                      hint={strings.workspace.rightPanelDefaultState.hint}
+                    >
+                      <div className="inline-flex rounded-lg border p-1" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                        <button
+                          type="button"
+                          onClick={() => setDraft(current => ({ ...current, rightPanelDefaultState: 'open' }))}
+                          className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                          style={draft.rightPanelDefaultState !== 'closed'
+                            ? { background: TEAL, color: '#fff' }
+                            : { color: TEXT_DIM }}
+                        >
+                          {strings.workspace.rightPanelDefaultState.open}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDraft(current => ({ ...current, rightPanelDefaultState: 'closed' }))}
+                          className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                          style={draft.rightPanelDefaultState === 'closed'
+                            ? { background: TEAL, color: '#fff' }
+                            : { color: TEXT_DIM }}
+                        >
+                          {strings.workspace.rightPanelDefaultState.closed}
+                        </button>
+                      </div>
+                    </SettingRow>
+
+                    <SettingRow label={strings.workspace.pdfPageSize.label} hint={strings.workspace.pdfPageSize.hint}>
+                      <div className="inline-flex rounded-lg border p-1" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                        {(['A4', 'Letter'] as const).map(size => (
+                          <button
+                            key={size}
+                            type="button"
+                            onClick={() => setDraft(current => ({ ...current, pdfPageSize: size }))}
+                            className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                            style={draft.pdfPageSize === size
+                              ? { background: TEAL, color: '#fff' }
+                              : { color: TEXT_DIM }}
+                          >
+                            {size === 'A4' ? strings.workspace.pdfPageSize.a4 : strings.workspace.pdfPageSize.letter}
+                          </button>
+                        ))}
+                      </div>
+                    </SettingRow>
                   </>
                 )}
 
                 {section === 'engine' && (
-                  <SettingRow label={strings.engine.tolerance.label} hint={strings.engine.tolerance.hint}>
-                    <div className="flex items-center gap-2">
-                      <Input
-                        type="number"
-                        min="0"
-                        max="5"
-                        step="0.05"
-                        value={String(draft.engineCompareTolerancePct)}
-                        onChange={event => {
-                          const nextValue = Number(event.currentTarget.value)
-                          if (!Number.isFinite(nextValue)) return
-                          setDraft(current => ({
-                            ...current,
-                            engineCompareTolerancePct: nextValue,
-                          }))
-                        }}
-                        className="w-28 text-right"
-                      />
-                      <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.engine.tolerance.unit}</span>
-                    </div>
-                  </SettingRow>
+                  <>
+                    <SettingRow label={strings.engine.tolerance.label} hint={strings.engine.tolerance.hint}>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="0"
+                          max="5"
+                          step="0.05"
+                          value={String(draft.engineCompareTolerancePct)}
+                          onChange={event => {
+                            const nextValue = Number(event.currentTarget.value)
+                            if (!Number.isFinite(nextValue)) return
+                            setDraft(current => ({ ...current, engineCompareTolerancePct: nextValue }))
+                          }}
+                          className="w-28 text-right"
+                        />
+                        <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.engine.tolerance.unit}</span>
+                      </div>
+                    </SettingRow>
+
+                    <SettingRow label={strings.engine.scientificNotation.label} hint={strings.engine.scientificNotation.hint}>
+                      <div className="inline-flex rounded-lg border p-1" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                        <button
+                          type="button"
+                          onClick={() => setDraft(current => ({ ...current, useScientificNotation: true }))}
+                          className="rounded-md px-3 py-1.5 text-xs font-semibold font-mono transition-colors"
+                          style={draft.useScientificNotation
+                            ? { background: TEAL, color: '#fff' }
+                            : { color: TEXT_DIM }}
+                        >
+                          1.23e-4
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDraft(current => ({ ...current, useScientificNotation: false }))}
+                          className="rounded-md px-3 py-1.5 text-xs font-semibold font-mono transition-colors"
+                          style={!draft.useScientificNotation
+                            ? { background: TEAL, color: '#fff' }
+                            : { color: TEXT_DIM }}
+                        >
+                          0.000123
+                        </button>
+                      </div>
+                    </SettingRow>
+
+                    <SettingRow label={strings.engine.decimalRounding.label} hint={strings.engine.decimalRounding.hint}>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min={String(DECIMAL_ROUNDING_MIN)}
+                          max={String(DECIMAL_ROUNDING_MAX)}
+                          step="1"
+                          value={String(draft.decimalRoundingDigits)}
+                          onChange={event => {
+                            const nextValue = Number(event.currentTarget.value)
+                            if (!Number.isFinite(nextValue)) return
+                            setDraft(current => ({ ...current, decimalRoundingDigits: nextValue }))
+                          }}
+                          className="w-28 text-right"
+                        />
+                        <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.engine.decimalRounding.unit}</span>
+                      </div>
+                    </SettingRow>
+
+                    <SettingRow label={strings.engine.defaultMissionTime.label} hint={strings.engine.defaultMissionTime.hint}>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={String(draft.defaultMissionTimeTH)}
+                          onChange={event => {
+                            const nextValue = Number(event.currentTarget.value)
+                            if (!Number.isFinite(nextValue) || nextValue <= 0) return
+                            setDraft(current => ({ ...current, defaultMissionTimeTH: nextValue }))
+                          }}
+                          className="w-28 text-right"
+                        />
+                        <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.engine.defaultMissionTime.unit}</span>
+                      </div>
+                    </SettingRow>
+
+                    <SettingRow label={strings.engine.defaultProofTestInterval.label} hint={strings.engine.defaultProofTestInterval.hint}>
+                      <div className="flex items-center gap-2">
+                        <Input
+                          type="number"
+                          min="1"
+                          step="1"
+                          value={String(draft.defaultProofTestIntervalTH)}
+                          onChange={event => {
+                            const nextValue = Number(event.currentTarget.value)
+                            if (!Number.isFinite(nextValue) || nextValue <= 0) return
+                            setDraft(current => ({ ...current, defaultProofTestIntervalTH: nextValue }))
+                          }}
+                          className="w-28 text-right"
+                        />
+                        <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.engine.defaultProofTestInterval.unit}</span>
+                      </div>
+                    </SettingRow>
+                  </>
                 )}
               </div>
               )}

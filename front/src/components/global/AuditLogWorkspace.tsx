@@ -94,7 +94,7 @@ function AuditRightPanel({
   const { TEXT, TEXT_DIM } = usePrismTheme()
 
   return (
-    <RightPanelShell>
+    <RightPanelShell persistKey="audit-log">
       <RightPanelSection id="event" label={strings.rightPanel.eventTab} Icon={FileClock}>
         <div className="space-y-4">
         <InspectorSection title={strings.rightPanel.selectionTitle}>

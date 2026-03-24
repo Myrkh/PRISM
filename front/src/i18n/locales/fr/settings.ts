@@ -11,15 +11,15 @@ export const settingsStringsFr: SettingsStrings = {
   sections: {
     general: {
       label: 'Général',
-      hint: 'Langue et apparence',
+      hint: 'Langue, apparence & démarrage',
     },
     workspace: {
       label: 'Workspace',
-      hint: 'Panneaux et largeurs',
+      hint: 'Panneaux, largeurs & export',
     },
     engine: {
       label: 'Engine',
-      hint: 'Tolérance de comparaison',
+      hint: 'Calculs & valeurs SIF par défaut',
     },
     shortcuts: {
       label: 'Raccourcis clavier',
@@ -28,16 +28,28 @@ export const settingsStringsFr: SettingsStrings = {
   },
   general: {
     language: {
-      label: 'Langue de l’interface',
-      hint: 'Choisit la langue de l’interface.',
+      label: "Langue de l'interface",
+      hint: "Choisit la langue de l'interface.",
       fr: 'Français',
       en: 'Anglais',
     },
     theme: {
       label: 'Thème',
-      hint: 'Choisit le thème de l’application.',
+      hint: "Choisit le thème de l'application.",
       dark: 'Sombre',
       light: 'Clair',
+    },
+    landingView: {
+      label: "Écran d'accueil par défaut",
+      hint: "Écran affiché au démarrage de l'application.",
+      views: {
+        projects: 'Projets',
+        library: 'Bibliothèque',
+        engine: 'Engine',
+        'audit-log': 'Audit Log',
+        planning: 'Planning tests',
+        hazop: 'HAZOP / LOPA',
+      },
     },
   },
   workspace: {
@@ -50,12 +62,43 @@ export const settingsStringsFr: SettingsStrings = {
       label: 'Largeur du panneau droit',
       hint: (min, max) => `Largeur par défaut du panneau droit. ${min} à ${max}px.`,
     },
+    rightPanelDefaultState: {
+      label: 'Sections des volets au démarrage',
+      hint: "État par défaut des sections accordéon lors de la première ouverture d'un volet.",
+      open: 'Ouvert',
+      closed: 'Fermé',
+    },
+    pdfPageSize: {
+      label: 'Format PDF',
+      hint: "Format de page utilisé lors de l'export des rapports SIL.",
+      a4: 'A4',
+      letter: 'Letter',
+    },
   },
   engine: {
     tolerance: {
       label: 'Tolérance de comparaison',
-      hint: 'Seuil d’écart avant alerte de mismatch.',
+      hint: "Seuil d'écart avant alerte de mismatch.",
       unit: '%',
+    },
+    scientificNotation: {
+      label: 'Notation scientifique',
+      hint: 'Affiche les valeurs PFD/λ en notation scientifique (ex. 1,23e-4).',
+    },
+    decimalRounding: {
+      label: 'Chiffres significatifs',
+      hint: 'Nombre de chiffres affichés pour les valeurs numériques PFD/λ.',
+      unit: 'chiffres',
+    },
+    defaultMissionTime: {
+      label: 'Temps de mission par défaut (TH)',
+      hint: 'Pré-rempli à la création d\'une SIF. Modifiable par SIF.',
+      unit: 'h',
+    },
+    defaultProofTestInterval: {
+      label: "Intervalle d'épreuve par défaut (TI)",
+      hint: "Pré-rempli à la création d'une SIF. Modifiable par SIF.",
+      unit: 'h',
     },
   },
   shortcuts: {

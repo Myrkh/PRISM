@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
+import { toast } from '@/components/ui/toast'
 import {
   analysisSettingsToMissionTimeHours,
   loadSIFAnalysisSettings,
@@ -105,8 +106,10 @@ export function SILReportStudio({ project, sif, result }: Props) {
       anchor.click()
       anchor.remove()
       URL.revokeObjectURL(url)
+      toast.success('Rapport SIL téléchargé', fileName)
     } catch (error) {
       console.error('PDF export failed, fallback to print.', error)
+      toast.error('Export PDF échoué', 'Passage en mode impression.')
       window.print()
     }
   }, [cfg, project, result, sif])
@@ -159,6 +162,7 @@ export function SILReportStudio({ project, sif, result }: Props) {
     anchor.click()
     anchor.remove()
     URL.revokeObjectURL(url)
+    toast.success('Rapport SIL téléchargé', fileName)
   }, [cfg, project, result.SIL, sif])
 
   useEffect(() => {

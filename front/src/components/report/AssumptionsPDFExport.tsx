@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { Download, Printer, X } from 'lucide-react'
+import { toast } from '@/components/ui/toast'
 import { normalizeSIFAssumptions } from '@/core/models/sifAssumptions'
 import type { Project, SIF } from '@/core/types'
 import { usePrismTheme } from '@/styles/usePrismTheme'
@@ -35,7 +36,9 @@ export function AssumptionsPDFExport({ sif, project, assumptions, onClose }: Pro
       anchor.click()
       anchor.remove()
       URL.revokeObjectURL(url)
+      toast.success('PDF téléchargé', fileName)
     } catch {
+      toast.error('Export PDF échoué', 'Vérifiez la console pour plus de détails.')
       window.print()
     } finally {
       setExporting(false)

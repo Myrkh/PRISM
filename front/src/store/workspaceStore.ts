@@ -58,17 +58,23 @@ interface WorkspacePersisted {
   childOrder: Record<string, string[]>
   sectionCollapsed: boolean
   pinnedNodeIds: string[]
-  openTabs: string[]
-  activeTabId: string | null
   /** ISO timestamp of when we last wrote to Supabase — used for conflict detection */
   localSnapshotAt: string | null
 }
+// openTabs and activeTabId are intentionally NOT persisted — tabs are session-only.
 
 interface WorkspaceState extends WorkspacePersisted {
+  // ── Session-only (not persisted, reset on hard refresh) ──
+  openTabs: string[]
+  activeTabId: string | null
+  /** Set to a noteId when a note is freshly created — NoteEditorWorkspace consumes and clears it to trigger auto-rename */
+  pendingRenameId: string | null
+
   createFolder: (parentId: string | null, name: string) => string
   createNote: (parentId: string | null, name: string) => string
   /** Register an already-uploaded file node (pdf or image). storageKey = Supabase Storage path. */
   createFileNode: (parentId: string | null, type: 'pdf' | 'image', name: string, storageKey: string) => string
+  clearPendingRename: () => void
   renameNode: (id: string, name: string) => void
   deleteNode: (id: string) => void
   /** Move a node to a new parent at a given index (-1 = append). Prevents circular folder moves. */
@@ -89,7 +95,7 @@ interface WorkspaceState extends WorkspacePersisted {
   closeNoteTab: (nodeId: string) => string | null
 
   // ── Supabase sync ──
-  /** Replace entire persisted state from a Supabase snapshot. */
+  /** Replace workspace tree from a Supabase snapshot (tabs not touched). */
   _loadSnapshot: (snapshot: WorkspacePersisted) => void
 }
 
@@ -103,6 +109,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         pinnedNodeIds: [],
         openTabs: [],
         activeTabId: null,
+        pendingRenameId: null,
         localSnapshotAt: null,
 
         createFolder: (parentId, name) => {
@@ -123,9 +130,12 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             state.nodes[id] = { type: 'note', id, name, content: '', parentId }
             if (!state.childOrder[key]) state.childOrder[key] = []
             state.childOrder[key].push(id)
+            state.pendingRenameId = id
           })
           return id
         },
+
+        clearPendingRename: () => set(state => { state.pendingRenameId = null }),
 
         createFileNode: (parentId, type, name, storageKey) => {
           const id = nanoid(8)
@@ -265,9 +275,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           state.childOrder       = snapshot.childOrder
           state.sectionCollapsed = snapshot.sectionCollapsed
           state.pinnedNodeIds    = snapshot.pinnedNodeIds
-          state.openTabs         = snapshot.openTabs
-          state.activeTabId      = snapshot.activeTabId
           state.localSnapshotAt  = snapshot.localSnapshotAt
+          // openTabs / activeTabId intentionally not restored — session state only
         }),
       })),
       {
@@ -277,8 +286,6 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           childOrder: s.childOrder,
           sectionCollapsed: s.sectionCollapsed,
           pinnedNodeIds: s.pinnedNodeIds,
-          openTabs: s.openTabs,
-          activeTabId: s.activeTabId,
           localSnapshotAt: s.localSnapshotAt,
         }),
       },
@@ -294,8 +301,6 @@ function pickPersisted(s: WorkspaceState): WorkspacePersisted {
     childOrder: s.childOrder,
     sectionCollapsed: s.sectionCollapsed,
     pinnedNodeIds: s.pinnedNodeIds,
-    openTabs: s.openTabs,
-    activeTabId: s.activeTabId,
     localSnapshotAt: s.localSnapshotAt,
   }
 }

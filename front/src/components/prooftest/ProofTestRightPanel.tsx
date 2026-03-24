@@ -401,7 +401,7 @@ export function ProofTestRightPanel(props: ProofTestRightPanelProps) {
   const { PANEL_BG } = usePrismTheme()
 
   return (
-    <RightPanelShell contentBg={PANEL_BG}>
+    <RightPanelShell contentBg={PANEL_BG} persistKey="exploitation">
       <RightPanelSection id="status" label={strings.rightPanel.tabs.status} Icon={ClipboardCheck}>
         <StatusContent {...props} />
       </RightPanelSection>

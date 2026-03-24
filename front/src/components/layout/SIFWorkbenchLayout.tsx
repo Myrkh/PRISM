@@ -19,7 +19,8 @@ import {
 import { GripVertical, SlidersHorizontal } from 'lucide-react'
 import { useAppStore, selectSIFCalc } from '@/store/appStore'
 import { normalizeSIFTab, type CanonicalSIFTab } from '@/store/types'
-import { calcSIF, formatPFD, formatPct } from '@/core/math/pfdCalc'
+import { calcSIF, formatPct } from '@/core/math/pfdCalc'
+import { useFormatValue } from '@/utils/formatValue'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import {
@@ -44,6 +45,7 @@ import { HomeScreen } from '@/components/layout/HomeScreen'
 import { SIFBrowserWelcome } from '@/components/layout/SIFBrowserWelcome'
 import { SIFWorkbenchBar, EditorContent } from '@/components/layout/EditorTabBar'
 import { RightPanelShell } from '@/components/layout/RightPanelShell'
+import { EditorBreadcrumb } from '@/components/layout/EditorBreadcrumb'
 
 // Re-export IntercalaireTabBar for backward compat (right panel, other consumers)
 export { IntercalaireTabBar, IntercalaireCard } from '@/components/layout/IntercalaireTabBar'
@@ -73,6 +75,7 @@ function clampPanelWidth(value: number, min: number, max: number) {
 
 // ─── Right panel — Properties inspector ──────────────────────────────────
 function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) {
+  const { fmt } = useFormatValue()
   const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, SHADOW_SOFT, TEXT, TEXT_DIM, TEAL_DIM } = usePrismTheme()
   const projects = useAppStore(s => s.projects)
   const project  = projects.find(p => p.id === projectId)
@@ -87,7 +90,7 @@ function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) 
   const kpiRows = [
     { k: 'SIL cible',   v: `SIL ${sif.targetSIL}`,                  color: '#60A5FA'                               },
     { k: 'SIL atteint', v: `SIL ${calc.SIL}`,                        color: calc.meetsTarget ? '#4ADE80' : '#F87171'},
-    { k: 'PFDavg',      v: formatPFD(calc.PFD_avg),                   color: TEAL_DIM                               },
+    { k: 'PFDavg',      v: fmt(calc.PFD_avg),                   color: TEAL_DIM                               },
     { k: 'RRF',         v: Math.round(calc.RRF).toLocaleString(),     color: TEXT                                   },
     { k: 'SFF',         v: formatPct(sub0?.SFF ?? 0),                 color: sffOk ? '#4ADE80' : '#F87171'          },
     { k: 'DC',          v: formatPct(sub0?.DC ?? 0),                  color: TEXT                                   },
@@ -638,6 +641,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                       className="relative flex min-h-0 flex-col overflow-hidden"
                       style={{ width: splitWidth ?? '50%', minWidth: 280, flexShrink: 0 }}
                     >
+                      <EditorBreadcrumb />
                       <SIFWorkbenchBar
                         active={visibleTab}
                         onSelect={(id) => setTab(id)}
@@ -681,6 +685,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                 ) : (
                   // ── SINGLE MODE ──────────────────────────────────────────
                   <div className="flex flex-1 min-w-0 min-h-0 flex-col overflow-hidden">
+                    <EditorBreadcrumb />
                     {!leftOpen && (
                       <SIFWorkbenchBar
                         active={visibleTab}

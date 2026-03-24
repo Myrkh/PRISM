@@ -1,101 +1,80 @@
 /**
- * workspace/NoteEditorWorkspace.tsx
+ * NoteEditorWorkspace.tsx — PRISM Pro Markdown Note Editor
  *
- * Markdown note editor with Edit / Preview tabs.
- * Auto-saves to workspaceStore on change (debounced 400ms).
+ * Modes: Edit | Split | Preview
+ *   - Edit:    CodeMirror 6 (full syntax highlighting, math, GFM)
+ *   - Split:   Editor left + rendered preview right (resizable, scrollable)
+ *   - Preview: Full rendered view (unified/remark/rehype/KaTeX)
+ *
+ * Auto-saves to workspaceStore (debounced 400ms).
+ * Split mode: scroll sync toggle (proportional ratio).
  */
+import '@/styles/notePreview.css'
+import 'katex/dist/katex.min.css'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { FileText } from 'lucide-react'
-import { useAppStore } from '@/store/appStore'
+import { FileText, Columns2, Eye, PenLine, Link2, Link2Off } from 'lucide-react'
 import { useWorkspaceStore } from '@/store/workspaceStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { WorkspaceTabBar } from './WorkspaceTabBar'
+import { NoteEditor } from './note/NoteEditor'
+import { NotePreview } from './note/NotePreview'
+import { colors } from '@/styles/tokens'
 
-// ─── Simple markdown renderer (no deps) ──────────────────────────────────
-function renderMarkdown(raw: string): string {
-  // Escape HTML first
-  let s = raw
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
+// ─── Types ───────────────────────────────────────────────────────────────────
 
-  // Fenced code blocks  (``` ... ```)
-  s = s.replace(/```(?:[^\n]*)\n([\s\S]*?)```/g, (_, code) =>
-    `<pre class="md-pre"><code>${code.trimEnd()}</code></pre>`,
-  )
+type EditorMode = 'edit' | 'split' | 'preview'
 
-  // Headings
-  s = s.replace(/^#{3} (.+)$/gm, '<h3 class="md-h3">$1</h3>')
-  s = s.replace(/^#{2} (.+)$/gm, '<h2 class="md-h2">$1</h2>')
-  s = s.replace(/^#{1} (.+)$/gm, '<h1 class="md-h1">$1</h1>')
+const MODE_ICONS = {
+  edit:    PenLine,
+  split:   Columns2,
+  preview: Eye,
+} as const
 
-  // Bold / italic
-  s = s.replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-  s = s.replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-  s = s.replace(/\*(.+?)\*/g, '<em>$1</em>')
-
-  // Inline code
-  s = s.replace(/`([^`\n]+)`/g, '<code class="md-code">$1</code>')
-
-  // Horizontal rule
-  s = s.replace(/^---$/gm, '<hr class="md-hr" />')
-
-  // Tables — must come before paragraph processing
-  // Matches: header row | separator row | data rows
-  s = s.replace(
-    /^(\|.+\|)\n\|[-| :]+\|\n((?:\|.+\|\n?)*)/gm,
-    (_, header, body) => {
-      const parseRow = (row: string) =>
-        row.trim().replace(/^\||\|$/g, '').split('|').map(c => c.trim())
-      const headers = parseRow(header)
-        .map(h => `<th class="md-th">${h}</th>`).join('')
-      const rows = body.trim().split('\n')
-        .filter(Boolean)
-        .map((row: string) =>
-          '<tr>' + parseRow(row).map(c => `<td class="md-td">${c}</td>`).join('') + '</tr>',
-        ).join('')
-      return `<table class="md-table"><thead><tr>${headers}</tr></thead><tbody>${rows}</tbody></table>`
-    },
-  )
-
-  // Unordered list items
-  s = s.replace(/^[-*] (.+)$/gm, '<li class="md-li">$1</li>')
-  // Wrap consecutive <li> in <ul>
-  s = s.replace(/(<li class="md-li">[\s\S]*?<\/li>)(\n(?!<li))/g, '$1</ul>$2')
-  s = s.replace(/(?<!<\/ul>\n)(<li class="md-li">)/, '<ul class="md-ul">$1')
-  // Clean up: wrap any orphan li sequences
-  s = s.replace(/(<li[^>]*>[\s\S]*?<\/li>)(?=\n|$)(?!\n<\/ul>)/g, '<ul class="md-ul">$1</ul>')
-
-  // Paragraphs: split by blank lines, wrap non-tag blocks
-  const blocks = s.split(/\n{2,}/)
-  s = blocks.map(block => {
-    const trimmed = block.trim()
-    if (!trimmed) return ''
-    if (/^<(h[1-6]|ul|ol|pre|hr|blockquote)/.test(trimmed)) return trimmed
-    // inline newlines → <br>
-    return `<p class="md-p">${trimmed.replace(/\n/g, '<br>')}</p>`
-  }).join('\n')
-
-  return s
+const MODE_LABELS: Record<EditorMode, string> = {
+  edit:    'Éditer',
+  split:   'Split',
+  preview: 'Aperçu',
 }
 
-// ─── NoteEditorWorkspace ─────────────────────────────────────────────────
+// ─── Component ───────────────────────────────────────────────────────────────
+
 export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
-  const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, SHADOW_SOFT, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
-  const { nodes, updateNoteContent, renameNode, openTab } = useWorkspaceStore()
+  const {
+    BORDER, CARD_BG, PAGE_BG, PANEL_BG, SHADOW_SOFT, TEAL,
+    TEXT, TEXT_DIM, isDark,
+  } = usePrismTheme()
+
+  const { nodes, updateNoteContent, renameNode, openTab, pendingRenameId, clearPendingRename } = useWorkspaceStore()
   const note = nodes[noteId]
 
-  // Ensure deep-linked noteId is always in the tab bar
+  // Push tab to VS Code bar
   useEffect(() => { openTab(noteId) }, [noteId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const [tab, setTab] = useState<'edit' | 'preview'>('edit')
+  const [mode, setMode]                 = useState<EditorMode>('edit')
   const [localContent, setLocalContent] = useState(note?.type === 'note' ? note.content : '')
   const [renamingTitle, setRenamingTitle] = useState(false)
-  const [titleVal, setTitleVal] = useState(note?.type === 'note' ? note.name : '')
-  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
-  const titleRef = useRef<HTMLInputElement>(null)
 
-  // Sync localContent if noteId changes
+  // Auto-rename when this note was just created from the command palette
+  useEffect(() => {
+    if (pendingRenameId === noteId) {
+      clearPendingRename()
+      setRenamingTitle(true)
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  const [titleVal, setTitleVal]         = useState(note?.type === 'note' ? note.name : '')
+  const [splitPct, setSplitPct]         = useState(50)
+  const [syncScroll, setSyncScroll]     = useState(false)
+  // 0–1 scroll ratio driven by whichever pane the user scrolled last
+  const [scrollPct, setScrollPct]       = useState(0)
+
+  const saveTimer    = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const titleRef     = useRef<HTMLInputElement>(null)
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  // Imperative handle to scroll the CM editor from outside
+  const editorScrollRef = useRef<((pct: number) => void) | null>(null)
+
+  // Sync when noteId changes
   useEffect(() => {
     if (note?.type === 'note') {
       setLocalContent(note.content)
@@ -121,6 +100,51 @@ export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
     setRenamingTitle(false)
   }
 
+  // ── Scroll sync callbacks ──
+  const handleEditorScroll = useCallback((pct: number) => {
+    if (!syncScroll) return
+    setScrollPct(pct)
+  }, [syncScroll])
+
+  const handlePreviewScroll = useCallback((pct: number) => {
+    if (!syncScroll) return
+    // Drive the CM editor scroll imperatively to avoid re-render loop
+    editorScrollRef.current?.(pct)
+  }, [syncScroll])
+
+  // ── Resizable split divider ──
+  const startDrag = useCallback((e: React.MouseEvent) => {
+    e.preventDefault()
+    const container = containerRef.current
+    if (!container) return
+    const onMove = (ev: MouseEvent) => {
+      const rect = container.getBoundingClientRect()
+      const pct = Math.min(80, Math.max(20, ((ev.clientX - rect.left) / rect.width) * 100))
+      setSplitPct(pct)
+    }
+    const onUp = () => {
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
+
+  // ── CSS vars for notePreview.css ──
+  const cssVars: React.CSSProperties = {
+    ['--prism-page' as string]:      PAGE_BG,
+    ['--prism-panel' as string]:     PANEL_BG,
+    ['--prism-card' as string]:      CARD_BG,
+    ['--prism-border' as string]:    BORDER,
+    ['--prism-text' as string]:      TEXT,
+    ['--prism-text-dim' as string]:  TEXT_DIM,
+    ['--prism-teal' as string]:      TEAL,
+    ['--prism-teal-dim' as string]:  colors.tealDim,
+    ['--prism-code-bg' as string]:   isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+    ['--prism-row-hover' as string]: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+  }
+
+  // ── Not found ──
   if (!note || note.type !== 'note') {
     return (
       <div className="flex flex-1 flex-col min-h-0" style={{ background: PAGE_BG }}>
@@ -132,8 +156,12 @@ export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
     )
   }
 
+  const wordCount = localContent.trim() ? localContent.trim().split(/\s+/).length : 0
+  const lineCount = localContent.split(/\n/).length
+  const charCount = localContent.length
+
   return (
-    <div className="flex flex-1 flex-col min-h-0" style={{ background: PAGE_BG }}>
+    <div className="flex flex-1 flex-col min-h-0" style={{ background: PAGE_BG, ...cssVars }}>
       {/* ── VS Code tab bar ── */}
       <WorkspaceTabBar activeNodeId={noteId} />
 
@@ -166,7 +194,7 @@ export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
         ) : (
           <button
             type="button"
-            className="flex-1 min-w-0 text-left text-[13px] font-medium truncate transition-colors"
+            className="flex-1 min-w-0 text-left text-[13px] font-medium truncate"
             style={{ color: TEXT }}
             onDoubleClick={() => setRenamingTitle(true)}
             title="Double-cliquer pour renommer"
@@ -175,62 +203,125 @@ export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
           </button>
         )}
 
-        {/* Edit / Preview tabs */}
+        {/* Sync scroll button — only visible in split mode */}
+        {mode === 'split' && (
+          <button
+            type="button"
+            onClick={() => setSyncScroll(v => !v)}
+            title={syncScroll ? 'Désactiver le scroll synchronisé' : 'Activer le scroll synchronisé'}
+            className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-all"
+            style={{
+              background: syncScroll
+                ? isDark ? `${TEAL}22` : `${TEAL}15`
+                : 'transparent',
+              color: syncScroll ? TEAL : TEXT_DIM,
+              border: `1px solid ${syncScroll ? TEAL + '55' : 'transparent'}`,
+            }}
+          >
+            {syncScroll ? <Link2 size={11} /> : <Link2Off size={11} />}
+            Sync
+          </button>
+        )}
+
+        {/* Mode toggle: Edit | Split | Preview */}
         <div
           className="flex shrink-0 items-center gap-0.5 rounded-lg p-0.5"
           style={{ background: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)' }}
         >
-          {(['edit', 'preview'] as const).map(t => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => setTab(t)}
-              className="rounded-md px-3 py-1 text-[11px] font-medium transition-all"
-              style={{
-                background: tab === t ? (isDark ? CARD_BG : '#fff') : 'transparent',
-                color: tab === t ? TEXT : TEXT_DIM,
-                boxShadow: tab === t ? SHADOW_SOFT : 'none',
-              }}
-            >
-              {t === 'edit' ? 'Éditer' : 'Aperçu'}
-            </button>
-          ))}
+          {(['edit', 'split', 'preview'] as EditorMode[]).map(m => {
+            const Icon = MODE_ICONS[m]
+            const active = mode === m
+            return (
+              <button
+                key={m}
+                type="button"
+                onClick={() => setMode(m)}
+                title={MODE_LABELS[m]}
+                className="flex items-center gap-1.5 rounded-md px-2.5 py-1 text-[11px] font-medium transition-all"
+                style={{
+                  background: active ? (isDark ? CARD_BG : '#fff') : 'transparent',
+                  color: active ? TEXT : TEXT_DIM,
+                  boxShadow: active ? SHADOW_SOFT : 'none',
+                }}
+              >
+                <Icon size={11} />
+                {MODE_LABELS[m]}
+              </button>
+            )
+          })}
         </div>
       </div>
 
-      {/* ── Content ── */}
-      <div className="flex flex-1 min-h-0 overflow-hidden">
-        {tab === 'edit' ? (
-          <textarea
-            value={localContent}
-            onChange={e => handleChange(e.target.value)}
-            spellCheck={false}
-            placeholder="# Ma note&#10;&#10;Commencez à écrire en Markdown..."
-            className="flex-1 resize-none p-6 font-mono text-[13px] leading-relaxed outline-none"
-            style={{
-              background: PAGE_BG,
-              color: TEXT,
-              caretColor: TEAL,
-              lineHeight: 1.7,
-            }}
-          />
-        ) : (
-          <div
-            className="flex-1 overflow-y-auto p-6 md-preview"
-            style={{ background: PAGE_BG, color: TEXT }}
-            // eslint-disable-next-line react/no-danger
-            dangerouslySetInnerHTML={{ __html: renderMarkdown(localContent) || '<p style="opacity:0.4;font-size:13px">Aucun contenu à afficher.</p>' }}
-          />
+      {/* ── Content area ── */}
+      <div ref={containerRef} className="flex flex-1 min-h-0">
+
+        {/* Edit mode */}
+        {mode === 'edit' && (
+          <div className="prism-cm-editor flex-1 min-h-0">
+            <NoteEditor value={localContent} onChange={handleChange} isDark={isDark} />
+          </div>
+        )}
+
+        {/* Preview mode */}
+        {mode === 'preview' && (
+          <div className="flex flex-1 min-h-0">
+            <NotePreview markdown={localContent} />
+          </div>
+        )}
+
+        {/* Split mode */}
+        {mode === 'split' && (
+          <>
+            {/* Editor pane */}
+            <div
+              className="prism-cm-editor min-h-0"
+              style={{ width: `${splitPct}%`, flexShrink: 0 }}
+            >
+              <NoteEditor
+                value={localContent}
+                onChange={handleChange}
+                isDark={isDark}
+                onScrollPct={handleEditorScroll}
+                scrollPctRef={editorScrollRef}
+              />
+            </div>
+
+            {/* Resizable divider */}
+            <div
+              onMouseDown={startDrag}
+              className="flex-shrink-0 cursor-col-resize transition-colors"
+              style={{
+                width: 5,
+                background: BORDER,
+                borderLeft:  `1px solid ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'}`,
+                borderRight: `1px solid ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.06)'}`,
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLDivElement).style.background = TEAL + '66' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLDivElement).style.background = BORDER }}
+            />
+
+            {/* Preview pane — flex + min-h-0 lets prism-note-preview overflow-y: auto work */}
+            <div
+              className="flex min-h-0"
+              style={{ width: `${100 - splitPct}%`, flexShrink: 0 }}
+            >
+              <NotePreview
+                markdown={localContent}
+                scrollPct={syncScroll ? scrollPct : undefined}
+                onScrollPct={handlePreviewScroll}
+              />
+            </div>
+          </>
         )}
       </div>
 
       {/* ── Status bar ── */}
       <div
-        className="flex shrink-0 items-center gap-3 border-t px-4 py-1"
+        className="flex shrink-0 items-center gap-4 border-t px-4 py-1"
         style={{ borderColor: BORDER, background: PANEL_BG }}
       >
         <span className="text-[10px]" style={{ color: TEXT_DIM }}>
-          {localContent.length} caractères · {localContent.split(/\n/).length} lignes
+          {wordCount} mots · {lineCount} lignes · {charCount} caractères
         </span>
         <span className="text-[10px] ml-auto" style={{ color: `${TEAL}99` }}>
           Sauvegarde auto

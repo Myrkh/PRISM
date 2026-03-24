@@ -525,7 +525,7 @@ export function PlanningRightPanel() {
   const selected = selectedId ? campaigns.find(campaign => campaign.id === selectedId) ?? null : null
 
   return (
-    <RightPanelShell contentBg={PANEL_BG}>
+    <RightPanelShell contentBg={PANEL_BG} persistKey="planning">
       <RightPanelSection id="detail" label="Campagne" Icon={ClipboardList} noPadding>
         {isCreating && draft
           ? <NewCampaignForm draft={draft} />

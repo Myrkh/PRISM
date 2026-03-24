@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { Project, SIF } from '@/core/types'
 import { renderPdfPagesToBlob } from '@/lib/pdf'
+import { useAppStore } from '@/store/appStore'
 import {
   type PTCampaign,
   type PTResponseCheck,
@@ -765,7 +766,9 @@ export async function buildProofTestPdfBlob(input: {
   campaigns: unknown
 }): Promise<{ blob: Blob; fileName: string }> {
   const fileName = `${getProofTestPdfFileName(input.sif, input.procedure)}.pdf`
+  const pageFormat = useAppStore.getState().preferences.pdfPageSize
   const blob = await renderPdfPagesToBlob({
+    pageFormat,
     element: (
       <ProofTestPdfDocument
         sif={input.sif}

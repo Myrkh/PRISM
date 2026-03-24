@@ -198,6 +198,7 @@ function collectionDefaultColor(scope: LibraryCollectionScope): string {
 export function LibraryNavigationProvider({ children }: { children: ReactNode }) {
   const projects = useAppStore(state => state.projects)
   const view = useAppStore(state => state.view)
+  const navigate = useAppStore(state => state.navigate)
   const {
     builtinTemplates,
     allProjectTemplates,
@@ -251,7 +252,18 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
 
   useEffect(() => {
     if (view.type !== 'library') return
-    if (!view.templateId && !view.libraryName && !view.origin) return
+    if (!view.templateId && !view.libraryName && !view.origin && !view.action) return
+
+    if (view.action) {
+      const typeMap: Record<NonNullable<typeof view.action>, SubsystemType> = {
+        'create-sensor': 'sensor',
+        'create-logic': 'logic',
+        'create-actuator': 'actuator',
+      }
+      setEditorState({ kind: 'create', subsystemType: typeMap[view.action], libraryName: libraryFilter ?? null })
+      navigate({ type: 'library' })
+      return
+    }
 
     if (view.origin) setSourceScope(view.origin)
     if (view.libraryName) setLibraryFilter(view.libraryName)
@@ -270,7 +282,7 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
     const nextLibraryName = view.libraryName ?? getTemplateLibraryName(entry.template)
     if (nextLibraryName) setLibraryFilter(nextLibraryName)
     setEditorState({ kind: 'template', entryKey: getLibraryEntryKey(entry.origin, entry.template.id) })
-  }, [allEntries, view])
+  }, [allEntries, libraryFilter, navigate, view])
 
   const scopeUniverse = useMemo(
     () => filterEntries(allEntries, deferredQuery, { subsystemScope, projectFilter, libraryFilter }),

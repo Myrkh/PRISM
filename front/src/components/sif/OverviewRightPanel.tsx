@@ -33,7 +33,7 @@ export function OverviewRightPanel({ sif, result, compliance, onSelectTab }: Pro
   const health = getOverviewOperationalHealthMeta(TEXT_DIM)[metrics.operationalHealth]
 
   return (
-    <RightPanelShell contentBg={PANEL_BG}>
+    <RightPanelShell contentBg={PANEL_BG} persistKey="overview">
       {/* Always-visible SIF reference */}
       <div className="px-3 py-3" style={{ borderBottom: `1px solid ${BORDER}` }}>
         <InspectorSurface background={PAGE_BG} borderColor={BORDER}>

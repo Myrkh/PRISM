@@ -6,15 +6,19 @@ import { useMemo } from 'react'
 import { getEffectiveKeybinding } from '@/core/shortcuts/defaults'
 import {
   LayoutDashboard, Network, BarChart3, Shield, FlaskConical,
-  FileText, Home, Pencil, History, ClipboardCheck, CalendarDays,
+  FileText, FileImage, Home, Pencil, History, ClipboardCheck, CalendarDays,
   Cpu, BookOpen, BookOpenText, FolderPlus, FilePlus, Search, Settings,
   Moon, Sun, PanelLeftOpen, PanelLeftClose, PanelRightOpen, PanelRightClose,
   Maximize2, Minimize2, Columns2, Hash, AtSign, HelpCircle, Terminal,
   SidebarClose, FlipHorizontal2, AlignCenter, ArrowUpToLine, PanelBottomClose, PanelBottomOpen,
+  Activity, Zap, Clock, Timer,
 } from 'lucide-react'
 import { useLocaleStrings } from '@/i18n/useLocale'
 import { getShellStrings } from '@/i18n/shell'
 import { useAppStore, type SIFTab } from '@/store/appStore'
+import { useWorkspaceStore } from '@/store/workspaceStore'
+import { toast } from '@/components/ui/toast'
+// useAppStore.getState() used for imperative one-shot updates inside callbacks
 import { normalizeSIFTab } from '@/store/types'
 import { getSearchResultIcon } from '@/components/search/searchMeta'
 import { useComponentLibrary } from '@/features/library'
@@ -73,6 +77,7 @@ export function useCommandGroups({
   const setCommandPalettePos   = useAppStore(s => s.setCommandPalettePosition)
   const openSecondSlot         = useAppStore(s => s.openSecondSlot)
   const closeSecondSlot        = useAppStore(s => s.closeSecondSlot)
+  const recentItems            = useAppStore(s => s.preferences.recentItems)
 
   const { builtinTemplates, allProjectTemplates, userTemplates } = useComponentLibrary(null)
 
@@ -118,7 +123,7 @@ export function useCommandGroups({
   const createGroup: CommandGroup = {
     heading: strings.commandPalette.groups.create,
     items: [
-      { id: 'new-project', label: strings.commandPalette.labels.newProject,   keywords: 'create new project créer nouveau projet',   Icon: FolderPlus, onSelect: () => run(openNewProject), isActive: false, level: 0 },
+      { id: 'new-project', label: strings.commandPalette.labels.newProject, keywords: 'create new project créer nouveau projet', Icon: FolderPlus, onSelect: () => run(openNewProject), isActive: false, level: 0 },
       {
         id: 'new-sif',
         label: currentProject
@@ -127,6 +132,33 @@ export function useCommandGroups({
         keywords: 'create new sif créer nouvelle sif',
         Icon: FilePlus,
         onSelect: () => run(() => openNewSIF(currentProjectId ?? undefined)),
+        isActive: false,
+        level: 0,
+      },
+      {
+        id: 'new-note',
+        label: strings.commandPalette.labels.createNote,
+        keywords: 'create new note markdown notes workspace créer nouvelle note',
+        Icon: FileText,
+        onSelect: () => run(() => {
+          const ws = useWorkspaceStore.getState()
+          const id = ws.createNote(null, 'New Note')
+          ws.openTab(id)
+          navigate({ type: 'note', noteId: id })
+          toast.success(strings.commandPalette.labels.createNote)
+        }),
+        isActive: false,
+        level: 0,
+      },
+      {
+        id: 'new-folder',
+        label: strings.commandPalette.labels.createFolder,
+        keywords: 'create new folder dossier répertoire workspace créer nouveau',
+        Icon: FolderPlus,
+        onSelect: () => run(() => {
+          useWorkspaceStore.getState().createFolder(null, 'New Folder')
+          toast.success(strings.commandPalette.labels.createFolder)
+        }),
         isActive: false,
         level: 0,
       },
@@ -185,10 +217,209 @@ export function useCommandGroups({
       { id: 'engine',         label: strings.commandPalette.labels.engine,        keywords: 'engine compute solver markov monte carlo backend quantitatif',                      Icon: Cpu,         onSelect: () => run(() => navigate({ type: 'engine' })),     isActive: view.type === 'engine',    level: 0 },
       { id: 'docs',           label: strings.commandPalette.labels.docs,          keywords: 'docs documentation aide help manuel guide moteur calcul architecture verification', Icon: BookOpenText,onSelect: () => run(onOpenDocs),                             isActive: view.type === 'docs',      level: 0 },
       { id: 'settings',       label: strings.commandPalette.labels.settings,      keywords: 'settings paramètres préférences',                                                   Icon: Settings,    onSelect: () => run(onOpenSettings),                         isActive: view.type === 'settings',  level: 0 },
-      { id: 'settings-general',    label: 'Settings: General',           keywords: 'settings paramètres général langue thème',             Icon: Settings,      onSelect: () => run(() => navigate({ type: 'settings', section: 'general' })),    isActive: view.type === 'settings' && (view as { section?: string }).section === 'general',    level: 0 },
-      { id: 'settings-workspace',  label: 'Settings: Workspace',         keywords: 'settings workspace panneaux largeur',                  Icon: Settings,      onSelect: () => run(() => navigate({ type: 'settings', section: 'workspace' })),  isActive: view.type === 'settings' && (view as { section?: string }).section === 'workspace',  level: 0 },
-      { id: 'settings-engine',     label: 'Settings: Engine',            keywords: 'settings engine moteur calcul tolérance',              Icon: Cpu,           onSelect: () => run(() => navigate({ type: 'settings', section: 'engine' })),     isActive: view.type === 'settings' && (view as { section?: string }).section === 'engine',     level: 0 },
-      { id: 'settings-shortcuts',  label: 'Settings: Keyboard Shortcuts', keywords: 'settings raccourcis clavier keyboard shortcuts keybinding',Icon: Settings,   onSelect: () => run(() => navigate({ type: 'settings', section: 'shortcuts' })), isActive: view.type === 'settings' && (view as { section?: string }).section === 'shortcuts',  level: 0 },
+    ],
+  }
+
+  // ── Library (commands mode + default when query matches) ─────────────────
+
+  const libraryGroup: CommandGroup = {
+    heading: 'Library',
+    items: [
+      // Navigate commands
+      {
+        id: 'library-browse',
+        label: strings.commandPalette.labels.masterLibrary,
+        keywords: 'library bibliothèque catalogue navigation',
+        Icon: BookOpen,
+        onSelect: () => run(onOpenLibrary),
+        isActive: view.type === 'library',
+        meta: strings.commandPalette.meta.library,
+        level: 0,
+      },
+      {
+        id: 'library-navigate-builtin',
+        label: strings.commandPalette.labels.libraryBuiltin,
+        keywords: 'library bibliothèque standards intégrés built-in iec isa navigation',
+        Icon: BookOpenText,
+        onSelect: () => run(() => navigate({ type: 'library', origin: 'builtin' })),
+        isActive: view.type === 'library' && (view as { origin?: string }).origin === 'builtin',
+        level: 0,
+      },
+      {
+        id: 'library-navigate-user-templates',
+        label: strings.commandPalette.labels.libraryUserTemplates,
+        keywords: 'library bibliothèque mes templates personnels user navigation',
+        Icon: BookOpen,
+        onSelect: () => run(() => navigate({ type: 'library', origin: 'user' })),
+        isActive: view.type === 'library' && (view as { origin?: string }).origin === 'user',
+        level: 0,
+      },
+      {
+        id: 'library-navigate-project-templates',
+        label: strings.commandPalette.labels.libraryProjectTemplates,
+        keywords: 'library bibliothèque templates projet project shared navigation',
+        Icon: BookOpen,
+        onSelect: () => run(() => navigate({ type: 'library', origin: 'project' })),
+        isActive: view.type === 'library' && (view as { origin?: string }).origin === 'project',
+        level: 0,
+      },
+      // Create actions
+      {
+        id: 'library-new-sensor',
+        label: strings.commandPalette.labels.libraryNewSensor,
+        keywords: 'library new sensor capteur créer nouveau template transmitter switch',
+        Icon: Activity,
+        onSelect: () => run(() => navigate({ type: 'library', action: 'create-sensor' })),
+        isActive: false,
+        separator: true,
+        level: 0,
+      },
+      {
+        id: 'library-new-logic',
+        label: strings.commandPalette.labels.libraryNewLogic,
+        keywords: 'library new logic logique solveur plc solver créer nouveau template',
+        Icon: Cpu,
+        onSelect: () => run(() => navigate({ type: 'library', action: 'create-logic' })),
+        isActive: false,
+        level: 0,
+      },
+      {
+        id: 'library-new-actuator',
+        label: strings.commandPalette.labels.libraryNewActuator,
+        keywords: 'library new actuator actionneur valve vanne créer nouveau template',
+        Icon: Zap,
+        onSelect: () => run(() => navigate({ type: 'library', action: 'create-actuator' })),
+        isActive: false,
+        level: 0,
+      },
+    ],
+  }
+
+  // ── Settings actions (commands mode + default when query matches) ────────
+
+  const settingsActionsGroup: CommandGroup = {
+    heading: 'Settings',
+    items: [
+      // ── Navigate: Settings sections ──
+      {
+        id: 'navigate-settings-general',
+        label: strings.commandPalette.labels.navigateSettingsGeneral,
+        keywords: 'navigate settings general général langue language thème theme',
+        Icon: Settings,
+        onSelect: () => run(() => navigate({ type: 'settings', section: 'general' })),
+        isActive: view.type === 'settings' && (view as { section?: string }).section === 'general',
+        level: 0,
+      },
+      {
+        id: 'navigate-settings-workspace',
+        label: strings.commandPalette.labels.navigateSettingsWorkspace,
+        keywords: 'navigate settings workspace espace travail panneaux largeur panels width',
+        Icon: Settings,
+        onSelect: () => run(() => navigate({ type: 'settings', section: 'workspace' })),
+        isActive: view.type === 'settings' && (view as { section?: string }).section === 'workspace',
+        level: 0,
+      },
+      {
+        id: 'navigate-settings-engine',
+        label: strings.commandPalette.labels.navigateSettingsEngine,
+        keywords: 'navigate settings engine moteur calcul tolérance calculation',
+        Icon: Cpu,
+        onSelect: () => run(() => navigate({ type: 'settings', section: 'engine' })),
+        isActive: view.type === 'settings' && (view as { section?: string }).section === 'engine',
+        level: 0,
+      },
+      {
+        id: 'navigate-settings-shortcuts',
+        label: strings.commandPalette.labels.navigateSettingsShortcuts,
+        keywords: 'navigate settings raccourcis keyboard shortcuts keybinding clavier',
+        Icon: Settings,
+        onSelect: () => run(() => navigate({ type: 'settings', section: 'shortcuts' })),
+        isActive: view.type === 'settings' && (view as { section?: string }).section === 'shortcuts',
+        separator: true,
+        level: 0,
+      },
+      // ── Scientific notation toggle ──
+      {
+        id: 'settings-action-scientific-notation',
+        label: preferences.useScientificNotation
+          ? strings.commandPalette.labels.settingsScientificNotationOff
+          : strings.commandPalette.labels.settingsScientificNotationOn,
+        keywords: 'settings notation scientifique scientific exponential pfd lambda toggle',
+        Icon: Hash,
+        onSelect: () => run(() =>
+          useAppStore.getState().updateAppPreferences({ useScientificNotation: !preferences.useScientificNotation }),
+        ),
+        isActive: preferences.useScientificNotation,
+        level: 0,
+      },
+      // ── Decimal precision ──
+      ...(['2', '3', '4', '5', '6'] as const).map((d, i) => ({
+        id: `settings-action-decimal-${d}`,
+        label: strings.commandPalette.labels.settingsDecimalDigits[d] ?? d,
+        keywords: `settings precision précision decimal digits chiffres arrondi rounding ${d}`,
+        Icon: Hash,
+        onSelect: () => run(() => {
+          useAppStore.getState().updateAppPreferences({ decimalRoundingDigits: Number(d) })
+          toast.success(strings.commandPalette.labels.settingsDecimalDigits[d] ?? d)
+        }),
+        isActive: preferences.decimalRoundingDigits === Number(d),
+        separator: i === 0,
+        level: 0 as const,
+      })),
+      // ── PDF format ──
+      {
+        id: 'settings-action-pdf-a4',
+        label: strings.commandPalette.labels.settingsPdfA4,
+        keywords: 'settings pdf format a4 rapport report export',
+        Icon: FileText,
+        onSelect: () => run(() => {
+          useAppStore.getState().updateAppPreferences({ pdfPageSize: 'A4' })
+          toast.success(strings.commandPalette.labels.settingsPdfA4)
+        }),
+        isActive: preferences.pdfPageSize === 'A4',
+        separator: true,
+        level: 0,
+      },
+      {
+        id: 'settings-action-pdf-letter',
+        label: strings.commandPalette.labels.settingsPdfLetter,
+        keywords: 'settings pdf format letter us rapport report export',
+        Icon: FileText,
+        onSelect: () => run(() => {
+          useAppStore.getState().updateAppPreferences({ pdfPageSize: 'Letter' })
+          toast.success(strings.commandPalette.labels.settingsPdfLetter)
+        }),
+        isActive: preferences.pdfPageSize === 'Letter',
+        level: 0,
+      },
+      // ── Default mission time ──
+      ...(['8760', '17520', '26280', '43800', '175200'] as const).map((h, i) => ({
+        id: `settings-action-mission-${h}`,
+        label: strings.commandPalette.labels.settingsMissionTimes[h] ?? `${h}h`,
+        keywords: `settings mission time heure durée default par défaut iec 61511 ${h}`,
+        Icon: Timer,
+        onSelect: () => run(() => {
+          useAppStore.getState().updateAppPreferences({ defaultMissionTimeTH: Number(h) })
+          toast.success(strings.commandPalette.labels.settingsMissionTimes[h] ?? `${h}h`)
+        }),
+        isActive: preferences.defaultMissionTimeTH === Number(h),
+        separator: i === 0,
+        level: 0 as const,
+      })),
+      // ── Landing view ──
+      ...(['projects', 'library', 'engine', 'audit-log', 'planning', 'hazop'] as const).map((lv, i) => ({
+        id: `settings-action-landing-${lv}`,
+        label: strings.commandPalette.labels.settingsLandingViews[lv] ?? lv,
+        keywords: `settings landing view écran accueil démarrage startup ${lv}`,
+        Icon: Home,
+        onSelect: () => run(() => {
+          useAppStore.getState().updateAppPreferences({ defaultLandingView: lv })
+          toast.success(strings.commandPalette.labels.settingsLandingViews[lv] ?? lv)
+        }),
+        isActive: preferences.defaultLandingView === lv,
+        separator: i === 0,
+        level: 0 as const,
+      })),
     ],
   }
 
@@ -283,6 +514,23 @@ export function useCommandGroups({
         shortcut: kb('toggleCenteredLayout'),
         level: 0,
       },
+      // ── Panel sections default state ──
+      {
+        id: 'layout-panel-sections-default',
+        label: preferences.rightPanelDefaultState === 'closed'
+          ? strings.commandPalette.labels.panelSectionsOpenByDefault
+          : strings.commandPalette.labels.panelSectionsClosedByDefault,
+        keywords: 'panels volets sections accordéon ouvert fermé démarrage startup default state layout disposition',
+        Icon: preferences.rightPanelDefaultState === 'closed' ? PanelRightOpen : PanelRightClose,
+        onSelect: () => run(() =>
+          useAppStore.getState().updateAppPreferences({
+            rightPanelDefaultState: preferences.rightPanelDefaultState === 'closed' ? 'open' : 'closed',
+          }),
+        ),
+        isActive: preferences.rightPanelDefaultState === 'closed',
+        separator: true,
+        level: 0 as const,
+      },
       // ── Command Palette position ──
       {
         id: 'layout-palette-top',
@@ -301,6 +549,17 @@ export function useCommandGroups({
         Icon: PanelBottomClose,
         onSelect: () => run(() => setCommandPalettePos('center')),
         isActive: preferences.commandPalettePosition === 'center',
+        level: 0,
+      },
+      {
+        id: 'layout-reset-panel-states',
+        label: strings.commandPalette.labels.resetPanelStates,
+        keywords: 'reset panels volets sections accordéon état initial clear layout disposition',
+        Icon: PanelRightOpen,
+        onSelect: () => run(() =>
+          useAppStore.getState().updateAppPreferences({ rightPanelSectionStates: {} }),
+        ),
+        isActive: false,
         level: 0,
       },
     ],
@@ -386,9 +645,10 @@ export function useCommandGroups({
     () => [...builtinTemplates, ...allProjectTemplates, ...userTemplates],
     [allProjectTemplates, builtinTemplates, userTemplates],
   )
+  const workspaceNodes = useWorkspaceStore(s => Object.values(s.nodes))
   const searchIndex = useMemo(
-    () => buildSearchIndex(projects, revisions, libraryTemplates),
-    [libraryTemplates, projects, revisions],
+    () => buildSearchIndex(projects, revisions, libraryTemplates, workspaceNodes),
+    [libraryTemplates, projects, revisions, workspaceNodes],
   )
   const searchResultsGroup: CommandGroup | null = search.trim() && mode !== 'help'
     ? {
@@ -406,6 +666,36 @@ export function useCommandGroups({
       }
     : null
 
+  // ── Recent items (default mode when no query) ─────────────────────────────
+
+  const recentGroup: CommandGroup | null = recentItems.length > 0 && !search.trim() ? {
+    heading: 'Recent',
+    items: recentItems.slice(0, 8).map(item => {
+      // Better icons: distinguish note / pdf / image within workspace-file
+      const isImage = item.kind === 'workspace-file' && /\.(png|jpg|jpeg|gif|svg|webp)$/i.test(item.label)
+      const isPdf   = item.kind === 'workspace-file' && /\.pdf$/i.test(item.label)
+      const Icon =
+        item.kind === 'sif'            ? Shield :
+        item.kind === 'note'           ? FileText :
+        isImage                        ? FileImage :
+        isPdf                          ? FileText :
+        item.kind === 'workspace-file' ? FileText :
+        item.kind === 'project'        ? FolderPlus :
+        Clock
+
+      return {
+        id: `recent-${item.kind}-${item.id}`,
+        label: item.label,
+        keywords: `recent ${item.kind} ${item.label} ${item.subtitle ?? ''}`,
+        Icon,
+        meta: item.subtitle,
+        onSelect: () => run(() => navigate(item.view)),
+        isActive: false,
+        level: 0 as const,
+      }
+    }),
+  } : null
+
   // ── Assemble groups by mode ───────────────────────────────────────────────
 
   let rawGroups: CommandGroup[]
@@ -416,6 +706,8 @@ export function useCommandGroups({
       layoutGroup,
       ...(currentViewGroup ? [currentViewGroup] : []),
       createGroup,
+      libraryGroup,
+      settingsActionsGroup,
       generalGroup,
     ]
   } else if (mode === 'sif') {
@@ -430,11 +722,15 @@ export function useCommandGroups({
   } else {
     // default mode: everything
     rawGroups = [
+      ...(recentGroup        ? [recentGroup]        : []),
       ...(searchResultsGroup ? [searchResultsGroup] : []),
       ...(currentViewGroup   ? [currentViewGroup]   : []),
       createGroup,
       projectsGroup,
       sifsGroup,
+      libraryGroup,
+      // Show settings actions in default mode only when the user is searching for something
+      ...(search.trim() ? [settingsActionsGroup] : []),
       generalGroup,
     ]
   }

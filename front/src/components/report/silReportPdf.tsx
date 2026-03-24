@@ -1,6 +1,7 @@
 import { AlertTriangle, CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { renderPdfPagesToBlob } from '@/lib/pdf'
+import { useAppStore } from '@/store/appStore'
 import {
   calcComponentDC,
   calcComponentPFDValue,
@@ -814,7 +815,9 @@ export async function buildSILReportPdfBlob(input: {
 }): Promise<{ blob: Blob; cfg: ReportConfig; fileName: string }> {
   const cfg = input.cfg ?? getDefaultReportConfig(input)
   const fileName = getSILReportFileName(cfg, input.sif)
+  const pageFormat = useAppStore.getState().preferences.pdfPageSize
   const blob = await renderPdfPagesToBlob({
+    pageFormat,
     element: (
       <div className="mx-auto shadow-2xl" style={{ maxWidth: 794 }}>
         <ReportDocument

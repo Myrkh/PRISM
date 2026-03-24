@@ -10,11 +10,13 @@ import {
   type ReactNode,
 } from 'react'
 import React from 'react'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, ExternalLink, PanelRightOpen } from 'lucide-react'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { IntercalaireCard, IntercalaireTabBar } from '@/components/layout/IntercalaireTabBar'
 import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { cn } from '@/lib/utils'
+import { useAppStore } from '@/store/appStore'
+import { FloatingPanel } from './FloatingPanel'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -59,6 +61,8 @@ interface SectionCtxValue {
   flexSizes: Map<string, number>
   resizingPair: { topId: string; bottomId: string } | null
   startResize: (topId: string, bottomId: string, e: React.PointerEvent) => void
+  floatingIds: Set<string>
+  toggleFloat: (id: string) => void
 }
 
 const SectionCtx = createContext<SectionCtxValue | null>(null)
@@ -85,9 +89,52 @@ interface SectionProps {
 export function RightPanelSection({ id, label, Icon, children, noPadding }: SectionProps) {
   const { BORDER, TEAL, TEXT_DIM } = usePrismTheme()
   const ctx = useContext(SectionCtx)
-  const isOpen = ctx ? !ctx.closedIds.has(id) : true
-  const flexGrow = ctx ? (ctx.flexSizes.get(id) ?? 1) : 1
+  const isOpen    = ctx ? !ctx.closedIds.has(id) : true
+  const isFloating = ctx ? ctx.floatingIds.has(id) : false
+  const flexGrow  = ctx ? (ctx.flexSizes.get(id) ?? 1) : 1
 
+  // ── Floating / detached mode ──────────────────────────────────────────────
+  if (isFloating) {
+    return (
+      <>
+        {/* Placeholder slot in sidebar */}
+        <div
+          className="flex shrink-0 items-center gap-2 px-3"
+          style={{
+            height: HEADER_H,
+            borderBottom: `1px solid ${BORDER}`,
+            background: `${TEAL}06`,
+            flex: '0 0 auto',
+          }}
+        >
+          <Icon size={13} style={{ color: TEXT_DIM, flexShrink: 0 }} />
+          <span
+            className="flex-1 text-[10px] font-bold uppercase tracking-widest"
+            style={{ color: TEXT_DIM }}
+          >
+            {label}
+          </span>
+          <span className="text-[10px]" style={{ color: TEXT_DIM }}>Détaché</span>
+          <button
+            type="button"
+            title="Réattacher"
+            onClick={() => ctx?.toggleFloat(id)}
+            className="ml-1 inline-flex h-5 w-5 items-center justify-center rounded transition-colors hover:bg-white/10"
+            style={{ color: TEAL }}
+          >
+            <PanelRightOpen size={11} />
+          </button>
+        </div>
+
+        {/* Floating portal */}
+        <FloatingPanel title={label} Icon={Icon} noPadding={noPadding} onClose={() => ctx?.toggleFloat(id)}>
+          {children}
+        </FloatingPanel>
+      </>
+    )
+  }
+
+  // ── Normal accordion mode ─────────────────────────────────────────────────
   return (
     <div
       className="flex flex-col overflow-hidden"
@@ -100,7 +147,7 @@ export function RightPanelSection({ id, label, Icon, children, noPadding }: Sect
       {/* Header */}
       <button
         type="button"
-        className="flex w-full shrink-0 items-center gap-2 px-3 transition-colors"
+        className="group flex w-full shrink-0 items-center gap-2 px-3 transition-colors"
         style={{
           height: HEADER_H,
           background: isOpen ? `${TEAL}0C` : 'transparent',
@@ -116,6 +163,20 @@ export function RightPanelSection({ id, label, Icon, children, noPadding }: Sect
         >
           {label}
         </span>
+
+        {/* Detach button — visible on hover */}
+        <span
+          className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-60 hover:!opacity-100"
+          style={{ color: TEXT_DIM }}
+          role="button"
+          title="Détacher"
+          onClick={e => { e.stopPropagation(); ctx?.toggleFloat(id) }}
+          onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); ctx?.toggleFloat(id) } }}
+          tabIndex={-1}
+        >
+          <ExternalLink size={10} />
+        </span>
+
         <ChevronRight
           size={11}
           style={{
@@ -150,6 +211,7 @@ export function RightPanelShell<T extends string = string>({
   children,
   contentBg,
   openSectionId,
+  persistKey,
 }: {
   items?: readonly RightPanelRailItem<T>[]
   active?: T
@@ -157,15 +219,36 @@ export function RightPanelShell<T extends string = string>({
   children: ReactNode
   contentBg?: string
   openSectionId?: string | null
+  /** Stable key for persisting accordion open/closed state across navigation. */
+  persistKey?: string
 }) {
   const { BORDER, CARD_BG, PANEL_BG, SHADOW_DOCK, SHADOW_PANEL, SHADOW_SOFT, isDark } = usePrismTheme()
   const { isRightPanelOpen } = useLayout()
   const resolvedContentBg = contentBg ?? PANEL_BG
   const isLegacy = items && items.length > 0
 
+  // ── Preferences (for persistence) ────────────────────────────────────────
+  const preferences        = useAppStore(s => s.preferences)
+  const updateAppPreferences = useAppStore(s => s.updateAppPreferences)
+
   // ── Accordion state ──────────────────────────────────────────────────────
   const containerRef  = useRef<HTMLDivElement>(null)
-  const [closedIds,   setClosedIds]   = useState<Set<string>>(() => new Set())
+  const [closedIds,   setClosedIds]   = useState<Set<string>>(() => {
+    if (!persistKey) return new Set<string>()
+    const saved = preferences.rightPanelSectionStates?.[persistKey]
+    if (saved !== undefined) return new Set(saved)
+    // No saved state yet — apply startup default
+    if (preferences.rightPanelDefaultState === 'closed') {
+      const ids = React.Children.toArray(children)
+        .filter((c): c is React.ReactElement<SectionProps> =>
+          React.isValidElement(c) && c.type === RightPanelSection,
+        )
+        .map(c => c.props.id)
+      return new Set(ids)
+    }
+    return new Set<string>()
+  })
+  const [floatingIds, setFloatingIds] = useState<Set<string>>(() => new Set())
   const [flexSizes,   setFlexSizes]   = useState<Map<string, number>>(() => new Map())
   const [isResizing,  setIsResizing]  = useState(false)
   const [resizingPair, setResizingPair] = useState<{ topId: string; bottomId: string } | null>(null)
@@ -178,8 +261,29 @@ export function RightPanelShell<T extends string = string>({
     pixPerFlex: number; minFlex: number
   } | null>(null)
 
+  const persistClosed = useCallback((next: Set<string>) => {
+    if (!persistKey) return
+    const { preferences: p, updateAppPreferences: upd } = useAppStore.getState()
+    upd({
+      rightPanelSectionStates: {
+        ...(p.rightPanelSectionStates ?? {}),
+        [persistKey]: [...next],
+      },
+    })
+  }, [persistKey])
+
   const toggle = useCallback((id: string) => {
     setClosedIds(prev => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      persistClosed(next)
+      return next
+    })
+  }, [persistClosed])
+
+  const toggleFloat = useCallback((id: string) => {
+    setFloatingIds(prev => {
       const next = new Set(prev)
       if (next.has(id)) next.delete(id)
       else next.add(id)
@@ -193,9 +297,10 @@ export function RightPanelShell<T extends string = string>({
       if (!prev.has(openSectionId)) return prev
       const next = new Set(prev)
       next.delete(openSectionId)
+      persistClosed(next)
       return next
     })
-  }, [openSectionId])
+  }, [openSectionId, persistClosed])
 
   const startResize = useCallback((
     topId: string,
@@ -275,7 +380,9 @@ export function RightPanelShell<T extends string = string>({
     flexSizes,
     resizingPair,
     startResize,
-  }), [closedIds, toggle, flexSizes, resizingPair, startResize])
+    floatingIds,
+    toggleFloat,
+  }), [closedIds, toggle, flexSizes, resizingPair, startResize, floatingIds, toggleFloat])
 
   // ── Accordion render: pass non-section children through, inject SectionDividers
   //    between adjacent open sections

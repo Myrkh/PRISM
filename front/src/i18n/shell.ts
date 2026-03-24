@@ -83,6 +83,32 @@ export interface ShellStrings {
       centeredLayout: string
       commandPaletteTop: string
       commandPaletteCenter: string
+      panelSectionsOpenByDefault: string
+      panelSectionsClosedByDefault: string
+      libraryBuiltin: string
+      libraryUserTemplates: string
+      libraryProjectTemplates: string
+      resetPanelStates: string
+      // Library actions
+      libraryNewSensor: string
+      libraryNewLogic: string
+      libraryNewActuator: string
+      // Create actions
+      createNote: string
+      createFolder: string
+      // Navigate: Settings sections
+      navigateSettingsGeneral: string
+      navigateSettingsWorkspace: string
+      navigateSettingsEngine: string
+      navigateSettingsShortcuts: string
+      // Settings toggles
+      settingsScientificNotationOn: string
+      settingsScientificNotationOff: string
+      settingsPdfA4: string
+      settingsPdfLetter: string
+      settingsLandingViews: Record<string, string>
+      settingsDecimalDigits: Record<string, string>
+      settingsMissionTimes: Record<string, string>
     }
     meta: {
       continueSearch: (query: string) => string

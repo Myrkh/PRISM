@@ -52,6 +52,11 @@ export interface SettingsStrings {
       dark: string
       light: string
     }
+    landingView: {
+      label: string
+      hint: string
+      views: Record<string, string>
+    }
   }
   workspace: {
     unit: string
@@ -63,9 +68,40 @@ export interface SettingsStrings {
       label: string
       hint: (min: number, max: number) => string
     }
+    rightPanelDefaultState: {
+      label: string
+      hint: string
+      open: string
+      closed: string
+    }
+    pdfPageSize: {
+      label: string
+      hint: string
+      a4: string
+      letter: string
+    }
   }
   engine: {
     tolerance: {
+      label: string
+      hint: string
+      unit: string
+    }
+    scientificNotation: {
+      label: string
+      hint: string
+    }
+    decimalRounding: {
+      label: string
+      hint: string
+      unit: string
+    }
+    defaultMissionTime: {
+      label: string
+      hint: string
+      unit: string
+    }
+    defaultProofTestInterval: {
       label: string
       hint: string
       unit: string
