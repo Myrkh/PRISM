@@ -1,4 +1,4 @@
-import { Activity, BookOpen, Lock, Package, ShieldCheck, Users } from 'lucide-react'
+import { Lock, Package, ShieldCheck, Users } from 'lucide-react'
 import type { SIF, SIFCalcResult } from '@/core/types'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
 import type { OverviewMetrics } from '@/components/sif/overviewMetrics'
@@ -79,7 +79,7 @@ function ChecklistRow({
 }
 
 export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: Props) {
-  const { PANEL_BG, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, PANEL_BG, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const diagnostics = useSIFDiagnostics(sif)
   const evidenceById = new Map(compliance.evidenceItems.map(item => [item.id, item]))
   const proofProcedureItem = evidenceById.get('proof-procedure')
@@ -100,7 +100,7 @@ export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: 
 
   return (
     <RightPanelShell contentBg={PANEL_BG} persistKey="cockpit">
-      <RightPanelSection id="ready" label="Ready" Icon={ShieldCheck}>
+      <RightPanelSection id="etat" label="État" Icon={ShieldCheck}>
         <p className="mb-3 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
           État de défense du dossier sans répéter le cockpit central.
         </p>
@@ -132,10 +132,10 @@ export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: 
             icon={<Lock size={10} />}
           />
         </div>
-      </RightPanelSection>
 
-      <RightPanelSection id="diagnostics" label="Diagnostics" Icon={Activity}>
-        <DiagnosticsPanel diagnostics={diagnostics} limit={6} />
+        <div className="mt-3">
+          <DiagnosticsPanel diagnostics={diagnostics} limit={6} />
+        </div>
       </RightPanelSection>
 
       <RightPanelSection id="gouvernance" label="Gouvernance" Icon={Users}>
@@ -151,7 +151,7 @@ export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: 
         </div>
       </RightPanelSection>
 
-      <RightPanelSection id="package" label="Package Preuve" Icon={Package}>
+      <RightPanelSection id="dossier" label="Dossier" Icon={Package}>
         <div className="space-y-2">
           <ChecklistRow
             label="Procédure proof test"
@@ -169,9 +169,7 @@ export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: 
             status={(reportPackageItem?.status ?? 'review') as ItemStatus}
           />
         </div>
-      </RightPanelSection>
-
-      <RightPanelSection id="references" label="Références" Icon={BookOpen}>
+        <div className="my-3 h-px" style={{ background: BORDER }} />
         <p className="mb-3 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
           Points utiles pour audit et relecture, sans répéter le cockpit central.
         </p>

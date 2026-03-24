@@ -228,9 +228,10 @@ export function ProjectSidebar({ projectId, sifId }: { projectId: string; sifId:
 
   const [importModalOpen, setImportModalOpen] = useState(false)
 
-  // Local collapsed states
-  const [pinnedCollapsed,   setPinnedCollapsed]   = useState(false)
-  const [projectsCollapsed, setProjectsCollapsed] = useState(false)
+  // Local collapsed states — respect "Panel sections at startup" preference
+  const defaultClosed = useAppStore(s => s.preferences.rightPanelDefaultState) === 'closed'
+  const [pinnedCollapsed,   setPinnedCollapsed]   = useState(defaultClosed)
+  const [projectsCollapsed, setProjectsCollapsed] = useState(defaultClosed)
 
   // Resize between Projets and Espace libre
   const containerRef     = useRef<HTMLDivElement>(null)
@@ -280,7 +281,7 @@ export function ProjectSidebar({ projectId, sifId }: { projectId: string; sifId:
       className="flex flex-col h-full min-h-0 overflow-hidden"
       style={{
         background: PANEL_BG,
-        boxShadow: `${SHADOW_SOFT}, inset -1px 0 0 ${isDark ? 'rgba(255,255,255,0.055)' : 'rgba(255,255,255,0.78)'}`,
+        boxShadow: `${SHADOW_SOFT}, inset -1px 0 0 ${isDark ? 'rgba(255,255,255,0.055)' : 'rgba(255,255,255,0.78)'}, inset 0 1px 0 ${isDark ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.88)'}`,
       }}
     >
       {/* ── 1. ÉPINGLÉS ── */}

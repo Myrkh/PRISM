@@ -288,6 +288,7 @@ export const useAppStore = create<AppState>()(
       leftPanelOpen: true,
       rightPanelOpen: true,
       focusMode: false,
+      chatPanelOpen: false,
 
       // Split view
       secondSlot: null,
@@ -425,6 +426,7 @@ export const useAppStore = create<AppState>()(
       // ── Layout panels ──────────────────────────────────────────────────────
       toggleLeftPanel: () => set(s => { s.leftPanelOpen = !s.leftPanelOpen }),
       toggleRightPanel: () => set(s => { s.rightPanelOpen = !s.rightPanelOpen }),
+      toggleChatPanel: () => set(s => { s.chatPanelOpen = !s.chatPanelOpen }),
       setRightPanelOpen: (open) => set(s => { s.rightPanelOpen = open }),
       toggleFocusMode: () => set(s => {
         s.focusMode = !s.focusMode

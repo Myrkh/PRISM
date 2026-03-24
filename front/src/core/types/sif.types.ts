@@ -71,6 +71,10 @@ export interface SIF {
   status: SIFStatus
   subsystems: SIFSubsystem[]
   assumptions: SIFAssumption[]
+  // Process Safety
+  processSafetyTime?: number   // PST in seconds (IEC 61511 SRS mandatory)
+  sifResponseTime?: number     // SIF response time in seconds
+  safeState?: string           // Safe state definition (verbal description)
   // Traceability
   hazopTrace?: HAZOPTrace
   // Proof Test

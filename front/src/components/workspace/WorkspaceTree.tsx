@@ -156,10 +156,11 @@ function SortableNodeRow({
     nodes, childOrder, pinnedNodeIds,
     toggleFolder, renameNode, deleteNode, createFolder, createNote,
     pinNode, unpinNode, openTab, createFileNode,
+    pendingRenameId, clearPendingRename,
   } = useWorkspaceStore()
 
   const [hovered, setHovered]       = useState(false)
-  const [renaming, setRenaming]     = useState(false)
+  const [renaming, setRenaming]     = useState(() => pendingRenameId === node.id)
   const [menuOpen, setMenuOpen]     = useState(false)
   const [creatingIn, setCreatingIn] = useState<'folder' | 'note' | null>(null)
 
@@ -172,6 +173,14 @@ function SortableNodeRow({
   const isFolderTarget = folderId === node.id
 
   const children = childOrder[node.id] ?? []
+
+  // Consume pendingRenameId on mount — triggered when node was just created from command palette
+  useEffect(() => {
+    if (pendingRenameId === node.id) {
+      setRenaming(true)
+      clearPendingRename()
+    }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: node.id })
   const style = { transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.3 : 1 }

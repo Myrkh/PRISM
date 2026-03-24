@@ -426,7 +426,7 @@ export function RightPanelShell<T extends string = string>({
         backgroundImage: isDark
           ? 'radial-gradient(circle at top left, rgba(95,216,210,0.07) 0%, rgba(95,216,210,0) 22%), linear-gradient(180deg, rgba(255,255,255,0.025) 0%, rgba(255,255,255,0) 100%)'
           : 'linear-gradient(180deg, rgba(255,255,255,0.3) 0%, rgba(255,255,255,0) 100%)',
-        boxShadow: `${SHADOW_DOCK}, inset 1px 0 0 ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.84)'}`,
+        boxShadow: `${SHADOW_DOCK}, inset 1px 0 0 ${isDark ? 'rgba(255,255,255,0.04)' : 'rgba(255,255,255,0.84)'}, inset 0 1px 0 ${isDark ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.88)'}`,
       }}
       onClick={event => event.stopPropagation()}
       onPointerDown={event => event.stopPropagation()}

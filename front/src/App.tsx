@@ -348,7 +348,7 @@ export default function App() {
         <SIFDashboard projectId={view.projectId} sifId={view.sifId} />
       )}
       {view.type === 'note' && (
-        <NoteEditorWorkspace noteId={view.noteId} />
+        <NoteEditorWorkspace key={view.noteId} noteId={view.noteId} />
       )}
       {view.type === 'workspace-file' && (
         <FileViewerWorkspace nodeId={view.nodeId} />

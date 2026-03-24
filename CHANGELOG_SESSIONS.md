@@ -6,6 +6,158 @@
 
 ---
 
+## Session 5 — 2026-03-24 · PRISM AI — Chat Panel complet + Architecture IA
+
+### ChatPanel — Fenêtre de chat flottante (production-ready)
+
+Refonte complète de `ChatPanel.tsx` — composant autonome prêt à câbler avec un LLM réel.
+
+#### Fichiers créés / modifiés
+
+| Fichier | Rôle |
+|---------|------|
+| `components/layout/ChatPanel.tsx` | Chat window complète — drag, resize 8 directions, maximize |
+| `store/types.ts` | Ajout `chatPanelOpen: boolean` + `toggleChatPanel: () => void` |
+| `store/appStore.ts` | Initialisation `chatPanelOpen: false` + action `toggleChatPanel` |
+| `components/layout/AppHeader.tsx` | Bouton `ChatIcon` 28×28 (composite SVG) → remplace ancien bouton "AI" + `MessageSquare` |
+
+#### Fonctionnalités câblées
+
+- **`ChatIcon`** — composite SVG : MessageSquare + badge étoile 4 branches, couleur adaptive
+- **`+ Nouveau chat`** — sauvegarde la conversation courante, reset état + contexte SIF attaché
+- **`Historique`** — sidebar slide-in gauche : liste conversations, chargement, suppression par item, horodatage relatif
+- **`Paperclip — Joindre SIF`** — lit le SIF actif depuis `useAppStore(s => s.view)`, badge détachable dans l'input. Désactivé si aucun SIF ouvert
+- **`Settings2 — Config`** — remplace le contenu : sélecteur modèle (Sonnet / Opus / Haiku) + system prompt, persisté `localStorage`
+- **`Maximize / Minimize`** — bascule `position: fixed; left: 48px; top: 48px; right: 0; bottom: 24px`
+- **`×`** — ferme via `onClose → toggleChatPanel`
+- **Input** — textarea auto-resize, `⏎` envoyer, `⇧⏎` nouvelle ligne, bouton `Send` adaptatif
+- **Streaming stub** — `streamAIResponseStub` simule le streaming mot par mot avec délai; signature compatible `AsyncGenerator<string>`
+- **Persistance** — conversations en `localStorage` (max 50), titres auto-générés, restauration contexte SIF
+
+#### Types exportés (interface publique pour le câblage IA)
+
+```ts
+export interface ChatMessage     { id, role: 'user'|'assistant', content, timestamp }
+export interface ChatConversation{ id, title, messages, contextSIFId?, contextSIFName? }
+export interface AttachedContext { sifId, sifName }
+export interface ChatConfig      { model, systemPrompt }
+```
+
+#### Point de câblage IA — une seule fonction à remplacer
+
+```ts
+// Dans ChatPanel.tsx — ligne ~80
+// Remplacer streamAIResponseStub par l'implémentation réelle :
+async function* streamPRISMAI(
+  messages: ChatMessage[],
+  context?: AttachedContext,
+  config?: ChatConfig,
+): AsyncGenerator<string>
+```
+
+---
+
+### Architecture PRISM AI — Décisions d'architecture (discussions session)
+
+#### Modèle à 3 couches de contexte
+
+```
+Couche 1 — knowledge/ (bundlé, invisible)    IEC 61511, méthodologie SIL, composants
+Couche 2 — .prism/ (workspace, éditable)     context.md, conventions.md, sif-registry.md
+Couche 3 — Contexte live (runtime)           SIF active sérialisée + calculs + diagnostics
+```
+
+#### `.prism/` — dossier de contexte workspace (à construire)
+
+Inspiré de `.claude/` — visible dans le ProjectTree sous "Espace de travail" :
+
+```
+.prism/
+├── context.md        ← user écrit le contexte projet
+├── conventions.md    ← règles d'ingénierie, nomenclature
+├── standards.md      ← normes applicables, SIL max site
+└── sif-registry.md   ← AUTO-GÉNÉRÉ à chaque save SIF
+```
+
+`sif-registry.md` liste toutes les SIF (titre, SIL, PFD, phase, diagnostics) → l'IA peut comparer et naviguer entre SIF sans que l'user sélectionne.
+
+#### knowledge/ — base métier bundlée (à construire)
+
+Fichiers Markdown soigneusement rédigés, injectés systématiquement dans le contexte :
+`iec61511-part1.md`, `iec61511-part2.md`, `sil-methodology.md`, `hazop-lopa.md`, `components-guide.md`, `prism-guide.md`
+
+**RAG > Fine-tuning** : plus efficace, dynamique, mis à jour avec les releases.
+
+#### Backend — Gateway IA (à construire)
+
+```
+POST /api/ai/chat
+  → charge .prism/ + knowledge/
+  → sérialise SIF active
+  → RAG lookup pgvector (top-5 chunks)
+  → route : Anthropic API | Ollama (host:port configurable)
+  → stream SSE vers le front
+```
+
+Config enterprise :
+```python
+ollama_host: str = "localhost"   # serveur dédié GPU réseau interne
+ollama_port: int = 11434         # configurable → pertinent pour nucléaire/défense
+ollama_model: str = "mistral-nemo"
+```
+
+#### Roadmap PRISM AI (ordre de build décidé)
+
+1. `knowledge/` — 6 fichiers métier IEC 61511 / SIL / PRISM
+2. `.prism/` dans ProjectTree — volet UI + éditeur context/conventions
+3. `sif-registry.md` auto-généré — service sérialisant tous les SIFs
+4. Backend `/api/ai/chat` — FastAPI gateway Anthropic + Ollama
+5. Config UI — Settings > Engine > IA (host, port, model, provider)
+
+---
+
+## Session 4 — 2026-03-24 · SRS Fields + Panel Consolidation + UX Polish
+
+### Data model — Champs SRS IEC 61511 obligatoires
+
+**`core/types/sif.types.ts`** — 3 nouveaux champs sur `SIF` :
+```ts
+processSafetyTime?: number   // PST en secondes — IEC 61511 SRS obligatoire
+sifResponseTime?: number     // Temps de réponse SIF en secondes
+safeState?: string           // Définition de l'état sûr
+```
+
+**`components/sif/ContextTab.tsx`** — section "Temps process & réponse SIF" dans la card SRS :
+- Grid 2 colonnes : PST (s) + Temps réponse SIF (s)
+- Champ texte : État sûr (description libre)
+
+**`core/diagnostics/sifRules.ts`** — 4 nouvelles règles diagnostics :
+- `ruleContextProcessSafetyTime` — warning si PST non renseigné
+- `ruleContextSafeState` — warning si état sûr non défini
+- `ruleContextSIFResponseTime` — warning si temps de réponse manquant
+- Règle error : `sifResponseTime >= processSafetyTime` → erreur bloquante
+
+### Consolidation panneaux droits
+
+- **CockpitRightPanel** : 5 sections → 3 (État + Diagnostics, Gouvernance, Dossier)
+- **ContextRightPanel** : 4 sections → 2 (État + métriques, Actions)
+- **LoopEditorRightPanel** — `SubsystemArchSection` : suppression des card wrappers (`rounded-xl border`) → design plat avec séparateur `border-b` + accent couleur gauche, cohérent avec la Library
+
+### FloatingPanel — Resize 8 directions
+
+`FloatingPanel.tsx` : ajout de `size` state + 8 handles (N/S/E/W + 4 coins) avec pointer capture. `MIN_W = 220`, `MIN_H = 140`.
+
+### Panel sections at startup
+
+`LibrarySidebar.tsx` + `ProjectSidebar.tsx` : préférence `rightPanelDefaultState` appliquée aux états collapsed initiaux des sections de panneaux gauche.
+
+### UX fixes
+
+- `OverviewTab.tsx` : `p-4.5` → `p-4` (classe Tailwind invalide = padding zéro)
+- `LibrarySidebar`, `ProjectSidebar`, `RightPanelShell` : ajout `inset 0 1px 0` pour cohérence de relief en haut des panneaux
+
+---
+
 ## Session 3 — 2026-03-24 · Note Editor Pro + Fixes
 
 ### Éditeur de notes — Stack pro (CodeMirror 6 + unified/KaTeX)

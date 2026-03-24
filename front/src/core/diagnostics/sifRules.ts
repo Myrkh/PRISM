@@ -56,6 +56,56 @@ function ruleContextHazardousEvent(sif: SIF): DiagnosticItem[] {
   }]
 }
 
+function ruleContextProcessSafetyTime(sif: SIF): DiagnosticItem[] {
+  if (sif.processSafetyTime != null && sif.processSafetyTime > 0) return []
+  return [{
+    id: 'ctx-pst-missing',
+    severity: 'warning',
+    phase: 'context',
+    title: 'PST (Temps de sécurité procédé) non renseigné',
+    detail: 'IEC 61511-1 §12.4 exige que le temps de sécurité procédé soit documenté dans le SRS.',
+    action: { label: 'Aller au contexte', tab: 'context' },
+  }]
+}
+
+function ruleContextSafeState(sif: SIF): DiagnosticItem[] {
+  if (sif.safeState?.trim()) return []
+  return [{
+    id: 'ctx-safe-state-missing',
+    severity: 'warning',
+    phase: 'context',
+    title: 'État sûr (Safe State) non défini',
+    detail: 'L\'état sûr atteint par la SIF doit être explicitement décrit dans le SRS.',
+    action: { label: 'Aller au contexte', tab: 'context' },
+  }]
+}
+
+function ruleContextSIFResponseTime(sif: SIF): DiagnosticItem[] {
+  // Only flag if PST is defined — response time must then be < PST
+  if (!sif.processSafetyTime || sif.processSafetyTime <= 0) return []
+  if (sif.sifResponseTime == null) {
+    return [{
+      id: 'ctx-sif-response-time-missing',
+      severity: 'warning',
+      phase: 'context',
+      title: 'Temps de réponse SIF non renseigné',
+      detail: `Le PST est ${sif.processSafetyTime}s — le temps de réponse de la SIF doit être vérifié ≤ PST.`,
+      action: { label: 'Aller au contexte', tab: 'context' },
+    }]
+  }
+  if (sif.sifResponseTime >= sif.processSafetyTime) {
+    return [{
+      id: 'ctx-sif-response-time-exceeds-pst',
+      severity: 'error',
+      phase: 'context',
+      title: `Temps de réponse SIF (${sif.sifResponseTime}s) ≥ PST (${sif.processSafetyTime}s)`,
+      detail: 'La SIF ne peut pas atteindre l\'état sûr avant la fin du temps de sécurité procédé.',
+      action: { label: 'Aller au contexte', tab: 'context' },
+    }]
+  }
+  return []
+}
+
 // ─── Architecture rules ───────────────────────────────────────────────────────
 
 function ruleArchSubsystemsExist(sif: SIF): DiagnosticItem[] {
@@ -204,6 +254,9 @@ export function runSIFDiagnosticRules(
     ...ruleContextSILTarget(sif),
     ...ruleContextProcessTag(sif),
     ...ruleContextHazardousEvent(sif),
+    ...ruleContextProcessSafetyTime(sif),
+    ...ruleContextSafeState(sif),
+    ...ruleContextSIFResponseTime(sif),
     // Architecture
     ...ruleArchSubsystemsExist(sif),
     ...ruleArchEmptySubsystems(sif),

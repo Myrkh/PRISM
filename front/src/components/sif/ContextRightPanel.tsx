@@ -1,4 +1,4 @@
-import { Activity, AlertTriangle, ArrowRight, CheckCircle2, FileText, ShieldCheck, Sparkles } from 'lucide-react'
+import { AlertTriangle, ArrowRight, CheckCircle2, ShieldCheck, Sparkles } from 'lucide-react'
 import type { SIF } from '@/core/types'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
 import type { OverviewMetrics } from '@/components/sif/overviewMetrics'
@@ -9,7 +9,7 @@ import {
   RightPanelSection,
   RightPanelShell,
 } from '@/components/layout/RightPanelShell'
-import { semantic } from '@/styles/tokens'
+import { BORDER, semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { useSIFDiagnostics } from '@/core/diagnostics'
 import { DiagnosticsPanel } from '@/components/sif/DiagnosticsPanel'
@@ -53,7 +53,7 @@ export function ContextRightPanel({
 
   return (
     <RightPanelShell contentBg={PANEL_BG} persistKey="context">
-      <RightPanelSection id="ready" label="Ready" Icon={ShieldCheck}>
+      <RightPanelSection id="etat" label="État" Icon={ShieldCheck}>
         <p className="mb-3 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
           Lecture du contexte avant le passage vers l'architecture.
         </p>
@@ -70,9 +70,12 @@ export function ContextRightPanel({
             </InspectorSurface>
           ))}
         </div>
+        <div className="mt-3">
+          <DiagnosticsPanel diagnostics={diagnostics} filterPhase="context" />
+        </div>
       </RightPanelSection>
 
-      <RightPanelSection id="blockers" label="Blockers" Icon={AlertTriangle}>
+      <RightPanelSection id="actions" label="Actions" Icon={Sparkles}>
         <p className="mb-3 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
           {missingItems.length > 0
             ? `${missingItems.length} élément${missingItems.length > 1 ? 's restent' : ' reste'} à documenter avant une lecture propre du contexte.`
@@ -100,13 +103,7 @@ export function ContextRightPanel({
             </InspectorSurface>
           )}
         </div>
-      </RightPanelSection>
-
-      <RightPanelSection id="diagnostics" label="Diagnostics" Icon={Activity}>
-        <DiagnosticsPanel diagnostics={diagnostics} filterPhase="context" />
-      </RightPanelSection>
-
-      <RightPanelSection id="next" label="Prochaine étape" Icon={Sparkles}>
+        <div className="my-3 h-px" style={{ background: BORDER }} />
         <p className="mb-3 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
           {missingItems.length > 0
             ? "Le contexte doit d'abord fermer les manques documentaires avant le passage architecture."

@@ -478,7 +478,7 @@ export function OverviewTab({
             {priorityActions.slice(0, 4).map((action, index) => (
               <div
                 key={action.id}
-                className="rounded-2xl border p-4.5"
+                className="rounded-xl border p-4"
                 style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_CARD }}
               >
                 <div className="flex items-start gap-3">

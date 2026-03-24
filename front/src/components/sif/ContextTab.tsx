@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react'
 import {
   Save, AlertTriangle, Shield, Users,
-  Hash,
+  Hash, Timer,
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import type { HAZOPTrace, SIF, SILLevel } from '@/core/types'
@@ -24,6 +24,9 @@ type ContextDraft = Pick<
   | 'demandRate'
   | 'targetSIL'
   | 'rrfRequired'
+  | 'processSafetyTime'
+  | 'sifResponseTime'
+  | 'safeState'
   | 'madeBy'
   | 'verifiedBy'
   | 'approvedBy'
@@ -49,6 +52,9 @@ function buildDraft(sif: SIF): ContextDraft {
     demandRate: sif.demandRate,
     targetSIL: sif.targetSIL,
     rrfRequired: sif.rrfRequired,
+    processSafetyTime: sif.processSafetyTime ?? undefined,
+    sifResponseTime: sif.sifResponseTime ?? undefined,
+    safeState: sif.safeState ?? '',
     madeBy: sif.madeBy,
     verifiedBy: sif.verifiedBy,
     approvedBy: sif.approvedBy,
@@ -187,6 +193,9 @@ export function ContextTab({ projectId, sif }: Props) {
         demandRate: Number(draft.demandRate),
         targetSIL: Number(draft.targetSIL) as SIF['targetSIL'],
         rrfRequired: Number(draft.rrfRequired),
+        processSafetyTime: draft.processSafetyTime != null ? Number(draft.processSafetyTime) : undefined,
+        sifResponseTime: draft.sifResponseTime != null ? Number(draft.sifResponseTime) : undefined,
+        safeState: draft.safeState,
         madeBy: draft.madeBy,
         verifiedBy: draft.verifiedBy,
         approvedBy: draft.approvedBy,
@@ -267,6 +276,40 @@ export function ContextTab({ projectId, sif }: Props) {
               <span className="text-sm font-mono font-bold" style={{ color: TEAL_DIM }}>
                 {draft.rrfRequired > 0 ? (1 / draft.rrfRequired).toExponential(1) : '—'}
               </span>
+            </div>
+            <div className="pt-1" style={{ borderTop: `1px solid ${BORDER}` }}>
+              <div className="flex items-center gap-1.5 mb-3 mt-2">
+                <Timer size={11} style={{ color: TEXT_DIM }} />
+                <span className="text-[9px] font-bold uppercase tracking-[0.12em]" style={{ color: TEXT_DIM }}>Temps process &amp; réponse SIF</span>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <FieldLabel>PST — Temps sécurité procédé (s)</FieldLabel>
+                  <FInput
+                    type="number" step="1"
+                    value={draft.processSafetyTime ?? ''}
+                    onChange={v => upd('processSafetyTime', v === '' ? undefined : Number(v))}
+                    placeholder="ex. 30"
+                  />
+                </div>
+                <div>
+                  <FieldLabel>Temps de réponse SIF (s)</FieldLabel>
+                  <FInput
+                    type="number" step="0.1"
+                    value={draft.sifResponseTime ?? ''}
+                    onChange={v => upd('sifResponseTime', v === '' ? undefined : Number(v))}
+                    placeholder="ex. 5"
+                  />
+                </div>
+              </div>
+              <div className="mt-3">
+                <FieldLabel>État sûr (Safe State)</FieldLabel>
+                <FInput
+                  value={draft.safeState ?? ''}
+                  onChange={v => upd('safeState', v)}
+                  placeholder="ex. Vanne ESD-001 fermée, pompe arrêtée"
+                />
+              </div>
             </div>
           </div>
         </Card>

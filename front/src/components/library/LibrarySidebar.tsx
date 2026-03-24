@@ -13,6 +13,7 @@ import {
   sidebarPressUp,
 } from '@/components/layout/SidebarPrimitives'
 import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
+import { useAppStore } from '@/store/appStore'
 import { getLibraryStrings } from '@/i18n/library'
 import { useLocaleStrings } from '@/i18n/useLocale'
 import { usePrismTheme } from '@/styles/usePrismTheme'
@@ -407,10 +408,11 @@ export function LibrarySidebar() {
   const { setRightPanelOpen } = useLayout()
   const s = useLocaleStrings(getLibraryStrings).sidebar
   const { BORDER, PANEL_BG, TEXT_DIM, SHADOW_SOFT, isDark } = usePrismTheme()
+  const defaultClosed = useAppStore(s => s.preferences.rightPanelDefaultState) === 'closed'
 
-  const [prismCollapsed,  setPrismCollapsed]  = useState(false)
-  const [myLibCollapsed,  setMyLibCollapsed]  = useState(false)
-  const [familyCollapsed, setFamilyCollapsed] = useState(false)
+  const [prismCollapsed,  setPrismCollapsed]  = useState(defaultClosed)
+  const [myLibCollapsed,  setMyLibCollapsed]  = useState(defaultClosed)
+  const [familyCollapsed, setFamilyCollapsed] = useState(defaultClosed)
 
   // Inline new collection input
   const [newCollectionOpen, setNewCollectionOpen] = useState(false)
@@ -471,7 +473,7 @@ export function LibrarySidebar() {
       className="flex h-full flex-col min-h-0 overflow-hidden"
       style={{
         background: PANEL_BG,
-        boxShadow: `${SHADOW_SOFT}, inset -1px 0 0 ${isDark ? 'rgba(255,255,255,0.055)' : 'rgba(255,255,255,0.78)'}`,
+        boxShadow: `${SHADOW_SOFT}, inset -1px 0 0 ${isDark ? 'rgba(255,255,255,0.055)' : 'rgba(255,255,255,0.78)'}, inset 0 1px 0 ${isDark ? 'rgba(255,255,255,0.045)' : 'rgba(255,255,255,0.88)'}`,
       }}
     >
       {/* ── Header ── */}

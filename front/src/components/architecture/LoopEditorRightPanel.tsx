@@ -311,39 +311,43 @@ function SubsystemArchSection({
     : 'Number of final elements'
 
   return (
-    <div className="overflow-hidden rounded-xl border" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_SOFT }}>
+    <div className="border-b last:border-b-0" style={{ borderColor: BORDER }}>
+      {/* Flat subsystem header */}
       <button
         type="button"
         onClick={() => setOpen(v => !v)}
-        className="prism-action flex w-full min-w-0 items-center gap-2.5 px-3 py-2.5 text-left"
-        style={{ background: open ? PAGE_BG : CARD_BG }}
+        className="prism-action flex w-full min-w-0 items-center gap-2 px-3 py-2 text-left"
       >
+        <span
+          className="shrink-0 w-0.5 self-stretch rounded-full mr-1"
+          style={{ background: meta.color, opacity: 0.7 }}
+        />
         <div
-          className="flex h-5 w-5 shrink-0 items-center justify-center rounded"
-          style={{ background: `${meta.color}20` }}
+          className="flex h-4 w-4 shrink-0 items-center justify-center rounded"
+          style={{ background: `${meta.color}1A` }}
         >
-          <meta.Icon size={10} style={{ color: meta.color }} />
+          <meta.Icon size={9} style={{ color: meta.color }} />
         </div>
-        <span className="min-w-0 flex-1 truncate text-[11px] font-semibold" style={{ color: TEXT }}>{meta.label}</span>
+        <span className="min-w-0 flex-1 truncate text-[10px] font-bold uppercase tracking-[0.13em]" style={{ color: meta.color }}>{meta.label}</span>
         <div className="flex shrink-0 items-center gap-1.5">
           <span
             className="rounded px-1.5 py-0.5 text-[9px] font-mono font-bold"
-            style={{ background: `${meta.color}15`, color: meta.color }}
+            style={{ background: `${meta.color}14`, color: meta.color }}
           >
             {subsystem.architecture}
           </span>
           <span className="text-[9px] font-mono" style={{ color: TEXT_DIM }}>{channelCount}V</span>
           {open
-            ? <ChevronDown size={10} style={{ color: TEXT_DIM }} />
-            : <ChevronRight size={10} style={{ color: TEXT_DIM }} />
+            ? <ChevronDown size={9} style={{ color: TEXT_DIM }} />
+            : <ChevronRight size={9} style={{ color: TEXT_DIM }} />
           }
         </div>
       </button>
 
       {open && (
-        <div className="space-y-3 border-t px-3 pb-3 pt-3" style={{ background: PAGE_BG, borderColor: BORDER }}>
-          <div className="space-y-2 rounded-lg border p-3" style={{ borderColor: BORDER, background: CARD_BG }}>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEAL }}>
+        <div className="space-y-4 px-3 pb-3">
+          <div className="space-y-2">
+            <p className="text-[9px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>
               {meta.label} architecture
             </p>
             <div className="grid gap-2" style={{ gridTemplateColumns: PANEL_FORM_GRID }}>
@@ -455,7 +459,7 @@ function SubsystemArchSection({
           </div>
 
           {activeChannel && (
-            <div className="space-y-2 rounded-lg border p-3" style={{ borderColor: BORDER, background: CARD_BG }}>
+            <div className="space-y-2">
               <div className="overflow-x-auto border-b pb-2" style={{ borderColor: `${BORDER}88`, scrollbarWidth: 'thin' }}>
                 <div className="flex min-w-max items-center gap-1">
                   {subsystem.channels.map(channel => {
@@ -713,20 +717,18 @@ function ArchitectureConfigPanel({
   }
 
   return (
-    <RightPanelBody compact className="space-y-3">
-      <div className="space-y-3">
-        {sif.subsystems.map(subsystem => (
-          <SubsystemArchSection
-            key={subsystem.id}
-            subsystem={subsystem}
-            projectId={projectId}
-            sifId={sif.id}
-            sifNumber={sif.sifNumber}
-            onOpenCcfBeta={onOpenCcfBeta}
-          />
-        ))}
-      </div>
-    </RightPanelBody>
+    <div className="flex flex-col overflow-y-auto flex-1 min-h-0" style={{ scrollbarGutter: 'stable' }}>
+      {sif.subsystems.map(subsystem => (
+        <SubsystemArchSection
+          key={subsystem.id}
+          subsystem={subsystem}
+          projectId={projectId}
+          sifId={sif.id}
+          sifNumber={sif.sifNumber}
+          onOpenCcfBeta={onOpenCcfBeta}
+        />
+      ))}
+    </div>
   )
 }
 

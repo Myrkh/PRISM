@@ -5,7 +5,7 @@
  * Groupés par client → projet → SIF(s).
  * Pinned SIFs en haut pour accès rapide.
  */
-import { useMemo, useState, useEffect, useRef } from 'react'
+import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import {
   FileText, ChevronRight, Folder, FolderOpen, Pencil, Pin, Plus,
   MoreHorizontal, Download, Upload, Trash2,
@@ -20,6 +20,40 @@ import { SidebarBody, sidebarHoverIn, sidebarHoverOut, sidebarPressDown, sidebar
 import { downloadSIF, downloadProject } from '@/lib/prismFormat'
 import { PrismImportModal } from '@/components/PrismImportModal'
 import type { Project, SIF } from '@/core/types/sif.types'
+
+// ─── Inline rename input ──────────────────────────────────────────────────
+function InlineRenameInput({
+  initialValue,
+  onCommit,
+  onCancel,
+}: {
+  initialValue: string
+  onCommit: (name: string) => void
+  onCancel: () => void
+}) {
+  const { BORDER, CARD_BG, TEAL, TEXT } = usePrismTheme()
+  const ref = useRef<HTMLInputElement>(null)
+  useEffect(() => { ref.current?.select() }, [])
+  const commit = useCallback(() => {
+    const v = ref.current?.value.trim()
+    if (v) onCommit(v)
+    else onCancel()
+  }, [onCommit, onCancel])
+  return (
+    <input
+      ref={ref}
+      defaultValue={initialValue}
+      className="min-w-0 flex-1 rounded px-1.5 py-0.5 text-sm outline-none"
+      style={{ background: CARD_BG, border: `1px solid ${TEAL}`, color: TEXT, boxShadow: `0 0 0 2px ${TEAL}22` }}
+      onBlur={commit}
+      onKeyDown={e => {
+        if (e.key === 'Enter') { e.preventDefault(); commit() }
+        if (e.key === 'Escape') { e.preventDefault(); onCancel() }
+      }}
+      onClick={e => e.stopPropagation()}
+    />
+  )
+}
 
 // ─── Lightweight context menu (shared by project + SIF rows) ─────────────
 type TreeMenuItem =
@@ -77,10 +111,13 @@ export function ProjectTree({ projectId, sifId }: Props) {
   const activeTab = view.type === 'sif-dashboard' ? normalizeSIFTab(view.tab) : null
   const currentProject = projects.find(p => p.id === projectId)
 
-  const [importModal,     setImportModal]     = useState<{ open: boolean; projectId?: string }>({ open: false })
-  const [projectMenuOpen, setProjectMenuOpen] = useState<string | null>(null)
-  const deleteProject = useAppStore(s => s.deleteProject)
-  const deleteSIF     = useAppStore(s => s.deleteSIF)
+  const [importModal,      setImportModal]      = useState<{ open: boolean; projectId?: string }>({ open: false })
+  const [projectMenuOpen,  setProjectMenuOpen]  = useState<string | null>(null)
+  const [renamingProjectId, setRenamingProjectId] = useState<string | null>(null)
+  const deleteProject  = useAppStore(s => s.deleteProject)
+  const deleteSIF      = useAppStore(s => s.deleteSIF)
+  const updateProject  = useAppStore(s => s.updateProject)
+  const updateSIF      = useAppStore(s => s.updateSIF)
 
   const [openProjects, setOpenProjects] = useState<Set<string>>(() => {
     const initialOpen = new Set<string>()
@@ -130,7 +167,8 @@ export function ProjectTree({ projectId, sifId }: Props) {
     showProject?: boolean
     inTree?: boolean
   }) => {
-    const [sifMenu, setSifMenu] = useState(false)
+    const [sifMenu, setSifMenu]         = useState(false)
+    const [renamingSif, setRenamingSif] = useState(false)
     const ok = sifLookup.get(s.id)?.ok ?? calcSIF(s, { projectStandard: proj.standard }).meetsTarget
     const cur = s.id === sifId && proj.id === projectId
     const isPinned = pinnedSet.has(s.id)
@@ -204,8 +242,16 @@ export function ProjectTree({ projectId, sifId }: Props) {
                 <Pencil size={8} style={{ color: TEAL }} />
               </span>
             </span>
-            <div className="min-w-0 flex-1">
-              <p className="truncate text-sm">{s.sifNumber}</p>
+            <div className="min-w-0 flex-1" onDoubleClick={e => { e.stopPropagation(); setRenamingSif(true) }}>
+              {renamingSif ? (
+                <InlineRenameInput
+                  initialValue={s.sifNumber}
+                  onCommit={name => { void updateSIF(proj.id, s.id, { sifNumber: name }); setRenamingSif(false) }}
+                  onCancel={() => setRenamingSif(false)}
+                />
+              ) : (
+                <p className="truncate text-sm">{s.sifNumber}</p>
+              )}
               {showProject && (
                 <p className="truncate text-[10px]" style={{ color: TEXT_DIM }}>{proj.name}</p>
               )}
@@ -263,6 +309,10 @@ export function ProjectTree({ projectId, sifId }: Props) {
               <TreeContextMenu
                 onClose={() => setSifMenu(false)}
                 items={[
+                  {
+                    kind: 'action', label: 'Renommer', icon: <Pencil size={12} />,
+                    onClick: () => setRenamingSif(true),
+                  },
                   {
                     kind: 'action', label: 'Exporter (.prism)', icon: <Download size={12} />,
                     onClick: () => downloadSIF(s as unknown as SIF, proj as unknown as Project),
@@ -433,8 +483,16 @@ export function ProjectTree({ projectId, sifId }: Props) {
                   ) : (
                     <Folder size={15} className="shrink-0" style={{ color: projectActive ? TEAL : TEXT_DIM }} />
                   )}
-                  <div className="min-w-0 flex-1 text-left">
-                    <p className="truncate">{proj.name}</p>
+                  <div className="min-w-0 flex-1 text-left" onDoubleClick={e => { e.stopPropagation(); setRenamingProjectId(proj.id) }}>
+                    {renamingProjectId === proj.id ? (
+                      <InlineRenameInput
+                        initialValue={proj.name}
+                        onCommit={name => { void updateProject(proj.id, { name }); setRenamingProjectId(null) }}
+                        onCancel={() => setRenamingProjectId(null)}
+                      />
+                    ) : (
+                      <p className="truncate">{proj.name}</p>
+                    )}
                     <p className="truncate text-[10px]" style={{ color: TEXT_DIM }}>{[proj.client, proj.ref].filter(Boolean).join(' · ')}</p>
                   </div>
                   <StatusIcon ok={projOk} />
@@ -456,6 +514,10 @@ export function ProjectTree({ projectId, sifId }: Props) {
                     <TreeContextMenu
                       onClose={() => setProjectMenuOpen(null)}
                       items={[
+                        {
+                          kind: 'action', label: 'Renommer', icon: <Pencil size={12} />,
+                          onClick: () => setRenamingProjectId(proj.id),
+                        },
                         {
                           kind: 'action', label: 'Exporter projet (.prism)', icon: <Download size={12} />,
                           onClick: () => downloadProject(proj as unknown as Project),

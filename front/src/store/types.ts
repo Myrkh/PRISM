@@ -182,6 +182,7 @@ export interface AppState {
   leftPanelOpen: boolean
   rightPanelOpen: boolean
   focusMode: boolean
+  chatPanelOpen: boolean
 
   // ── Split view ──
   // null = split closed  |  projectId/sifId null = split open, no SIF selected yet
@@ -201,6 +202,7 @@ export interface AppState {
   toggleLeftPanel: () => void
   toggleRightPanel: () => void
   setRightPanelOpen: (open: boolean) => void
+  toggleChatPanel: () => void
   toggleFocusMode: () => void
   toggleStatusBar: () => void
   toggleActivityBar: () => void

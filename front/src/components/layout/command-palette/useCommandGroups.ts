@@ -18,6 +18,7 @@ import { getShellStrings } from '@/i18n/shell'
 import { useAppStore, type SIFTab } from '@/store/appStore'
 import { useWorkspaceStore } from '@/store/workspaceStore'
 import { toast } from '@/components/ui/toast'
+import { DOC_CHAPTERS } from '@/docs'
 // useAppStore.getState() used for imperative one-shot updates inside callbacks
 import { normalizeSIFTab } from '@/store/types'
 import { getSearchResultIcon } from '@/components/search/searchMeta'
@@ -593,9 +594,19 @@ export function useCommandGroups({
 
   // ── Help / ? mode ─────────────────────────────────────────────────────────
 
-  const helpGroup: CommandGroup = {
-    heading: strings.commandPalette.groups.help,
+  const helpModesGroup: CommandGroup = {
+    heading: 'Modes de recherche',
     items: [
+      {
+        id: 'help-mode-default',
+        label: '(aucun préfixe) — Recherche globale',
+        keywords: 'default search recherche globale mode help aide',
+        Icon: Search,
+        meta: 'SIFs, notes, PDF, composants, templates…',
+        onSelect: () => setSearch(''),
+        isActive: false,
+        level: 0,
+      },
       {
         id: 'help-mode-commands',
         label: '> Commandes & actions',
@@ -608,10 +619,10 @@ export function useCommandGroups({
       },
       {
         id: 'help-mode-sif',
-        label: '# Recherche SIF',
-        keywords: 'sif search number numéro titre mode help aide',
+        label: '# SIF & Workspace',
+        keywords: 'sif search number numéro titre workspace note pdf image mode help aide',
         Icon: Hash,
-        meta: 'Naviguer directement vers une SIF par numéro',
+        meta: 'Naviguer vers une SIF, une note, un PDF ou une image',
         onSelect: () => setSearch('#'),
         isActive: false,
         level: 0,
@@ -626,17 +637,47 @@ export function useCommandGroups({
         isActive: false,
         level: 0,
       },
+    ],
+  }
+
+  const helpShortcutsGroup: CommandGroup = {
+    heading: 'Raccourcis clavier',
+    items: [
       {
-        id: 'help-shortcut-kb',
-        label: 'Ctrl+K — Command palette',
-        keywords: 'shortcut raccourci keyboard clavier',
+        id: 'help-shortcut-palette',
+        label: 'Ctrl+K — Ouvrir la command palette',
+        keywords: 'shortcut raccourci keyboard clavier palette',
         Icon: HelpCircle,
         meta: 'Ctrl+Shift+P pour le mode commandes directement',
         onSelect: () => { /* no-op */ },
         isActive: false,
         level: 0,
       },
+      {
+        id: 'help-shortcut-all',
+        label: 'Voir tous les raccourcis…',
+        keywords: 'shortcut raccourci keyboard clavier keybinding',
+        Icon: Settings,
+        meta: 'Ouvre les préférences → Raccourcis clavier',
+        onSelect: () => run(() => navigate({ type: 'settings', section: 'shortcuts' })),
+        isActive: false,
+        level: 0,
+      },
     ],
+  }
+
+  const helpDocGroup: CommandGroup = {
+    heading: 'Documentation',
+    items: DOC_CHAPTERS.map(ch => ({
+      id: `help-doc-${ch.id}`,
+      label: ch.title,
+      keywords: `doc documentation ${ch.title} ${ch.group} help aide`,
+      Icon: ch.Icon,
+      meta: ch.group === 'engine' ? 'Moteur de calcul' : 'Interface & workflow',
+      onSelect: () => run(() => navigate({ type: 'docs' })),
+      isActive: false,
+      level: 0 as const,
+    })),
   }
 
   // ── Search results (default + commands mode when query non-empty) ─────────
@@ -646,6 +687,36 @@ export function useCommandGroups({
     [allProjectTemplates, builtinTemplates, userTemplates],
   )
   const workspaceNodes = useWorkspaceStore(s => Object.values(s.nodes))
+
+  // ── Workspace nodes (# mode) — notes, PDFs, images ──────────────────────
+
+  const workspaceDocsGroup: CommandGroup = {
+    heading: 'Workspace',
+    items: workspaceNodes
+      .filter(n => n.type === 'note' || n.type === 'pdf' || n.type === 'image')
+      .map(node => {
+        const Icon = node.type === 'note' ? FileText : node.type === 'pdf' ? BookOpen : FileImage
+        return {
+          id: `ws-${node.id}`,
+          label: node.name,
+          keywords: `workspace ${node.type} ${node.name}`,
+          Icon,
+          meta: node.type === 'note' ? 'Note' : node.type === 'pdf' ? 'PDF' : 'Image',
+          onSelect: () => run(() => {
+            if (node.type === 'note') {
+              useWorkspaceStore.getState().openTab(node.id)
+              navigate({ type: 'note', noteId: node.id })
+            } else {
+              useWorkspaceStore.getState().openTab(node.id)
+              navigate({ type: 'workspace-file', nodeId: node.id })
+            }
+          }),
+          isActive: false,
+          level: 0 as const,
+        }
+      }),
+  }
+
   const searchIndex = useMemo(
     () => buildSearchIndex(projects, revisions, libraryTemplates, workspaceNodes),
     [libraryTemplates, projects, revisions, workspaceNodes],
@@ -711,14 +782,14 @@ export function useCommandGroups({
       generalGroup,
     ]
   } else if (mode === 'sif') {
-    // # mode: SIFs only (projects as secondary)
-    rawGroups = [sifsGroup, projectsGroup]
+    // # mode: SIFs + workspace documents
+    rawGroups = [sifsGroup, workspaceDocsGroup, projectsGroup]
   } else if (mode === 'symbols') {
     // @ mode: components only
     rawGroups = symbolsGroup ? [symbolsGroup] : []
   } else if (mode === 'help') {
-    // ? mode: help items only, no search filtering
-    rawGroups = [helpGroup]
+    // ? mode: modes + shortcuts + doc chapters
+    rawGroups = [helpModesGroup, helpShortcutsGroup, helpDocGroup]
   } else {
     // default mode: everything
     rawGroups = [

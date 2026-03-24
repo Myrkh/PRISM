@@ -21,6 +21,7 @@ import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { CommandPalette } from './command-palette'
 import { LayoutControls } from './layout-controls'
+import { ChatIcon, ChatPanel } from './ChatPanel'
 
 function getUserInitials(value: string | null | undefined): string {
   if (!value) return 'U'
@@ -31,11 +32,13 @@ function getUserInitials(value: string | null | undefined): string {
 }
 
 export function AppHeader() {
-  const { BORDER, RAIL_BG, PANEL_BG, PAGE_BG, SHADOW_SOFT, SHADOW_TAB, TEXT, TEXT_DIM, isDark: themeIsDark } = usePrismTheme()
+  const { BORDER, RAIL_BG, PANEL_BG, PAGE_BG, SHADOW_SOFT, SHADOW_TAB, TEAL, TEXT, TEXT_DIM, isDark: themeIsDark } = usePrismTheme()
   const strings  = useLocaleStrings(getShellStrings)
-  const navigate  = useAppStore(s => s.navigate)
-  const toggleTheme = useAppStore(s => s.toggleTheme)
-  const authUser  = useAppStore(s => s.authUser)
+  const navigate        = useAppStore(s => s.navigate)
+  const toggleTheme     = useAppStore(s => s.toggleTheme)
+  const authUser        = useAppStore(s => s.authUser)
+  const chatPanelOpen   = useAppStore(s => s.chatPanelOpen)
+  const toggleChatPanel = useAppStore(s => s.toggleChatPanel)
   const profile   = useAppStore(s => s.profile)
   const signOut   = useAppStore(s => s.signOut)
 
@@ -116,6 +119,24 @@ export function AppHeader() {
           onOpenSearch={() => navigate({ type: 'search' })}
           onOpenLibrary={() => navigate({ type: 'library' })}
         />
+
+        {/* ── Chat panel button ── */}
+        <button
+          type="button"
+          title="PRISM AI Chat (⌘I)"
+          onClick={toggleChatPanel}
+          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-all"
+          style={chatPanelOpen ? {
+            borderColor: `${TEAL}40`,
+            background: `${TEAL}14`,
+            boxShadow: `0 0 0 1px ${TEAL}22`,
+          } : {
+            borderColor: BORDER,
+            background: 'transparent',
+          }}
+        >
+          <ChatIcon size={15} color={chatPanelOpen ? TEAL : TEXT_DIM} />
+        </button>
 
         {/* Thin separator */}
         <div className="h-4 w-px shrink-0" style={{ background: BORDER }} />
@@ -240,6 +261,7 @@ export function AppHeader() {
           </div>
         )}
       </div>
+      {chatPanelOpen && <ChatPanel onClose={toggleChatPanel} />}
     </header>
   )
 }

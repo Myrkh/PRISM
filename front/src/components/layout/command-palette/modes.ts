@@ -29,9 +29,9 @@ export const COMMAND_MODES: ModeConfig[] = [
   {
     prefix:      '#',
     mode:        'sif',
-    badge:       'SIF',
+    badge:       'SIF & WORKSPACE',
     badgeColor:  '#4ADE80',
-    placeholder: 'Numéro, titre ou tag de SIF…',
+    placeholder: 'SIF, note, PDF, image…',
   },
   {
     prefix:      '@',
