@@ -6,6 +6,83 @@
 
 ---
 
+## Session 6 — 2026-03-24 · Mistral AI + .prism/ éditeur plein écran + Sécurité clés API
+
+### Mistral AI — 3ème provider LLM (souveraineté UE 🇫🇷)
+
+Ajout de Mistral AI comme provider IA natif, en plus d'Anthropic et Ollama.
+
+#### Fichiers modifiés
+
+| Fichier | Changement |
+|---------|-----------|
+| `backend/app/services/ai_service.py` | Provider `"mistral"`, `SUPPORTED_MISTRAL_MODELS`, `AIConfig.mistral_api_key/model`, `_stream_mistral()`, health check Mistral |
+| `backend/app/routes/ai.py` | `ChatRequest.provider` étendu à `"mistral"`, override model pour Mistral, endpoint `/api/ai/models` retourne liste Mistral |
+| `front/src/components/layout/ChatPanel.tsx` | `MODELS` étendu avec 3 modèles Mistral (Large, Small, Nemo), sélecteur groupé par provider (Anthropic / Mistral AI) |
+
+#### Détails techniques
+
+- **API Mistral** : format OpenAI-compatible (`/v1/chat/completions`, SSE, `Bearer` auth) — intégration propre sans dépendance SDK
+- **4 modèles** : `mistral-large-latest` (flagship), `mistral-small-latest` (économique), `mistral-nemo` (local/Ollama), `codestral-latest` (code)
+- **Health check** : interroge `GET /v1/models` pour lister les modèles disponibles
+- **Config** : `MISTRAL_API_KEY` + `MISTRAL_MODEL` dans `.env`
+
+---
+
+### .prism/ — Éditeur plein écran (fix largeur)
+
+Deux correctifs CSS pour que les fichiers `.prism/` occupent tout l'espace disponible.
+
+#### Problème 1 — `max-width: 760px` dans NotePreview
+
+`notePreview.css` appliquait `max-width: 760px; margin: 0 auto` à `.prism-note-preview`, ce qui centrait le contenu sur 760px et laissait un vide à droite.
+
+**Fix** : `max-width` piloté par une CSS variable `--prism-preview-max-width` (défaut `760px` pour les notes, `none` pour le .prism/ éditeur).
+
+#### Problème 2 — Flex items sans `flex-1`
+
+`PrismFileEditor`, `EditableEditor` et `RegistryViewer` utilisaient `flex h-full flex-col` sans `flex-1`, donc leur largeur était déterminée par le contenu, pas l'espace disponible.
+
+**Fix** : remplacement de `h-full` par `flex-1 min-w-0` sur les 3 composants (pattern identique à `NoteEditorWorkspace`).
+
+#### Fichiers modifiés
+
+| Fichier | Changement |
+|---------|-----------|
+| `front/src/styles/notePreview.css` | `max-width: var(--prism-preview-max-width, 760px)` |
+| `front/src/components/prism/PrismFileEditor.tsx` | `flex-1 min-w-0` sur `EditableEditor`, `RegistryViewer`, `PrismFileEditor` + `--prism-preview-max-width: none` dans `cssVars` |
+
+---
+
+### Sécurité — Protection des clés API
+
+Les clés API ne doivent jamais être commitées dans le dépôt.
+
+#### Fichiers créés / modifiés
+
+| Fichier | Rôle |
+|---------|------|
+| `backend/.env.example` | Template documenté — toutes les variables avec valeurs placeholder et commentaires |
+| `backend/.gitignore` | Créé : exclut `.env`, `.env.local`, `__pycache__`, `.venv`, build PyInstaller |
+| `.gitignore` (racine) | Ajout `.env` et `.env.*.local` (seul `.env.local` était exclu avant) |
+
+#### Workflow correct
+
+```bash
+# 1. Copier le template
+cp backend/.env.example backend/.env
+
+# 2. Renseigner les clés dans backend/.env
+#    → ANTHROPIC_API_KEY=sk-ant-...
+#    → MISTRAL_API_KEY=...
+#    → ou OLLAMA_HOST=localhost pour le mode local
+
+# 3. .env est dans .gitignore → jamais commité
+# 4. .env.example est commité → documente les variables sans exposer les secrets
+```
+
+---
+
 ## Session 5 — 2026-03-24 · PRISM AI — Chat Panel complet + Architecture IA
 
 ### ChatPanel — Fenêtre de chat flottante (production-ready)

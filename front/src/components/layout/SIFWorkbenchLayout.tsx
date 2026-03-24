@@ -374,7 +374,8 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
   const showSIFBrowser   = view.type === 'home'
   const showNote         = view.type === 'note'
   const showFile         = view.type === 'workspace-file'
-  const showHome         = !showSettings && !showDocs && !showSearch && !showLibrary && !showDashboard && !showGlobal && !showNote && !showFile
+  const showPrismFile    = view.type === 'prism-file'
+  const showHome         = !showSettings && !showDocs && !showSearch && !showLibrary && !showDashboard && !showGlobal && !showNote && !showFile && !showPrismFile
 
   // Auto-open right panel for global views
   useEffect(() => {
@@ -550,6 +551,11 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
               {/* File viewer (PDF / Image) */}
               {showFile && (
                 <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{wrapCentered(children)}</div>
+              )}
+
+              {/* .prism/ file editor */}
+              {showPrismFile && (
+                <div className="flex flex-1 min-w-0 min-h-0 overflow-hidden">{children}</div>
               )}
 
               {/* Settings — full width, no panels */}

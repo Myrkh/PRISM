@@ -289,6 +289,16 @@ export const useAppStore = create<AppState>()(
       rightPanelOpen: true,
       focusMode: false,
       chatPanelOpen: false,
+      prismFiles: (() => {
+        try {
+          const stored = localStorage.getItem('prism_workspace_files')
+          return stored
+            ? (JSON.parse(stored) as Record<string, string>)
+            : { 'context.md': '', 'conventions.md': '', 'standards.md': '' }
+        } catch {
+          return { 'context.md': '', 'conventions.md': '', 'standards.md': '' }
+        }
+      })(),
 
       // Split view
       secondSlot: null,
@@ -427,6 +437,10 @@ export const useAppStore = create<AppState>()(
       toggleLeftPanel: () => set(s => { s.leftPanelOpen = !s.leftPanelOpen }),
       toggleRightPanel: () => set(s => { s.rightPanelOpen = !s.rightPanelOpen }),
       toggleChatPanel: () => set(s => { s.chatPanelOpen = !s.chatPanelOpen }),
+      setPrismFile: (filename, content) => set(s => {
+        s.prismFiles[filename] = content
+        try { localStorage.setItem('prism_workspace_files', JSON.stringify(s.prismFiles)) } catch { /* quota */ }
+      }),
       setRightPanelOpen: (open) => set(s => { s.rightPanelOpen = open }),
       toggleFocusMode: () => set(s => {
         s.focusMode = !s.focusMode

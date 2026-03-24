@@ -1,8 +1,3 @@
-# Node
-node_modules/
-dist/
-.supabase/
-
 # Environment — ne jamais committer les clés API
 .env
 .env.local
@@ -10,26 +5,23 @@ dist/
 
 # Python
 __pycache__/
-backend/frontend/
-backend/public/
-release/
 *.pyc
+*.pyo
 .venv/
+venv/
 .mypy_cache/
 .ruff_cache/
 .pytest_cache/
 htmlcov/
 .coverage
+dist/
+build/
+*.spec.bak
+
+# PyInstaller output
+dist/PRISM-backend.exe
+dist/PRISM-backend/
 
 # IDE
 .vscode/
-.claude/
 .idea/
-.idx/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Docker
-*.log

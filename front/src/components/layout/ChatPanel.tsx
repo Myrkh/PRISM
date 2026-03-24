@@ -72,9 +72,12 @@ const DEFAULT_CONFIG: ChatConfig = {
 }
 
 const MODELS = [
-  { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', badge: 'Recommandé' },
-  { id: 'claude-opus-4-6',   label: 'Claude Opus 4.6',   badge: 'Puissant' },
-  { id: 'claude-haiku-4-5',  label: 'Claude Haiku 4.5',  badge: 'Rapide' },
+  { id: 'claude-sonnet-4-6',   label: 'Claude Sonnet 4.6',  badge: 'Anthropic',  group: 'Anthropic' },
+  { id: 'claude-opus-4-6',     label: 'Claude Opus 4.6',    badge: 'Puissant',   group: 'Anthropic' },
+  { id: 'claude-haiku-4-5',    label: 'Claude Haiku 4.5',   badge: 'Rapide',     group: 'Anthropic' },
+  { id: 'mistral-large-latest',label: 'Mistral Large',       badge: 'Souverain',  group: 'Mistral AI' },
+  { id: 'mistral-small-latest',label: 'Mistral Small',       badge: 'Économique', group: 'Mistral AI' },
+  { id: 'mistral-nemo',        label: 'Mistral Nemo',        badge: 'Local',      group: 'Mistral AI' },
 ]
 
 function loadConversations(): ChatConversation[] {
@@ -401,31 +404,38 @@ function ConfigPanel({ config, onChange, onClose }: {
           <label className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
             Modèle
           </label>
-          <div className="flex flex-col gap-1">
-            {MODELS.map(m => (
-              <button
-                key={m.id}
-                type="button"
-                onClick={() => setDraft(d => ({ ...d, model: m.id }))}
-                className="flex items-center justify-between rounded-lg border px-3 py-2 text-left transition-all"
-                style={{
-                  borderColor: draft.model === m.id ? `${TEAL}50` : BORDER,
-                  background: draft.model === m.id ? `${TEAL}10` : 'transparent',
-                }}
-              >
-                <span className="text-[12px] font-medium" style={{ color: TEXT }}>
-                  {m.label}
+          <div className="flex flex-col gap-2">
+            {(['Anthropic', 'Mistral AI'] as const).map(group => (
+              <div key={group} className="flex flex-col gap-1">
+                <span className="px-1 text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM, opacity: 0.5 }}>
+                  {group}
                 </span>
-                <div className="flex items-center gap-1.5">
-                  <span
-                    className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
-                    style={{ background: `${TEAL}14`, color: TEXT_DIM }}
+                {MODELS.filter(m => m.group === group).map(m => (
+                  <button
+                    key={m.id}
+                    type="button"
+                    onClick={() => setDraft(d => ({ ...d, model: m.id }))}
+                    className="flex items-center justify-between rounded-lg border px-3 py-2 text-left transition-all"
+                    style={{
+                      borderColor: draft.model === m.id ? `${TEAL}50` : BORDER,
+                      background: draft.model === m.id ? `${TEAL}10` : 'transparent',
+                    }}
                   >
-                    {m.badge}
-                  </span>
-                  {draft.model === m.id && <Check size={11} style={{ color: TEAL }} />}
-                </div>
-              </button>
+                    <span className="text-[12px] font-medium" style={{ color: TEXT }}>
+                      {m.label}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
+                        style={{ background: `${TEAL}14`, color: TEXT_DIM }}
+                      >
+                        {m.badge}
+                      </span>
+                      {draft.model === m.id && <Check size={11} style={{ color: TEAL }} />}
+                    </div>
+                  </button>
+                ))}
+              </div>
             ))}
           </div>
         </div>

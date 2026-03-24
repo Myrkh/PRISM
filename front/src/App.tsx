@@ -39,6 +39,7 @@ import { PlanningNavigationProvider } from '@/planning/PlanningNavigation'
 import { fetchAllProjects } from '@/lib/db'
 import { NoteEditorWorkspace } from '@/components/workspace/NoteEditorWorkspace'
 import { FileViewerWorkspace } from '@/components/workspace/FileViewerWorkspace'
+import { PrismFileEditor } from '@/components/prism/PrismFileEditor'
 import { useWorkspaceSync } from '@/store/useWorkspaceSync'
 import { StatusBar } from '@/components/layout/StatusBar'
 import { useGlobalShortcuts } from '@/hooks/useGlobalShortcuts'
@@ -69,6 +70,7 @@ function viewToHash(view: AppView): string {
   if (view.type === 'home') return '#/home'
   if (view.type === 'note') return `#/note/${view.noteId}`
   if (view.type === 'workspace-file') return `#/file/${view.nodeId}`
+  if (view.type === 'prism-file') return `#/prism/${view.filename}`
   return '#/'
 }
 
@@ -114,6 +116,7 @@ function hashToView(hash: string): AppView | null {
   if (path === '/home') return { type: 'home' }
   if (path.startsWith('/note/')) return { type: 'note', noteId: path.slice(6) }
   if (path.startsWith('/file/')) return { type: 'workspace-file', nodeId: path.slice(6) }
+  if (path.startsWith('/prism/')) return { type: 'prism-file', filename: path.slice(7) as 'context.md' }
   if (path === '/') return { type: 'projects' }
   return null
 }
@@ -352,6 +355,9 @@ export default function App() {
       )}
       {view.type === 'workspace-file' && (
         <FileViewerWorkspace nodeId={view.nodeId} />
+      )}
+      {view.type === 'prism-file' && (
+        <PrismFileEditor filename={view.filename} />
       )}
     </>
   )

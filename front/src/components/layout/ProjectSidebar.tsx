@@ -8,7 +8,8 @@
  * Sections 2 & 3 separated by a drag-to-resize handle.
  */
 import { useState, useRef, useEffect, type PointerEvent as ReactPointerEvent } from 'react'
-import { ChevronRight, FolderPlus, FilePlus, FileText, Pin, Upload } from 'lucide-react'
+import { ChevronRight, FolderPlus, FilePlus, FileCode2, FileText, Lock, Pin, RefreshCw, Upload } from 'lucide-react'
+import { PRISM_EDITABLE_FILES, PRISM_FILE_META } from '@/store/types'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { useAppStore } from '@/store/appStore'
 import { calcSIF } from '@/core/math/pfdCalc'
@@ -209,6 +210,157 @@ function PinnedNoteRow({ nodeId, activeNoteId }: { nodeId: string; activeNoteId:
   )
 }
 
+// ─── .prism section ───────────────────────────────────────────────────────
+function PrismSection() {
+  const { BORDER, TEAL, TEAL_DIM, TEXT, TEXT_DIM, PAGE_BG, SURFACE, SHADOW_CARD, isDark } = usePrismTheme()
+  const navigate  = useAppStore(s => s.navigate)
+  const view      = useAppStore(s => s.view)
+  const [collapsed, setCollapsed] = useState(true)
+  const [knowledgeCollapsed, setKnowledgeCollapsed] = useState(true)
+
+  const activeFile = view.type === 'prism-file' ? view.filename : null
+
+  const editableFiles = PRISM_EDITABLE_FILES.map(f => ({
+    id: f,
+    label: PRISM_FILE_META[f].label,
+  }))
+
+  const knowledgeFiles = [
+    'iec61511-part1.md',
+    'sil-methodology.md',
+    'hazop-lopa.md',
+    'components-guide.md',
+    'prism-guide.md',
+  ]
+
+  return (
+    <div
+      className="shrink-0 border-t"
+      style={{ borderColor: BORDER }}
+    >
+      {/* Section header */}
+      <div
+        className="flex items-center gap-1 border-b px-2 py-1.5"
+        style={{ borderColor: BORDER, background: isDark ? `${TEAL}08` : `${TEAL}05` }}
+      >
+        <button
+          type="button"
+          className="flex flex-1 items-center gap-1.5 min-w-0"
+          onClick={() => setCollapsed(c => !c)}
+        >
+          <ChevronRight
+            size={12}
+            className="shrink-0 transition-transform duration-200"
+            style={{ color: TEAL, transform: collapsed ? 'rotate(0deg)' : 'rotate(90deg)' }}
+          />
+          <FileCode2 size={11} style={{ color: TEAL, flexShrink: 0 }} />
+          <span className="truncate text-[10px] font-bold uppercase tracking-widest" style={{ color: TEAL }}>
+            .prism
+          </span>
+        </button>
+        <span
+          className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-widest"
+          style={{ background: `${TEAL}14`, color: TEAL_DIM }}
+        >
+          AI
+        </span>
+      </div>
+
+      {!collapsed && (
+        <div className="py-1">
+          {/* Editable context files */}
+          {editableFiles.map(f => {
+            const cur = activeFile === f.id
+            return (
+              <button
+                key={f.id}
+                type="button"
+                onClick={() => navigate({ type: 'prism-file', filename: f.id })}
+                className="relative flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors"
+                style={{
+                  background: cur ? SURFACE : 'transparent',
+                  borderLeft: cur ? `2px solid ${TEAL}` : '2px solid transparent',
+                }}
+                onMouseEnter={e => { if (!cur) e.currentTarget.style.background = PAGE_BG }}
+                onMouseLeave={e => { if (!cur) e.currentTarget.style.background = 'transparent' }}
+              >
+                <FileText size={11} style={{ color: cur ? TEAL : TEXT_DIM, flexShrink: 0 }} />
+                <span className="flex-1 min-w-0 truncate text-[11.5px]" style={{ color: cur ? TEXT : TEXT_DIM }}>
+                  {f.id}
+                </span>
+              </button>
+            )
+          })}
+
+          {/* sif-registry.md — auto-generated */}
+          {(() => {
+            const cur = activeFile === 'sif-registry.md'
+            return (
+              <button
+                type="button"
+                onClick={() => navigate({ type: 'prism-file', filename: 'sif-registry.md' })}
+                className="relative flex w-full items-center gap-2 px-3 py-1.5 text-left transition-colors"
+                style={{
+                  background: cur ? SURFACE : 'transparent',
+                  borderLeft: cur ? `2px solid ${TEAL}` : '2px solid transparent',
+                }}
+                onMouseEnter={e => { if (!cur) e.currentTarget.style.background = PAGE_BG }}
+                onMouseLeave={e => { if (!cur) e.currentTarget.style.background = 'transparent' }}
+              >
+                <RefreshCw size={11} style={{ color: cur ? TEAL : TEXT_DIM, flexShrink: 0 }} />
+                <span className="flex-1 min-w-0 truncate text-[11.5px]" style={{ color: cur ? TEXT : TEXT_DIM }}>
+                  sif-registry.md
+                </span>
+                <span
+                  className="shrink-0 rounded px-1 text-[8px] font-bold uppercase tracking-widest"
+                  style={{ background: `${TEAL}14`, color: TEAL_DIM }}
+                >
+                  auto
+                </span>
+              </button>
+            )
+          })()}
+
+          {/* knowledge/ — bundled, read-only */}
+          <div className="mt-0.5 px-2 pb-1">
+            <button
+              type="button"
+              onClick={() => setKnowledgeCollapsed(c => !c)}
+              className="flex w-full items-center gap-1.5 rounded px-1 py-1 transition-colors"
+              style={{ color: TEXT_DIM }}
+              onMouseEnter={e => { e.currentTarget.style.color = TEXT }}
+              onMouseLeave={e => { e.currentTarget.style.color = TEXT_DIM }}
+            >
+              <ChevronRight
+                size={10}
+                className="shrink-0 transition-transform duration-200"
+                style={{ transform: knowledgeCollapsed ? 'rotate(0deg)' : 'rotate(90deg)' }}
+              />
+              <span className="text-[10.5px]">knowledge/</span>
+              <Lock size={9} style={{ opacity: 0.5 }} />
+            </button>
+            {!knowledgeCollapsed && (
+              <div className="ml-3 mt-0.5 space-y-0.5">
+                {knowledgeFiles.map(f => (
+                  <div
+                    key={f}
+                    className="flex items-center gap-2 rounded px-2 py-1"
+                  >
+                    <FileText size={10} style={{ color: TEXT_DIM, opacity: 0.5, flexShrink: 0 }} />
+                    <span className="truncate text-[10.5px]" style={{ color: TEXT_DIM, opacity: 0.5 }}>
+                      {f}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── ProjectSidebar ───────────────────────────────────────────────────────
 const MIN_TOP       = 80
 const MIN_BOTTOM    = 36
@@ -384,6 +536,9 @@ export function ProjectSidebar({ projectId, sifId }: { projectId: string; sifId:
       <div className={workspaceCollapsed ? 'shrink-0' : 'flex-1 min-h-0'}>
         <WorkspaceTree />
       </div>
+
+      {/* ── 4. .PRISM — Workspace Intelligence ── */}
+      <PrismSection />
     </div>
     </>
   )

@@ -137,6 +137,83 @@ export type AppView =
   | { type: 'engine' }
   | { type: 'hazop' }
   | { type: 'sif-dashboard'; projectId: string; sifId: string; tab: SIFTab }
+  | { type: 'prism-file'; filename: PrismEditableFile | 'sif-registry.md' }
+
+// ─── .prism/ workspace intelligence files ─────────────────────────────────
+export type PrismEditableFile = 'context.md' | 'conventions.md' | 'standards.md'
+export const PRISM_EDITABLE_FILES: readonly PrismEditableFile[] = [
+  'context.md',
+  'conventions.md',
+  'standards.md',
+]
+export const PRISM_FILE_META: Readonly<Record<PrismEditableFile, { label: string; hint: string; placeholder: string }>> = {
+  'context.md': {
+    label: 'Contexte projet',
+    hint: 'Décrivez le projet, le site, les enjeux de sécurité, les parties prenantes…',
+    placeholder: [
+      '# Contexte projet',
+      '',
+      '## Site et installation',
+      '<!-- Nom du site, localisation, type d\'installation (raffinerie, chimie, pharma...) -->',
+      '',
+      '## Responsables',
+      '<!-- Ingénieur SIS responsable, client, bureau d\'études -->',
+      '',
+      '## Contraintes particulières',
+      '<!-- Ex: pas de redondance >2oo3, mission time 20 ans, SEVESO seuil haut... -->',
+      '',
+      '## Standards supplémentaires applicables',
+      '<!-- Ex: EN 50156-1 pour fours, API 14C pour offshore... -->',
+    ].join('\n'),
+  },
+  'conventions.md': {
+    label: 'Conventions',
+    hint: 'Nomenclature, unités, valeurs par défaut du projet…',
+    placeholder: [
+      '# Conventions d\'ingénierie',
+      '',
+      '## Nomenclature SIF',
+      '<!-- Exemple: SIF-XXX où XXX = numéro séquentiel sur 3 chiffres -->',
+      '',
+      '## Unités',
+      '- λD : toujours en /h (heures)',
+      '- PST : en secondes',
+      '- PFD : notation scientifique 10⁻ⁿ',
+      '',
+      '## Valeurs β par défaut',
+      '- Même fournisseur, même ligne : 10%',
+      '- Fournisseurs différents : 5%',
+      '- Séparation totale + diversité : 2%',
+      '',
+      '## SFF minimum requis',
+      '<!-- Ex: SFF ≥ 60% pour tous les composants de ce projet -->',
+    ].join('\n'),
+  },
+  'standards.md': {
+    label: 'Normes applicables',
+    hint: 'Normes, réglementation, SIL maximum autorisé sur ce site…',
+    placeholder: [
+      '# Normes et réglementation',
+      '',
+      '## Normes de référence',
+      '- IEC 61511-1:2016 + Amendment 1:2017',
+      '- IEC 61508-2:2010 (pour les composants)',
+      '',
+      '## Réglementation',
+      '<!-- Ex: ICPE rubrique 4XXX, Directive SEVESO III, arrêté ministériel... -->',
+      '',
+      '## SIL maximum autorisé sur ce site',
+      '<!-- Ex: SIL max = 2 (politique entreprise) -->',
+      '',
+      '## Critères de risque tolérable (LOPA)',
+      '- Décès unique : 10⁻⁴ /an',
+      '- Décès multiple : 10⁻⁵ /an',
+      '',
+      '## Sources de données λD',
+      '<!-- Ex: exida SERH 2019, données fabricant certifiées IEC 61508 -->',
+    ].join('\n'),
+  },
+}
 
 export type RightPanelSection = 'analysis' | 'compliance' | 'prooftest' | 'verification' | 'exploitation'
 export type RightPanelTabsState = Record<RightPanelSection, string | null>
@@ -184,6 +261,9 @@ export interface AppState {
   focusMode: boolean
   chatPanelOpen: boolean
 
+  // ── .prism/ workspace intelligence files ──
+  prismFiles: Record<PrismEditableFile, string>
+
   // ── Split view ──
   // null = split closed  |  projectId/sifId null = split open, no SIF selected yet
   secondSlot: { projectId: string | null; sifId: string | null; tab: CanonicalSIFTab } | null
@@ -203,6 +283,7 @@ export interface AppState {
   toggleRightPanel: () => void
   setRightPanelOpen: (open: boolean) => void
   toggleChatPanel: () => void
+  setPrismFile: (filename: PrismEditableFile, content: string) => void
   toggleFocusMode: () => void
   toggleStatusBar: () => void
   toggleActivityBar: () => void
