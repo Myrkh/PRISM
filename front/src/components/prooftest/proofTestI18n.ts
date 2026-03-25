@@ -1,5 +1,5 @@
 import type { SifExploitationStrings } from '@/i18n/sifExploitation'
-import type { CatType, PTCategory, ProofTestLocation, ResponseCheckType, ResultType, Status } from './proofTestTypes'
+import type { CatType, PTCategory, ProofTestLocation, ResponseCheckType, ResultType, Status, Verdict } from './proofTestTypes'
 
 const LOCATION_KEY_BY_VALUE: Record<string, keyof SifExploitationStrings['meta']['locations']> = {
   SDC: 'sdc',
@@ -46,4 +46,10 @@ export function getProofTestResponseCheckTypeLabel(strings: SifExploitationStrin
   if (type === 'valve_open') return strings.meta.responseCheckTypes.valveOpen
   if (type === 'valve_close') return strings.meta.responseCheckTypes.valveClose
   return strings.meta.responseCheckTypes.sifResponse
+}
+
+export function getProofTestVerdictLabel(strings: SifExploitationStrings, verdict: Exclude<Verdict, null>): string {
+  if (verdict === 'pass') return strings.proofTestTab.verdicts.pass
+  if (verdict === 'conditional') return strings.proofTestTab.verdicts.conditional
+  return strings.proofTestTab.verdicts.fail
 }

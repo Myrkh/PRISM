@@ -15,6 +15,8 @@ import { persist, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import { nanoid } from 'nanoid'
 import { supabase } from '@/lib/supabase'
+import { useAppStore } from './appStore'
+import { DEFAULT_PRISM_FILES, type PrismEditableFile } from './types'
 
 export const WORKSPACE_ROOT = '__root__'
 
@@ -51,6 +53,7 @@ export type WorkspaceImage = {
 }
 
 export type WorkspaceNode = WorkspaceFolder | WorkspaceNote | WorkspacePDF | WorkspaceImage
+type PrismFilesMap = Record<PrismEditableFile, string>
 
 // ── Persisted shape (subset of state) ───────────────────────────────────────
 interface WorkspacePersisted {
@@ -60,6 +63,12 @@ interface WorkspacePersisted {
   pinnedNodeIds: string[]
   /** ISO timestamp of when we last wrote to Supabase — used for conflict detection */
   localSnapshotAt: string | null
+  /** User owning the local snapshot — prevents leaking one user's workspace into another session. */
+  ownerUserId: string | null
+}
+
+interface WorkspaceSnapshot extends WorkspacePersisted {
+  prismFiles: PrismFilesMap
 }
 // openTabs and activeTabId are intentionally NOT persisted — tabs are session-only.
 
@@ -95,8 +104,8 @@ interface WorkspaceState extends WorkspacePersisted {
   closeNoteTab: (nodeId: string) => string | null
 
   // ── Supabase sync ──
-  /** Replace workspace tree from a Supabase snapshot (tabs not touched). */
-  _loadSnapshot: (snapshot: WorkspacePersisted) => void
+  /** Replace workspace tree + .prism files from a Supabase snapshot (tabs not touched). */
+  _loadSnapshot: (snapshot: WorkspaceSnapshot) => void
 }
 
 export const useWorkspaceStore = create<WorkspaceState>()(
@@ -111,6 +120,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         activeTabId: null,
         pendingRenameId: null,
         localSnapshotAt: null,
+        ownerUserId: null,
 
         createFolder: (parentId, name) => {
           const id = nanoid(8)
@@ -270,14 +280,18 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           return nextActive
         },
 
-        _loadSnapshot: (snapshot) => set(state => {
-          state.nodes            = snapshot.nodes
-          state.childOrder       = snapshot.childOrder
-          state.sectionCollapsed = snapshot.sectionCollapsed
-          state.pinnedNodeIds    = snapshot.pinnedNodeIds
-          state.localSnapshotAt  = snapshot.localSnapshotAt
-          // openTabs / activeTabId intentionally not restored — session state only
-        }),
+        _loadSnapshot: (snapshot) => {
+          set(state => {
+            state.nodes = snapshot.nodes
+            state.childOrder = snapshot.childOrder
+            state.sectionCollapsed = snapshot.sectionCollapsed
+            state.pinnedNodeIds = snapshot.pinnedNodeIds
+            state.localSnapshotAt = snapshot.localSnapshotAt
+            state.ownerUserId = snapshot.ownerUserId
+            // openTabs / activeTabId intentionally not restored — session state only
+          })
+          useAppStore.getState().replacePrismFiles(snapshot.prismFiles)
+        },
       })),
       {
         name: 'prism-workspace',
@@ -287,6 +301,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           sectionCollapsed: s.sectionCollapsed,
           pinnedNodeIds: s.pinnedNodeIds,
           localSnapshotAt: s.localSnapshotAt,
+          ownerUserId: s.ownerUserId,
         }),
       },
     ),
@@ -295,6 +310,22 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
 // ── Supabase sync helpers ────────────────────────────────────────────────────
 
+function normalizePrismFiles(prismFiles: Partial<PrismFilesMap> | null | undefined): PrismFilesMap {
+  return { ...DEFAULT_PRISM_FILES, ...(prismFiles ?? {}) }
+}
+
+function buildEmptyWorkspaceSnapshot(userId: string | null): WorkspaceSnapshot {
+  return {
+    nodes: {},
+    childOrder: {},
+    sectionCollapsed: false,
+    pinnedNodeIds: [],
+    localSnapshotAt: null,
+    ownerUserId: userId,
+    prismFiles: { ...DEFAULT_PRISM_FILES },
+  }
+}
+
 function pickPersisted(s: WorkspaceState): WorkspacePersisted {
   return {
     nodes: s.nodes,
@@ -302,6 +333,7 @@ function pickPersisted(s: WorkspaceState): WorkspacePersisted {
     sectionCollapsed: s.sectionCollapsed,
     pinnedNodeIds: s.pinnedNodeIds,
     localSnapshotAt: s.localSnapshotAt,
+    ownerUserId: s.ownerUserId,
   }
 }
 
@@ -309,14 +341,22 @@ function pickPersisted(s: WorkspaceState): WorkspacePersisted {
 export async function pushWorkspaceToSupabase(userId: string): Promise<void> {
   const state = useWorkspaceStore.getState()
   const now = new Date().toISOString()
-  const data: WorkspacePersisted = { ...pickPersisted(state), localSnapshotAt: now }
+  const data: WorkspaceSnapshot = {
+    ...pickPersisted(state),
+    ownerUserId: userId,
+    localSnapshotAt: now,
+    prismFiles: normalizePrismFiles(useAppStore.getState().prismFiles),
+  }
 
   const { error } = await supabase
     .from('workspace_tree')
     .upsert({ user_id: userId, data }, { onConflict: 'user_id' })
 
   if (!error) {
-    useWorkspaceStore.setState(s => { s.localSnapshotAt = now })
+    useWorkspaceStore.setState(s => {
+      s.localSnapshotAt = now
+      s.ownerUserId = userId
+    })
   }
 }
 
@@ -331,14 +371,31 @@ export async function pullWorkspaceFromSupabase(userId: string): Promise<void> {
     .eq('user_id', userId)
     .maybeSingle()
 
-  if (error || !row) return
+  const local = useWorkspaceStore.getState()
+  const localUserMatches = local.ownerUserId === userId
+
+  if (error) return
+
+  if (!row) {
+    if (!localUserMatches) {
+      useWorkspaceStore.getState()._loadSnapshot(buildEmptyWorkspaceSnapshot(userId))
+    }
+    return
+  }
 
   const remoteAt = new Date(row.updated_at as string).getTime()
-  const local = useWorkspaceStore.getState()
   const localAt = local.localSnapshotAt ? new Date(local.localSnapshotAt).getTime() : 0
+  const remote = row.data as Partial<WorkspaceSnapshot>
+  const snapshot: WorkspaceSnapshot = {
+    ...buildEmptyWorkspaceSnapshot(userId),
+    ...remote,
+    ownerUserId: remote.ownerUserId ?? userId,
+    localSnapshotAt: remote.localSnapshotAt ?? (row.updated_at as string),
+    prismFiles: normalizePrismFiles(remote.prismFiles),
+  }
 
-  if (remoteAt > localAt) {
-    useWorkspaceStore.getState()._loadSnapshot(row.data as WorkspacePersisted)
+  if (!localUserMatches || remoteAt > localAt) {
+    useWorkspaceStore.getState()._loadSnapshot(snapshot)
   }
 }
 
@@ -346,6 +403,16 @@ export async function pullWorkspaceFromSupabase(userId: string): Promise<void> {
 
 let _syncUserId: string | null = null
 let _syncTimer: ReturnType<typeof setTimeout> | null = null
+let _workspaceUnsubscribe: (() => void) | null = null
+let _prismUnsubscribe: (() => void) | null = null
+
+function queueWorkspaceSync(): void {
+  if (!_syncUserId) return
+  if (_syncTimer) clearTimeout(_syncTimer)
+  _syncTimer = setTimeout(() => {
+    if (_syncUserId) void pushWorkspaceToSupabase(_syncUserId)
+  }, 2000)
+}
 
 /**
  * Call once when the user logs in.
@@ -355,24 +422,32 @@ let _syncTimer: ReturnType<typeof setTimeout> | null = null
 export async function initWorkspaceSync(userId: string | null): Promise<void> {
   _syncUserId = userId
 
-  if (!userId) {
-    if (_syncTimer) clearTimeout(_syncTimer)
-    return
-  }
+  if (_syncTimer) clearTimeout(_syncTimer)
+  _workspaceUnsubscribe?.()
+  _prismUnsubscribe?.()
+  _workspaceUnsubscribe = null
+  _prismUnsubscribe = null
+
+  if (!userId) return
 
   // Initial pull
   await pullWorkspaceFromSupabase(userId)
 
   // Watch subsequent mutations — skip the read-only tab/UI fields for efficiency
-  useWorkspaceStore.subscribe(
-    (s) => ({ nodes: s.nodes, childOrder: s.childOrder, pinnedNodeIds: s.pinnedNodeIds }),
-    () => {
-      if (!_syncUserId) return
-      if (_syncTimer) clearTimeout(_syncTimer)
-      _syncTimer = setTimeout(() => {
-        if (_syncUserId) pushWorkspaceToSupabase(_syncUserId)
-      }, 2000)
-    },
+  _workspaceUnsubscribe = useWorkspaceStore.subscribe(
+    (s) => ({
+      nodes: s.nodes,
+      childOrder: s.childOrder,
+      sectionCollapsed: s.sectionCollapsed,
+      pinnedNodeIds: s.pinnedNodeIds,
+    }),
+    queueWorkspaceSync,
     { equalityFn: (a, b) => JSON.stringify(a) === JSON.stringify(b) },
   )
+
+  _prismUnsubscribe = useAppStore.subscribe((state, prevState) => {
+    if (JSON.stringify(state.prismFiles) !== JSON.stringify(prevState.prismFiles)) {
+      queueWorkspaceSync()
+    }
+  })
 }

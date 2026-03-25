@@ -371,6 +371,10 @@ export function ProjectSidebar({ projectId, sifId }: { projectId: string; sifId:
   const openNewProject  = useAppStore(s => s.openNewProject)
   const openNewSIF      = useAppStore(s => s.openNewSIF)
   const pinnedSIFIds    = useAppStore(s => s.pinnedSIFIds)
+  const pinnedCollapsed = useAppStore(s => s.projectSidebarPinnedCollapsed)
+  const projectsCollapsed = useAppStore(s => s.projectSidebarProjectsCollapsed)
+  const togglePinnedCollapsed = useAppStore(s => s.toggleProjectSidebarPinnedCollapsed)
+  const toggleProjectsCollapsed = useAppStore(s => s.toggleProjectSidebarProjectsCollapsed)
   const view            = useAppStore(s => s.view)
 
   const { pinnedNodeIds, sectionCollapsed: workspaceCollapsed } = useWorkspaceStore()
@@ -380,10 +384,7 @@ export function ProjectSidebar({ projectId, sifId }: { projectId: string; sifId:
 
   const [importModalOpen, setImportModalOpen] = useState(false)
 
-  // Local collapsed states — respect "Panel sections at startup" preference
-  const defaultClosed = useAppStore(s => s.preferences.rightPanelDefaultState) === 'closed'
-  const [pinnedCollapsed,   setPinnedCollapsed]   = useState(defaultClosed)
-  const [projectsCollapsed, setProjectsCollapsed] = useState(defaultClosed)
+  // Sidebar sections live in the app store so they survive view remounts.
 
   // Resize between Projets and Espace libre
   const containerRef     = useRef<HTMLDivElement>(null)
@@ -442,7 +443,7 @@ export function ProjectSidebar({ projectId, sifId }: { projectId: string; sifId:
           <SectionHeader
             label="Épinglés"
             collapsed={pinnedCollapsed}
-            onToggle={() => setPinnedCollapsed(c => !c)}
+            onToggle={togglePinnedCollapsed}
           />
           {!pinnedCollapsed && (
             <div className="px-2 py-1.5 space-y-0.5">
@@ -481,7 +482,7 @@ export function ProjectSidebar({ projectId, sifId }: { projectId: string; sifId:
         <SectionHeader
           label="Projets"
           collapsed={projectsCollapsed}
-          onToggle={() => setProjectsCollapsed(c => !c)}
+          onToggle={toggleProjectsCollapsed}
           actions={
             <div className="flex items-center gap-0.5">
               <button

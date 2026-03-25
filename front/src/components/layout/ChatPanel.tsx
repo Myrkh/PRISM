@@ -33,7 +33,8 @@ import {
 } from 'lucide-react'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { useAppStore } from '@/store/appStore'
-import { streamPRISMAI } from '@/lib/aiApi'
+import { serializeSIFForAI, streamPRISMAI, type WorkspaceContext } from '@/lib/aiApi'
+import { generateSIFRegistry } from '@/utils/generateSIFRegistry'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface ChatMessage {
@@ -493,6 +494,7 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
   // ── Store: current SIF context ──────────────────────────────────────────────
   const view     = useAppStore(s => s.view)
   const projects = useAppStore(s => s.projects)
+  const prismFiles = useAppStore(s => s.prismFiles)
   const currentSIF = view.type === 'sif-dashboard'
     ? projects.flatMap(p => p.sifs).find(s => s.id === view.sifId) ?? null
     : null
@@ -661,8 +663,20 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
     setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '', timestamp: Date.now() }])
 
     try {
+      const attachedSIF = attachedContext?.sifId
+        ? projects.flatMap(project => project.sifs).find(sif => sif.id === attachedContext.sifId) ?? null
+        : null
+      const contextSIF = attachedSIF ?? currentSIF
+      const workspaceContext: WorkspaceContext = {
+        context_md: prismFiles['context.md'] ?? '',
+        conventions_md: prismFiles['conventions.md'] ?? '',
+        standards_md: prismFiles['standards.md'] ?? '',
+        sif_registry_md: generateSIFRegistry(projects),
+        active_sif_json: contextSIF ? serializeSIFForAI(contextSIF) : undefined,
+      }
+
       let accumulated = ''
-      for await (const chunk of streamPRISMAI(updatedMsgs, attachedContext ?? undefined, config)) {
+      for await (const chunk of streamPRISMAI(updatedMsgs, attachedContext ?? undefined, config, workspaceContext)) {
         accumulated += chunk
         setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: accumulated } : m))
       }
@@ -673,7 +687,7 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
     } finally {
       setIsStreaming(false)
     }
-  }, [input, isStreaming, messages, attachedContext, config, currentConvId, persistCurrentConversation])
+  }, [input, isStreaming, messages, attachedContext, config, currentConvId, currentSIF, persistCurrentConversation, prismFiles, projects])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {

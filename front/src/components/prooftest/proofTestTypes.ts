@@ -6,6 +6,8 @@
  */
 import { nanoid } from 'nanoid'
 import type { SIF } from '@/core/types'
+import { getSifExploitationStrings } from '@/i18n/sifExploitation'
+import type { AppLocale } from '@/i18n/types'
 import { TEAL, NAVY } from '@/styles/tokens'
 
 // ─── Types ────────────────────────────────────────────────────────────────
@@ -186,23 +188,24 @@ export function getResponseMeasurementStatus(
 }
 
 // ─── Default procedure factory ───────────────────────────────────────────
-export function defaultProcedure(sif: SIF): PTProcedure {
-  const catPre: PTCategory  = { id: nanoid(), type: 'preliminary', title: 'Actions préliminaires', order: 0 }
-  const catTest: PTCategory = { id: nanoid(), type: 'test', title: `Test — ${sif.sifNumber}`, order: 1 }
-  const catFin: PTCategory  = { id: nanoid(), type: 'final', title: 'Actions finales', order: 2 }
+export function defaultProcedure(sif: SIF, locale: AppLocale = 'fr'): PTProcedure {
+  const defaults = getSifExploitationStrings(locale).defaults
+  const catPre: PTCategory = { id: nanoid(), type: 'preliminary', title: defaults.categoryTitles.preliminary, order: 0 }
+  const catTest: PTCategory = { id: nanoid(), type: 'test', title: defaults.testCategoryTitle(sif.sifNumber), order: 1 }
+  const catFin: PTCategory = { id: nanoid(), type: 'final', title: defaults.categoryTitles.final, order: 2 }
 
   const steps: PTStep[] = [
-    { id: nanoid(), categoryId: catPre.id, order: 0, action: 'Obtenir le Permis de Travail (PTW) et s\'assurer de la disponibilité du système', location: 'SDC', resultType: 'oui_non', expectedValue: '' },
-    { id: nanoid(), categoryId: catPre.id, order: 1, action: 'Mettre le SIF en bypass et consigner dans le registre de dérogations', location: 'SDC', resultType: 'oui_non', expectedValue: '' },
-    { id: nanoid(), categoryId: catPre.id, order: 2, action: 'Vérifier l\'alimentation 24 VDC sur le rack logique et noter la tension', location: 'Local Instrumentation', resultType: 'valeur', expectedValue: '24 ± 1 VDC' },
-    { id: nanoid(), categoryId: catTest.id, order: 0, action: 'Injecter signal mA minimum sur transmetteur (entrée capteur)', location: 'Terrain', resultType: 'valeur', expectedValue: '4 mA ± 0.1' },
-    { id: nanoid(), categoryId: catTest.id, order: 1, action: 'Vérifier alarme LO sur console opérateur', location: 'SDC', resultType: 'oui_non', expectedValue: '' },
-    { id: nanoid(), categoryId: catTest.id, order: 2, action: 'Injecter signal au seuil de déclenchement (setpoint)', location: 'Terrain', resultType: 'valeur', expectedValue: `${sif.processTag || 'Setpoint'} ± 2%` },
-    { id: nanoid(), categoryId: catTest.id, order: 3, action: 'Vérifier déclenchement de l\'actionneur final', location: 'Terrain', resultType: 'oui_non', expectedValue: '' },
-    { id: nanoid(), categoryId: catTest.id, order: 4, action: 'Mesurer le temps de réponse SIF (déclenchement → fin de course)', location: 'SDC', resultType: 'valeur', expectedValue: '< 2000 ms' },
-    { id: nanoid(), categoryId: catFin.id, order: 0, action: 'Remettre l\'actionneur en position initiale et vérifier retour d\'état', location: 'Terrain', resultType: 'oui_non', expectedValue: '' },
-    { id: nanoid(), categoryId: catFin.id, order: 1, action: 'Lever le bypass SIF et vérifier l\'état actif', location: 'SDC', resultType: 'oui_non', expectedValue: '' },
-    { id: nanoid(), categoryId: catFin.id, order: 2, action: 'Clôturer le PTW et signer le rapport de test', location: 'SDC', resultType: 'oui_non', expectedValue: '' },
+    { id: nanoid(), categoryId: catPre.id, order: 0, action: defaults.steps.obtainPermit, location: 'SDC', resultType: 'oui_non', expectedValue: '' },
+    { id: nanoid(), categoryId: catPre.id, order: 1, action: defaults.steps.putBypass, location: 'SDC', resultType: 'oui_non', expectedValue: '' },
+    { id: nanoid(), categoryId: catPre.id, order: 2, action: defaults.steps.verifyLogicSupply, location: 'Local Instrumentation', resultType: 'valeur', expectedValue: defaults.expectedValues.logicSupply },
+    { id: nanoid(), categoryId: catTest.id, order: 0, action: defaults.steps.injectMinimumSignal, location: 'Terrain', resultType: 'valeur', expectedValue: defaults.expectedValues.sensorMinSignal },
+    { id: nanoid(), categoryId: catTest.id, order: 1, action: defaults.steps.verifyLowAlarm, location: 'SDC', resultType: 'oui_non', expectedValue: '' },
+    { id: nanoid(), categoryId: catTest.id, order: 2, action: defaults.steps.injectTripSetpoint, location: 'Terrain', resultType: 'valeur', expectedValue: defaults.expectedValues.tripSetpoint(sif.processTag || 'Setpoint') },
+    { id: nanoid(), categoryId: catTest.id, order: 3, action: defaults.steps.verifyFinalActuator, location: 'Terrain', resultType: 'oui_non', expectedValue: '' },
+    { id: nanoid(), categoryId: catTest.id, order: 4, action: defaults.steps.measureResponseTime, location: 'SDC', resultType: 'valeur', expectedValue: defaults.expectedValues.responseTime },
+    { id: nanoid(), categoryId: catFin.id, order: 0, action: defaults.steps.resetActuator, location: 'Terrain', resultType: 'oui_non', expectedValue: '' },
+    { id: nanoid(), categoryId: catFin.id, order: 1, action: defaults.steps.removeBypass, location: 'SDC', resultType: 'oui_non', expectedValue: '' },
+    { id: nanoid(), categoryId: catFin.id, order: 2, action: defaults.steps.closePermit, location: 'SDC', resultType: 'oui_non', expectedValue: '' },
   ]
 
   return {

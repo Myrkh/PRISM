@@ -146,6 +146,11 @@ export const PRISM_EDITABLE_FILES: readonly PrismEditableFile[] = [
   'conventions.md',
   'standards.md',
 ]
+export const DEFAULT_PRISM_FILES: Record<PrismEditableFile, string> = {
+  'context.md': '',
+  'conventions.md': '',
+  'standards.md': '',
+}
 export const PRISM_FILE_META: Readonly<Record<PrismEditableFile, { label: string; hint: string; placeholder: string }>> = {
   'context.md': {
     label: 'Contexte projet',
@@ -254,6 +259,8 @@ export interface AppState {
   isSIFModalOpen: boolean
   editingSIFId: string | null
   newSIFProjectId: string | null
+  projectSidebarPinnedCollapsed: boolean
+  projectSidebarProjectsCollapsed: boolean
 
   // ── Layout panels ──
   leftPanelOpen: boolean
@@ -277,6 +284,8 @@ export interface AppState {
   setTheme: (isDark: boolean) => void
   updateAppPreferences: (patch: Partial<AppPreferences>) => void
   resetAppPreferences: () => void
+  toggleProjectSidebarPinnedCollapsed: () => void
+  toggleProjectSidebarProjectsCollapsed: () => void
 
   // ── Actions: Layout panels ──
   toggleLeftPanel: () => void
@@ -284,6 +293,7 @@ export interface AppState {
   setRightPanelOpen: (open: boolean) => void
   toggleChatPanel: () => void
   setPrismFile: (filename: PrismEditableFile, content: string) => void
+  replacePrismFiles: (files: Record<PrismEditableFile, string>) => void
   toggleFocusMode: () => void
   toggleStatusBar: () => void
   toggleActivityBar: () => void

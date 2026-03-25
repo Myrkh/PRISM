@@ -24,7 +24,8 @@ import { downloadRevisionArtifact } from '@/lib/revisionArtifacts'
 import { cn } from '@/lib/utils'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { getSifExploitationStrings } from '@/i18n/sifExploitation'
-import { useLocaleStrings } from '@/i18n/useLocale'
+import type { AppLocale } from '@/i18n/types'
+import { useAppLocale, useLocaleStrings } from '@/i18n/useLocale'
 import type {
   PTStep, PTStepResult, PTCampaign, PTProcedure, Verdict, PTResponseCheck, PTResponseMeasurement,
 } from './proofTestTypes'
@@ -53,8 +54,8 @@ interface Props {
   onSelectTab?: (tab: SIFTab) => void
 }
 
-function normalizeProcedureState(sif: SIF, procedureRaw: unknown): PTProcedure {
-  const fallback = defaultProcedure(sif)
+function normalizeProcedureState(sif: SIF, procedureRaw: unknown, locale: AppLocale): PTProcedure {
+  const fallback = defaultProcedure(sif, locale)
   const source = typeof procedureRaw === 'object' && procedureRaw !== null ? procedureRaw as Partial<PTProcedure> : null
   if (!source || !Array.isArray(source.categories) || !Array.isArray(source.steps)) return fallback
   return {
@@ -112,6 +113,7 @@ function computeCampaignVerdict(
 }
 
 export function ProofTestTab({ project, sif, onSelectTab }: Props) {
+  const locale = useAppLocale()
   const strings = useLocaleStrings(getSifExploitationStrings)
   const { BORDER, CARD_BG, PAGE_BG, NAVY, TEAL, TEXT, TEXT_DIM, SHADOW_CARD, SHADOW_SOFT, semantic } = usePrismTheme()
   const updateProofTestProcedure = useAppStore(s => s.updateProofTestProcedure)
@@ -119,7 +121,7 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
   const updateTestCampaign = useAppStore(s => s.updateTestCampaign)
 
   // ── State ──────────────────────────────────────────────────────────────
-  const [procedure, setProcedure] = useState<PTProcedure>(() => normalizeProcedureState(sif, sif.proofTestProcedure))
+  const [procedure, setProcedure] = useState<PTProcedure>(() => normalizeProcedureState(sif, sif.proofTestProcedure, locale))
   const [campaigns, setCampaigns]           = useState<PTCampaign[]>(() => {
     const stored = Array.isArray(sif.testCampaigns) ? sif.testCampaigns : []
     return stored.map(normalizeCampaignState).filter((campaign): campaign is PTCampaign => campaign !== null)
@@ -134,7 +136,7 @@ export function ProofTestTab({ project, sif, onSelectTab }: Props) {
   const isProcedureLocked = Boolean(sif.revisionLockedAt)
 
   useEffect(() => {
-    setProcedure(normalizeProcedureState(sif, sif.proofTestProcedure))
+    setProcedure(normalizeProcedureState(sif, sif.proofTestProcedure, locale))
   }, [sif.id, sif.proofTestProcedure])
 
   useEffect(() => {

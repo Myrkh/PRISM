@@ -91,7 +91,7 @@ import type {
   SIF,
   SIFRevision,
 } from '@/core/types'
-import { normalizeSIFTab, type AppState } from './types'
+import { DEFAULT_PRISM_FILES, normalizeSIFTab, type AppState } from './types'
 import { selectSIF } from './selectors'
 import type { Subscription } from '@supabase/supabase-js'
 
@@ -241,6 +241,8 @@ async function resolveProfileFromAuthState(user: AppState['authUser']) {
 }
 
 const INITIAL_APP_PREFERENCES = loadAppPreferences()
+const PROJECT_SIDEBAR_DEFAULT_COLLAPSED = INITIAL_APP_PREFERENCES.rightPanelDefaultState === 'closed'
+const PRISM_FILES_STORAGE_KEY = 'prism_workspace_files'
 
 // ─── Store ─────────────────────────────────────────────────────────────────
 export const useAppStore = create<AppState>()(
@@ -283,6 +285,8 @@ export const useAppStore = create<AppState>()(
       isSIFModalOpen: false,
       editingSIFId: null,
       newSIFProjectId: null,
+      projectSidebarPinnedCollapsed: PROJECT_SIDEBAR_DEFAULT_COLLAPSED,
+      projectSidebarProjectsCollapsed: PROJECT_SIDEBAR_DEFAULT_COLLAPSED,
 
       // Layout panels
       leftPanelOpen: true,
@@ -291,12 +295,12 @@ export const useAppStore = create<AppState>()(
       chatPanelOpen: false,
       prismFiles: (() => {
         try {
-          const stored = localStorage.getItem('prism_workspace_files')
+          const stored = localStorage.getItem(PRISM_FILES_STORAGE_KEY)
           return stored
-            ? (JSON.parse(stored) as Record<string, string>)
-            : { 'context.md': '', 'conventions.md': '', 'standards.md': '' }
+            ? { ...DEFAULT_PRISM_FILES, ...(JSON.parse(stored) as Partial<typeof DEFAULT_PRISM_FILES>) }
+            : { ...DEFAULT_PRISM_FILES }
         } catch {
-          return { 'context.md': '', 'conventions.md': '', 'standards.md': '' }
+          return { ...DEFAULT_PRISM_FILES }
         }
       })(),
 
@@ -434,12 +438,22 @@ export const useAppStore = create<AppState>()(
       },
 
       // ── Layout panels ──────────────────────────────────────────────────────
+      toggleProjectSidebarPinnedCollapsed: () => set(s => {
+        s.projectSidebarPinnedCollapsed = !s.projectSidebarPinnedCollapsed
+      }),
+      toggleProjectSidebarProjectsCollapsed: () => set(s => {
+        s.projectSidebarProjectsCollapsed = !s.projectSidebarProjectsCollapsed
+      }),
       toggleLeftPanel: () => set(s => { s.leftPanelOpen = !s.leftPanelOpen }),
       toggleRightPanel: () => set(s => { s.rightPanelOpen = !s.rightPanelOpen }),
       toggleChatPanel: () => set(s => { s.chatPanelOpen = !s.chatPanelOpen }),
       setPrismFile: (filename, content) => set(s => {
         s.prismFiles[filename] = content
-        try { localStorage.setItem('prism_workspace_files', JSON.stringify(s.prismFiles)) } catch { /* quota */ }
+        try { localStorage.setItem(PRISM_FILES_STORAGE_KEY, JSON.stringify(s.prismFiles)) } catch { /* quota */ }
+      }),
+      replacePrismFiles: files => set(s => {
+        s.prismFiles = { ...DEFAULT_PRISM_FILES, ...files }
+        try { localStorage.setItem(PRISM_FILES_STORAGE_KEY, JSON.stringify(s.prismFiles)) } catch { /* quota */ }
       }),
       setRightPanelOpen: (open) => set(s => { s.rightPanelOpen = open }),
       toggleFocusMode: () => set(s => {

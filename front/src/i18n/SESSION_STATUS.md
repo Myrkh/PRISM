@@ -1,6 +1,6 @@
 # i18n Session Status
 
-Last update: 2026-03-21
+Last update: 2026-03-25
 
 This file is a working handoff for the current FR/EN migration.
 Goal: keep the next session focused on the next untranslated slice, without having to rediscover what is already done.
@@ -36,7 +36,7 @@ SIF views:
 - `Context`
 - `Overview / Cockpit`
 - `Verification`
-- `Exploitation / Proof Test` visible UI
+- `Exploitation / Proof Test` UI + PDF + default procedure content
 
 Main namespaces already present:
 
@@ -53,63 +53,52 @@ Main namespaces already present:
 
 ## Exploitation / Proof Test: Current Real Status
 
-The visible Proof Test experience is now localized:
+The Proof Test slice is now localized end-to-end:
 
-- `ExploitationWorkspace.tsx`
-- `ProofTestTab.tsx`
-- `ProofTestRightPanel.tsx`
-- `ProcedureView.tsx`
-- `CampaignExecutionView.tsx`
-- `CampaignHistoryView.tsx`
-- `ResponseChecksCard.tsx`
-- `ResponseMeasurementsCard.tsx`
-- `ResultWidgets.tsx`
-- `ProofTestPDFExport.tsx`
+- visible UI
+- PDF export shell
+- generated Proof Test PDF document body
+- default generated procedure content from `defaultProcedure(...)`
+- related export notifications
 
-Support files added/updated:
-
-- `sifExploitation.ts`
-- `locales/fr/sifExploitation.ts`
-- `locales/en/sifExploitation.ts`
-- `proofTestI18n.ts`
-
-Validation:
-
-- `./node_modules/.bin/tsc --noEmit --pretty false` was passing at the end of the session.
-
-## Important Caveat
-
-Proof Test is not 100% complete from an i18n perspective yet.
-
-Still not migrated:
+Files updated in this completion pass:
 
 - `front/src/components/prooftest/proofTestPdf.tsx`
 - `front/src/components/prooftest/proofTestTypes.ts`
+- `front/src/components/prooftest/ProofTestPDFExport.tsx`
+- `front/src/components/prooftest/proofTestI18n.ts`
+- `front/src/components/prooftest/ProofTestTab.tsx`
+- `front/src/i18n/sifExploitation.ts`
+- `front/src/i18n/locales/fr/sifExploitation.ts`
+- `front/src/i18n/locales/en/sifExploitation.ts`
 
-Meaning:
+Validation:
 
-- the visible UI is localized
-- the generated Proof Test PDF document body still contains hardcoded strings
-- default generated procedure content from `defaultProcedure(...)` is still hardcoded
+- `npm run type-check` was passing in `front/` at the end of the session.
 
-This is a good next sub-slice if we want to finish `Exploitation` cleanly.
+## Important Caveat
+
+Proof Test is no longer the next i18n blocker.
+
+The next high-value slice is now `Report`.
 
 ## Best Next Steps
 
 Recommended order:
 
-1. Finish `Proof Test PDF`
-   - migrate `proofTestPdf.tsx`
-   - decide whether `defaultProcedure(...)` should become locale-aware now, or later
-
-2. Migrate `Report` UI
+1. Migrate `Report` UI
    - `SILReportStudio.tsx`
    - `ReportConfigPanel.tsx`
    - related small export shells
 
+2. Migrate `Report` PDF/document text
+   - `silReportPdf.tsx`
+   - `assumptionsPdf.tsx`
+   - any export-specific labels that remain hardcoded
+
 3. Then decide between:
    - `Architecture`
-   - remaining report/PDF documents
+   - remaining report/PDF documents in other slices
 
 ## Architecture Slice Warning
 

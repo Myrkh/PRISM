@@ -48,9 +48,9 @@ export function ProofTestPDFExport({ sif, project, procedure, campaigns, onClose
       anchor.click()
       anchor.remove()
       URL.revokeObjectURL(url)
-      toast.success('PDF téléchargé', fileName)
+      toast.success(strings.pdfExport.toasts.success, fileName)
     } catch {
-      toast.error('Export PDF échoué', 'Vérifiez la console pour plus de détails.')
+      toast.error(strings.pdfExport.toasts.error, strings.pdfExport.toasts.errorDescription)
       window.print()
     } finally {
       setExporting(false)
