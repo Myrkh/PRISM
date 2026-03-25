@@ -49,7 +49,7 @@ jobs:
         working-directory: backend
         run: |
           pip install ./sil-py
-          pip install fastapi "uvicorn[standard]" pydantic reportlab pillow python-dotenv
+          pip install fastapi "uvicorn[standard]" pydantic reportlab pillow python-dotenv httpx
           pip install pyinstaller
 
       # ── PyInstaller ───────────────────────────────────────────────────────
