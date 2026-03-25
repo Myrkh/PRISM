@@ -33,6 +33,7 @@ import {
 } from 'lucide-react'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { useAppStore } from '@/store/appStore'
+import { streamPRISMAI } from '@/lib/aiApi'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 export interface ChatMessage {
@@ -661,7 +662,7 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
 
     try {
       let accumulated = ''
-      for await (const chunk of streamAIResponseStub(updatedMsgs, attachedContext ?? undefined, config)) {
+      for await (const chunk of streamPRISMAI(updatedMsgs, attachedContext ?? undefined, config)) {
         accumulated += chunk
         setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: accumulated } : m))
       }

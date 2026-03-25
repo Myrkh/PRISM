@@ -84,12 +84,19 @@ export async function* streamPRISMAI(
   config?: ChatConfig,
   workspace?: WorkspaceContext,
 ): AsyncGenerator<string> {
+  const model = config?.model ?? null
+  const provider = model?.startsWith('mistral-') || model?.startsWith('codestral-')
+    ? 'mistral'
+    : model?.startsWith('claude-')
+      ? 'anthropic'
+      : null  // utilise la config serveur (définie dans .env)
+
   const body = {
     messages: messages.map(m => ({ role: m.role, content: m.content })),
     workspace: workspace ?? null,
     custom_system_prompt: config?.systemPrompt ?? '',
-    provider: null,   // utilise la config serveur (définie dans .env)
-    model: config?.model ?? null,
+    provider,
+    model,
   }
 
   let response: Response
