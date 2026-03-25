@@ -22,11 +22,17 @@ a = Analysis(
     datas=[
         # Frontend buildé (copié dans backend/frontend/ par le CI)
         ('frontend', 'frontend'),
+        # Knowledge base IA (fichiers Markdown injectés dans le system prompt)
+        ('knowledge', 'knowledge'),
         *uvicorn_datas,
         *anyio_datas,
         *pil_datas,
     ],
     hiddenimports=[
+        # httpx (requêtes HTTP vers Mistral/Anthropic/Ollama)
+        'httpx',
+        'httpx._transports.default',
+        'httpcore',
         # FastAPI / Starlette
         'starlette.routing',
         'starlette.middleware',

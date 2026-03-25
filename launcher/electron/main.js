@@ -366,7 +366,9 @@ function openPrismWindow() {
   })
   ipcMain.handle('prism-win:close', () => prismWindow?.close())
 
-  prismWindow.loadURL('http://localhost:8000')
+  prismWindow.webContents.session.clearCache().finally(() => {
+    prismWindow.loadURL('http://localhost:8000')
+  })
   prismWindow.on('closed', () => { prismWindow = null })
 
   // Réduire le Launcher si le setting est activé
