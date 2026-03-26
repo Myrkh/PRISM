@@ -47,6 +47,13 @@ export interface EngineStrings {
     status: string
     runtime: string
     warnings: string
+    pfdavg: string
+    pfh: string
+    sil: string
+    verdict: string
+    deltaPfd: string
+    deltaPfh: string
+    deltaRrf: string
     backend: string
     result: string
     started: string
@@ -54,6 +61,10 @@ export interface EngineStrings {
     state: string
     action: string
     actorSystem: string
+    triggerKinds: {
+      manual: string
+      compare: string
+    }
     unknownProject: string
     untitledSif: string
   }
@@ -70,6 +81,10 @@ export interface EngineStrings {
     publishedBaseline: string
     operationalEvidence: string
     designCandidate: string
+  }
+  errors: {
+    historyFailed: (message: string) => string
+    persistenceFailed: (message: string) => string
   }
   statuses: {
     published: string
@@ -165,6 +180,8 @@ export interface EngineStrings {
     runtime: string
     warningsSurfaced: (count: number) => string
     componentTrace: string
+    componentLabel: string
+    subComponentLabel: string
     channel: (id: string) => string
     subComponentOf: (parent: string, instrumentType: string) => string
   }

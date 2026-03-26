@@ -130,11 +130,31 @@ export interface SifVerificationStrings {
         save: string
         saving: string
       }
+      notifications: {
+        saveSuccess: string
+        saveFailure: string
+      }
       pdfDraftHint: string
       projectMissing: string
       saveFallback: string
       empty: string
       newAssumptionTitle: string
+      itemTitle: string
+      remove: string
+      placeholders: {
+        title: string
+        statement: string
+        rationale: string
+        owner: string
+      }
+      helper: {
+        linkHint: string
+        openLinkedTab: string
+        derivedSignalsTitle: string
+        derivedSignalsDescription: string
+        openSourceTab: string
+        untitled: string
+      }
       fields: {
         title: string
         statement: string
@@ -165,6 +185,49 @@ export interface SifVerificationStrings {
         verification: string
         exploitation: string
         report: string
+      }
+    }
+    compliance: {
+      sections: {
+        summary: string
+        gap: string
+        assumptions: string
+        evidence: string
+      }
+      statuses: {
+        compliant: string
+        review: string
+        nonCompliant: string
+      }
+      summary: {
+        title: string
+        description: string
+        targetSil: string
+        achieved: string
+        openGaps: string
+        register: string
+        registerPending: (count: number) => string
+        priorityActions: string
+        assumptionSignals: string
+        explicitRegister: (count: number) => string
+        derivedSignals: (count: number) => string
+      }
+      gap: {
+        whyItMatters: string
+        current: string
+        expected: string
+        goToFix: string
+        inspector: string
+        inspectorHint: string
+        openGaps: string
+        noOpenGaps: string
+        currentExpected: (value: string, expected: string) => string
+      }
+      evidence: {
+        selectedEvidence: string
+        inspector: string
+        inspectorHint: string
+        statusTitle: string
       }
     }
   }

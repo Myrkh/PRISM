@@ -15,6 +15,16 @@ import type {
   SubsystemType,
 } from '@/core/types'
 import { buildLibraryDragPayload } from '@/features/library'
+import { useAppLocale } from '@/i18n/useLocale'
+import {
+  formatLibraryTestType,
+  getLibraryDataSourceLabel,
+  getLibraryInstrumentTypeLabel,
+  getLibraryLocaleTag,
+  getLibraryOriginBadgeLabels,
+  getLibraryOriginTextLabels,
+  getLibrarySubsystemMeta,
+} from '@/components/library/libraryUi'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
 export type LibraryOriginBadge = 'builtin' | 'project' | 'user'
@@ -38,21 +48,21 @@ export const LIBRARY_ORIGIN_STYLE: Record<LibraryOriginBadge, { label: string }>
   user: { label: 'perso' },
 }
 
-function formatLambda(value: number | null | undefined) {
-  if (value == null || !Number.isFinite(value)) return 'n/a'
-  return Number(value).toLocaleString('fr-FR', {
+function formatLambda(value: number | null | undefined, localeTag: string) {
+  if (value == null || !Number.isFinite(value)) return 'N/A'
+  return Number(value).toLocaleString(localeTag, {
     maximumFractionDigits: value >= 100 ? 0 : 3,
   })
 }
 
-function formatRatio(value: number | null | undefined) {
-  if (value == null || !Number.isFinite(value)) return 'n/a'
-  return `${(value * 100).toLocaleString('fr-FR', { maximumFractionDigits: 1 })}%`
+function formatRatio(value: number | null | undefined, localeTag: string) {
+  if (value == null || !Number.isFinite(value)) return 'N/A'
+  return `${(value * 100).toLocaleString(localeTag, { maximumFractionDigits: 1 })}%`
 }
 
-function formatDuration(value: number | null | undefined, unit?: string | null) {
-  if (value == null || !Number.isFinite(value)) return 'n/a'
-  return `${Number(value).toLocaleString('fr-FR', { maximumFractionDigits: 2 })}${unit ? ` ${unit}` : ''}`
+function formatDuration(value: number | null | undefined, localeTag: string, unit?: string | null) {
+  if (value == null || !Number.isFinite(value)) return 'N/A'
+  return `${Number(value).toLocaleString(localeTag, { maximumFractionDigits: 2 })}${unit ? ` ${unit}` : ''}`
 }
 
 function hasDevelopedContent(values: DevelopedParams) {
@@ -107,21 +117,24 @@ function ParameterReadout({ label, value }: { label: string; value: string }) {
 }
 
 export function LibraryOriginLegend() {
+  const locale = useAppLocale()
   const { BORDER, PAGE_BG, TEAL, TEAL_DIM, TEXT_DIM } = usePrismTheme()
+  const originBadgeLabels = getLibraryOriginBadgeLabels(locale)
+  const originTextLabels = getLibraryOriginTextLabels(locale)
 
   return (
     <div
       className="flex flex-wrap items-center gap-3 px-3 py-2"
       style={{ borderTop: `1px solid ${BORDER}`, background: PAGE_BG }}
     >
-      {(Object.entries(LIBRARY_ORIGIN_STYLE) as [LibraryOriginBadge, typeof LIBRARY_ORIGIN_STYLE[LibraryOriginBadge]][]).map(([key, entry]) => {
+      {(Object.keys(originBadgeLabels) as LibraryOriginBadge[]).map(key => {
         const tone = getOriginTone(key, { BORDER, TEAL, TEAL_DIM, TEXT_DIM })
         return (
           <span key={key} className="flex items-center gap-1 text-[9px]" style={{ color: TEXT_DIM }}>
             <span className="rounded px-1 py-0.5 text-[8px] font-bold" style={{ background: tone.bg, color: tone.color }}>
-              {entry.label}
+              {originBadgeLabels[key]}
             </span>
-            {key === 'builtin' ? 'standard' : key === 'project' ? 'projet' : 'personnel'}
+            {originTextLabels[key]}
           </span>
         )
       })}
@@ -148,14 +161,60 @@ export function LibraryTemplateCard({
   onSelect?: () => void
   dragEnabled?: boolean
 }) {
+  const locale = useAppLocale()
+  const localeTag = getLibraryLocaleTag(locale)
   const { BORDER, PAGE_BG, SURFACE, SHADOW_SOFT, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
-  const meta = LIBRARY_SUBSYSTEM_META[template.subsystemType]
-  const originStyle = LIBRARY_ORIGIN_STYLE[origin]
+  const meta = getLibrarySubsystemMeta(locale)[template.subsystemType]
+  const originBadgeLabels = getLibraryOriginBadgeLabels(locale)
   const originTone = getOriginTone(origin, { BORDER, TEAL, TEAL_DIM, TEXT_DIM })
   const snapshot = template.componentSnapshot
   const developedVisible = hasDevelopedContent(snapshot.developed) || snapshot.paramMode === 'developed'
   const advancedVisible = hasAdvancedContent(snapshot.advanced)
   const fieldTone = { border: `${BORDER}A6`, background: PAGE_BG }
+  const strings = locale === 'en'
+    ? {
+        hideDetails: 'Hide details',
+        showParameters: 'Show parameters',
+        delete: 'Delete',
+        standardLibrary: 'Standard library',
+        factorized: 'Factorized',
+        developed: 'Developed',
+        test: 'Test',
+        advanced: 'Advanced',
+        type: 'Type',
+        lifetime: 'Lifetime',
+        partialStrokeTest: 'Partial stroke test',
+        duration: 'Duration',
+        detection: 'Detection',
+        testCount: 'Test count',
+        units: { hr: 'hr', yr: 'yr' },
+      }
+    : {
+        hideDetails: 'Masquer le détail',
+        showParameters: 'Voir les paramètres',
+        delete: 'Supprimer',
+        standardLibrary: 'Bibliothèque standard',
+        factorized: 'Factorisé',
+        developed: 'Développé',
+        test: 'Test',
+        advanced: 'Avancé',
+        type: 'Type',
+        lifetime: 'Durée de vie',
+        partialStrokeTest: 'Test partiel',
+        duration: 'Durée',
+        detection: 'Détection',
+        testCount: 'Nb tests',
+        units: { hr: 'h', yr: 'an' },
+      }
+  const templateInstrumentLabel = template.instrumentType
+    ? getLibraryInstrumentTypeLabel(locale, template.instrumentType)
+    : null
+  const templateDataSourceLabel = template.dataSource
+    ? getLibraryDataSourceLabel(locale, template.dataSource)
+    : null
+  const formatDurationWithUnit = (value: number | null | undefined, unit?: 'hr' | 'yr' | null) => (
+    formatDuration(value, localeTag, unit ? strings.units[unit] : undefined)
+  )
 
   return (
     <div style={{ borderBottom: `1px solid ${BORDER}28` }}>
@@ -200,7 +259,7 @@ export function LibraryTemplateCard({
           <p className="truncate text-[11px] font-medium" style={{ color: TEXT }}>{template.name}</p>
           {(template.libraryName || template.manufacturer || template.instrumentType) && (
             <p className="truncate text-[9px]" style={{ color: TEXT_DIM }}>
-              {[template.libraryName, template.instrumentType, template.manufacturer].filter(Boolean).join(' · ')}
+              {[template.libraryName, templateInstrumentLabel, template.manufacturer].filter(Boolean).join(' · ')}
             </p>
           )}
         </div>
@@ -217,7 +276,7 @@ export function LibraryTemplateCard({
             color: expanded ? meta.color : TEXT_DIM,
             background: expanded ? `${meta.color}10` : PAGE_BG,
           }}
-          title={expanded ? 'Masquer le détail' : 'Voir les paramètres'}
+          title={expanded ? strings.hideDetails : strings.showParameters}
         >
           {expanded ? <ChevronDown size={11} /> : <Layers size={11} />}
         </button>
@@ -225,25 +284,23 @@ export function LibraryTemplateCard({
           className="shrink-0 rounded px-1 py-0.5 text-[8px] font-bold"
           style={{ background: originTone.bg, color: originTone.color }}
         >
-          {originStyle.label}
+          {originBadgeLabels[origin]}
         </span>
         {onDelete && (
           <div className="flex shrink-0 gap-0.5 opacity-0 transition-opacity group-hover:opacity-100">
-            {onDelete && (
-              <button
-                type="button"
-                draggable={false}
-                onClick={event => {
-                  event.stopPropagation()
-                  onDelete(template.id)
-                }}
-                className="rounded p-1 transition-colors hover:bg-red-900/30"
-                style={{ color: '#F87171' }}
-                title="Supprimer"
-              >
-                <Trash2 size={10} />
-              </button>
-            )}
+            <button
+              type="button"
+              draggable={false}
+              onClick={event => {
+                event.stopPropagation()
+                onDelete(template.id)
+              }}
+              className="rounded p-1 transition-colors hover:bg-red-900/30"
+              style={{ color: '#F87171' }}
+              title={strings.delete}
+            >
+              <Trash2 size={10} />
+            </button>
           </div>
         )}
       </div>
@@ -261,10 +318,10 @@ export function LibraryTemplateCard({
             <div className="mb-3 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-widest" style={{ color: meta.color }}>
-                  {template.instrumentType || meta.label}
+                  {templateInstrumentLabel || meta.singularLabel}
                 </p>
                 <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT }}>
-                  {[template.manufacturer, template.dataSource].filter(Boolean).join(' · ') || 'Bibliothèque standard'}
+                  {[template.manufacturer, templateDataSourceLabel].filter(Boolean).join(' · ') || strings.standardLibrary}
                 </p>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-1.5">
@@ -285,79 +342,79 @@ export function LibraryTemplateCard({
               <div className="rounded-lg border px-2.5 py-2" style={fieldTone}>
                 <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>lambda</p>
                 <p className="mt-1 text-[11px] font-semibold font-mono" style={{ color: TEXT }}>
-                  {formatLambda(snapshot.factorized.lambda)}
+                  {formatLambda(snapshot.factorized.lambda, localeTag)}
                 </p>
               </div>
               <div className="rounded-lg border px-2.5 py-2" style={fieldTone}>
                 <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>λD/λ</p>
                 <p className="mt-1 text-[11px] font-semibold font-mono" style={{ color: TEXT }}>
-                  {formatRatio(snapshot.factorized.lambdaDRatio)}
+                  {formatRatio(snapshot.factorized.lambdaDRatio, localeTag)}
                 </p>
               </div>
               <div className="rounded-lg border px-2.5 py-2" style={fieldTone}>
                 <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>DC</p>
                 <p className="mt-1 text-[11px] font-semibold font-mono" style={{ color: TEXT }}>
-                  {formatRatio(snapshot.factorized.DCd)}
+                  {formatRatio(snapshot.factorized.DCd, localeTag)}
                 </p>
               </div>
               <div className="rounded-lg border px-2.5 py-2" style={fieldTone}>
                 <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>T1</p>
                 <p className="mt-1 text-[11px] font-semibold font-mono" style={{ color: TEXT }}>
-                  {formatDuration(snapshot.test.T1, snapshot.test.T1Unit)}
+                  {formatDurationWithUnit(snapshot.test.T1, snapshot.test.T1Unit)}
                 </p>
               </div>
             </div>
 
             <div className="mt-3 space-y-2">
               <div className="rounded-lg border px-2.5 py-2" style={fieldTone}>
-                <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Factorisé</p>
+                <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{strings.factorized}</p>
                 <div className="mt-2 grid gap-2 text-[10px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(112px, 1fr))' }}>
-                  <ParameterReadout label="λ total" value={formatLambda(snapshot.factorized.lambda)} />
-                  <ParameterReadout label="λD / λ" value={formatRatio(snapshot.factorized.lambdaDRatio)} />
-                  <ParameterReadout label="DCd" value={formatRatio(snapshot.factorized.DCd)} />
-                  <ParameterReadout label="DCs" value={formatRatio(snapshot.factorized.DCs)} />
+                  <ParameterReadout label="λ total" value={formatLambda(snapshot.factorized.lambda, localeTag)} />
+                  <ParameterReadout label="λD / λ" value={formatRatio(snapshot.factorized.lambdaDRatio, localeTag)} />
+                  <ParameterReadout label="DCd" value={formatRatio(snapshot.factorized.DCd, localeTag)} />
+                  <ParameterReadout label="DCs" value={formatRatio(snapshot.factorized.DCs, localeTag)} />
                 </div>
               </div>
 
               {developedVisible && (
                 <div className="rounded-lg border px-2.5 py-2" style={fieldTone}>
-                  <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Développé</p>
+                  <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{strings.developed}</p>
                   <div className="mt-2 grid gap-2 text-[10px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(112px, 1fr))' }}>
-                    <ParameterReadout label="λDU" value={formatLambda(snapshot.developed.lambda_DU)} />
-                    <ParameterReadout label="λDD" value={formatLambda(snapshot.developed.lambda_DD)} />
-                    <ParameterReadout label="λSD" value={formatLambda(snapshot.developed.lambda_SD)} />
-                    <ParameterReadout label="λSU" value={formatLambda(snapshot.developed.lambda_SU)} />
+                    <ParameterReadout label="λDU" value={formatLambda(snapshot.developed.lambda_DU, localeTag)} />
+                    <ParameterReadout label="λDD" value={formatLambda(snapshot.developed.lambda_DD, localeTag)} />
+                    <ParameterReadout label="λSD" value={formatLambda(snapshot.developed.lambda_SD, localeTag)} />
+                    <ParameterReadout label="λSU" value={formatLambda(snapshot.developed.lambda_SU, localeTag)} />
                   </div>
                 </div>
               )}
 
               <div className="rounded-lg border px-2.5 py-2" style={fieldTone}>
-                <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Test</p>
+                <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{strings.test}</p>
                 <div className="mt-2 grid gap-2 text-[10px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(112px, 1fr))' }}>
-                  <ParameterReadout label="Type" value={snapshot.test.testType} />
-                  <ParameterReadout label="T1" value={formatDuration(snapshot.test.T1, snapshot.test.T1Unit)} />
-                  <ParameterReadout label="T0" value={formatDuration(snapshot.test.T0, snapshot.test.T0Unit)} />
+                  <ParameterReadout label={strings.type} value={formatLibraryTestType(locale, snapshot.test.testType)} />
+                  <ParameterReadout label="T1" value={formatDurationWithUnit(snapshot.test.T1, snapshot.test.T1Unit)} />
+                  <ParameterReadout label="T0" value={formatDurationWithUnit(snapshot.test.T0, snapshot.test.T0Unit)} />
                 </div>
               </div>
 
               {advancedVisible && (
                 <div className="rounded-lg border px-2.5 py-2" style={fieldTone}>
-                  <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Avancé</p>
+                  <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{strings.advanced}</p>
                   <div className="mt-2 grid gap-2 text-[10px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(112px, 1fr))' }}>
-                    <ParameterReadout label="MTTR" value={formatDuration(snapshot.advanced.MTTR, 'hr')} />
+                    <ParameterReadout label="MTTR" value={formatDurationWithUnit(snapshot.advanced.MTTR, 'hr')} />
                     <ParameterReadout label="γ" value={String(snapshot.advanced.gamma ?? 0)} />
-                    <ParameterReadout label="λ*" value={formatLambda(snapshot.advanced.lambdaStar)} />
-                    <ParameterReadout label="π" value={formatDuration(snapshot.advanced.testDuration, 'hr')} />
-                    <ParameterReadout label="PTC" value={formatRatio(snapshot.advanced.proofTestCoverage)} />
-                    <ParameterReadout label="Lifetime" value={snapshot.advanced.lifetime == null ? 'n/a' : formatDuration(snapshot.advanced.lifetime, 'yr')} />
+                    <ParameterReadout label="λ*" value={formatLambda(snapshot.advanced.lambdaStar, localeTag)} />
+                    <ParameterReadout label="π" value={formatDurationWithUnit(snapshot.advanced.testDuration, 'hr')} />
+                    <ParameterReadout label="PTC" value={formatRatio(snapshot.advanced.proofTestCoverage, localeTag)} />
+                    <ParameterReadout label={strings.lifetime} value={snapshot.advanced.lifetime == null ? 'N/A' : formatDurationWithUnit(snapshot.advanced.lifetime, 'yr')} />
                   </div>
                   {snapshot.advanced.partialTest?.enabled && (
                     <div className="mt-2 rounded-lg border px-2.5 py-2" style={{ borderColor: `${meta.color}22`, background: `${meta.color}08` }}>
-                      <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: meta.color }}>Partial stroke test</p>
+                      <p className="text-[9px] font-bold uppercase tracking-widest" style={{ color: meta.color }}>{strings.partialStrokeTest}</p>
                       <div className="mt-2 grid gap-2 text-[10px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(112px, 1fr))' }}>
-                        <ParameterReadout label="Durée" value={formatDuration(snapshot.advanced.partialTest.duration, 'hr')} />
-                        <ParameterReadout label="Détection" value={formatRatio(snapshot.advanced.partialTest.detectedFaultsPct)} />
-                        <ParameterReadout label="Nb tests" value={String(snapshot.advanced.partialTest.numberOfTests ?? 0)} />
+                        <ParameterReadout label={strings.duration} value={formatDurationWithUnit(snapshot.advanced.partialTest.duration, 'hr')} />
+                        <ParameterReadout label={strings.detection} value={formatRatio(snapshot.advanced.partialTest.detectedFaultsPct, localeTag)} />
+                        <ParameterReadout label={strings.testCount} value={String(snapshot.advanced.partialTest.numberOfTests ?? 0)} />
                       </div>
                     </div>
                   )}

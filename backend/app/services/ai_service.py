@@ -104,6 +104,22 @@ class AttachedContext:
         self.sif_name = sif_name
 
 
+class WorkspaceAttachment:
+    def __init__(
+        self,
+        kind: Literal["note", "pdf", "image"],
+        node_id: str,
+        name: str,
+        content: str = "",
+        url: str = "",
+    ) -> None:
+        self.kind = kind
+        self.node_id = node_id
+        self.name = name
+        self.content = content
+        self.url = url
+
+
 class PrismWorkspaceContext:
     """
     Contexte workspace complet — assemblé côté backend à partir :
@@ -170,27 +186,109 @@ class AIService:
         self._cfg = config or AIConfig()
         self._knowledge = get_knowledge_service()
 
+    def _truncate_attachment_text(self, text: str, limit: int = 12000) -> str:
+        if len(text) <= limit:
+            return text
+        return text[: limit - 18].rstrip() + "\n\n[contenu tronqué]"
+
+    async def _extract_document_markdown(self, attachment: WorkspaceAttachment) -> str | None:
+        if not attachment.url or not self._cfg.mistral_api_key:
+            return None
+
+        document_type = "image_url" if attachment.kind == "image" else "document_url"
+        payload = {
+            "model": "mistral-ocr-latest",
+            "document": {
+                "type": document_type,
+                document_type: attachment.url,
+            },
+        }
+        headers = {
+            "Authorization": f"Bearer {self._cfg.mistral_api_key}",
+            "Content-Type": "application/json",
+        }
+
+        try:
+            async with httpx.AsyncClient(timeout=60.0) as client:
+                resp = await client.post("https://api.mistral.ai/v1/ocr", headers=headers, json=payload)
+                if resp.status_code != 200:
+                    logger.warning("Mistral OCR error %d for %s", resp.status_code, attachment.name)
+                    return None
+                data = resp.json()
+        except Exception as exc:
+            logger.warning("Mistral OCR failed for %s: %s", attachment.name, exc)
+            return None
+
+        pages = data.get("pages", [])
+        markdown_parts = [page.get("markdown", "").strip() for page in pages if page.get("markdown")]
+        if not markdown_parts:
+            return None
+        return self._truncate_attachment_text("\n\n---\n\n".join(markdown_parts))
+
+    async def _prepare_attachments(
+        self,
+        attachments: list[WorkspaceAttachment] | None,
+    ) -> list[WorkspaceAttachment]:
+        prepared: list[WorkspaceAttachment] = []
+        for attachment in attachments or []:
+            current = WorkspaceAttachment(
+                kind=attachment.kind,
+                node_id=attachment.node_id,
+                name=attachment.name,
+                content=attachment.content,
+                url=attachment.url,
+            )
+            if current.kind in {"pdf", "image"} and current.url and not current.content:
+                extracted = await self._extract_document_markdown(current)
+                if extracted:
+                    current.content = extracted
+            prepared.append(current)
+        return prepared
+
+    def _build_mistral_messages(
+        self,
+        system_prompt: str,
+        messages: list[ChatMessage],
+        attachments: list[WorkspaceAttachment] | None,
+    ) -> list[dict]:
+        mistral_messages: list[dict] = [{"role": "system", "content": system_prompt}]
+        image_urls = [attachment.url for attachment in attachments or [] if attachment.kind == "image" and attachment.url]
+        last_user_index = next((index for index in range(len(messages) - 1, -1, -1) if messages[index].role == "user"), None)
+
+        for index, message in enumerate(messages):
+            if last_user_index is not None and index == last_user_index and image_urls:
+                content = [{"type": "text", "text": message.content}]
+                for image_url in image_urls[:4]:
+                    content.append({"type": "image_url", "image_url": image_url})
+                mistral_messages.append({"role": message.role, "content": content})
+            else:
+                mistral_messages.append(message.to_dict())
+
+        return mistral_messages
+
     # ── Assemblage du prompt ──────────────────────────────────────────────────
 
     def _build_system_prompt(
         self,
         workspace: PrismWorkspaceContext | None,
+        attached_context: AttachedContext | None,
+        attachments: list[WorkspaceAttachment] | None,
         last_user_message: str,
         custom_system_prompt: str = "",
     ) -> str:
         """
-        Construit le system prompt complet en 3 couches :
+        Construit le system prompt complet en 5 couches :
           1. Rôle IA + system prompt custom
           2. Knowledge base (IEC 61511, méthodologie, guide PRISM)
-          3. Contexte workspace (.prism/ + SIF active)
+          3. SIF explicitement jointe par l'utilisateur
+          4. Fichiers du workspace joints explicitement
+          5. Contexte workspace (.prism/ + SIF active)
         """
         parts: list[str] = []
 
-        # Couche 1 — Rôle IA
         base_prompt = custom_system_prompt.strip() if custom_system_prompt.strip() else DEFAULT_SYSTEM_PROMPT
         parts.append(base_prompt)
 
-        # Couche 2 — Knowledge base (sélection intelligente selon la question)
         knowledge_ctx = self._knowledge.build_knowledge_context(
             query=last_user_message,
             max_chars=self._cfg.max_context_chars,
@@ -198,7 +296,33 @@ class AIService:
         if knowledge_ctx:
             parts.append(knowledge_ctx)
 
-        # Couche 3 — Contexte workspace
+        if attached_context:
+            attached_name = attached_context.sif_name.strip() or "Sans titre"
+            parts.append(
+                "## SIF jointe explicitement par l'utilisateur\n\n"
+                f"- Nom : {attached_name}\n"
+                f"- ID : {attached_context.sif_id}\n"
+                "- Utilise cette SIF comme contexte prioritaire si la question est ambiguë."
+            )
+
+        if attachments:
+            attachment_sections: list[str] = []
+            for attachment in attachments:
+                title = f"### {attachment.name} ({attachment.kind.upper()})"
+                if attachment.content.strip():
+                    attachment_sections.append(f"{title}\n\n{attachment.content.strip()}")
+                else:
+                    attachment_sections.append(
+                        f"{title}\n\n"
+                        "- Fichier joint sans contenu extrait par le backend.\n"
+                        "- Si le modèle supporte la vision/document AI, il peut encore l'exploiter selon le provider."
+                    )
+            if attachment_sections:
+                parts.append(
+                    "## Fichiers du workspace joints explicitement\n\n"
+                    + "\n\n---\n\n".join(attachment_sections)
+                )
+
         if workspace:
             workspace_ctx = workspace.to_markdown()
             if workspace_ctx:
@@ -266,6 +390,7 @@ class AIService:
         self,
         system_prompt: str,
         messages: list[ChatMessage],
+        attachments: list[WorkspaceAttachment] | None = None,
     ) -> AsyncGenerator[str, None]:
         """Stream via Mistral AI API (OpenAI-compatible chat completions)."""
         if not self._cfg.mistral_api_key:
@@ -282,9 +407,7 @@ class AIService:
             "Accept": "text/event-stream",
         }
 
-        # Mistral utilise le format OpenAI : system prompt = premier message role=system
-        mistral_messages = [{"role": "system", "content": system_prompt}]
-        mistral_messages.extend(m.to_dict() for m in messages)
+        mistral_messages = self._build_mistral_messages(system_prompt, messages, attachments)
 
         body = {
             "model": self._cfg.effective_mistral_model,
@@ -393,7 +516,9 @@ class AIService:
     async def stream_response(
         self,
         messages: list[ChatMessage],
+        attached_context: AttachedContext | None = None,
         workspace: PrismWorkspaceContext | None = None,
+        attachments: list[WorkspaceAttachment] | None = None,
         custom_system_prompt: str = "",
         provider_override: Provider | None = None,
     ) -> AsyncGenerator[str, None]:
@@ -402,7 +527,9 @@ class AIService:
 
         Args:
             messages: Historique de la conversation (rôle user/assistant).
+            attached_context: SIF explicitement jointe par l'utilisateur.
             workspace: Contexte workspace (.prism/ + SIF active).
+            attachments: Fichiers workspace joints explicitement pour cette requête.
             custom_system_prompt: System prompt personnalisé (depuis config chat).
             provider_override: Forcer un provider (ignore la config globale).
         """
@@ -410,9 +537,12 @@ class AIService:
         last_user_message = next(
             (m.content for m in reversed(messages) if m.role == "user"), ""
         )
+        prepared_attachments = await self._prepare_attachments(attachments)
 
         system_prompt = self._build_system_prompt(
             workspace=workspace,
+            attached_context=attached_context,
+            attachments=prepared_attachments,
             last_user_message=last_user_message,
             custom_system_prompt=custom_system_prompt,
         )
@@ -426,7 +556,7 @@ class AIService:
             async for chunk in self._stream_anthropic(system_prompt, messages):
                 yield chunk
         elif provider == "mistral":
-            async for chunk in self._stream_mistral(system_prompt, messages):
+            async for chunk in self._stream_mistral(system_prompt, messages, prepared_attachments):
                 yield chunk
         elif provider == "ollama":
             async for chunk in self._stream_ollama(system_prompt, messages):

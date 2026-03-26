@@ -15,10 +15,12 @@ export const libraryStringsEn: LibraryStrings = {
   searchPlaceholder: 'Ex. Rosemount, level switch, Safety PLC, SOV, positioner…',
   ctas: {
     import: 'Import',
+    importModel: 'JSON model',
     importModelTitle: 'Download a blank import-compatible JSON model',
     export: 'Export',
     exportTitle: 'Export visible (non-built-in) templates as JSON',
     reloadTitle: 'Reload library from server',
+    moreActionsTitle: 'More actions',
   },
   importTarget: (projectLabel, libraryLabel) => projectLabel
     ? `Import into ${projectLabel}${libraryLabel ? ` · ${libraryLabel}` : ''}`
@@ -36,15 +38,15 @@ export const libraryStringsEn: LibraryStrings = {
     showLess: 'Show less',
   },
   sidebar: {
-    title: 'Catalogue',
+    title: 'Catalog',
     reset: 'Reset',
     prismCatalogueTitle: 'PRISM Catalogue',
     prismCatalogueHint: 'read-only',
     myLibraryTitle: 'My Library',
-    myLibraryAllLabel: 'All my library',
+    myLibraryAllLabel: 'Entire library',
     myLibraryPersonalLabel: 'My templates',
     myLibraryPersonalHint: 'all projects',
-    familiesTitle: 'Family',
+    familiesTitle: 'Families',
     allFamiliesLabel: 'All',
     newSensorTitle: 'New sensor',
     newLogicTitle: 'New logic',

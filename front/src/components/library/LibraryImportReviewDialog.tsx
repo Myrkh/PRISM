@@ -4,14 +4,23 @@ import type {
   ComponentTemplateImportIssue,
   ComponentTemplateImportPreview,
 } from '@/features/library'
+import { useAppLocale } from '@/i18n/useLocale'
+import { getLibraryInstrumentTypeLabel, getLibrarySubsystemMeta } from './libraryUi'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { semantic } from '@/styles/tokens'
 
-const DECISION_LABELS: Record<ComponentTemplateImportDecision, string> = {
-  create: 'Creer',
-  update: 'Mettre a jour',
-  ignore: 'Ignorer',
-}
+const DECISION_LABELS_BY_LOCALE = {
+  fr: {
+    create: 'Créer',
+    update: 'Mettre à jour',
+    ignore: 'Ignorer',
+  },
+  en: {
+    create: 'Create',
+    update: 'Update',
+    ignore: 'Ignore',
+  },
+} as const satisfies Record<'fr' | 'en', Record<ComponentTemplateImportDecision, string>>
 
 function DecisionButton({
   active,
@@ -89,6 +98,10 @@ export function LibraryImportReviewDialog({
   onClose: () => void
   onConfirm: () => void
 }) {
+  const locale = useAppLocale()
+  const isEn = locale === 'en'
+  const decisionLabels = DECISION_LABELS_BY_LOCALE[locale]
+  const subsystemMeta = getLibrarySubsystemMeta(locale)
   const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, SHADOW_CARD, SHADOW_SOFT, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
 
   const decisionCounts = preview.entries.reduce((acc, entry) => {
@@ -124,14 +137,15 @@ export function LibraryImportReviewDialog({
         <div className="flex items-start justify-between gap-4 border-b px-6 py-5" style={{ borderColor: `${BORDER}35` }}>
           <div className="min-w-0">
             <p className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: TEAL_DIM }}>
-              Previsualisation d'import
+              {isEn ? 'Import preview' : "Prévisualisation d'import"}
             </p>
             <h2 className="mt-2 text-[24px] font-semibold tracking-tight" style={{ color: TEXT }}>
-              Verifier avant d'ecrire dans la bibliotheque
+              {isEn ? 'Review before writing to the library' : "Vérifier avant d'écrire dans la bibliothèque"}
             </h2>
             <p className="mt-2 text-[13px] leading-[1.8]" style={{ color: TEXT_DIM }}>
-              {fileName} · {preview.entries.length} entree{preview.entries.length > 1 ? 's' : ''} analysee{preview.entries.length > 1 ? 's' : ''}
-              {preview.libraryName ? ` · ${preview.libraryName}` : ''}
+              {isEn
+                ? `${fileName} · ${preview.entries.length} entr${preview.entries.length > 1 ? 'ies' : 'y'} analyzed${preview.libraryName ? ` · ${preview.libraryName}` : ''}`
+                : `${fileName} · ${preview.entries.length} entrée${preview.entries.length > 1 ? 's' : ''} analysée${preview.entries.length > 1 ? 's' : ''}${preview.libraryName ? ` · ${preview.libraryName}` : ''}`}
             </p>
           </div>
           <button
@@ -147,22 +161,22 @@ export function LibraryImportReviewDialog({
         <div className="grid gap-5 border-b px-6 py-4 xl:grid-cols-[minmax(0,1fr)_320px]" style={{ borderColor: `${BORDER}35` }}>
           <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
             <div className="rounded-xl border px-4 py-3" style={{ borderColor: `${TEAL}22`, background: `${TEAL}10` }}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEAL_DIM }}>Creer</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEAL_DIM }}>{isEn ? 'Create' : 'Créer'}</p>
               <p className="mt-2 text-[22px] font-semibold" style={{ color: TEAL }}>{decisionCounts.create}</p>
             </div>
             <div className="rounded-xl border px-4 py-3" style={{ borderColor: `${semantic.warning}22`, background: `${semantic.warning}10` }}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: semantic.warning }}>Mettre a jour</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: semantic.warning }}>{isEn ? 'Update' : 'Mettre à jour'}</p>
               <p className="mt-2 text-[22px] font-semibold" style={{ color: semantic.warning }}>{decisionCounts.update}</p>
             </div>
             <div className="rounded-xl border px-4 py-3" style={{ borderColor: `${BORDER}70`, background: PAGE_BG }}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>Ignorer</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>{decisionLabels.ignore}</p>
               <p className="mt-2 text-[22px] font-semibold" style={{ color: TEXT }}>{decisionCounts.ignore}</p>
             </div>
           </div>
 
           <div className="space-y-2">
             <div className="rounded-xl border px-4 py-3" style={{ borderColor: `${BORDER}70`, background: PAGE_BG }}>
-              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>Controles</p>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>{isEn ? 'Checks' : 'Contrôles'}</p>
               <div className="mt-3 flex flex-wrap gap-2">
                 <button
                   type="button"
@@ -171,7 +185,7 @@ export function LibraryImportReviewDialog({
                   style={{ borderColor: `${BORDER}80`, background: PAGE_BG, color: TEXT_DIM }}
                 >
                   <RefreshCw size={13} />
-                  Recommande
+                  {isEn ? 'Suggested' : 'Recommandé'}
                 </button>
                 <button
                   type="button"
@@ -180,7 +194,7 @@ export function LibraryImportReviewDialog({
                   style={{ borderColor: `${TEAL}30`, background: `${TEAL}10`, color: TEAL }}
                 >
                   <CheckCircle2 size={13} />
-                  Tout creer
+                  {isEn ? 'Create all' : 'Tout créer'}
                 </button>
                 <button
                   type="button"
@@ -189,12 +203,14 @@ export function LibraryImportReviewDialog({
                   style={{ borderColor: `${semantic.warning}30`, background: `${semantic.warning}10`, color: semantic.warning }}
                 >
                   <RefreshCw size={13} />
-                  Tout mettre a jour
+                  {isEn ? 'Update all' : 'Tout mettre à jour'}
                 </button>
               </div>
             </div>
             <div className="rounded-xl border px-4 py-3 text-[11px] leading-relaxed" style={{ borderColor: `${BORDER}70`, background: PAGE_BG, color: TEXT_DIM }}>
-              {decisionCounts.warning} entree{decisionCounts.warning > 1 ? 's' : ''} avec avertissement · {decisionCounts.invalid} invalide{decisionCounts.invalid > 1 ? 's' : ''}
+              {isEn
+                ? `${decisionCounts.warning} entr${decisionCounts.warning > 1 ? 'ies' : 'y'} with warning${decisionCounts.warning > 1 ? 's' : ''} · ${decisionCounts.invalid} invalid`
+                : `${decisionCounts.warning} entrée${decisionCounts.warning > 1 ? 's' : ''} avec avertissement · ${decisionCounts.invalid} invalide${decisionCounts.invalid > 1 ? 's' : ''}`}
             </div>
           </div>
         </div>
@@ -228,12 +244,19 @@ export function LibraryImportReviewDialog({
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-[15px] font-semibold" style={{ color: TEXT }}>{entry.sourceName}</p>
                           <p className="mt-1 text-[11px]" style={{ color: TEXT_DIM }}>
-                            {(snapshot?.subsystemType ?? 'template') + ' · ' + (snapshot?.instrumentType || 'Type a completer') + (snapshot?.manufacturer ? ' · ' + snapshot.manufacturer : '') + (entry.template?.libraryName ? ' · ' + entry.template.libraryName : '')}
+                            {[
+                              snapshot?.subsystemType ? subsystemMeta[snapshot.subsystemType].singularLabel : 'Template',
+                              snapshot?.instrumentType ? getLibraryInstrumentTypeLabel(locale, snapshot.instrumentType) : (isEn ? 'Type to complete' : 'Type à compléter'),
+                              snapshot?.manufacturer,
+                              entry.template?.libraryName,
+                            ].filter(Boolean).join(' · ')}
                           </p>
                         </div>
                         {entry.duplicate && (
                           <span className="inline-flex items-center rounded-full border px-2 py-1 text-[10px] font-semibold" style={{ borderColor: `${semantic.warning}30`, background: `${semantic.warning}10`, color: semantic.warning }}>
-                            {'Doublon ' + (entry.duplicate.kind === 'id' ? 'ID' : 'bibliotheque')}
+                            {isEn
+                              ? `Duplicate ${entry.duplicate.kind === 'id' ? 'ID' : 'library'}`
+                              : `Doublon ${entry.duplicate.kind === 'id' ? 'ID' : 'bibliothèque'}`}
                           </span>
                         )}
                       </div>
@@ -246,18 +269,18 @@ export function LibraryImportReviewDialog({
                         </div>
                       ) : (
                         <div className="mt-4 rounded-md border px-3 py-2 text-[11px]" style={{ borderColor: `${TEAL}22`, background: `${TEAL}10`, color: TEAL_DIM }}>
-                          Analyse propre. Le template peut etre importe tel quel.
+                          {isEn ? 'Clean analysis. The template can be imported as-is.' : 'Analyse propre. Le template peut être importé tel quel.'}
                         </div>
                       )}
                     </div>
 
                     <div className="rounded-xl border px-4 py-3" style={{ borderColor: `${BORDER}70`, background: PAGE_BG }}>
-                      <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>Decision</p>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.14em]" style={{ color: TEXT_DIM }}>{isEn ? 'Decision' : 'Décision'}</p>
                       <div className="mt-3 flex flex-wrap gap-2">
                         {entry.availableDecisions.map(option => (
                           <DecisionButton
                             key={option}
-                            label={DECISION_LABELS[option]}
+                            label={decisionLabels[option]}
                             active={decision === option}
                             tone={option === 'create' ? TEAL : (option === 'update' ? semantic.warning : TEXT_DIM)}
                             onClick={() => onDecisionChange(entry.id, option)}
@@ -266,7 +289,9 @@ export function LibraryImportReviewDialog({
                       </div>
                       {entry.duplicate && (
                         <p className="mt-3 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-                          {'Reference existante: ' + entry.duplicate.name + (entry.duplicate.libraryName ? ' · ' + entry.duplicate.libraryName : '')}
+                          {isEn
+                            ? `Existing reference: ${entry.duplicate.name}${entry.duplicate.libraryName ? ` · ${entry.duplicate.libraryName}` : ''}`
+                            : `Référence existante : ${entry.duplicate.name}${entry.duplicate.libraryName ? ` · ${entry.duplicate.libraryName}` : ''}`}
                         </p>
                       )}
                     </div>
@@ -280,8 +305,12 @@ export function LibraryImportReviewDialog({
         <div className="flex items-center justify-between gap-4 border-t px-6 py-4" style={{ borderColor: `${BORDER}35` }}>
           <div className="text-[12px] leading-relaxed" style={{ color: TEXT_DIM }}>
             {actionableCount > 0
-              ? actionableCount + ' entree' + (actionableCount > 1 ? 's' : '') + ' sera' + (actionableCount > 1 ? 'ont' : '') + ' importee' + (actionableCount > 1 ? 's' : '') + '.'
-              : 'Aucune entree selectionnee pour import.'}
+              ? isEn
+                ? `${actionableCount} entr${actionableCount > 1 ? 'ies' : 'y'} will be imported.`
+                : `${actionableCount} entrée${actionableCount > 1 ? 's' : ''} sera${actionableCount > 1 ? 'ont' : ''} importée${actionableCount > 1 ? 's' : ''}.`
+              : isEn
+                ? 'No entry selected for import.'
+                : 'Aucune entrée sélectionnée pour import.'}
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -291,7 +320,7 @@ export function LibraryImportReviewDialog({
               className="inline-flex h-10 items-center gap-2 rounded-xl border px-4 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50"
               style={{ borderColor: `${BORDER}80`, background: PAGE_BG, color: TEXT_DIM }}
             >
-              Annuler
+              {isEn ? 'Cancel' : 'Annuler'}
             </button>
             <button
               type="button"
@@ -301,7 +330,7 @@ export function LibraryImportReviewDialog({
               style={{ borderColor: `${TEAL}30`, background: `${TEAL}12`, color: TEAL }}
             >
               {busy ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle2 size={14} />}
-              Importer la selection
+              {isEn ? 'Import selection' : 'Importer la sélection'}
             </button>
           </div>
         </div>

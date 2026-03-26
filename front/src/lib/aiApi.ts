@@ -22,6 +22,14 @@ export interface WorkspaceContext {
   active_sif_json?: object   // SIF active sérialisée
 }
 
+export interface ChatAttachmentPayload {
+  kind: 'note' | 'pdf' | 'image'
+  node_id: string
+  name: string
+  content?: string
+  url?: string
+}
+
 // ─── Sérialisation SIF → contexte JSON ───────────────────────────────────────
 
 /**
@@ -83,6 +91,7 @@ export async function* streamPRISMAI(
   context?: AttachedContext,
   config?: ChatConfig,
   workspace?: WorkspaceContext,
+  attachments?: ChatAttachmentPayload[],
 ): AsyncGenerator<string> {
   const model = config?.model ?? null
   const provider = model?.startsWith('mistral-') || model?.startsWith('codestral-')
@@ -93,7 +102,14 @@ export async function* streamPRISMAI(
 
   const body = {
     messages: messages.map(m => ({ role: m.role, content: m.content })),
+    context: context
+      ? {
+          sif_id: context.sifId,
+          sif_name: context.sifName,
+        }
+      : null,
     workspace: workspace ?? null,
+    attachments: attachments ?? [],
     custom_system_prompt: config?.systemPrompt ?? '',
     provider,
     model,

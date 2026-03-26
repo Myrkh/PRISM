@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Activity, ChevronRight, Cpu, FolderPlus, Palette, Trash2, Zap } from 'lucide-react'
 import { COLLECTION_PRESET_COLORS } from '@/features/library'
-import { LIBRARY_SUBSYSTEM_META } from '@/components/library/LibraryTemplateCard'
+import { getLibrarySubsystemMeta } from '@/components/library/libraryUi'
 import {
   useLibraryNavigation,
   type LibraryCollectionScope,
@@ -15,7 +15,7 @@ import {
 import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { useAppStore } from '@/store/appStore'
 import { getLibraryStrings } from '@/i18n/library'
-import { useLocaleStrings } from '@/i18n/useLocale'
+import { useAppLocale, useLocaleStrings } from '@/i18n/useLocale'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
 // ─── Color picker ─────────────────────────────────────────────────────────────
@@ -406,7 +406,9 @@ export function LibrarySidebar() {
     setCollectionColor,
   } = useLibraryNavigation()
   const { setRightPanelOpen } = useLayout()
+  const locale = useAppLocale()
   const s = useLocaleStrings(getLibraryStrings).sidebar
+  const subsystemMeta = getLibrarySubsystemMeta(locale)
   const { BORDER, PANEL_BG, TEXT_DIM, SHADOW_SOFT, isDark } = usePrismTheme()
   const defaultClosed = useAppStore(s => s.preferences.rightPanelDefaultState) === 'closed'
 
@@ -458,7 +460,7 @@ export function LibrarySidebar() {
     }
   }).sort((a, b) => {
     if (b.count !== a.count) return b.count - a.count
-    return a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' })
+    return a.name.localeCompare(b.name, locale, { sensitivity: 'base' })
   })
 
   const prismActive     = sourceScope === 'builtin'
@@ -527,9 +529,9 @@ export function LibrarySidebar() {
           onToggle={() => setMyLibCollapsed(c => !c)}
           actions={
             <>
-              <IconAction icon={Activity} title={s.newSensorTitle}    color={LIBRARY_SUBSYSTEM_META.sensor.color}   onClick={() => handleCreate('sensor')} />
-              <IconAction icon={Cpu}      title={s.newLogicTitle}     color={LIBRARY_SUBSYSTEM_META.logic.color}    onClick={() => handleCreate('logic')} />
-              <IconAction icon={Zap}      title={s.newActuatorTitle}  color={LIBRARY_SUBSYSTEM_META.actuator.color} onClick={() => handleCreate('actuator')} />
+              <IconAction icon={Activity} title={s.newSensorTitle}    color={subsystemMeta.sensor.color}   onClick={() => handleCreate('sensor')} />
+              <IconAction icon={Cpu}      title={s.newLogicTitle}     color={subsystemMeta.logic.color}    onClick={() => handleCreate('logic')} />
+              <IconAction icon={Zap}      title={s.newActuatorTitle}  color={subsystemMeta.actuator.color} onClick={() => handleCreate('actuator')} />
               <IconAction icon={FolderPlus} title={s.newCollectionTitle} onClick={() => setNewCollectionOpen(o => !o)} />
             </>
           }
@@ -635,7 +637,7 @@ export function LibrarySidebar() {
               onClick={() => setSubsystemScope('all')}
             />
             {(['sensor', 'logic', 'actuator'] as const).map(type => {
-              const meta = LIBRARY_SUBSYSTEM_META[type]
+              const meta = subsystemMeta[type]
               return (
                 <FilterRow
                   key={type}

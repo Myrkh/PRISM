@@ -234,7 +234,9 @@ function buildComponentTrace(
   sif: SIF,
   subsystemKey: CompareSubsystemKey,
   backendChannels: SILBackendChannelResult[],
+  strings?: ReturnType<typeof getEngineStrings>,
 ): ChannelComponentTrace[] {
+  const localeStrings = strings ?? getEngineStrings('fr')
   const subsystem = sif.subsystems.find(item => item.type === SUBSYSTEM_TYPE_BY_KEY[subsystemKey])
   if (!subsystem) return []
 
@@ -275,7 +277,7 @@ function buildComponentTrace(
         rows.push({
           key: `${channel.id}:${item.componentId}`,
           tagName: item.componentId,
-          instrumentType: item.parentComponentId ? 'Sub-component' : 'Component',
+          instrumentType: item.parentComponentId ? localeStrings.routeInspector.subComponentLabel : localeStrings.routeInspector.componentLabel,
           parentTagName: item.parentComponentId ?? undefined,
           pfdavg: item.pfdavg,
           level: item.parentComponentId ? 1 : 0,
@@ -455,6 +457,20 @@ function formatSignedScientific(value: number | null): string {
 
 function formatSil(value: number | null): string {
   return value == null ? '—' : `SIL ${value}`
+}
+
+function formatTriggerKind(triggerKind: EngineRun['triggerKind'], strings?: ReturnType<typeof getEngineStrings>): string {
+  const localeStrings = strings ?? getEngineStrings('fr')
+  return triggerKind === 'compare'
+    ? localeStrings.shared.triggerKinds.compare
+    : localeStrings.shared.triggerKinds.manual
+}
+
+function formatRunStatus(status: EngineRun['status'], strings?: ReturnType<typeof getEngineStrings>): string {
+  const localeStrings = strings ?? getEngineStrings('fr')
+  if (status === 'done') return localeStrings.statuses.completed
+  if (status === 'error') return localeStrings.statuses.error
+  return localeStrings.statuses.running
 }
 
 function buildCompareSummary(
@@ -638,7 +654,7 @@ function RouteInspector({
           const backend = state.response.result.contributions[key]
           const ts = state.tsResult.contributions[key]
           const warnings = getSubsystemWarnings(state.response, key)
-          const componentTrace = buildComponentTrace(row.sif, key, backend.channelResults)
+          const componentTrace = buildComponentTrace(row.sif, key, backend.channelResults, strings)
           const pfdDelta = compareMetric(ts?.pfdavg, backend?.pfdavg, tolerancePct)
           const pfhDelta = compareMetric(ts?.pfh, backend?.pfh, tolerancePct)
           const routeLines = describeRoute(meta, strings)
@@ -835,11 +851,11 @@ function EngineRightPanel({
             )}
             {backendStatus === 'done' && backendResponse && (
               <InspectorSurface className="space-y-0">
-                <InspectorMetricRow label="PFDavg" value={formatPFD(backendResponse.result.pfdavg)} color={TEXT} />
-                <InspectorMetricRow label="PFH" value={formatPFD(backendResponse.result.pfh)} color={TEXT} />
-                <InspectorMetricRow label="SIL" value={formatSil(backendResponse.result.silAchieved)} color={TEAL} />
-                <InspectorMetricRow label="Runtime" value={backendResponse.backend.runtimeMs.toFixed(2)} suffix=" ms" color={TEXT} />
-                <InspectorMetricRow label="Warnings" value={backendResponse.result.warnings.length} color={backendResponse.result.warnings.length > 0 ? semantic.warning : semantic.success} />
+                <InspectorMetricRow label={strings.shared.pfdavg} value={formatPFD(backendResponse.result.pfdavg)} color={TEXT} />
+                <InspectorMetricRow label={strings.shared.pfh} value={formatPFD(backendResponse.result.pfh)} color={TEXT} />
+                <InspectorMetricRow label={strings.shared.sil} value={formatSil(backendResponse.result.silAchieved)} color={TEAL} />
+                <InspectorMetricRow label={strings.shared.runtime} value={backendResponse.backend.runtimeMs.toFixed(2)} suffix=" ms" color={TEXT} />
+                <InspectorMetricRow label={strings.shared.warnings} value={backendResponse.result.warnings.length} color={backendResponse.result.warnings.length > 0 ? semantic.warning : semantic.success} />
               </InspectorSurface>
             )}
           </InspectorSection>
@@ -847,10 +863,10 @@ function EngineRightPanel({
           {compareState && (
             <InspectorSection title={strings.rightPanel.compareTitle}>
               <InspectorSurface className="space-y-0">
-                <InspectorMetricRow label="Verdict" value={verdictMeta(compareState.summary.verdict, strings).label} color={verdictMeta(compareState.summary.verdict, strings).color} />
-                <InspectorMetricRow label="Delta PFD" value={formatDeltaPct(compareState.summary.pfd.deltaPct)} color={TEXT} />
-                <InspectorMetricRow label="Delta PFH" value={formatDeltaPct(compareState.summary.pfh.deltaPct)} color={TEXT} />
-                <InspectorMetricRow label="Delta RRF" value={formatDeltaPct(compareState.summary.rrf.deltaPct)} color={TEXT} />
+                <InspectorMetricRow label={strings.shared.verdict} value={verdictMeta(compareState.summary.verdict, strings).label} color={verdictMeta(compareState.summary.verdict, strings).color} />
+                <InspectorMetricRow label={strings.shared.deltaPfd} value={formatDeltaPct(compareState.summary.pfd.deltaPct)} color={TEXT} />
+                <InspectorMetricRow label={strings.shared.deltaPfh} value={formatDeltaPct(compareState.summary.pfh.deltaPct)} color={TEXT} />
+                <InspectorMetricRow label={strings.shared.deltaRrf} value={formatDeltaPct(compareState.summary.rrf.deltaPct)} color={TEXT} />
               </InspectorSurface>
             </InspectorSection>
           )}
@@ -905,8 +921,8 @@ function EngineHistoryRightPanel({ row }: { row: HistoryRow | null }) {
     ? [
         [strings.shared.project, row.projectName],
         [strings.shared.sif, row.sifNumber],
-        [strings.shared.trigger, row.run.triggerKind],
-        [strings.shared.status, row.run.status],
+        [strings.shared.trigger, formatTriggerKind(row.run.triggerKind, strings)],
+        [strings.shared.status, formatRunStatus(row.run.status, strings)],
       ]
     : []
 
@@ -951,13 +967,13 @@ function EngineHistoryRightPanel({ row }: { row: HistoryRow | null }) {
           <InspectorSection title={strings.rightPanel.historyRunSummaryTitle}>
             {row ? (
               <InspectorSurface className="space-y-0">
-                <InspectorMetricRow label={strings.shared.status} value={row.run.status} color={row.run.status === 'error' ? semantic.error : row.run.status === 'done' ? semantic.success : TEAL} />
+                <InspectorMetricRow label={strings.shared.status} value={formatRunStatus(row.run.status, strings)} color={row.run.status === 'error' ? semantic.error : row.run.status === 'done' ? semantic.success : TEAL} />
                 <InspectorMetricRow label={strings.shared.runtime} value={row.run.runtimeMs != null ? row.run.runtimeMs.toFixed(2) : '—'} suffix={row.run.runtimeMs != null ? ' ms' : ''} color={TEXT} />
                 <InspectorMetricRow label={strings.shared.warnings} value={row.run.warningCount} color={row.run.warningCount > 0 ? semantic.warning : semantic.success} />
                 <InspectorMetricRow label={strings.shared.backend} value={row.run.backendVersion ?? '—'} color={TEXT} />
-                {pfdavg != null && <InspectorMetricRow label="PFDavg" value={formatPFD(pfdavg)} color={TEXT} />}
-                {pfh != null && <InspectorMetricRow label="PFH" value={formatPFD(pfh)} color={TEXT} />}
-                {sil != null && <InspectorMetricRow label="SIL" value={formatSil(sil)} color={TEAL} />}
+                {pfdavg != null && <InspectorMetricRow label={strings.shared.pfdavg} value={formatPFD(pfdavg)} color={TEXT} />}
+                {pfh != null && <InspectorMetricRow label={strings.shared.pfh} value={formatPFD(pfh)} color={TEXT} />}
+                {sil != null && <InspectorMetricRow label={strings.shared.sil} value={formatSil(sil)} color={TEAL} />}
               </InspectorSurface>
             ) : (
               <p className="text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
@@ -969,10 +985,10 @@ function EngineHistoryRightPanel({ row }: { row: HistoryRow | null }) {
           {verdictTone && compare && (
             <InspectorSection title={strings.rightPanel.historyCompareTitle}>
               <InspectorSurface className="space-y-0">
-                <InspectorMetricRow label="Verdict" value={verdictTone.label} color={verdictTone.color} />
-                <InspectorMetricRow label="Delta PFD" value={formatDeltaPct(asNumberValue(compare.pfdDeltaPct))} color={TEXT} />
-                <InspectorMetricRow label="Delta PFH" value={formatDeltaPct(asNumberValue(compare.pfhDeltaPct))} color={TEXT} />
-                <InspectorMetricRow label="Delta RRF" value={formatDeltaPct(asNumberValue(compare.rrfDeltaPct))} color={TEXT} />
+                <InspectorMetricRow label={strings.shared.verdict} value={verdictTone.label} color={verdictTone.color} />
+                <InspectorMetricRow label={strings.shared.deltaPfd} value={formatDeltaPct(asNumberValue(compare.pfdDeltaPct))} color={TEXT} />
+                <InspectorMetricRow label={strings.shared.deltaPfh} value={formatDeltaPct(asNumberValue(compare.pfhDeltaPct))} color={TEXT} />
+                <InspectorMetricRow label={strings.shared.deltaRrf} value={formatDeltaPct(asNumberValue(compare.rrfDeltaPct))} color={TEXT} />
               </InspectorSurface>
             </InspectorSection>
           )}
@@ -1100,7 +1116,7 @@ export function EngineWorkspace() {
       .catch(error => {
         if (!active) return
         const message = error instanceof Error ? error.message : String(error)
-        setSyncError(`Engine history failed: ${message}`)
+        setSyncError(strings.errors.historyFailed(message))
       })
       .finally(() => {
         if (!active) return
@@ -1299,7 +1315,7 @@ export function EngineWorkspace() {
       return { runId: run.id, payloadHash }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setSyncError(`Engine run persistence failed: ${message}`)
+      setSyncError(strings.errors.persistenceFailed(message))
       return { runId: null, payloadHash }
     }
   }
@@ -1334,7 +1350,7 @@ export function EngineWorkspace() {
       upsertHistoryRun(run)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setSyncError(`Engine run persistence failed: ${message}`)
+      setSyncError(strings.errors.persistenceFailed(message))
     }
   }
 
@@ -1370,7 +1386,7 @@ export function EngineWorkspace() {
       upsertHistoryRun(run)
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      setSyncError(`Engine run persistence failed: ${message}`)
+      setSyncError(strings.errors.persistenceFailed(message))
     }
   }
 
@@ -1894,10 +1910,10 @@ export function EngineWorkspace() {
                           <td className="px-4 py-3">
                             <div className="flex flex-wrap gap-1">
                               <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: `${TEAL}15`, color: TEAL }}>
-                                {row.run.triggerKind}
+                                {formatTriggerKind(row.run.triggerKind, strings)}
                               </span>
                               <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: row.run.status === 'error' ? `${semantic.error}12` : row.run.status === 'done' ? `${semantic.success}12` : `${semantic.warning}12`, color: row.run.status === 'error' ? semantic.error : row.run.status === 'done' ? semantic.success : semantic.warning }}>
-                                {row.run.status}
+                                {formatRunStatus(row.run.status, strings)}
                               </span>
                               {verdictTone && (
                                 <span className="inline-flex items-center rounded-md px-2 py-1 text-[10px] font-semibold" style={{ background: verdictTone.bg, color: verdictTone.color }}>
@@ -1906,7 +1922,7 @@ export function EngineWorkspace() {
                               )}
                             </div>
                             <p className="mt-2 text-[10px]" style={{ color: TEXT_DIM }}>
-                              {row.run.backendVersion ? `Backend ${row.run.backendVersion}` : strings.statuses.backendVersionMissing}
+                              {row.run.backendVersion ? `${strings.shared.backend} ${row.run.backendVersion}` : strings.statuses.backendVersionMissing}
                             </p>
                           </td>
                           <td className="px-4 py-3">

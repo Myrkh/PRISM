@@ -18,6 +18,10 @@ export const sifContextStringsEn: SifContextStrings = {
     demandRate: 'Demand rate [yr⁻¹]',
     requiredRrf: 'Required RRF',
     maxAdmissiblePfd: 'Maximum admissible PFD',
+    processTiming: 'Process time & SIF response',
+    processSafetyTime: 'PST - Process safety time (s)',
+    sifResponseTime: 'SIF response time (s)',
+    safeState: 'Safe state',
     hazardousEvent: 'Hazardous event',
     hazopNode: 'HAZOP node',
     scenarioId: 'Scenario ID',
@@ -48,6 +52,9 @@ export const sifContextStringsEn: SifContextStrings = {
     lopaRef: 'LOPA-001',
     riskMatrix: 'C4-L3',
     independentIpls: 'PSV-101 (RRF 10), BPCS alarm…',
+    processSafetyTime: 'E.g. 30',
+    sifResponseTime: 'E.g. 5',
+    safeState: 'E.g. ESD valve ESD-001 closed, pump stopped',
   },
   save: {
     dirty: 'Unsaved changes',
@@ -55,5 +62,36 @@ export const sifContextStringsEn: SifContextStrings = {
     save: 'Save',
     saving: 'Saving…',
     fallbackError: 'Unable to save.',
+  },
+  rightPanel: {
+    sections: {
+      status: 'Status',
+      actions: 'Actions',
+    },
+    intro: 'Read the context before moving into architecture.',
+    metrics: {
+      readiness: 'Readiness',
+      hazopTrace: 'HAZOP trace',
+      metadata: 'Metadata',
+      signatories: 'Signatories',
+    },
+    missing: {
+      summary: count => `${count} item${count > 1 ? 's remain' : ' remains'} to document before the context is clean enough.`,
+      aligned: 'Context, traceability, and signatories are aligned for the next step.',
+      complete: 'Context and traceability complete',
+      items: {
+        hazopScenarioLink: 'HAZOP scenario link',
+        independentIpls: 'Independent IPL list',
+        hazopFacilitatorDate: 'HAZOP facilitator / date',
+      },
+    },
+    conclusions: {
+      withMissing: 'The context still needs to close documentation gaps before moving into architecture.',
+      complete: 'The context is clean enough to continue building the SIF architecture.',
+    },
+    ctas: {
+      completeContext: 'Complete context',
+      continueArchitecture: 'Continue to Architecture',
+    },
   },
 }

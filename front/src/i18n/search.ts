@@ -13,6 +13,7 @@ export interface SearchStrings {
   }
   searchPlaceholder: string
   previewBadge: string
+  groupCount: (count: number) => string
   displayedCount: (count: number) => string
   revisionsLoading: (count: number) => string
   noResults: {

@@ -53,6 +53,11 @@ export function NoteEditor({ value, onChange, isDark, onScrollPct, scrollPctRef 
   const viewRef      = useRef<EditorView | null>(null)
   const themeComp    = useRef(new Compartment())
   const suppressRef  = useRef(false) // prevents scroll echo
+  const onChangeRef  = useRef(onChange)
+
+  useEffect(() => {
+    onChangeRef.current = onChange
+  }, [onChange])
 
   // ── Mount editor once ──
   useEffect(() => {
@@ -66,7 +71,7 @@ export function NoteEditor({ value, onChange, isDark, onScrollPct, scrollPctRef 
           themeComp.current.of(createPrismCMExtensions(isDark)),
           EditorView.updateListener.of(update => {
             if (update.docChanged) {
-              onChange(update.state.doc.toString())
+              onChangeRef.current(update.state.doc.toString())
             }
           }),
         ],

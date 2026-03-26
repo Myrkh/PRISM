@@ -46,6 +46,7 @@ export const searchStringsEn: SearchStrings = {
   },
   searchPlaceholder: 'Ex. XV-101, SIF-204, bypass, proof test, revision B, Safety PLC…',
   previewBadge: 'Preview of the main occurrences by category',
+  groupCount: count => `${count} result${count > 1 ? 's' : ''}`,
   displayedCount: count => `${count} item${count > 1 ? 's' : ''} shown`,
   revisionsLoading: count => `Published revision history is still loading for ${count} SIF${count > 1 ? 's' : ''}.`,
   noResults: {

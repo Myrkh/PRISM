@@ -18,9 +18,10 @@ import {
   type ComponentTemplateImportPreview,
 } from '@/features/library'
 import { getLibraryStrings } from '@/i18n/library'
-import { useLocaleStrings } from '@/i18n/useLocale'
+import { useAppLocale, useLocaleStrings } from '@/i18n/useLocale'
 import { useAppStore } from '@/store/appStore'
 import { semantic } from '@/styles/tokens'
+import { getLibrarySubsystemMeta } from '@/components/library/libraryUi'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
 export function LibraryWorkspace() {
@@ -48,7 +49,9 @@ export function LibraryWorkspace() {
     openEntry,
     setQuery,
   } = useLibraryNavigation()
+  const locale = useAppLocale()
   const strings = useLocaleStrings(getLibraryStrings)
+  const subsystemMeta = getLibrarySubsystemMeta(locale)
   const { setRightPanelOpen } = useLayout()
   const { profile } = useAppStore(state => ({ profile: state.profile }))
   const projects = useAppStore(state => state.projects)
@@ -326,7 +329,7 @@ export function LibraryWorkspace() {
               onClick={() => setMoreMenuOpen(o => !o)}
               className="prism-action inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-xl border"
               style={{ borderColor: moreMenuOpen ? `${BORDER}CC` : `${BORDER}80`, color: TEXT_DIM, background: CARD_BG }}
-              title="Plus d'actions"
+              title={strings.ctas.moreActionsTitle}
             >
               <MoreHorizontal size={14} />
             </button>
@@ -353,7 +356,7 @@ export function LibraryWorkspace() {
                   title={strings.ctas.importModelTitle}
                 >
                   <Download size={13} style={{ color: TEXT_DIM }} />
-                  Modèle JSON
+                  {strings.ctas.importModel}
                 </button>
                 <div className="mx-3 my-1 border-t" style={{ borderColor: `${BORDER}60` }} />
                 <button
@@ -425,7 +428,7 @@ export function LibraryWorkspace() {
 
         <div className="flex flex-col gap-3">
           {visibleSubsystems.map(type => {
-            const meta = LIBRARY_SUBSYSTEM_META[type]
+            const meta = subsystemMeta[type]
             const items = groupedEntries[type]
             if (items.length === 0) return null
 

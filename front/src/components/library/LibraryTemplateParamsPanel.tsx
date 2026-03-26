@@ -54,9 +54,17 @@ import {
   StyledInput,
   StyledSelect,
 } from '@/components/architecture/ComponentParamsPanel'
-import { CAT_LABELS, INSTRUMENT_CATEGORIES, INSTRUMENT_TYPES } from '@/components/architecture/componentCatalog'
+import { INSTRUMENT_CATEGORIES, INSTRUMENT_TYPES } from '@/components/architecture/componentCatalog'
 import { InstrumentationIcon } from '@/components/architecture/InstrumentationIcons'
+import {
+  getLibraryCategoryLabels,
+  getLibraryDataSourceLabel,
+  getLibraryInstrumentTypeLabel,
+  getLibrarySubsystemMeta,
+  getLibraryTestTypeMeta,
+} from '@/components/library/libraryUi'
 import { RightPanelSection, RightPanelShell } from '@/components/layout/RightPanelShell'
+import { useAppLocale } from '@/i18n/useLocale'
 import { useAppStore } from '@/store/appStore'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
@@ -67,36 +75,48 @@ type DevelopedLambdaUnit = 'FIT' | 'PER_HOUR'
 type TimeDisplayUnit = 'hr' | 'yr'
 type TemplateEditorMode = 'create' | 'edit' | 'clone'
 
-const TYPE_META: Record<SubsystemType, { color: string; label: string; Icon: ElementType }> = {
-  sensor: { color: '#0284C7', label: 'Capteur', Icon: Activity },
-  logic: { color: '#7C3AED', label: 'Logique', Icon: Cpu },
-  actuator: { color: '#EA580C', label: 'Actionneur', Icon: Zap },
+const TYPE_META: Record<SubsystemType, { color: string; Icon: ElementType }> = {
+  sensor: { color: '#0284C7', Icon: Activity },
+  logic: { color: '#7C3AED', Icon: Cpu },
+  actuator: { color: '#EA580C', Icon: Zap },
 }
 
-const TEST_TYPES: { value: TestType; label: string; desc: string }[] = [
-  { value: 'stopped', label: 'Arrêt unité', desc: 'Testé lors d\'un arrêt unité' },
-  { value: 'online', label: 'En ligne', desc: 'Test complet en service' },
-  { value: 'partial', label: 'PST (partiel)', desc: 'Course partielle (vanne)' },
-  { value: 'none', label: 'Aucun test', desc: 'Pas de test de preuve' },
-]
+const TEST_TYPES: TestType[] = ['stopped', 'online', 'partial', 'none']
+const TEMPLATE_SCOPE_OPTIONS: ComponentTemplateUpsertInput['scope'][] = ['user', 'project']
+const TEMPLATE_REVIEW_OPTIONS: NonNullable<ComponentTemplateUpsertInput['reviewStatus']>[] = ['draft', 'review', 'approved']
 
-const TEMPLATE_SCOPE_OPTIONS: {
-  value: ComponentTemplateUpsertInput['scope']
-  label: string
-  description: string
-}[] = [
-  { value: 'user', label: 'My Library', description: 'Disponible dans tous vos projets.' },
-  { value: 'project', label: 'Project', description: 'Visible seulement dans le projet courant.' },
-]
+function getTemplateScopeOptions(locale: 'fr' | 'en') {
+  return TEMPLATE_SCOPE_OPTIONS.map(value => ({
+    value,
+    label: value === 'user'
+      ? (locale === 'en' ? 'My Library' : 'Ma bibliothèque')
+      : (locale === 'en' ? 'Project' : 'Projet'),
+  }))
+}
 
-const TEMPLATE_REVIEW_OPTIONS: {
-  value: NonNullable<ComponentTemplateUpsertInput['reviewStatus']>
-  label: string
-}[] = [
-  { value: 'draft', label: 'Draft' },
-  { value: 'review', label: 'Review' },
-  { value: 'approved', label: 'Approved' },
-]
+function getTemplateReviewOptions(locale: 'fr' | 'en') {
+  return TEMPLATE_REVIEW_OPTIONS.map(value => ({
+    value,
+    label: value === 'draft'
+      ? (locale === 'en' ? 'Draft' : 'Brouillon')
+      : value === 'review'
+        ? (locale === 'en' ? 'In review' : 'En revue')
+        : (locale === 'en' ? 'Approved' : 'Approuvé'),
+  }))
+}
+
+function getTemplateDataSourceOptions(locale: 'fr' | 'en') {
+  return ['SIL-DB', 'OREDA', 'EXIDA', 'Manufacturer', 'Custom'].map(value => ({
+    value,
+    label: getLibraryDataSourceLabel(locale, value),
+  }))
+}
+
+function getTimeUnitOptions(locale: 'fr' | 'en') {
+  return locale === 'en'
+    ? [{ value: 'yr', label: 'years' }, { value: 'hr', label: 'hours' }]
+    : [{ value: 'yr', label: 'années' }, { value: 'hr', label: 'heures' }]
+}
 
 const DEFAULT_TAG_BY_SUBSYSTEM: Record<SubsystemType, string> = {
   sensor: 'LIB-S-001',
@@ -179,12 +199,21 @@ export function LibraryTemplateParamsPanel({
   onSaved: (template: ComponentTemplate) => void
   onClose: () => void
 }) {
+  const locale = useAppLocale()
+  const isEn = locale === 'en'
   const { BORDER, CARD_BG, PAGE_BG, SHADOW_SOFT, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const BG = PAGE_BG
   const BORDER2 = BORDER
   const projects = useAppStore(state => state.projects)
   const saveComponentTemplate = useAppStore(state => state.saveComponentTemplate)
   const setSyncError = useAppStore(state => state.setSyncError)
+  const categoryLabels = getLibraryCategoryLabels(locale)
+  const subsystemMeta = getLibrarySubsystemMeta(locale)
+  const testTypeMeta = getLibraryTestTypeMeta(locale)
+  const templateScopeOptions = getTemplateScopeOptions(locale)
+  const templateReviewOptions = getTemplateReviewOptions(locale)
+  const dataSourceOptions = getTemplateDataSourceOptions(locale)
+  const timeUnitOptions = getTimeUnitOptions(locale)
 
   const [local, setLocal] = useState<SIFComponent>(() => synchronizeComponentParams(buildInitialComponent(subsystemType, template)))
   const [factorizedLambdaUnit, setFactorizedLambdaUnit] = useState<FactorizedLambdaUnit>('FIT')
@@ -264,28 +293,45 @@ export function LibraryTemplateParamsPanel({
   const dcOk = dc >= 0.6
 
   const meta = TYPE_META[subsystemType]
+  const localizedTypeMeta = subsystemMeta[subsystemType]
   const partialTestActive = local.test.testType === 'partial' || local.advanced.partialTest.enabled
   const onlineDuringTest = local.test.testType === 'online'
-  const headerTypeLabel = local.instrumentType || CAT_LABELS[local.instrumentCategory] || meta.label
+  const headerTypeLabel = local.instrumentType
+    ? getLibraryInstrumentTypeLabel(locale, local.instrumentType)
+    : categoryLabels[local.instrumentCategory] || localizedTypeMeta.singularLabel
   const modeLabel = mode === 'edit'
-    ? 'Édition template'
+    ? (isEn ? 'Template editing' : 'Édition du template')
     : mode === 'clone'
-      ? 'Duplication standard'
-      : 'Nouveau template'
-  const saveLabel = mode === 'edit' ? 'Enregistrer' : mode === 'clone' ? 'Créer copie' : 'Créer template'
+      ? (isEn ? 'Duplicate standard' : 'Duplication du standard')
+      : (isEn ? 'New template' : 'Nouveau template')
+  const saveLabel = mode === 'edit'
+    ? (isEn ? 'Save' : 'Enregistrer')
+    : mode === 'clone'
+      ? (isEn ? 'Create copy' : 'Créer une copie')
+      : (isEn ? 'Create template' : 'Créer le template')
   const selectedProjectName = templateProjectId
     ? projects.find(project => project.id === templateProjectId)?.name ?? null
     : null
   const sourceOrigin = origin ?? (template?.scope === 'project' ? 'project' : 'user')
+  const personalLibraryLabel = isEn ? 'Personal library' : 'Bibliothèque personnelle'
+  const sourceOriginLabel = sourceOrigin === 'builtin'
+    ? (isEn ? 'Validated standard' : 'Standard validé')
+    : sourceOrigin === 'project'
+      ? (isEn ? 'Project template' : 'Template projet')
+      : personalLibraryLabel
 
   const submitSave = async () => {
     const trimmedName = templateName.trim()
     if (!trimmedName) {
-      setSaveError('Le nom du template est requis.')
+      setSaveError(isEn ? 'Template name is required.' : 'Le nom du template est requis.')
       return
     }
     if (templateScope === 'project' && !templateProjectId) {
-      setSaveError('Sélectionnez un projet pour enregistrer ce template dans une bibliothèque projet.')
+      setSaveError(
+        isEn
+          ? 'Select a project to save this template in a project library.'
+          : 'Sélectionnez un projet pour enregistrer ce template dans une bibliothèque projet.',
+      )
       return
     }
 
@@ -306,9 +352,14 @@ export function LibraryTemplateParamsPanel({
         reviewStatus: templateReviewStatus,
         componentSnapshot: local,
       })
-      setSaveNotice(mode === 'edit'
-        ? 'Template mis à jour.'
-        : `Template enregistré dans ${templateScope === 'project' ? 'Project' : 'My Library'}${saved.libraryName ? ` · ${saved.libraryName}` : ''}.`)
+      setSaveNotice(
+        mode === 'edit'
+          ? (isEn ? 'Template updated.' : 'Template mis à jour.')
+          : (isEn ? 'Template saved in ' : 'Template enregistré dans ')
+            + (templateScope === 'project' ? (isEn ? 'Project' : 'Projet') : (isEn ? 'My Library' : 'Ma bibliothèque'))
+            + (saved.libraryName ? ' · ' + saved.libraryName : '')
+            + '.'
+      )
       onSaved(saved)
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : String(err)
@@ -354,7 +405,7 @@ export function LibraryTemplateParamsPanel({
                 style={{ borderColor: `${meta.color}45`, background: `${meta.color}12`, color: meta.color }}
               >
                 <Save size={11} />
-                {saveBusy ? 'Enregistrement…' : saveLabel}
+                {saveBusy ? (isEn ? 'Saving…' : 'Enregistrement…') : saveLabel}
               </button>
               <button
                 type="button"
@@ -398,68 +449,70 @@ export function LibraryTemplateParamsPanel({
                   className="rounded-lg border px-3 py-2 text-[11px] leading-relaxed"
                   style={{ borderColor: `${meta.color}28`, background: `${meta.color}08`, color: TEXT_DIM }}
                 >
-                  Ce standard validé reste en lecture seule dans le catalogue maître. Enregistrer crée une copie dans votre bibliothèque personnelle ou projet.
+{isEn
+                    ? 'This validated standard remains read-only in the master catalog. Saving creates a copy in your personal or project library.'
+                    : 'Ce standard validé reste en lecture seule dans le catalogue maître. Enregistrer crée une copie dans votre bibliothèque personnelle ou projet.'}
                 </div>
               )}
 
               <div className="grid gap-3" style={{ gridTemplateColumns: PANEL_FORM_GRID }}>
-                <FieldRow label="Nom du template">
-                  <StyledInput value={templateName} onChange={setTemplateName} placeholder="Pressure transmitter — Rosemount 3051S" />
+                <FieldRow label={isEn ? 'Template name' : 'Nom du template'}>
+                  <StyledInput value={templateName} onChange={setTemplateName} placeholder={isEn ? 'Pressure transmitter - Rosemount 3051S' : 'Ex. transmetteur de pression - Rosemount 3051S'} />
                 </FieldRow>
-                <FieldRow label="Scope">
+                <FieldRow label={isEn ? 'Scope' : 'Portée'}>
                   <StyledSelect
                     value={templateScope}
                     onChange={value => setTemplateScope(value as ComponentTemplateUpsertInput['scope'])}
-                    options={TEMPLATE_SCOPE_OPTIONS.map(option => ({ value: option.value, label: option.label }))}
+                    options={templateScopeOptions}
                   />
                 </FieldRow>
-                <FieldRow label="Projet cible">
+                <FieldRow label={isEn ? 'Target project' : 'Projet cible'}>
                   {templateScope === 'project' ? (
                     <StyledSelect
                       value={templateProjectId ?? ''}
                       onChange={value => setTemplateProjectId(value || null)}
                       options={[
-                        { value: '', label: projects.length > 0 ? 'Sélectionner un projet' : 'Aucun projet disponible' },
+                        { value: '', label: projects.length > 0 ? (isEn ? 'Select a project' : 'Sélectionner un projet') : (isEn ? 'No project available' : 'Aucun projet disponible') },
                         ...projects.map(project => ({ value: project.id, label: project.name })),
                       ]}
                     />
                   ) : (
-                    <StyledInput value={selectedProjectName ?? 'Bibliothèque personnelle'} onChange={() => {}} />
+                    <StyledInput value={selectedProjectName ?? personalLibraryLabel} onChange={() => {}} />
                   )}
                 </FieldRow>
-                <FieldRow label="Bibliothèque nommée">
-                  <StyledInput value={templateLibraryName} onChange={setTemplateLibraryName} placeholder="Ex. Client TotalEnergies / Tank farm" />
+                <FieldRow label={isEn ? 'Named library' : 'Bibliothèque nommée'}>
+                  <StyledInput value={templateLibraryName} onChange={setTemplateLibraryName} placeholder={isEn ? 'Ex. TotalEnergies client / tank farm' : 'Ex. client TotalEnergies / parc de stockage'} />
                 </FieldRow>
-                <FieldRow label="Review status">
+                <FieldRow label={isEn ? 'Review status' : 'Statut de revue'}>
                   <StyledSelect
                     value={templateReviewStatus}
                     onChange={value => setTemplateReviewStatus(value as NonNullable<ComponentTemplateUpsertInput['reviewStatus']>)}
-                    options={TEMPLATE_REVIEW_OPTIONS}
+                    options={templateReviewOptions}
                   />
                 </FieldRow>
-                <FieldRow label="Référence source">
-                  <StyledInput value={templateSourceReference} onChange={setTemplateSourceReference} placeholder="FMEDA ref, certificat, note interne…" />
+                <FieldRow label={isEn ? 'Source reference' : 'Référence source'}>
+                  <StyledInput value={templateSourceReference} onChange={setTemplateSourceReference} placeholder={isEn ? 'FMEDA ref, certificate, internal note…' : 'FMEDA ref, certificat, note interne…'} />
                 </FieldRow>
-                <FieldRow label="Origine">
+                <FieldRow label={isEn ? 'Origin' : 'Origine'}>
                   <StyledInput
-                    value={sourceOrigin === 'builtin' ? 'Standard validé' : sourceOrigin === 'project' ? 'Template projet' : 'Bibliothèque personnelle'}
+                    value={sourceOriginLabel}
                     onChange={() => {}}
                   />
                 </FieldRow>
               </div>
 
               <FieldRow label="Tags">
-                <StyledInput value={templateTags} onChange={setTemplateTags} placeholder="pressure, transmitter, rosemount, SIL2" />
+                <StyledInput value={templateTags} onChange={setTemplateTags} placeholder={isEn ? 'pressure, transmitter, rosemount, SIL2' : 'pression, transmetteur, rosemount, SIL2'} />
               </FieldRow>
 
-              <FieldRow label="Description bibliothèque">
+              <FieldRow label={isEn ? 'Library description' : 'Description de la bibliothèque'}>
                 <textarea
                   value={templateDescription}
                   onChange={event => setTemplateDescription(event.target.value)}
                   rows={3}
                   className="prism-field w-full resize-none rounded-md border px-2 py-1.5 text-xs outline-none"
                   style={{ background: BG, borderColor: BORDER2, color: TEXT }}
-                  placeholder="Contexte d'usage, hypothèses, source de validation…"
+                  placeholder={isEn ? 'Usage context, assumptions, validation source…' : "Contexte d'usage, hypothèses, source de validation…"}
                 />
               </FieldRow>
         </div>
@@ -471,37 +524,31 @@ export function LibraryTemplateParamsPanel({
                   <FieldRow label="Tag">
                     <StyledInput value={local.tagName} onChange={v => upd({ tagName: v })} placeholder="PT-001" />
                   </FieldRow>
-                  <FieldRow label="Catégorie">
+                  <FieldRow label={isEn ? 'Category' : 'Catégorie'}>
                     <StyledSelect
                       value={local.instrumentCategory}
                       onChange={v => upd({ instrumentCategory: v as InstrumentCategory })}
-                      options={INSTRUMENT_CATEGORIES.map(category => ({ value: category, label: CAT_LABELS[category] }))}
+                      options={INSTRUMENT_CATEGORIES.map(category => ({ value: category, label: categoryLabels[category] }))}
                     />
                   </FieldRow>
-                  <FieldRow label="Type d'instrument">
+                  <FieldRow label={isEn ? 'Instrument type' : "Type d'instrument"}>
                     <StyledSelect
                       value={local.instrumentType}
                       onChange={v => upd({ instrumentType: v })}
-                      options={(INSTRUMENT_TYPES[local.instrumentCategory] ?? ['Other']).map(type => ({ value: type, label: type }))}
+                      options={(INSTRUMENT_TYPES[local.instrumentCategory] ?? ['Other']).map(type => ({ value: type, label: getLibraryInstrumentTypeLabel(locale, type) }))}
                     />
                   </FieldRow>
-                  <FieldRow label="Fabricant">
+                  <FieldRow label={isEn ? 'Manufacturer' : 'Fabricant'}>
                     <StyledInput value={local.manufacturer} onChange={v => upd({ manufacturer: v })} placeholder="Rosemount, Emerson…" />
                   </FieldRow>
-                  <FieldRow label="Source des données">
+                  <FieldRow label={isEn ? 'Data source' : 'Source des données'}>
                     <StyledSelect
                       value={local.dataSource}
                       onChange={v => upd({ dataSource: v })}
-                      options={[
-                        { value: 'SIL-DB', label: 'Base SIL certifiée' },
-                        { value: 'OREDA', label: 'OREDA' },
-                        { value: 'EXIDA', label: 'exida' },
-                        { value: 'Manufacturer', label: 'Constructeur' },
-                        { value: 'Custom', label: 'Données propres' },
-                      ]}
+                      options={dataSourceOptions}
                     />
                   </FieldRow>
-                  <FieldRow label="Caractérisation IEC 61508">
+                  <FieldRow label={isEn ? 'IEC 61508 characterization' : 'Caractérisation IEC 61508'}>
                     <StyledSelect
                       value={local.determinedCharacter ?? (subsystemType === 'actuator' ? 'TYPE_A' : 'TYPE_B')}
                       onChange={v => upd({ determinedCharacter: v as DeterminedCharacter })}
@@ -510,20 +557,20 @@ export function LibraryTemplateParamsPanel({
                   </FieldRow>
                 </div>
 
-                <FieldRow label="Description composant">
+                <FieldRow label={isEn ? 'Component description' : 'Description composant'}>
                   <textarea
                     value={local.description}
                     onChange={event => upd({ description: event.target.value })}
                     rows={3}
                     className="prism-field w-full resize-none rounded-md border px-2 py-1.5 text-xs outline-none"
                     style={{ background: BG, borderColor: BORDER2, color: TEXT }}
-                    placeholder="Description technique optionnelle…"
+                    placeholder={isEn ? 'Optional technical description…' : 'Description technique optionnelle…'}
                   />
                 </FieldRow>
         </div>
       </RightPanelSection>
 
-      <RightPanelSection id="parameters" label="Paramètres" Icon={FlaskConical}>
+      <RightPanelSection id="parameters" label={isEn ? 'Parameters' : 'Paramètres'} Icon={FlaskConical}>
         <div className="space-y-3">
                 <div className="flex gap-1 rounded-lg p-0.5" style={{ background: BG }}>
                   {(['factorized', 'developed'] as ParamMode[]).map(nextMode => (
@@ -536,12 +583,12 @@ export function LibraryTemplateParamsPanel({
                         ? { background: TEAL, color: '#FFF' }
                         : { color: TEXT_DIM }}
                     >
-                      {nextMode === 'factorized' ? 'Factorisé' : 'Développé'}
+                      {nextMode === 'factorized' ? (isEn ? 'Factorized' : 'Factorisé') : (isEn ? 'Developed' : 'Développé')}
                     </button>
                   ))}
                 </div>
 
-                <SectionTitle>Taux de défaillance</SectionTitle>
+                <SectionTitle>{isEn ? 'Failure rates' : 'Taux de défaillance'}</SectionTitle>
 
                 {local.paramMode === 'factorized' ? (
                   <>
@@ -569,16 +616,16 @@ export function LibraryTemplateParamsPanel({
                       <ScientificInput
                         value={factorizedLambdaToDisplay(local.factorized.lambda, factorizedLambdaUnit)}
                         onCommit={value => updF({ lambda: displayToFactorizedLambda(value, factorizedLambdaUnit) })}
-                        placeholder={factorizedLambdaUnit === 'FIT' ? 'Ex. 1500 ou 1.50E3' : 'Ex. 1.50E-6'}
+                        placeholder={factorizedLambdaUnit === 'FIT' ? (isEn ? 'Ex. 1500 or 1.50E3' : 'Ex. 1500 ou 1.50E3') : 'Ex. 1.50E-6'}
                       />
                       <p className="mt-1 text-[10px]" style={{ color: TEXT_DIM }}>
                         {factorizedLambdaUnit === 'FIT'
-                          ? 'Saisie libre en FIT. Exemple equivalent: 1500 FIT = 1.50E-6 h^-1.'
-                          : 'Saisie libre en h^-1 absolu. Exemple: 1.50E-6 h^-1 = 1500 FIT.'}
+                          ? (isEn ? 'Free input in FIT. Equivalent example: 1500 FIT = 1.50E-6 h^-1.' : 'Saisie libre en FIT. Exemple équivalent : 1500 FIT = 1.50E-6 h^-1.')
+                          : (isEn ? 'Free input in absolute h^-1. Example: 1.50E-6 h^-1 = 1500 FIT.' : 'Saisie libre en h^-1 absolu. Exemple : 1.50E-6 h^-1 = 1500 FIT.')}
                       </p>
                     </div>
                     <SliderField
-                      label="λD/λ ratio"
+                      label={isEn ? 'λD/λ ratio' : 'Ratio λD/λ'}
                       value={local.factorized.lambdaDRatio}
                       min={0}
                       max={1}
@@ -587,9 +634,9 @@ export function LibraryTemplateParamsPanel({
                       onChange={value => updF({ lambdaDRatio: value })}
                       color={meta.color}
                     />
-                    <SectionTitle>Couverture diagnostic</SectionTitle>
+                    <SectionTitle>{isEn ? 'Diagnostic coverage' : 'Couverture diagnostic'}</SectionTitle>
                     <SliderField
-                      label="DCd — Dangerous"
+                      label={isEn ? 'DCd - Dangerous' : 'DCd - Dangereux'}
                       value={local.factorized.DCd}
                       min={0}
                       max={1}
@@ -598,7 +645,7 @@ export function LibraryTemplateParamsPanel({
                       onChange={value => updF({ DCd: value })}
                     />
                     <SliderField
-                      label="DCs — Safe"
+                      label={isEn ? 'DCs - Safe' : 'DCs - Sûr'}
                       value={local.factorized.DCs}
                       min={0}
                       max={1}
@@ -612,7 +659,7 @@ export function LibraryTemplateParamsPanel({
                     <div className="space-y-1">
                       <div className="flex items-center justify-between gap-2">
                         <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>
-                          Unite des lambdas developpes
+                          {isEn ? 'Developed lambda unit' : 'Unité des lambdas développés'}
                         </label>
                         <div className="flex rounded-md p-0.5" style={{ background: BG }}>
                           {DEVELOPED_LAMBDA_UNITS.map(unit => (
@@ -632,8 +679,8 @@ export function LibraryTemplateParamsPanel({
                       </div>
                       <p className="text-[10px]" style={{ color: TEXT_DIM }}>
                         {developedLambdaUnit === 'FIT'
-                          ? 'Saisie libre en FIT. Exemple equivalent: 113 FIT = 1.13E-7 h^-1.'
-                          : 'Saisie libre en h^-1 absolu. Exemple: 1.13E-7 h^-1 = 113 FIT.'}
+                          ? (isEn ? 'Free input in FIT. Equivalent example: 113 FIT = 1.13E-7 h^-1.' : 'Saisie libre en FIT. Exemple équivalent : 113 FIT = 1.13E-7 h^-1.')
+                          : (isEn ? 'Free input in absolute h^-1. Example: 1.13E-7 h^-1 = 113 FIT.' : 'Saisie libre en h^-1 absolu. Exemple : 1.13E-7 h^-1 = 113 FIT.')}
                       </p>
                     </div>
 
@@ -654,20 +701,20 @@ export function LibraryTemplateParamsPanel({
                       ))}
                     </div>
                     <p className="-mt-1 text-[10px]" style={{ color: TEXT_DIM }}>
-                      Saisie libre, avec ou sans notation scientifique.
+                      {isEn ? 'Free input, with or without scientific notation.' : 'Saisie libre, avec ou sans notation scientifique.'}
                     </p>
                   </>
                 )}
 
-                <SectionTitle>Métriques calculées</SectionTitle>
+                <SectionTitle>{isEn ? 'Computed metrics' : 'Métriques calculées'}</SectionTitle>
                 <ComputedRow label="SFF" value={formatPct(sff)} ok={sffOk} />
-                <ComputedRow label="DC eff" value={formatPct(dc)} ok={dcOk} />
+                <ComputedRow label={isEn ? 'Effective DC' : 'DC eff'} value={formatPct(dc)} ok={dcOk} />
         </div>
       </RightPanelSection>
 
       <RightPanelSection id="test" label="Test" Icon={ClipboardList}>
         <div className="space-y-3">
-                <SectionTitle>Intervalle de test de preuve</SectionTitle>
+                <SectionTitle>{isEn ? 'Proof test interval' : 'Intervalle de test de preuve'}</SectionTitle>
                 <div className="grid gap-3" style={{ gridTemplateColumns: PANEL_WIDE_GRID }}>
                   <FieldRow label="T1">
                     <div className="flex gap-2">
@@ -681,13 +728,13 @@ export function LibraryTemplateParamsPanel({
                         <StyledSelect
                           value={local.test.T1Unit}
                           onChange={value => updT({ T1Unit: value as 'hr' | 'yr' })}
-                          options={[{ value: 'yr', label: 'années' }, { value: 'hr', label: 'heures' }]}
+                          options={timeUnitOptions}
                         />
                       </div>
                     </div>
                   </FieldRow>
 
-                  <FieldRow label="T0 — Premier test">
+                  <FieldRow label={isEn ? 'T0 - First test' : 'T0 — Premier test'}>
                     <div className="flex gap-2">
                       <StyledInput
                         type="number"
@@ -699,44 +746,47 @@ export function LibraryTemplateParamsPanel({
                         <StyledSelect
                           value={local.test.T0Unit}
                           onChange={value => updT({ T0Unit: value as 'hr' | 'yr' })}
-                          options={[{ value: 'yr', label: 'années' }, { value: 'hr', label: 'heures' }]}
+                          options={timeUnitOptions}
                         />
                       </div>
                     </div>
                   </FieldRow>
                 </div>
 
-                <SectionTitle>Type de test</SectionTitle>
+                <SectionTitle>{isEn ? 'Test type' : 'Type de test'}</SectionTitle>
                 <div className="space-y-1.5">
-                  {TEST_TYPES.map(testType => (
+                  {TEST_TYPES.map(testTypeValue => {
+                  const testType = testTypeMeta[testTypeValue]
+                  return (
                     <button
-                      key={testType.value}
+                      key={testTypeValue}
                       type="button"
-                      onClick={() => updT({ testType: testType.value })}
+                      onClick={() => updT({ testType: testTypeValue })}
                       className="prism-action flex w-full items-start gap-2 rounded-lg border p-2.5 text-left transition-all"
-                      style={local.test.testType === testType.value
+                      style={local.test.testType === testTypeValue
                         ? { borderColor: TEAL, background: `${TEAL}12`, color: TEXT }
                         : { borderColor: BORDER2, background: BG, color: TEXT_DIM }}
                     >
                       <div
                         className="mt-0.5 flex h-3 w-3 shrink-0 items-center justify-center rounded-full border-2"
-                        style={{ borderColor: local.test.testType === testType.value ? TEAL : BORDER2 }}
+                        style={{ borderColor: local.test.testType === testTypeValue ? TEAL : BORDER2 }}
                       >
-                        {local.test.testType === testType.value && (
+                        {local.test.testType === testTypeValue && (
                           <div className="h-1.5 w-1.5 rounded-full" style={{ background: TEAL }} />
                         )}
                       </div>
                       <div>
                         <p className="text-[11px] font-semibold">{testType.label}</p>
-                        <p className="mt-0.5 text-[9px]" style={{ color: TEXT_DIM }}>{testType.desc}</p>
+                        <p className="mt-0.5 text-[9px]" style={{ color: TEXT_DIM }}>{testType.description}</p>
                       </div>
                     </button>
-                  ))}
+                  )
+                })}
                 </div>
 
                 <CheckboxField
-                  label="Composant disponible pendant test (X)"
-                  description="Alias direct du mode “En ligne” pour le test complet."
+                  label={isEn ? 'Component available during test (X)' : 'Composant disponible pendant test (X)'}
+                  description={isEn ? 'Direct alias of the “Online” mode for the full test.' : 'Alias direct du mode “En ligne” pour le test complet.'}
                   checked={onlineDuringTest}
                   onChange={checked => updT({
                     testType: checked
@@ -749,11 +799,11 @@ export function LibraryTemplateParamsPanel({
         </div>
       </RightPanelSection>
 
-      <RightPanelSection id="advanced" label="Avancé" Icon={Settings2}>
+      <RightPanelSection id="advanced" label={isEn ? 'Advanced' : 'Avancé'} Icon={Settings2}>
         <div className="space-y-3">
-                <SectionTitle>Réparation</SectionTitle>
+                <SectionTitle>{isEn ? 'Repair' : 'Réparation'}</SectionTitle>
                 <div className="grid gap-3" style={{ gridTemplateColumns: PANEL_WIDE_GRID }}>
-                  <FieldRow label="MTTR [heures]">
+                  <FieldRow label={isEn ? 'MTTR [hours]' : 'MTTR [heures]'}>
                     <StyledInput
                       type="number"
                       step="1"
@@ -761,7 +811,7 @@ export function LibraryTemplateParamsPanel({
                       onChange={value => updA({ MTTR: parseFloat(value) || 0 })}
                     />
                   </FieldRow>
-                  <FieldRow label="Durée test (π) [heures]">
+                  <FieldRow label={isEn ? 'Test duration (π) [hours]' : 'Durée test (π) [heures]'}>
                     <StyledInput
                       type="number"
                       step="0.1"
@@ -771,12 +821,12 @@ export function LibraryTemplateParamsPanel({
                   </FieldRow>
                 </div>
 
-                <SectionTitle>Paramètres test avancés</SectionTitle>
+                <SectionTitle>{isEn ? 'Advanced test parameters' : 'Paramètres test avancés'}</SectionTitle>
                 <div className="space-y-3">
                   <div className="space-y-1">
                     <div className="flex items-center justify-between gap-2">
                       <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>
-                        λ pendant test (λ*)
+                        {isEn ? 'λ during test (λ*)' : 'λ pendant test (λ*)'}
                       </label>
                       <div className="flex rounded-md p-0.5" style={{ background: BG }}>
                         {DEVELOPED_LAMBDA_UNITS.map(unit => (
@@ -800,17 +850,17 @@ export function LibraryTemplateParamsPanel({
                       placeholder={lambdaStarUnit === 'FIT' ? 'Ex. 1.13E2' : 'Ex. 1.13E-7'}
                     />
                     <CheckboxField
-                      label="Equal to Lambda"
-                      description="Utilise le lambda principal pendant le test au lieu d’un λ* dédié."
+                      label={isEn ? 'Equal to lambda' : 'Égal au lambda principal'}
+                      description={isEn ? 'Use the main lambda during the test instead of a dedicated λ*.' : 'Utilise le lambda principal pendant le test au lieu d’un λ* dédié.'}
                       checked={local.advanced.lambdaStarEqualToLambda}
                       onChange={checked => updA({ lambdaStarEqualToLambda: checked })}
                     />
                   </div>
                 </div>
 
-                <SectionTitle>Facteurs qualité de test</SectionTitle>
+                <SectionTitle>{isEn ? 'Test quality factors' : 'Facteurs qualité de test'}</SectionTitle>
                 <SliderField
-                  label="γ — Défaillance due au test"
+                  label={isEn ? 'γ - Test-induced failure' : 'γ - Défaillance due au test'}
                   value={local.advanced.gamma}
                   min={0}
                   max={0.2}
@@ -819,7 +869,7 @@ export function LibraryTemplateParamsPanel({
                   onChange={value => updA({ gamma: value })}
                 />
                 <SliderField
-                  label="ω₁ — Erreur de remise en état"
+                  label={isEn ? 'ω₁ - Restoration error' : 'ω₁ - Erreur de remise en état'}
                   value={local.advanced.omega1}
                   min={0}
                   max={1}
@@ -828,7 +878,7 @@ export function LibraryTemplateParamsPanel({
                   onChange={value => updA({ omega1: value })}
                 />
                 <SliderField
-                  label="ω₂ — Erreur de réparation"
+                  label={isEn ? 'ω₂ - Repair error' : 'ω₂ - Erreur de réparation'}
                   value={local.advanced.omega2}
                   min={0}
                   max={1}
@@ -837,9 +887,9 @@ export function LibraryTemplateParamsPanel({
                   onChange={value => updA({ omega2: value })}
                 />
 
-                <SectionTitle>Couverture test de preuve</SectionTitle>
+                <SectionTitle>{isEn ? 'Proof test coverage' : 'Couverture test de preuve'}</SectionTitle>
                 <SliderField
-                  label="Couverture (%)"
+                  label={isEn ? 'Coverage (%)' : 'Couverture (%)'}
                   value={local.advanced.proofTestCoverage}
                   min={0}
                   max={1}
@@ -849,7 +899,7 @@ export function LibraryTemplateParamsPanel({
                   color={meta.color}
                 />
                 <SliderField
-                  label="DC alarmed only"
+                  label={isEn ? 'Alarmed-only DC' : 'DC alarmes seules'}
                   value={local.advanced.DCalarmedOnly}
                   min={0}
                   max={1}
@@ -858,8 +908,8 @@ export function LibraryTemplateParamsPanel({
                   onChange={value => updA({ DCalarmedOnly: value })}
                 />
 
-                <SectionTitle>Durée de vie</SectionTitle>
-                <FieldRow label="Durée de vie composant">
+                <SectionTitle>{isEn ? 'Lifetime' : 'Durée de vie'}</SectionTitle>
+                <FieldRow label={isEn ? 'Component lifetime' : 'Durée de vie composant'}>
                   <div className="flex gap-2">
                     <StyledInput
                       value={hoursToDisplay(local.advanced.lifetime, lifetimeUnit)}
@@ -873,14 +923,14 @@ export function LibraryTemplateParamsPanel({
                       <StyledSelect
                         value={lifetimeUnit}
                         onChange={value => setLifetimeUnit(value as TimeDisplayUnit)}
-                        options={[{ value: 'yr', label: 'années' }, { value: 'hr', label: 'heures' }]}
+                        options={timeUnitOptions}
                       />
                     </div>
                   </div>
                 </FieldRow>
 
                 <SectionTitle>Sigma</SectionTitle>
-                <FieldRow label="σ (diagnostic complet)">
+                <FieldRow label={isEn ? 'σ (full diagnostic)' : 'σ (diagnostic complet)'}>
                   <StyledInput
                     type="number"
                     step="0.1"
@@ -889,11 +939,11 @@ export function LibraryTemplateParamsPanel({
                   />
                 </FieldRow>
 
-                <SectionTitle>Test partiel (PST)</SectionTitle>
+                <SectionTitle>{isEn ? 'Partial test (PST)' : 'Test partiel (PST)'}</SectionTitle>
                 <div className="space-y-3">
                   <CheckboxField
-                    label="Activer le test partiel"
-                    description="Active la logique PST intermédiaire entre deux proof tests complets."
+                    label={isEn ? 'Enable partial test' : 'Activer le test partiel'}
+                    description={isEn ? 'Enable the intermediate PST logic between two full proof tests.' : 'Active la logique PST intermédiaire entre deux tests de preuve complets.'}
                     checked={partialTestActive}
                     onChange={checked => {
                       if (checked) {
@@ -916,7 +966,7 @@ export function LibraryTemplateParamsPanel({
 
                   {partialTestActive && (
                     <div className="space-y-3 rounded-lg border p-3" style={{ borderColor: `${TEAL}35`, background: `${TEAL}08` }}>
-                      <FieldRow label="Durée (π) [heures]">
+                      <FieldRow label={isEn ? 'Duration (π) [hours]' : 'Durée (π) [heures]'}>
                         <StyledInput
                           type="number"
                           step="0.1"
@@ -925,7 +975,7 @@ export function LibraryTemplateParamsPanel({
                         />
                       </FieldRow>
                       <SliderField
-                        label="Couverture PST"
+                        label={isEn ? 'PST coverage' : 'Couverture PST'}
                         value={local.advanced.partialTest.detectedFaultsPct}
                         min={0}
                         max={1}
@@ -934,7 +984,7 @@ export function LibraryTemplateParamsPanel({
                         onChange={value => updA({ partialTest: { ...local.advanced.partialTest, detectedFaultsPct: value } })}
                         color={TEAL}
                       />
-                      <FieldRow label="Nb de tests / période">
+                      <FieldRow label={isEn ? 'Tests / period' : 'Nb de tests / période'}>
                         <StyledInput
                           type="number"
                           step="1"

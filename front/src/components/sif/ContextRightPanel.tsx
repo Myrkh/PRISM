@@ -9,6 +9,10 @@ import {
   RightPanelSection,
   RightPanelShell,
 } from '@/components/layout/RightPanelShell'
+import { localizeComplianceMetadataLabel } from '@/components/sif/complianceUi'
+import { getSifComplianceStrings } from '@/i18n/sifCompliance'
+import { getSifContextStrings } from '@/i18n/sifContext'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import { BORDER, semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { useSIFDiagnostics } from '@/core/diagnostics'
@@ -29,18 +33,23 @@ export function ContextRightPanel({
   onOpenEditSheet,
   onSelectTab,
 }: Props) {
+  const strings = useLocaleStrings(getSifContextStrings)
+  const complianceStrings = useLocaleStrings(getSifComplianceStrings)
   const { PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
   const diagnostics = useSIFDiagnostics(sif)
   const readiness = Math.round(((compliance.metadataCompletion * 100) + overviewMetrics.tracePct) / 2)
   const readinessColor = readiness >= 85 ? semantic.success : readiness >= 50 ? semantic.warning : semantic.error
 
   const missingItems = [
-    ...compliance.missingMetadata.map(label => ({ key: `meta-${label}`, label })),
+    ...compliance.missingMetadata.map(label => ({
+      key: `meta-${label}`,
+      label: localizeComplianceMetadataLabel(complianceStrings, label),
+    })),
     ...(overviewMetrics.tracePct < 100
       ? [
-          { key: 'trace-scenario', label: 'Lien scénario HAZOP' },
-          { key: 'trace-ipl', label: 'Liste IPLs indépendantes' },
-          { key: 'trace-facilitator', label: 'Facilitateur / Date HAZOP' },
+          { key: 'trace-scenario', label: strings.rightPanel.missing.items.hazopScenarioLink },
+          { key: 'trace-ipl', label: strings.rightPanel.missing.items.independentIpls },
+          { key: 'trace-facilitator', label: strings.rightPanel.missing.items.hazopFacilitatorDate },
         ].filter(item =>
           item.key === 'trace-scenario'
             ? !(sif.hazopTrace?.scenarioId && sif.hazopTrace?.hazopNode)
@@ -53,16 +62,16 @@ export function ContextRightPanel({
 
   return (
     <RightPanelShell contentBg={PANEL_BG} persistKey="context">
-      <RightPanelSection id="etat" label="État" Icon={ShieldCheck}>
+      <RightPanelSection id="etat" label={strings.rightPanel.sections.status} Icon={ShieldCheck}>
         <p className="mb-3 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
-          Lecture du contexte avant le passage vers l'architecture.
+          {strings.rightPanel.intro}
         </p>
         <div className="space-y-2">
           {[
-            { label: 'Readiness', value: `${readiness}%`, tone: readinessColor },
-            { label: 'Trace HAZOP', value: `${overviewMetrics.tracePct}%`, tone: overviewMetrics.tracePct === 100 ? semantic.success : TEXT },
-            { label: 'Metadata', value: `${Math.round(compliance.metadataCompletion * 100)}%`, tone: compliance.metadataCompletion >= 0.85 ? semantic.success : TEXT },
-            { label: 'Signataires', value: `${overviewMetrics.approvalFilledCount}/3`, tone: overviewMetrics.approvalFilledCount === 3 ? semantic.success : TEXT },
+            { label: strings.rightPanel.metrics.readiness, value: `${readiness}%`, tone: readinessColor },
+            { label: strings.rightPanel.metrics.hazopTrace, value: `${overviewMetrics.tracePct}%`, tone: overviewMetrics.tracePct === 100 ? semantic.success : TEXT },
+            { label: strings.rightPanel.metrics.metadata, value: `${Math.round(compliance.metadataCompletion * 100)}%`, tone: compliance.metadataCompletion >= 0.85 ? semantic.success : TEXT },
+            { label: strings.rightPanel.metrics.signatories, value: `${overviewMetrics.approvalFilledCount}/3`, tone: overviewMetrics.approvalFilledCount === 3 ? semantic.success : TEXT },
           ].map(item => (
             <InspectorSurface key={item.label} className="flex items-center justify-between gap-3 rounded-lg px-2.5 py-2">
               <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>{item.label}</p>
@@ -75,11 +84,11 @@ export function ContextRightPanel({
         </div>
       </RightPanelSection>
 
-      <RightPanelSection id="actions" label="Actions" Icon={Sparkles}>
+      <RightPanelSection id="actions" label={strings.rightPanel.sections.actions} Icon={Sparkles}>
         <p className="mb-3 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
           {missingItems.length > 0
-            ? `${missingItems.length} élément${missingItems.length > 1 ? 's restent' : ' reste'} à documenter avant une lecture propre du contexte.`
-            : 'Contexte, traçabilité et signataires sont alignés pour la suite.'}
+            ? strings.rightPanel.missing.summary(missingItems.length)
+            : strings.rightPanel.missing.aligned}
         </p>
         <div className="space-y-2">
           {missingItems.length > 0 ? missingItems.slice(0, 6).map(item => (
@@ -99,15 +108,15 @@ export function ContextRightPanel({
               background={`${semantic.success}08`}
             >
               <CheckCircle2 size={11} style={{ color: semantic.success }} />
-              <span style={{ color: semantic.success }}>Contexte et traçabilité complets</span>
+              <span style={{ color: semantic.success }}>{strings.rightPanel.missing.complete}</span>
             </InspectorSurface>
           )}
         </div>
         <div className="my-3 h-px" style={{ background: BORDER }} />
         <p className="mb-3 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
           {missingItems.length > 0
-            ? "Le contexte doit d'abord fermer les manques documentaires avant le passage architecture."
-            : "Le contexte est suffisamment propre pour poursuivre la construction de l'architecture SIF."}
+            ? strings.rightPanel.conclusions.withMissing
+            : strings.rightPanel.conclusions.complete}
         </p>
         <InspectorActionButton
           onClick={missingItems.length > 0 ? onOpenEditSheet : () => onSelectTab('architecture')}
@@ -115,7 +124,7 @@ export function ContextRightPanel({
           background={`${TEAL}08`}
           borderColor={`${TEAL}35`}
         >
-          <span>{missingItems.length > 0 ? 'Compléter le contexte' : 'Continuer vers Architecture'}</span>
+          <span>{missingItems.length > 0 ? strings.rightPanel.ctas.completeContext : strings.rightPanel.ctas.continueArchitecture}</span>
           <ArrowRight size={12} />
         </InspectorActionButton>
       </RightPanelSection>

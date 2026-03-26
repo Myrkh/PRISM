@@ -10,6 +10,8 @@ import {
   FileText, ChevronRight, Folder, FolderOpen, Pencil, Pin, Plus,
   MoreHorizontal, Download, Upload, Trash2,
 } from 'lucide-react'
+import { getShellStrings } from '@/i18n/shell'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import { useAppStore } from '@/store/appStore'
 import { calcSIF } from '@/core/math/pfdCalc'
 import { cn } from '@/lib/utils'
@@ -101,6 +103,7 @@ interface Props {
 }
 
 export function ProjectTree({ projectId, sifId }: Props) {
+  const strings = useLocaleStrings(getShellStrings)
   const { BORDER, PAGE_BG, SHADOW_CARD, SHADOW_SOFT, SURFACE, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
   const navigate = useAppStore(s => s.navigate)
   const view = useAppStore(s => s.view)
@@ -173,12 +176,12 @@ export function ProjectTree({ projectId, sifId }: Props) {
     const cur = s.id === sifId && proj.id === projectId
     const isPinned = pinnedSet.has(s.id)
     const childItems = [
-      { id: 'cockpit', label: 'Cockpit', marker: '•', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'cockpit' }), active: cur && activeTab === 'cockpit' },
-      { id: 'context', label: 'Contexte', marker: '1', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'context' }), active: cur && activeTab === 'context' },
-      { id: 'architecture', label: 'Architecture', marker: '2', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'architecture' }), active: cur && activeTab === 'architecture' },
-      { id: 'verification', label: 'Verification', marker: '3', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'verification' }), active: cur && activeTab === 'verification' },
-      { id: 'exploitation', label: 'Exploitation', marker: '4', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'exploitation' }), active: cur && activeTab === 'exploitation' },
-      { id: 'report', label: 'Rapport', marker: '↗', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'report' }), active: cur && activeTab === 'report' },
+      { id: 'cockpit', label: strings.sifTabLabels.cockpit, marker: '•', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'cockpit' }), active: cur && activeTab === 'cockpit' },
+      { id: 'context', label: strings.sifTabLabels.context, marker: '1', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'context' }), active: cur && activeTab === 'context' },
+      { id: 'architecture', label: strings.sifTabLabels.architecture, marker: '2', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'architecture' }), active: cur && activeTab === 'architecture' },
+      { id: 'verification', label: strings.sifTabLabels.verification, marker: '3', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'verification' }), active: cur && activeTab === 'verification' },
+      { id: 'exploitation', label: strings.sifTabLabels.exploitation, marker: '4', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'exploitation' }), active: cur && activeTab === 'exploitation' },
+      { id: 'report', label: strings.sifTabLabels.report, marker: '↗', onClick: () => navigate({ type: 'sif-dashboard', projectId: proj.id, sifId: s.id, tab: 'report' }), active: cur && activeTab === 'report' },
     ]
 
     return (
@@ -258,7 +261,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
             </div>
             <StatusIcon ok={ok} />
           </button>
-          <button type="button" title={isPinned ? 'Unpin SIF' : 'Pin SIF'}
+          <button type="button" title={isPinned ? strings.projectTree.unpinSif : strings.projectTree.pinSif}
             onClick={() => togglePinnedSIF(s.id)}
             className="rounded p-1 transition-[background-color,color,box-shadow,transform] duration-150 ease-out"
             style={{ color: isPinned ? TEAL : TEXT_DIM, boxShadow: isPinned ? SHADOW_SOFT : 'none', transform: 'translateY(0) scale(1)' }}
@@ -296,7 +299,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
           {/* ⋯ SIF context menu */}
           <div className="relative shrink-0">
             <button
-              type="button" title="Actions"
+              type="button" title={strings.projectTree.sifActions}
               className="flex h-6 w-6 items-center justify-center rounded transition-colors"
               style={{ color: TEXT_DIM }}
               onMouseEnter={e => { e.currentTarget.style.color = TEXT }}
@@ -310,16 +313,16 @@ export function ProjectTree({ projectId, sifId }: Props) {
                 onClose={() => setSifMenu(false)}
                 items={[
                   {
-                    kind: 'action', label: 'Renommer', icon: <Pencil size={12} />,
+                    kind: 'action', label: strings.projectTree.rename, icon: <Pencil size={12} />,
                     onClick: () => setRenamingSif(true),
                   },
                   {
-                    kind: 'action', label: 'Exporter (.prism)', icon: <Download size={12} />,
+                    kind: 'action', label: strings.projectTree.exportSif, icon: <Download size={12} />,
                     onClick: () => downloadSIF(s as unknown as SIF, proj as unknown as Project),
                   },
                   { kind: 'separator' },
                   {
-                    kind: 'action', label: 'Supprimer', icon: <Trash2 size={12} />, danger: true,
+                    kind: 'action', label: strings.projectTree.deleteSif, icon: <Trash2 size={12} />, danger: true,
                     onClick: () => { void deleteSIF(proj.id, s.id) },
                   },
                 ]}
@@ -501,7 +504,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
                 {/* ⋯ project context menu */}
                 <div className="relative shrink-0">
                   <button
-                    type="button" title="Actions projet"
+                    type="button" title={strings.projectTree.projectActions}
                     className="flex h-6 w-6 items-center justify-center rounded transition-colors"
                     style={{ color: TEXT_DIM }}
                     onMouseEnter={e => { e.currentTarget.style.color = TEXT }}
@@ -515,20 +518,20 @@ export function ProjectTree({ projectId, sifId }: Props) {
                       onClose={() => setProjectMenuOpen(null)}
                       items={[
                         {
-                          kind: 'action', label: 'Renommer', icon: <Pencil size={12} />,
+                          kind: 'action', label: strings.projectTree.rename, icon: <Pencil size={12} />,
                           onClick: () => setRenamingProjectId(proj.id),
                         },
                         {
-                          kind: 'action', label: 'Exporter projet (.prism)', icon: <Download size={12} />,
+                          kind: 'action', label: strings.projectTree.exportProject, icon: <Download size={12} />,
                           onClick: () => downloadProject(proj as unknown as Project),
                         },
                         {
-                          kind: 'action', label: 'Importer une SIF…', icon: <Upload size={12} />,
+                          kind: 'action', label: strings.projectTree.importSif, icon: <Upload size={12} />,
                           onClick: () => setImportModal({ open: true, projectId: proj.id }),
                         },
                         { kind: 'separator' },
                         {
-                          kind: 'action', label: 'Supprimer le projet', icon: <Trash2 size={12} />, danger: true,
+                          kind: 'action', label: strings.projectTree.deleteProject, icon: <Trash2 size={12} />, danger: true,
                           onClick: () => { void deleteProject(proj.id) },
                         },
                       ]}
@@ -554,7 +557,7 @@ export function ProjectTree({ projectId, sifId }: Props) {
                   <div className="absolute left-[15px] top-0 bottom-0 w-px" style={{ background: `${BORDER}55` }} />
                   <div className="space-y-0.5 py-1">
                     {proj.sifs.length === 0 && (
-                      <div className="px-2 py-1 text-xs italic" style={{ color: TEXT_DIM }}>Aucune SIF dans ce projet.</div>
+                      <div className="px-2 py-1 text-xs italic" style={{ color: TEXT_DIM }}>{strings.projectTree.emptyProject}</div>
                     )}
                     {proj.sifs
                       .slice()
@@ -592,10 +595,10 @@ export function ProjectTree({ projectId, sifId }: Props) {
                       onPointerDown={e => sidebarPressDown(e.currentTarget, SHADOW_SOFT)}
                       onPointerUp={e => sidebarPressUp(e.currentTarget, SHADOW_SOFT)}
                       onPointerCancel={e => sidebarPressUp(e.currentTarget, 'none')}
-                      title={`Nouvelle SIF dans ${proj.name}`}
+                      title={strings.projectTree.newSifInProject(proj.name)}
                     >
                       <Plus size={11} className="shrink-0" />
-                      <span>Nouvelle SIF</span>
+                      <span>{strings.projectTree.newSif}</span>
                     </button>
                   </div>
                 </div>

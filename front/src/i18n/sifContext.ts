@@ -20,6 +20,10 @@ export interface SifContextStrings {
     demandRate: string
     requiredRrf: string
     maxAdmissiblePfd: string
+    processTiming: string
+    processSafetyTime: string
+    sifResponseTime: string
+    safeState: string
     hazardousEvent: string
     hazopNode: string
     scenarioId: string
@@ -50,6 +54,9 @@ export interface SifContextStrings {
     lopaRef: string
     riskMatrix: string
     independentIpls: string
+    processSafetyTime: string
+    sifResponseTime: string
+    safeState: string
   }
   save: {
     dirty: string
@@ -57,6 +64,37 @@ export interface SifContextStrings {
     save: string
     saving: string
     fallbackError: string
+  }
+  rightPanel: {
+    sections: {
+      status: string
+      actions: string
+    }
+    intro: string
+    metrics: {
+      readiness: string
+      hazopTrace: string
+      metadata: string
+      signatories: string
+    }
+    missing: {
+      summary: (count: number) => string
+      aligned: string
+      complete: string
+      items: {
+        hazopScenarioLink: string
+        independentIpls: string
+        hazopFacilitatorDate: string
+      }
+    }
+    conclusions: {
+      withMissing: string
+      complete: string
+    }
+    ctas: {
+      completeContext: string
+      continueArchitecture: string
+    }
   }
 }
 

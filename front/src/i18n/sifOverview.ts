@@ -125,6 +125,28 @@ export interface SifOverviewStrings {
       dossierIncomplete: string
     }
   }
+  closeDialog: {
+    title: (revision: string | number) => string
+    subtitle: string
+    lockedNotice: (revision: string | number) => string
+    lockedFollowUp: string
+    changeDescription: string
+    changeDescriptionPlaceholder: string
+    publishedBy: string
+    publishedByPlaceholder: string
+    requiredError: string
+    submitFallbackError: string
+    cancel: string
+    confirm: string
+  }
+  lockedOverlay: {
+    eyebrow: string
+    title: (revision: string | number) => string
+    description: (nextRevision: string | number) => string
+    lockedOn: (date: string) => string
+    lockedOnUnknown: string
+    startNextRevision: (revision: string | number) => string
+  }
   history: {
     summaryPublished: (revision: string | number) => string
     summaryWorking: (revision: string | number) => string

@@ -37,6 +37,14 @@ export const DEFAULT_KEYBINDINGS: KeybindingEntry[] = [
     when: 'global',
     category: 'palette',
   },
+  {
+    id: 'openChatPanel',
+    commandFr: 'Ouvrir PRISM AI',
+    commandEn: 'Open PRISM AI Chat',
+    keybinding: 'Ctrl+i',
+    when: 'global',
+    category: 'palette',
+  },
   // ── Layout ───────────────────────────────────────────────────────────────
   {
     id: 'toggleLeftPanel',

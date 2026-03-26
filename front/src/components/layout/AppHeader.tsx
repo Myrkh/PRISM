@@ -21,7 +21,7 @@ import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { CommandPalette } from './command-palette'
 import { LayoutControls } from './layout-controls'
-import { ChatIcon, ChatPanel } from './ChatPanel'
+import { ChatPanel } from './ChatPanel'
 
 function getUserInitials(value: string | null | undefined): string {
   if (!value) return 'U'
@@ -125,17 +125,36 @@ export function AppHeader() {
           type="button"
           title="PRISM AI Chat (⌘I)"
           onClick={toggleChatPanel}
-          className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-md border transition-all"
+          className="inline-flex h-8 w-9 shrink-0 items-center justify-center rounded-md transition-all"
           style={chatPanelOpen ? {
-            borderColor: `${TEAL}40`,
+            border: `1px solid ${TEAL}40`,
             background: `${TEAL}14`,
             boxShadow: `0 0 0 1px ${TEAL}22`,
           } : {
-            borderColor: BORDER,
+            border: '1px solid transparent',
             background: 'transparent',
+            boxShadow: 'none',
+          }}
+          onMouseEnter={event => {
+            if (chatPanelOpen) return
+            event.currentTarget.style.background = themeIsDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'
+            const img = event.currentTarget.querySelector('img')
+            if (img) img.style.opacity = '1'
+          }}
+          onMouseLeave={event => {
+            if (chatPanelOpen) return
+            event.currentTarget.style.background = 'transparent'
+            const img = event.currentTarget.querySelector('img')
+            if (img) img.style.opacity = '0.88'
           }}
         >
-          <ChatIcon size={15} color={chatPanelOpen ? TEAL : TEXT_DIM} />
+          <img
+            src="/prism_ai.png"
+            alt="PRISM AI"
+            className="h-5 w-auto select-none object-contain"
+            draggable={false}
+            style={{ opacity: chatPanelOpen ? 1 : 0.88 }}
+          />
         </button>
 
         {/* Thin separator */}

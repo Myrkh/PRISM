@@ -17,6 +17,8 @@ import { normalizeSIFTab } from '@/store/types'
 import { ProjectTree } from '@/components/layout/ProjectTree'
 import { PrismImportModal } from '@/components/PrismImportModal'
 import { WorkspaceTree } from '@/components/workspace/WorkspaceTree'
+import { getShellStrings } from '@/i18n/shell'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import { useWorkspaceStore } from '@/store/workspaceStore'
 import { StatusIcon } from '@/shared/StatusIcon'
 import {
@@ -101,6 +103,7 @@ function PinnedSIFRow({
   currentProjectId: string
   currentSifId: string
 }) {
+  const strings = useLocaleStrings(getShellStrings)
   const { BORDER, PAGE_BG, SHADOW_CARD, SHADOW_SOFT, SURFACE, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const projects        = useAppStore(s => s.projects)
   const navigate        = useAppStore(s => s.navigate)
@@ -147,7 +150,7 @@ function PinnedSIFRow({
       </button>
       <button
         type="button"
-        title="Désépingler"
+        title={strings.projectSidebar.unpin}
         onClick={() => togglePinnedSIF(sid)}
         className="rounded p-1 transition-colors shrink-0"
         style={{ color: TEAL }}
@@ -162,6 +165,7 @@ function PinnedSIFRow({
 
 // ─── Pinned note row ──────────────────────────────────────────────────────
 function PinnedNoteRow({ nodeId, activeNoteId }: { nodeId: string; activeNoteId: string | null }) {
+  const strings = useLocaleStrings(getShellStrings)
   const { BORDER, PAGE_BG, SHADOW_CARD, SHADOW_SOFT, SURFACE, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const navigate = useAppStore(s => s.navigate)
   const { nodes, unpinNode, openNoteTab } = useWorkspaceStore()
@@ -197,7 +201,7 @@ function PinnedNoteRow({ nodeId, activeNoteId }: { nodeId: string; activeNoteId:
       </button>
       <button
         type="button"
-        title="Désépingler"
+        title={strings.projectSidebar.unpin}
         onClick={() => unpinNode(nodeId)}
         className="rounded p-1 transition-colors shrink-0"
         style={{ color: TEAL }}
@@ -367,6 +371,7 @@ const MIN_BOTTOM    = 36
 const DEFAULT_SPLIT = 0.60
 
 export function ProjectSidebar({ projectId, sifId }: { projectId: string; sifId: string }) {
+  const strings = useLocaleStrings(getShellStrings)
   const { BORDER, PANEL_BG, TEXT, TEXT_DIM, SHADOW_SOFT, isDark } = usePrismTheme()
   const openNewProject  = useAppStore(s => s.openNewProject)
   const openNewSIF      = useAppStore(s => s.openNewSIF)
@@ -441,7 +446,7 @@ export function ProjectSidebar({ projectId, sifId }: { projectId: string; sifId:
       {hasPins && (
         <div className="shrink-0">
           <SectionHeader
-            label="Épinglés"
+            label={strings.projectSidebar.pinned}
             collapsed={pinnedCollapsed}
             onToggle={togglePinnedCollapsed}
           />
@@ -480,14 +485,14 @@ export function ProjectSidebar({ projectId, sifId }: { projectId: string; sifId:
         }}
       >
         <SectionHeader
-          label="Projets"
+          label={strings.projectSidebar.projects}
           collapsed={projectsCollapsed}
           onToggle={toggleProjectsCollapsed}
           actions={
             <div className="flex items-center gap-0.5">
               <button
                 type="button"
-                title="Nouveau projet"
+                title={strings.projectSidebar.newProject}
                 className="flex h-5 w-5 items-center justify-center rounded transition-colors"
                 style={{ color: TEXT_DIM }}
                 onMouseEnter={e => { e.currentTarget.style.color = TEXT }}
@@ -498,7 +503,7 @@ export function ProjectSidebar({ projectId, sifId }: { projectId: string; sifId:
               </button>
               <button
                 type="button"
-                title="Nouvelle SIF"
+                title={strings.projectSidebar.newSif}
                 className="flex h-5 w-5 items-center justify-center rounded transition-colors"
                 style={{ color: TEXT_DIM }}
                 onMouseEnter={e => { e.currentTarget.style.color = TEXT }}
@@ -509,7 +514,7 @@ export function ProjectSidebar({ projectId, sifId }: { projectId: string; sifId:
               </button>
               <button
                 type="button"
-                title="Importer (.prism)"
+                title={strings.projectSidebar.importPrism}
                 className="flex h-5 w-5 items-center justify-center rounded transition-colors"
                 style={{ color: TEXT_DIM }}
                 onMouseEnter={e => { e.currentTarget.style.color = TEXT }}

@@ -7,6 +7,8 @@
  */
 import { useState, type ReactNode } from 'react'
 import { ArrowLeftRight } from 'lucide-react'
+import { getShellStrings, type ShellStrings } from '@/i18n/shell'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import type { CanonicalSIFTab } from '@/store/types'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { cn } from '@/lib/utils'
@@ -81,16 +83,21 @@ type PhaseEntry = {
   accent: string
 }
 
-const LIFECYCLE_PHASES: PhaseEntry[] = [
-  { id: 'cockpit',      label: 'Cockpit',      step: null, accent: '#4FD1C5' },
-  { id: 'context',      label: 'Contexte',     step: '1',  accent: '#60A5FA' },
-  { id: 'architecture', label: 'Architecture', step: '2',  accent: '#F59E0B' },
-  { id: 'verification', label: 'Vérification', step: '3',  accent: '#A78BFA' },
-  { id: 'exploitation', label: 'Exploitation', step: '4',  accent: '#34D399' },
-  { id: 'report',       label: 'Rapport',      step: null, accent: '#F97316' },
-]
+const LIFECYCLE_PHASE_BASE = [
+  { id: 'cockpit',      step: null, accent: '#4FD1C5' },
+  { id: 'context',      step: '1',  accent: '#60A5FA' },
+  { id: 'architecture', step: '2',  accent: '#F59E0B' },
+  { id: 'verification', step: '3',  accent: '#A78BFA' },
+  { id: 'exploitation', step: '4',  accent: '#34D399' },
+  { id: 'report',       step: null, accent: '#F97316' },
+] as const satisfies readonly Omit<PhaseEntry, 'label'>[]
 
-const PHASES_STEPS = LIFECYCLE_PHASES.filter(p => p.step !== null)  // steps 1-4
+function getLifecyclePhases(strings: ShellStrings): PhaseEntry[] {
+  return LIFECYCLE_PHASE_BASE.map(phase => ({
+    ...phase,
+    label: strings.sifTabLabels[phase.id],
+  }))
+}
 
 function PhaseBtn({
   phase, isActive, onClick,
@@ -159,9 +166,12 @@ export function SIFLifecycleBar({
   active: CanonicalSIFTab
   onSelect: (id: CanonicalSIFTab) => void
 }) {
+  const strings = useLocaleStrings(getShellStrings)
   const { BORDER, SHADOW_SOFT, TEXT_DIM, PANEL_BG } = usePrismTheme()
-  const cockpit = LIFECYCLE_PHASES[0]
-  const report  = LIFECYCLE_PHASES[LIFECYCLE_PHASES.length - 1]
+  const lifecyclePhases = getLifecyclePhases(strings)
+  const phasesSteps = lifecyclePhases.filter(phase => phase.step !== null)
+  const cockpit = lifecyclePhases[0]
+  const report  = lifecyclePhases[lifecyclePhases.length - 1]
 
   return (
     <div
@@ -172,7 +182,7 @@ export function SIFLifecycleBar({
       <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
 
       {/* Étapes 1–4 avec flèches */}
-      {PHASES_STEPS.map((phase, i) => (
+      {phasesSteps.map((phase, i) => (
         <div key={phase.id} className="flex items-center">
           {i > 0 && (
             <span className="mx-1 text-[11px] select-none shrink-0" style={{ color: TEXT_DIM }}>›</span>
@@ -205,9 +215,12 @@ export function SIFWorkbenchBar({
   /** ⇄ button — open primary SIF picker (split mode). */
   onSwitch?: () => void
 }) {
+  const strings = useLocaleStrings(getShellStrings)
   const { BORDER, SHADOW_SOFT, TEXT, TEXT_DIM, PANEL_BG } = usePrismTheme()
-  const cockpit = LIFECYCLE_PHASES[0]
-  const report  = LIFECYCLE_PHASES[LIFECYCLE_PHASES.length - 1]
+  const lifecyclePhases = getLifecyclePhases(strings)
+  const phasesSteps = lifecyclePhases.filter(phase => phase.step !== null)
+  const cockpit = lifecyclePhases[0]
+  const report  = lifecyclePhases[lifecyclePhases.length - 1]
 
   return (
     <div
@@ -219,7 +232,7 @@ export function SIFWorkbenchBar({
         <div className="flex w-max mx-auto items-center gap-0.5 px-2">
           <PhaseBtn phase={cockpit} isActive={active === 'cockpit'} onClick={() => onSelect('cockpit')} />
           <div className="shrink-0 mx-1.5 h-5 w-px" style={{ background: BORDER }} />
-          {PHASES_STEPS.map((phase, index) => (
+          {phasesSteps.map((phase, index) => (
             <div key={phase.id} className="flex items-center">
               {index > 0 && (
                 <span className="mx-1 text-[11px] select-none shrink-0" style={{ color: TEXT_DIM }}>›</span>
@@ -240,7 +253,7 @@ export function SIFWorkbenchBar({
             <button
               type="button"
               onClick={onSwitch}
-              title={sifTooltip ? `${sifTooltip} — Changer de SIF` : 'Changer de SIF'}
+              title={sifTooltip ? `${sifTooltip} — ${strings.workbenchBar.switchSif}` : strings.workbenchBar.switchSif}
               className="flex h-6 w-6 items-center justify-center rounded transition-colors"
               style={{ color: TEXT_DIM }}
               onMouseEnter={e => { e.currentTarget.style.color = TEXT }}
@@ -254,7 +267,7 @@ export function SIFWorkbenchBar({
             <button
               type="button"
               onClick={onReset}
-              title={sifTooltip ? `${sifTooltip} — Revenir à la sélection` : 'Revenir à la sélection'}
+              title={sifTooltip ? `${sifTooltip} — ${strings.workbenchBar.backToSelection}` : strings.workbenchBar.backToSelection}
               className="flex h-6 w-6 items-center justify-center rounded text-[13px] transition-colors"
               style={{ color: TEXT_DIM }}
               onMouseEnter={e => { e.currentTarget.style.color = TEXT }}

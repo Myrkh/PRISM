@@ -7,9 +7,18 @@ import {
   ShieldCheck,
 } from 'lucide-react'
 import { SILBadge } from '@/components/shared/SILBadge'
+import { getSifComplianceStrings } from '@/i18n/sifCompliance'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import type { SIF, SIFCalcResult } from '@/core/types'
 import type { SIFTab } from '@/store/types'
 import type { ComplianceEvidenceItem, ComplianceItemStatus, ComplianceResult } from './complianceCalc'
+import {
+  getComplianceOverallStatusKey,
+  getCompliancePillLabel,
+  localizeComplianceAction,
+  localizeComplianceEvidence,
+  localizeTechnicalFinding,
+} from './complianceUi'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
@@ -33,7 +42,7 @@ function SurfaceCard({
   icon: React.ReactNode
   children: React.ReactNode
 }) {
-  const { BORDER, CARD_BG, SHADOW_PANEL, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const { BORDER, CARD_BG, SHADOW_PANEL, SURFACE, TEAL, TEAL_DIM, TEXT_DIM } = usePrismTheme()
   return (
     <div className="rounded-xl border p-4" style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}>
       <div className="flex items-start justify-between gap-3">
@@ -76,20 +85,26 @@ function MiniMetric({
   )
 }
 
-function StatusPill({ status }: { status: ComplianceItemStatus }) {
+function StatusPill({
+  status,
+  label,
+}: {
+  status: ComplianceItemStatus
+  label: string
+}) {
   const tone =
     status === 'complete'
-      ? { color: semantic.success, bg: `${semantic.success}12`, border: `${semantic.success}44`, label: 'OK' }
+      ? { color: semantic.success, bg: `${semantic.success}12`, border: `${semantic.success}44` }
       : status === 'missing'
-        ? { color: semantic.error, bg: `${semantic.error}12`, border: `${semantic.error}44`, label: 'Missing' }
-        : { color: semantic.warning, bg: `${semantic.warning}12`, border: `${semantic.warning}44`, label: 'Review' }
+        ? { color: semantic.error, bg: `${semantic.error}12`, border: `${semantic.error}44` }
+        : { color: semantic.warning, bg: `${semantic.warning}12`, border: `${semantic.warning}44` }
 
   return (
     <span
       className="rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wide"
       style={{ color: tone.color, background: tone.bg, borderColor: tone.border }}
     >
-      {tone.label}
+      {label}
     </span>
   )
 }
@@ -122,9 +137,11 @@ function ActionButton({
 
 function EvidenceButton({
   item,
+  pillLabel,
   onClick,
 }: {
   item: ComplianceEvidenceItem
+  pillLabel: string
   onClick: () => void
 }) {
   const { BORDER, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
@@ -140,7 +157,7 @@ function EvidenceButton({
           <p className="text-sm font-semibold" style={{ color: TEXT }}>{item.label}</p>
           <p className="mt-0.5 text-xs" style={{ color: TEXT_DIM }}>{item.summary}</p>
         </div>
-        <StatusPill status={item.status} />
+        <StatusPill status={item.status} label={pillLabel} />
       </div>
     </button>
   )
@@ -154,80 +171,84 @@ export function ComplianceTab({
   onSelectGap,
   onSelectEvidence,
 }: Props) {
+  const strings = useLocaleStrings(getSifComplianceStrings)
   const { BORDER, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
   const openGaps = Math.max(0, compliance.totalChecks - compliance.passedChecks)
   const metadataPct = Math.round(compliance.metadataCompletion * 100)
   const registerReviews = sif.assumptions.filter(item => item.status !== 'validated').length
-  const statusLabel =
-    !result.meetsTarget ? 'Non-compliant' :
-    openGaps > 0 || compliance.missingMetadata.length > 0 ? 'Review' :
-    'Compliant'
-  const scoreTone =
-    statusLabel === 'Compliant' ? 'success' :
-    statusLabel === 'Review' ? 'warning' :
-    'warning'
+  const statusKey = getComplianceOverallStatusKey(result, compliance)
+  const statusLabel = strings.overallStatus[statusKey]
+  const scoreTone = statusKey === 'compliant' ? 'success' : 'warning'
+  const localizedEvidence = compliance.evidenceItems.map(item => localizeComplianceEvidence(strings, sif, result, compliance, item))
+  const localizedActions = compliance.actions.map(action => localizeComplianceAction(strings, action))
+  const localizedFindings = compliance.technicalFindings.map(finding => localizeTechnicalFinding(strings, finding))
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-1 xl:grid-cols-[1.1fr_1.15fr_0.95fr] gap-4">
+      <div className="grid grid-cols-1 gap-4 xl:grid-cols-[1.1fr_1.15fr_0.95fr]">
         <SurfaceCard
-          title="Compliance Status"
-          hint="Verdict compact pour la SIF courante, sans répéter l’analyse détaillée ni les vues globales."
+          title={strings.tab.complianceStatusTitle}
+          hint={strings.tab.complianceStatusHint}
           icon={<Gauge size={16} />}
         >
           <div className="flex items-end justify-between gap-4">
             <div>
               <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: TEXT_DIM }}>
-                Status
+                {strings.tab.statusLabel}
               </p>
               <p className="mt-2 text-3xl font-bold tracking-tight" style={{ color: TEXT }}>{statusLabel}</p>
               <p className="mt-2 text-xs" style={{ color: TEXT_DIM }}>
-                {compliance.score}/100 · {compliance.passedChecks}/{compliance.totalChecks} checks passed
+                {compliance.score}/100 · {strings.tab.checksPassed(compliance.passedChecks, compliance.totalChecks)}
               </p>
             </div>
             <SILBadge sil={result.SIL} size="lg" />
           </div>
 
           <div className="mt-4 grid grid-cols-3 gap-2">
-            <MiniMetric label="Target" value={`SIL ${sif.targetSIL}`} />
-            <MiniMetric label="Open gaps" value={String(openGaps)} tone={openGaps === 0 ? 'success' : scoreTone} />
-            <MiniMetric label="Register" value={`${registerReviews} pending`} tone={registerReviews === 0 ? 'success' : 'warning'} />
+            <MiniMetric label={strings.tab.target} value={`SIL ${sif.targetSIL}`} />
+            <MiniMetric label={strings.tab.openGaps} value={String(openGaps)} tone={openGaps === 0 ? 'success' : scoreTone} />
+            <MiniMetric label={strings.tab.register} value={strings.tab.registerPending(registerReviews)} tone={registerReviews === 0 ? 'success' : 'warning'} />
           </div>
         </SurfaceCard>
 
         <SurfaceCard
-          title="Proof & Governance Readiness"
-          hint="Présence des preuves minimales attendues pour défendre la SIF sans recopier les contenus métier complets."
+          title={strings.tab.proofGovernanceTitle}
+          hint={strings.tab.proofGovernanceHint}
           icon={<ShieldCheck size={16} />}
         >
           <div className="mb-3 grid grid-cols-2 gap-2">
-            <MiniMetric label="Traceability" value={`${metadataPct}%`} tone={metadataPct === 100 ? 'success' : 'warning'} />
+            <MiniMetric label={strings.tab.traceability} value={`${metadataPct}%`} tone={metadataPct === 100 ? 'success' : 'warning'} />
             <MiniMetric
-              label="Evidence items"
-              value={`${compliance.evidenceItems.filter(item => item.status === 'complete').length}/${compliance.evidenceItems.length}`}
-              tone={compliance.evidenceItems.every(item => item.status === 'complete') ? 'success' : 'warning'}
+              label={strings.tab.evidenceItems}
+              value={`${localizedEvidence.filter(item => item.status === 'complete').length}/${localizedEvidence.length}`}
+              tone={localizedEvidence.every(item => item.status === 'complete') ? 'success' : 'warning'}
             />
           </div>
 
           <div className="space-y-2">
-            {compliance.evidenceItems.map(item => (
-              <EvidenceButton key={item.id} item={item} onClick={() => onSelectEvidence(item.id)} />
+            {localizedEvidence.map(item => (
+              <EvidenceButton
+                key={item.id}
+                item={item}
+                pillLabel={getCompliancePillLabel(strings, item.status)}
+                onClick={() => onSelectEvidence(item.id)}
+              />
             ))}
           </div>
         </SurfaceCard>
 
         <SurfaceCard
-          title="Next Best Actions"
-          hint="Actions courtes et utiles, orientées vers la correction des points réellement bloquants."
+          title={strings.tab.nextBestActionsTitle}
+          hint={strings.tab.nextBestActionsHint}
           icon={<ClipboardCheck size={16} />}
         >
           <div className="space-y-2">
-            {compliance.actions.map(action => (
+            {localizedActions.map(action => (
               <ActionButton
                 key={action.title}
                 title={action.title}
                 hint={action.hint}
-                onClick={() => onSelectTab(action.tab)}
+                onClick={() => onSelectTab(action.tab as SIFTab)}
               />
             ))}
           </div>
@@ -235,13 +256,13 @@ export function ComplianceTab({
       </div>
 
       <SurfaceCard
-        title="Open Compliance Gaps"
-        hint="Écarts priorisés à inspecter dans le panneau droit, puis à corriger dans l’onglet métier concerné."
+        title={strings.tab.openComplianceGapsTitle}
+        hint={strings.tab.openComplianceGapsHint}
         icon={<FileWarning size={16} />}
       >
         <div className="space-y-2">
-          {compliance.technicalFindings.length > 0 ? (
-            compliance.technicalFindings.map(finding => (
+          {localizedFindings.length > 0 ? (
+            localizedFindings.map(finding => (
               <button
                 key={finding.id}
                 type="button"
@@ -253,14 +274,14 @@ export function ComplianceTab({
                   <div>
                     <p className="text-sm font-semibold" style={{ color: TEXT }}>{finding.title}</p>
                     <p className="mt-0.5 text-xs" style={{ color: TEXT_DIM }}>
-                      {finding.subsystemLabel} · Current {finding.value} · Expected {finding.expected}
+                      {finding.subsystemLabel} · {strings.tab.currentExpected(finding.value, finding.expected)}
                     </p>
                   </div>
                   <span
                     className="rounded-full border px-2 py-1 text-[10px] font-bold uppercase tracking-wide"
                     style={{ borderColor: `${semantic.warning}55`, color: semantic.warning, background: `${semantic.warning}12` }}
                   >
-                    Inspect
+                    {strings.tab.inspect}
                   </span>
                 </div>
               </button>
@@ -271,7 +292,7 @@ export function ComplianceTab({
               style={{ borderColor: `${semantic.success}44`, background: `${semantic.success}10`, color: semantic.success, boxShadow: SHADOW_SOFT }}
             >
               <CheckCircle2 size={14} />
-              No open technical gap is currently blocking the compliance view.
+              {strings.tab.noOpenTechnicalGap}
             </div>
           )}
         </div>

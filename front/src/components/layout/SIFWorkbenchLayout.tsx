@@ -23,6 +23,8 @@ import { calcSIF, formatPct } from '@/core/math/pfdCalc'
 import { useFormatValue } from '@/utils/formatValue'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import { getShellStrings } from '@/i18n/shell'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import {
   WORKSPACE_LEFT_PANEL_WIDTH_MAX,
   WORKSPACE_LEFT_PANEL_WIDTH_MIN,
@@ -75,6 +77,7 @@ function clampPanelWidth(value: number, min: number, max: number) {
 
 // ─── Right panel — Properties inspector ──────────────────────────────────
 function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) {
+  const strings = useLocaleStrings(getShellStrings)
   const { fmt } = useFormatValue()
   const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, SHADOW_SOFT, TEXT, TEXT_DIM, TEAL_DIM } = usePrismTheme()
   const projects = useAppStore(s => s.projects)
@@ -88,17 +91,17 @@ function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) 
   const sffOk = sub0 ? sub0.SFF >= 0.6 : false
 
   const kpiRows = [
-    { k: 'SIL cible',   v: `SIL ${sif.targetSIL}`,                  color: '#60A5FA'                               },
-    { k: 'SIL atteint', v: `SIL ${calc.SIL}`,                        color: calc.meetsTarget ? '#4ADE80' : '#F87171'},
-    { k: 'PFDavg',      v: fmt(calc.PFD_avg),                   color: TEAL_DIM                               },
-    { k: 'RRF',         v: Math.round(calc.RRF).toLocaleString(),     color: TEXT                                   },
-    { k: 'SFF',         v: formatPct(sub0?.SFF ?? 0),                 color: sffOk ? '#4ADE80' : '#F87171'          },
-    { k: 'DC',          v: formatPct(sub0?.DC ?? 0),                  color: TEXT                                   },
+    { k: strings.workbenchInspector.targetSil,   v: `SIL ${sif.targetSIL}`, color: '#60A5FA' },
+    { k: strings.workbenchInspector.achievedSil, v: `SIL ${calc.SIL}`,     color: calc.meetsTarget ? '#4ADE80' : '#F87171' },
+    { k: strings.workbenchInspector.pfdavg,      v: fmt(calc.PFD_avg),         color: TEAL_DIM },
+    { k: strings.workbenchInspector.rrf,         v: Math.round(calc.RRF).toLocaleString(), color: TEXT },
+    { k: strings.workbenchInspector.sff,         v: formatPct(sub0?.SFF ?? 0), color: sffOk ? '#4ADE80' : '#F87171' },
+    { k: strings.workbenchInspector.dc,          v: formatPct(sub0?.DC ?? 0),  color: TEXT },
   ]
 
   return (
     <RightPanelShell
-      items={[{ id: 'properties', label: 'Propriétés', Icon: SlidersHorizontal }]}
+      items={[{ id: 'properties', label: strings.workbenchInspector.properties, Icon: SlidersHorizontal }]}
       active="properties"
       onSelect={() => {}}
       contentBg={PANEL_BG}
@@ -107,7 +110,7 @@ function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) 
 
         {/* ── Header SIF ── */}
         <div className="border-b px-4 pb-3 pt-4" style={{ borderColor: BORDER }}>
-          <p className="mb-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>Propriétés</p>
+          <p className="mb-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>{strings.workbenchInspector.properties}</p>
           <p className="text-xs font-semibold" style={{ color: TEXT }}>{sif.sifNumber}</p>
           {sif.title && <p className="mt-0.5 truncate text-[11px]" style={{ color: TEXT_DIM }}>{sif.title}</p>}
         </div>
@@ -122,7 +125,7 @@ function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) 
               boxShadow: SHADOW_SOFT,
             }}
           >
-            <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>Vérification SIL</span>
+            <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.workbenchInspector.silVerification}</span>
             <span className="text-sm font-bold" style={{ color: calc.meetsTarget ? semantic.success : semantic.error }}>
               {calc.meetsTarget ? '✓ PASS' : '✗ FAIL'}
             </span>
@@ -151,28 +154,24 @@ function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) 
 }
 
 function GlobalRightPanelPlaceholder({ mode }: { mode: 'audit' | 'history' | 'planning' | 'engine' | 'hazop' }) {
+  const strings = useLocaleStrings(getShellStrings)
   const { BORDER, CARD_BG, PANEL_BG, SHADOW_PANEL, TEXT_DIM } = usePrismTheme()
-  const labels: Record<typeof mode, string> = {
-    audit:   'Audit Log',
-    history: 'SIF History',
-    planning:'Planning',
-    engine:  'Engine',
-    hazop:   'HAZOP / LOPA',
-  }
+  const description = mode === 'engine'
+    ? strings.rightPanelPlaceholder.descriptions.engine
+    : mode === 'planning'
+      ? strings.rightPanelPlaceholder.descriptions.planning
+      : strings.rightPanelPlaceholder.descriptions.default
+
   return (
     <div className="flex h-full flex-col px-4 py-4" style={{ background: PANEL_BG }}>
-      <p className="text-[10px] font-bold uppercase tracking-widest mb-3" style={{ color: TEXT_DIM }}>
-        {labels[mode]}
+      <p className="mb-3 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+        {strings.rightPanelPlaceholder.labels[mode]}
       </p>
       <div
         className="rounded-xl border px-3 py-4 text-xs leading-relaxed"
         style={{ borderColor: BORDER, color: TEXT_DIM, background: CARD_BG, boxShadow: SHADOW_PANEL }}
       >
-        {mode === 'engine'
-          ? 'Engine overview, integration status, and backend contract details.'
-          : mode === 'planning'
-            ? 'Select a campaign to inspect details or click a day to plan a new one.'
-            : 'Select a row to inspect details and actions.'}
+        {description}
       </div>
     </div>
   )
@@ -188,6 +187,7 @@ function ResizeDivider({
   onPointerDown: (e: ReactPointerEvent<HTMLDivElement>) => void
   side?: 'left' | 'right'
 }) {
+  const strings = useLocaleStrings(getShellStrings)
   const { BORDER, PANEL_BG, TEAL, TEXT_DIM } = usePrismTheme()
   const [hovered, setHovered] = useState(false)
   const active = isResizing || hovered
@@ -196,7 +196,7 @@ function ResizeDivider({
     <div
       role="separator"
       aria-orientation="vertical"
-      aria-label="Resize panel"
+      aria-label={strings.workbenchInspector.resizePanel}
       className={`absolute inset-y-0 z-20 flex cursor-col-resize items-center justify-center ${
         side === 'left' ? 'left-0 -translate-x-1/2' : 'right-0 translate-x-1/2'
       }`}

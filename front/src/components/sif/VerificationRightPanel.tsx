@@ -467,11 +467,11 @@ export function VerificationRightPanel({
       await onUpdateAssumptions(normalized)
       setAssumptionDrafts(normalized)
       setAssumptionsDirty(false)
-      toast.success('Hypothèses sauvegardées')
+      toast.success(strings.rightPanel.assumptions.notifications.saveSuccess)
     } catch (error) {
       const msg = error instanceof Error ? error.message : strings.rightPanel.assumptions.saveFallback
       setAssumptionsError(msg)
-      toast.error('Échec de la sauvegarde', msg)
+      toast.error(strings.rightPanel.assumptions.notifications.saveFailure, msg)
     } finally {
       setAssumptionsSaving(false)
     }

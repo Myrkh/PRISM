@@ -7,7 +7,7 @@ import { getEffectiveKeybinding } from '@/core/shortcuts/defaults'
 import {
   LayoutDashboard, Network, BarChart3, Shield, FlaskConical,
   FileText, FileImage, Home, Pencil, History, ClipboardCheck, CalendarDays,
-  Cpu, BookOpen, BookOpenText, FolderPlus, FilePlus, Search, Settings,
+  Cpu, BookOpen, BookOpenText, FolderPlus, FilePlus, Search, Settings, MessageSquare,
   Moon, Sun, PanelLeftOpen, PanelLeftClose, PanelRightOpen, PanelRightClose,
   Maximize2, Minimize2, Columns2, Hash, AtSign, HelpCircle, Terminal,
   SidebarClose, FlipHorizontal2, AlignCenter, ArrowUpToLine, PanelBottomClose, PanelBottomOpen,
@@ -79,6 +79,9 @@ export function useCommandGroups({
   const openSecondSlot         = useAppStore(s => s.openSecondSlot)
   const closeSecondSlot        = useAppStore(s => s.closeSecondSlot)
   const recentItems            = useAppStore(s => s.preferences.recentItems)
+  const chatPanelOpen          = useAppStore(s => s.chatPanelOpen)
+  const toggleChatPanel        = useAppStore(s => s.toggleChatPanel)
+  const chatShortcut           = getEffectiveKeybinding('openChatPanel', preferences.userKeybindings) || undefined
 
   const { builtinTemplates, allProjectTemplates, userTemplates } = useComponentLibrary(null)
 
@@ -217,6 +220,16 @@ export function useCommandGroups({
       { id: 'planning',       label: strings.commandPalette.labels.planning,      keywords: 'planning calendrier campagnes proof test échéances',                                Icon: CalendarDays,onSelect: () => run(() => navigate({ type: 'planning' })),   isActive: view.type === 'planning',  level: 0 },
       { id: 'engine',         label: strings.commandPalette.labels.engine,        keywords: 'engine compute solver markov monte carlo backend quantitatif',                      Icon: Cpu,         onSelect: () => run(() => navigate({ type: 'engine' })),     isActive: view.type === 'engine',    level: 0 },
       { id: 'docs',           label: strings.commandPalette.labels.docs,          keywords: 'docs documentation aide help manuel guide moteur calcul architecture verification', Icon: BookOpenText,onSelect: () => run(onOpenDocs),                             isActive: view.type === 'docs',      level: 0 },
+      {
+        id: 'ai-chat',
+        label: strings.commandPalette.labels.aiChat,
+        keywords: 'ai chat prism assistant conversation iec 61511 mistral claude',
+        Icon: MessageSquare,
+        onSelect: () => run(() => { if (!chatPanelOpen) toggleChatPanel() }),
+        isActive: chatPanelOpen,
+        shortcut: chatShortcut,
+        level: 0,
+      },
       { id: 'settings',       label: strings.commandPalette.labels.settings,      keywords: 'settings paramètres préférences',                                                   Icon: Settings,    onSelect: () => run(onOpenSettings),                         isActive: view.type === 'settings',  level: 0 },
     ],
   }

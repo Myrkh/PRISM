@@ -280,34 +280,34 @@ export function ContextTab({ projectId, sif }: Props) {
             <div className="pt-1" style={{ borderTop: `1px solid ${BORDER}` }}>
               <div className="flex items-center gap-1.5 mb-3 mt-2">
                 <Timer size={11} style={{ color: TEXT_DIM }} />
-                <span className="text-[9px] font-bold uppercase tracking-[0.12em]" style={{ color: TEXT_DIM }}>Temps process &amp; réponse SIF</span>
+                <span className="text-[9px] font-bold uppercase tracking-[0.12em]" style={{ color: TEXT_DIM }}>{strings.fields.processTiming}</span>
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <FieldLabel>PST — Temps sécurité procédé (s)</FieldLabel>
+                  <FieldLabel>{strings.fields.processSafetyTime}</FieldLabel>
                   <FInput
                     type="number" step="1"
                     value={draft.processSafetyTime ?? ''}
                     onChange={v => upd('processSafetyTime', v === '' ? undefined : Number(v))}
-                    placeholder="ex. 30"
+                    placeholder={strings.placeholders.processSafetyTime}
                   />
                 </div>
                 <div>
-                  <FieldLabel>Temps de réponse SIF (s)</FieldLabel>
+                  <FieldLabel>{strings.fields.sifResponseTime}</FieldLabel>
                   <FInput
                     type="number" step="0.1"
                     value={draft.sifResponseTime ?? ''}
                     onChange={v => upd('sifResponseTime', v === '' ? undefined : Number(v))}
-                    placeholder="ex. 5"
+                    placeholder={strings.placeholders.sifResponseTime}
                   />
                 </div>
               </div>
               <div className="mt-3">
-                <FieldLabel>État sûr (Safe State)</FieldLabel>
+                <FieldLabel>{strings.fields.safeState}</FieldLabel>
                 <FInput
                   value={draft.safeState ?? ''}
                   onChange={v => upd('safeState', v)}
-                  placeholder="ex. Vanne ESD-001 fermée, pompe arrêtée"
+                  placeholder={strings.placeholders.safeState}
                 />
               </div>
             </div>

@@ -10,22 +10,27 @@ import { PFDChart } from '@/components/analysis/PFDChart'
 import { SILBadge } from '@/components/shared/SILBadge'
 import { AlertTriangle, BarChart3, Boxes, ClipboardCheck, ShieldCheck } from 'lucide-react'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
+import {
+  getCompliancePillLabel,
+  localizeComplianceEvidence,
+  localizeTechnicalFinding,
+} from '@/components/sif/complianceUi'
 import type { SIFAnalysisSettings } from '@/core/models/analysisSettings'
 import type { SIF, SIFCalcResult } from '@/core/types'
 import type { SIFTab } from '@/store/types'
 import { formatRRF, formatPct } from '@/core/math/pfdCalc'
+import { getSifComplianceStrings } from '@/i18n/sifCompliance'
+import { getSifVerificationStrings } from '@/i18n/sifVerification'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import { useFormatValue } from '@/utils/formatValue'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
-import { getSifVerificationStrings } from '@/i18n/sifVerification'
-import { useLocaleStrings } from '@/i18n/useLocale'
 
 interface Props {
   sif: SIF
   result: SIFCalcResult
   compliance: ComplianceResult
   settings: SIFAnalysisSettings
-  // Conservés pour compatibilité avec SIFDashboard / VerificationRightPanel
   onChangeSettings: (settings: SIFAnalysisSettings) => void
   onResetSettings: () => void
   onSelectTab: (tab: SIFTab) => void
@@ -103,19 +108,20 @@ export function VerificationWorkspace({
   onSelectEvidence,
 }: Props) {
   const strings = useLocaleStrings(getSifVerificationStrings)
+  const complianceStrings = useLocaleStrings(getSifComplianceStrings)
   const { fmt } = useFormatValue()
   const { BORDER, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM } = usePrismTheme()
   const openGaps = Math.max(0, compliance.totalChecks - compliance.passedChecks)
-  const evidenceComplete = compliance.evidenceItems.filter(item => item.status === 'complete').length
+  const localizedFindings = compliance.technicalFindings.map(finding => localizeTechnicalFinding(complianceStrings, finding))
+  const localizedEvidence = compliance.evidenceItems.map(item => localizeComplianceEvidence(complianceStrings, sif, result, compliance, item))
+  const evidenceComplete = localizedEvidence.filter(item => item.status === 'complete').length
 
   return (
     <div className="flex min-h-full flex-col gap-5">
-
-      {/* ── Résultats + Breakdown ── */}
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
         <SurfaceCard title={strings.workspace.sections.calculationResults} icon={<BarChart3 size={12} />}>
           <div className="space-y-4">
-            <div className="grid gap-3 grid-cols-2 xl:grid-cols-4">
+            <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
               <MetricTile label={strings.workspace.metrics.pfdavg} value={fmt(result.PFD_avg)} tone={TEXT} />
               <MetricTile label={strings.workspace.metrics.rrf} value={formatRRF(result.RRF)} tone={TEXT} />
               <MetricTile label={strings.workspace.metrics.achievedSil} value={`SIL ${result.SIL}`} tone={result.meetsTarget ? semantic.success : semantic.warning} />
@@ -132,16 +138,16 @@ export function VerificationWorkspace({
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b" style={{ borderColor: BORDER, background: SURFACE }}>
-                  {[strings.workspace.metrics.subsystem, strings.workspace.metrics.architecture, strings.workspace.metrics.subsystemPfd, strings.workspace.metrics.subsystemRrf, strings.workspace.metrics.sff, strings.workspace.metrics.dc, strings.workspace.metrics.hft, strings.workspace.metrics.sil].map(h => (
-                    <th key={h} className="text-left px-3 py-2 text-[11px] font-medium uppercase tracking-wide" style={{ color: TEXT_DIM }}>
-                      {h}
+                  {[strings.workspace.metrics.subsystem, strings.workspace.metrics.architecture, strings.workspace.metrics.subsystemPfd, strings.workspace.metrics.subsystemRrf, strings.workspace.metrics.sff, strings.workspace.metrics.dc, strings.workspace.metrics.hft, strings.workspace.metrics.sil].map(header => (
+                    <th key={header} className="px-3 py-2 text-left text-[11px] font-medium uppercase tracking-wide" style={{ color: TEXT_DIM }}>
+                      {header}
                     </th>
                   ))}
                 </tr>
               </thead>
               <tbody>
-                {result.subsystems.map((sub, i) => {
-                  const subsystem = sif.subsystems[i]
+                {result.subsystems.map((sub, index) => {
+                  const subsystem = sif.subsystems[index]
                   return (
                     <tr key={sub.subsystemId} className="border-t" style={{ borderColor: `${BORDER}80` }}>
                       <td className="px-3 py-2.5 text-xs font-semibold" style={{ color: TEXT }}>{subsystem?.label ?? sub.type}</td>
@@ -161,11 +167,10 @@ export function VerificationWorkspace({
         </SurfaceCard>
       </div>
 
-      {/* ── Écarts + Hypothèses ── */}
       <div className="grid gap-4 xl:grid-cols-2">
         <SurfaceCard title={strings.workspace.sections.technicalGaps} icon={<AlertTriangle size={12} />}>
           <div className="space-y-2">
-            {compliance.technicalFindings.length > 0 ? compliance.technicalFindings.map(finding => (
+            {localizedFindings.length > 0 ? localizedFindings.map(finding => (
               <button
                 key={finding.id}
                 type="button"
@@ -176,7 +181,7 @@ export function VerificationWorkspace({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold" style={{ color: TEXT }}>{finding.title}</p>
-                    <p className="mt-0.5 text-xs truncate" style={{ color: TEXT_DIM }}>
+                    <p className="mt-0.5 truncate text-xs" style={{ color: TEXT_DIM }}>
                       {strings.workspace.findingSummary(finding.subsystemLabel, finding.value, finding.expected)}
                     </p>
                   </div>
@@ -202,7 +207,7 @@ export function VerificationWorkspace({
               <div key={assumption.id} className="rounded-lg border px-3 py-2.5" style={{ borderColor: BORDER, background: SURFACE, boxShadow: SHADOW_SOFT }}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-semibold truncate" style={{ color: TEXT }}>{assumption.title}</p>
+                    <p className="truncate text-sm font-semibold" style={{ color: TEXT }}>{assumption.title}</p>
                     <p className="mt-0.5 text-xs" style={{ color: TEXT_DIM }}>
                       {assumption.rationale || assumption.statement || strings.workspace.statuses.undocumentedRationale}
                     </p>
@@ -226,11 +231,10 @@ export function VerificationWorkspace({
         </SurfaceCard>
       </div>
 
-      {/* ── Preuves ── */}
       <SurfaceCard title={strings.workspace.sections.evidencePackage} icon={<ClipboardCheck size={12} />}>
         <div className="grid gap-4 xl:grid-cols-[1fr_auto]">
           <div className="space-y-2">
-            {compliance.evidenceItems.map(item => (
+            {localizedEvidence.map(item => (
               <button
                 key={item.id}
                 type="button"
@@ -241,7 +245,7 @@ export function VerificationWorkspace({
                 <div className="flex items-center justify-between gap-3">
                   <div className="min-w-0">
                     <p className="text-sm font-semibold" style={{ color: TEXT }}>{item.label}</p>
-                    <p className="mt-0.5 text-xs truncate" style={{ color: TEXT_DIM }}>{item.summary}</p>
+                    <p className="mt-0.5 truncate text-xs" style={{ color: TEXT_DIM }}>{item.summary}</p>
                   </div>
                   <span
                     className="shrink-0 rounded-full border px-2 py-1 text-[10px] font-bold uppercase"
@@ -251,19 +255,18 @@ export function VerificationWorkspace({
                         ? { borderColor: `${semantic.error}44`, color: semantic.error, background: `${semantic.error}10` }
                         : { borderColor: `${semantic.warning}44`, color: semantic.warning, background: `${semantic.warning}10` }}
                   >
-                    {item.status === 'complete' ? strings.workspace.statuses.ok : item.status === 'missing' ? strings.workspace.statuses.missing : strings.workspace.statuses.review}
+                    {getCompliancePillLabel(complianceStrings, item.status)}
                   </span>
                 </div>
               </button>
             ))}
           </div>
 
-          {/* Score résumé */}
-          <div className="grid grid-cols-2 gap-2 xl:grid-cols-1 xl:w-40">
+          <div className="grid grid-cols-2 gap-2 xl:w-40 xl:grid-cols-1">
             {[
               { label: strings.workspace.metrics.score, value: `${compliance.score}/100`, tone: compliance.score >= 90 ? semantic.success : TEXT },
               { label: strings.workspace.metrics.checks, value: `${compliance.passedChecks}/${compliance.totalChecks}`, tone: openGaps === 0 ? semantic.success : semantic.warning },
-              { label: strings.workspace.metrics.evidence, value: `${evidenceComplete}/${compliance.evidenceItems.length}`, tone: compliance.evidenceItems.every(i => i.status === 'complete') ? semantic.success : TEXT },
+              { label: strings.workspace.metrics.evidence, value: `${evidenceComplete}/${localizedEvidence.length}`, tone: localizedEvidence.every(item => item.status === 'complete') ? semantic.success : TEXT },
               { label: strings.workspace.metrics.proofTest, value: sif.proofTestProcedure ? strings.workspace.statuses.defined : strings.workspace.statuses.missing, tone: sif.proofTestProcedure ? semantic.success : semantic.error },
             ].map(item => (
               <MetricTile key={item.label} label={item.label} value={item.value} tone={item.tone} />
@@ -271,7 +274,6 @@ export function VerificationWorkspace({
           </div>
         </div>
       </SurfaceCard>
-
     </div>
   )
 }

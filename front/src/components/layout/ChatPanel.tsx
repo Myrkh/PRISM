@@ -6,7 +6,11 @@
  *   maximized  — fixed overlay covering the full workspace (below header + right of rail)
  *
  * Chrome:
- *   [Icon] [PRISM AI] [model badge]  ···  [+] [History] [Attach] [Config] [Maximize] [Close]
+ *   [Icon] [PRISM AI] [model badge]  ···  [+] [History] [Config] [Maximize] [Close]
+ *
+ * Composer:
+ *   [textarea]
+ *   [Attach] [Model selector]                            [Send]
  *
  * To wire the AI: replace `streamAIResponseStub` with your real implementation.
  * Expected signature:
@@ -16,6 +20,8 @@
  *     config?: ChatConfig,
  *   ): AsyncGenerator<string>
  */
+import '@/styles/notePreview.css'
+import 'katex/dist/katex.min.css'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -33,7 +39,10 @@ import {
 } from 'lucide-react'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { useAppStore } from '@/store/appStore'
-import { serializeSIFForAI, streamPRISMAI, type WorkspaceContext } from '@/lib/aiApi'
+import { useWorkspaceStore } from '@/store/workspaceStore'
+import { getWorkspaceFileUrl } from '@/lib/workspaceStorage'
+import { serializeSIFForAI, streamPRISMAI, type ChatAttachmentPayload, type WorkspaceContext } from '@/lib/aiApi'
+import { useMarkdownRender } from '@/components/workspace/note/useMarkdownRender'
 import { generateSIFRegistry } from '@/utils/generateSIFRegistry'
 
 // ─── Types ────────────────────────────────────────────────────────────────────
@@ -52,11 +61,26 @@ export interface ChatConversation {
   messages: ChatMessage[]
   contextSIFId?: string
   contextSIFName?: string
+  attachedWorkspaceItems?: AttachedWorkspaceItem[]
+  assistantNoteIds?: Record<string, string>
 }
 
 export interface AttachedContext {
   sifId: string
   sifName: string
+}
+
+export interface AttachedWorkspaceItem {
+  nodeId: string
+  nodeName: string
+  nodeType: 'note' | 'pdf' | 'image'
+}
+
+type AttachableSIF = {
+  sifId: string
+  sifName: string
+  sifNumber: string
+  projectName: string
 }
 
 export interface ChatConfig {
@@ -67,6 +91,7 @@ export interface ChatConfig {
 // ─── Persistence ──────────────────────────────────────────────────────────────
 const CONVS_KEY   = 'prism_chat_conversations'
 const CONFIG_KEY  = 'prism_chat_config'
+const ACTIVE_CONV_KEY = 'prism_chat_active_conversation'
 
 const DEFAULT_CONFIG: ChatConfig = {
   model: 'claude-sonnet-4-6',
@@ -87,6 +112,17 @@ function loadConversations(): ChatConversation[] {
 }
 function saveConversations(convs: ChatConversation[]) {
   localStorage.setItem(CONVS_KEY, JSON.stringify(convs.slice(0, 50)))
+}
+function loadActiveConversationId(): string | null {
+  try { return localStorage.getItem(ACTIVE_CONV_KEY) } catch { return null }
+}
+function saveActiveConversationId(id: string | null) {
+  try {
+    if (id) localStorage.setItem(ACTIVE_CONV_KEY, id)
+    else localStorage.removeItem(ACTIVE_CONV_KEY)
+  } catch {
+    // ignore quota / storage errors
+  }
 }
 function loadConfig(): ChatConfig {
   try { return { ...DEFAULT_CONFIG, ...JSON.parse(localStorage.getItem(CONFIG_KEY) ?? '{}') } } catch { return DEFAULT_CONFIG }
@@ -224,8 +260,75 @@ function WinBtn({ Icon, title, onClick, active, danger }: {
   )
 }
 
+function MarkdownMessage({ markdown }: { markdown: string }) {
+  const { BORDER, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, isDark } = usePrismTheme()
+  const { html } = useMarkdownRender(markdown)
+
+  return (
+    <div
+      className="prism-note-preview"
+      style={{
+        ['--prism-page' as string]: 'transparent',
+        ['--prism-panel' as string]: PANEL_BG,
+        ['--prism-card' as string]: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+        ['--prism-border' as string]: BORDER,
+        ['--prism-text' as string]: TEXT,
+        ['--prism-text-dim' as string]: TEXT_DIM,
+        ['--prism-teal' as string]: TEAL,
+        ['--prism-teal-dim' as string]: TEAL_DIM,
+        ['--prism-code-bg' as string]: isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
+        ['--prism-row-hover' as string]: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+        ['--prism-preview-max-width' as string]: 'none',
+        padding: 0,
+        margin: 0,
+        height: 'auto',
+        overflowY: 'visible',
+        background: 'transparent',
+        fontSize: '12.5px',
+        lineHeight: 1.65,
+      }}
+      // eslint-disable-next-line react/no-danger
+      dangerouslySetInnerHTML={{ __html: html || '<p style="opacity:0.45;font-style:italic">…</p>' }}
+    />
+  )
+}
+
+function deriveAssistantNoteName(markdown: string): string {
+  const firstMeaningfulLine = markdown
+    .split('\n')
+    .map(line => line.trim())
+    .find(line => line.length > 0)
+
+  const cleaned = (firstMeaningfulLine ?? '')
+    .replace(/^#{1,6}\s*/, '')
+    .replace(/^[-*+]\s+/, '')
+    .replace(/^\d+\.\s+/, '')
+    .replace(/\[(.*?)\]\((.*?)\)/g, '$1')
+    .replace(/[`*_>#]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const base = cleaned || 'Note'
+  const truncated = base.length > 56 ? `${base.slice(0, 55).trim()}...` : base
+  return `PRISM AI - ${truncated}`
+}
+
 // ─── Message bubble ───────────────────────────────────────────────────────────
-function MessageBubble({ msg }: { msg: ChatMessage }) {
+function MessageBubble({
+  msg,
+  noteId,
+  noteActionsEnabled,
+  createNoteLabel,
+  openNoteLabel,
+  onNoteAction,
+}: {
+  msg: ChatMessage
+  noteId?: string
+  noteActionsEnabled: boolean
+  createNoteLabel: string
+  openNoteLabel: string
+  onNoteAction: (msg: ChatMessage) => void
+}) {
   const { TEAL, TEXT, TEXT_DIM, BORDER, PAGE_BG, isDark } = usePrismTheme()
   const isUser = msg.role === 'user'
 
@@ -254,25 +357,53 @@ function MessageBubble({ msg }: { msg: ChatMessage }) {
       >
         <ChatIcon size={10} color={TEAL} />
       </div>
-      <div
-        className="max-w-[85%] rounded-2xl rounded-tl-sm px-3 py-2 text-[12.5px] leading-relaxed"
-        style={{
-          background: isDark ? 'rgba(255,255,255,0.04)' : PAGE_BG,
-          border: `1px solid ${BORDER}`,
-          color: TEXT,
-          whiteSpace: 'pre-wrap',
-        }}
-      >
-        {msg.content || (
-          <span className="flex gap-1 py-0.5">
-            {[0, 1, 2].map(i => (
-              <span
-                key={i}
-                className="inline-block h-1.5 w-1.5 rounded-full animate-bounce"
-                style={{ background: TEAL, animationDelay: `${i * 150}ms` }}
-              />
-            ))}
-          </span>
+      <div className="flex max-w-[85%] flex-col items-start gap-1.5">
+        <div
+          className="w-full rounded-2xl rounded-tl-sm px-3 py-2 text-[12.5px] leading-relaxed"
+          style={{
+            background: isDark ? 'rgba(255,255,255,0.04)' : PAGE_BG,
+            border: `1px solid ${BORDER}`,
+            color: TEXT,
+          }}
+        >
+          {msg.content ? (
+            <MarkdownMessage markdown={msg.content} />
+          ) : (
+            <span className="flex gap-1 py-0.5">
+              {[0, 1, 2].map(i => (
+                <span
+                  key={i}
+                  className="inline-block h-1.5 w-1.5 rounded-full animate-bounce"
+                  style={{ background: TEAL, animationDelay: `${i * 150}ms` }}
+                />
+              ))}
+            </span>
+          )}
+        </div>
+        {noteActionsEnabled && msg.content.trim() && (
+          <button
+            type="button"
+            onClick={() => onNoteAction(msg)}
+            className="inline-flex items-center gap-1.5 rounded-md border px-2 py-1 text-[10px] font-medium transition-colors"
+            style={{
+              borderColor: noteId ? `${TEAL}35` : BORDER,
+              background: noteId ? `${TEAL}10` : 'transparent',
+              color: noteId ? TEAL : TEXT_DIM,
+            }}
+            onMouseEnter={e => {
+              e.currentTarget.style.background = noteId ? `${TEAL}16` : (isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)')
+              e.currentTarget.style.borderColor = noteId ? `${TEAL}45` : `${TEAL}28`
+              e.currentTarget.style.color = noteId ? TEAL : TEXT
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.background = noteId ? `${TEAL}10` : 'transparent'
+              e.currentTarget.style.borderColor = noteId ? `${TEAL}35` : BORDER
+              e.currentTarget.style.color = noteId ? TEAL : TEXT_DIM
+            }}
+          >
+            {noteId ? <BookOpen size={11} /> : <Plus size={11} />}
+            <span>{noteId ? openNoteLabel : createNoteLabel}</span>
+          </button>
         )}
       </div>
     </div>
@@ -401,47 +532,6 @@ function ConfigPanel({ config, onChange, onClose }: {
       </div>
 
       <div className="flex flex-col gap-4 p-3">
-        {/* Model selector */}
-        <div className="flex flex-col gap-1.5">
-          <label className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-            Modèle
-          </label>
-          <div className="flex flex-col gap-2">
-            {(['Anthropic', 'Mistral AI'] as const).map(group => (
-              <div key={group} className="flex flex-col gap-1">
-                <span className="px-1 text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM, opacity: 0.5 }}>
-                  {group}
-                </span>
-                {MODELS.filter(m => m.group === group).map(m => (
-                  <button
-                    key={m.id}
-                    type="button"
-                    onClick={() => setDraft(d => ({ ...d, model: m.id }))}
-                    className="flex items-center justify-between rounded-lg border px-3 py-2 text-left transition-all"
-                    style={{
-                      borderColor: draft.model === m.id ? `${TEAL}50` : BORDER,
-                      background: draft.model === m.id ? `${TEAL}10` : 'transparent',
-                    }}
-                  >
-                    <span className="text-[12px] font-medium" style={{ color: TEXT }}>
-                      {m.label}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <span
-                        className="rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider"
-                        style={{ background: `${TEAL}14`, color: TEXT_DIM }}
-                      >
-                        {m.badge}
-                      </span>
-                      {draft.model === m.id && <Check size={11} style={{ color: TEAL }} />}
-                    </div>
-                  </button>
-                ))}
-              </div>
-            ))}
-          </div>
-        </div>
-
         {/* System prompt */}
         <div className="flex flex-col gap-1.5">
           <label className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
@@ -483,6 +573,153 @@ function ConfigPanel({ config, onChange, onClose }: {
   )
 }
 
+// ─── Attach picker ───────────────────────────────────────────────────────────
+function AttachPicker({
+  sifs,
+  workspaceItems,
+  attachedContext,
+  attachedWorkspaceItems,
+  onAttachSIF,
+  onToggleWorkspaceItem,
+  onClose,
+}: {
+  sifs: AttachableSIF[]
+  workspaceItems: AttachedWorkspaceItem[]
+  attachedContext: AttachedContext | null
+  attachedWorkspaceItems: AttachedWorkspaceItem[]
+  onAttachSIF: (sif: AttachableSIF) => void
+  onToggleWorkspaceItem: (item: AttachedWorkspaceItem) => void
+  onClose: () => void
+}) {
+  const { BORDER, TEAL, TEXT, TEXT_DIM, PAGE_BG, PANEL_BG, isDark } = usePrismTheme()
+  const [query, setQuery] = useState('')
+  const normalized = query.trim().toLowerCase()
+  const kindLabels: Record<AttachedWorkspaceItem['nodeType'], string> = {
+    note: 'Markdown',
+    pdf: 'PDF',
+    image: 'Image',
+  }
+
+  const filteredSIFs = normalized
+    ? sifs.filter(item => `${item.sifNumber} ${item.sifName} ${item.projectName}`.toLowerCase().includes(normalized))
+    : sifs
+  const filteredWorkspaceItems = normalized
+    ? workspaceItems.filter(item => `${item.nodeName} ${item.nodeType}`.toLowerCase().includes(normalized))
+    : workspaceItems
+
+  return (
+    <div
+      className="mb-2 overflow-hidden rounded-xl border"
+      style={{ borderColor: BORDER, background: isDark ? 'rgba(0,0,0,0.18)' : PAGE_BG }}
+    >
+      <div className="flex items-center justify-between border-b px-3 py-2" style={{ borderColor: BORDER, background: PANEL_BG }}>
+        <span className="text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
+          Joindre du contexte
+        </span>
+        <button
+          type="button"
+          onClick={onClose}
+          className="flex h-5 w-5 items-center justify-center rounded transition-colors"
+          style={{ color: TEXT_DIM }}
+          onMouseEnter={e => { e.currentTarget.style.color = TEXT }}
+          onMouseLeave={e => { e.currentTarget.style.color = TEXT_DIM }}
+        >
+          <X size={11} />
+        </button>
+      </div>
+
+      <div className="border-b p-2" style={{ borderColor: BORDER }}>
+        <input
+          value={query}
+          onChange={e => setQuery(e.target.value)}
+          placeholder="Rechercher une SIF ou un fichier du workspace…"
+          className="w-full rounded-lg border px-2.5 py-2 text-[11.5px] outline-none transition-colors"
+          style={{
+            borderColor: BORDER,
+            background: isDark ? 'rgba(255,255,255,0.04)' : PAGE_BG,
+            color: TEXT,
+          }}
+          onFocus={e => { e.currentTarget.style.borderColor = `${TEAL}60` }}
+          onBlur={e => { e.currentTarget.style.borderColor = BORDER }}
+        />
+      </div>
+
+      <div className="max-h-64 overflow-y-auto p-2">
+        <div className="flex flex-col gap-1.5">
+          <span className="px-1 text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM, opacity: 0.55 }}>
+            SIF
+          </span>
+          {filteredSIFs.length === 0 ? (
+            <p className="px-2 py-1 text-[11px]" style={{ color: TEXT_DIM, opacity: 0.55 }}>
+              Aucune SIF trouvée.
+            </p>
+          ) : (
+            filteredSIFs.map(item => {
+              const active = attachedContext?.sifId === item.sifId
+              return (
+                <button
+                  key={item.sifId}
+                  type="button"
+                  onClick={() => onAttachSIF(item)}
+                  className="flex flex-col items-start rounded-lg border px-3 py-2 text-left transition-colors"
+                  style={{
+                    borderColor: active ? `${TEAL}50` : BORDER,
+                    background: active ? `${TEAL}10` : 'transparent',
+                  }}
+                >
+                  <span className="text-[11.5px] font-medium" style={{ color: TEXT }}>
+                    {item.sifNumber} · {item.sifName}
+                  </span>
+                  <span className="text-[10px]" style={{ color: TEXT_DIM, opacity: 0.7 }}>
+                    {item.projectName}
+                  </span>
+                </button>
+              )
+            })
+          )}
+        </div>
+
+        <div className="mt-3 flex flex-col gap-1.5">
+          <span className="px-1 text-[9px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM, opacity: 0.55 }}>
+            Workspace
+          </span>
+          {filteredWorkspaceItems.length === 0 ? (
+            <p className="px-2 py-1 text-[11px]" style={{ color: TEXT_DIM, opacity: 0.55 }}>
+              Aucun fichier workspace trouvé.
+            </p>
+          ) : (
+            filteredWorkspaceItems.map(item => {
+              const active = attachedWorkspaceItems.some(entry => entry.nodeId === item.nodeId)
+              return (
+                <button
+                  key={item.nodeId}
+                  type="button"
+                  onClick={() => onToggleWorkspaceItem(item)}
+                  className="flex items-center justify-between gap-3 rounded-lg border px-3 py-2 text-left transition-colors"
+                  style={{
+                    borderColor: active ? `${TEAL}50` : BORDER,
+                    background: active ? `${TEAL}10` : 'transparent',
+                  }}
+                >
+                  <div className="min-w-0 flex-1">
+                    <span className="block truncate text-[11.5px] font-medium" style={{ color: TEXT }}>
+                      {item.nodeName}
+                    </span>
+                    <span className="text-[10px]" style={{ color: TEXT_DIM, opacity: 0.7 }}>
+                      {kindLabels[item.nodeType]}
+                    </span>
+                  </div>
+                  {active && <Check size={11} style={{ color: TEAL }} />}
+                </button>
+              )
+            })
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ─── Main component ───────────────────────────────────────────────────────────
 interface ChatPanelProps {
   onClose: () => void
@@ -493,24 +730,61 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
 
   // ── Store: current SIF context ──────────────────────────────────────────────
   const view     = useAppStore(s => s.view)
+  const navigate = useAppStore(s => s.navigate)
   const projects = useAppStore(s => s.projects)
   const prismFiles = useAppStore(s => s.prismFiles)
+  const appLocale = useAppStore(s => s.preferences.language)
+  const workspaceNodes = useWorkspaceStore(s => s.nodes)
+  const createWorkspaceNote = useWorkspaceStore(s => s.createNote)
+  const updateWorkspaceNoteContent = useWorkspaceStore(s => s.updateNoteContent)
+  const openWorkspaceTab = useWorkspaceStore(s => s.openTab)
+  const clearWorkspacePendingRename = useWorkspaceStore(s => s.clearPendingRename)
   const currentSIF = view.type === 'sif-dashboard'
     ? projects.flatMap(p => p.sifs).find(s => s.id === view.sifId) ?? null
     : null
+  const allSIFs: AttachableSIF[] = projects
+    .flatMap(project => project.sifs.map(sif => ({
+      sifId: sif.id,
+      sifName: sif.title || 'Sans titre',
+      sifNumber: sif.sifNumber || 'SIF',
+      projectName: project.name,
+    })))
+    .sort((a, b) => `${a.sifNumber} ${a.sifName}`.localeCompare(`${b.sifNumber} ${b.sifName}`, 'fr', { sensitivity: 'base' }))
+  const workspaceItems: AttachedWorkspaceItem[] = Object.values(workspaceNodes)
+    .filter(node => node.type === 'note' || node.type === 'pdf' || node.type === 'image')
+    .map(node => ({
+      nodeId: node.id,
+      nodeName: node.name,
+      nodeType: node.type,
+    }))
+    .sort((a, b) => a.nodeName.localeCompare(b.nodeName, 'fr', { sensitivity: 'base' }))
+  const createNoteLabel = appLocale === 'fr' ? 'Créer une note' : 'Create note'
+  const openNoteLabel = appLocale === 'fr' ? 'Ouvrir la note' : 'Open note'
 
   // ── Chat state ──────────────────────────────────────────────────────────────
   const [conversations, setConversations] = useState<ChatConversation[]>(loadConversations)
-  const [currentConvId, setCurrentConvId] = useState<string | null>(null)
-  const [messages, setMessages]           = useState<ChatMessage[]>([])
+  const initialActiveConversation = (() => {
+    const activeId = loadActiveConversationId()
+    if (!activeId) return null
+    return conversations.find(conv => conv.id === activeId) ?? null
+  })()
+  const [currentConvId, setCurrentConvId] = useState<string | null>(initialActiveConversation?.id ?? null)
+  const [messages, setMessages]           = useState<ChatMessage[]>(initialActiveConversation?.messages ?? [])
   const [input, setInput]                 = useState('')
   const [isStreaming, setIsStreaming]     = useState(false)
-  const [attachedContext, setAttachedContext] = useState<AttachedContext | null>(null)
+  const [attachedContext, setAttachedContext] = useState<AttachedContext | null>(
+    initialActiveConversation?.contextSIFId
+      ? { sifId: initialActiveConversation.contextSIFId, sifName: initialActiveConversation.contextSIFName ?? '' }
+      : null,
+  )
+  const [attachedWorkspaceItems, setAttachedWorkspaceItems] = useState<AttachedWorkspaceItem[]>(initialActiveConversation?.attachedWorkspaceItems ?? [])
   const [config, setConfig]               = useState<ChatConfig>(loadConfig)
+  const [assistantNoteIds, setAssistantNoteIds] = useState<Record<string, string>>(initialActiveConversation?.assistantNoteIds ?? {})
 
   // ── UI state ────────────────────────────────────────────────────────────────
   const [historyOpen, setHistoryOpen]   = useState(false)
   const [configOpen, setConfigOpen]     = useState(false)
+  const [attachPickerOpen, setAttachPickerOpen] = useState(false)
   const [maximized, setMaximized]       = useState(false)
 
   // ── Window geometry ─────────────────────────────────────────────────────────
@@ -577,7 +851,13 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
   })
 
   // ── Conversation persistence ─────────────────────────────────────────────────
-  const persistCurrentConversation = useCallback((msgs: ChatMessage[], ctx: AttachedContext | null, convId: string | null) => {
+  const persistCurrentConversation = useCallback((
+    msgs: ChatMessage[],
+    ctx: AttachedContext | null,
+    workspaceItemsToPersist: AttachedWorkspaceItem[],
+    convId: string | null,
+    assistantNotesToPersist: Record<string, string>,
+  ) => {
     if (msgs.length === 0) return convId
     const id = convId ?? genId()
     const conv: ChatConversation = {
@@ -586,35 +866,46 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
       createdAt: msgs[0].timestamp,
       updatedAt: Date.now(),
       messages: msgs,
-      contextSIFId:   ctx?.sifId,
+      contextSIFId: ctx?.sifId,
       contextSIFName: ctx?.sifName,
+      attachedWorkspaceItems: workspaceItemsToPersist,
+      assistantNoteIds: assistantNotesToPersist,
     }
     setConversations(prev => {
       const next = [conv, ...prev.filter(c => c.id !== id)]
       saveConversations(next)
       return next
     })
+    saveActiveConversationId(id)
     return id
   }, [])
 
   // ── New chat ────────────────────────────────────────────────────────────────
   const handleNewChat = useCallback(() => {
-    persistCurrentConversation(messages, attachedContext, currentConvId)
+    persistCurrentConversation(messages, attachedContext, attachedWorkspaceItems, currentConvId, assistantNoteIds)
     setMessages([])
+    setAssistantNoteIds({})
     setCurrentConvId(null)
+    saveActiveConversationId(null)
     setAttachedContext(null)
+    setAttachedWorkspaceItems([])
+    setAttachPickerOpen(false)
     setHistoryOpen(false)
     setConfigOpen(false)
-  }, [messages, attachedContext, currentConvId, persistCurrentConversation])
+  }, [messages, attachedContext, attachedWorkspaceItems, currentConvId, assistantNoteIds, persistCurrentConversation])
 
   // ── Load conversation ────────────────────────────────────────────────────────
   const handleLoadConversation = useCallback((conv: ChatConversation) => {
-    persistCurrentConversation(messages, attachedContext, currentConvId)
+    persistCurrentConversation(messages, attachedContext, attachedWorkspaceItems, currentConvId, assistantNoteIds)
     setMessages(conv.messages)
+    setAssistantNoteIds(conv.assistantNoteIds ?? {})
     setCurrentConvId(conv.id)
+    saveActiveConversationId(conv.id)
     setAttachedContext(conv.contextSIFId ? { sifId: conv.contextSIFId, sifName: conv.contextSIFName ?? '' } : null)
+    setAttachedWorkspaceItems(conv.attachedWorkspaceItems ?? [])
+    setAttachPickerOpen(false)
     setHistoryOpen(false)
-  }, [messages, attachedContext, currentConvId, persistCurrentConversation])
+  }, [messages, attachedContext, attachedWorkspaceItems, currentConvId, assistantNoteIds, persistCurrentConversation])
 
   // ── Delete conversation ──────────────────────────────────────────────────────
   const handleDeleteConversation = useCallback((id: string, e: React.MouseEvent) => {
@@ -626,21 +917,97 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
     })
     if (currentConvId === id) {
       setMessages([])
+      setAssistantNoteIds({})
       setCurrentConvId(null)
+      saveActiveConversationId(null)
     }
   }, [currentConvId])
 
-  // ── Attach SIF context ───────────────────────────────────────────────────────
-  const handleAttach = useCallback(() => {
-    if (!currentSIF) return
-    setAttachedContext({ sifId: currentSIF.id, sifName: currentSIF.title })
-  }, [currentSIF])
+  // ── Attachments ───────────────────────────────────────────────────────────────
+  const toggleAttachPicker = useCallback(() => {
+    setAttachPickerOpen(open => !open)
+    setHistoryOpen(false)
+    setConfigOpen(false)
+  }, [])
+
+  const handleAttachSIFSelection = useCallback((sif: AttachableSIF) => {
+    setAttachedContext({ sifId: sif.sifId, sifName: sif.sifName })
+    setAttachPickerOpen(false)
+  }, [])
+
+  const toggleWorkspaceAttachment = useCallback((item: AttachedWorkspaceItem) => {
+    setAttachedWorkspaceItems(prev => (
+      prev.some(entry => entry.nodeId === item.nodeId)
+        ? prev.filter(entry => entry.nodeId !== item.nodeId)
+        : [...prev, item]
+    ))
+  }, [])
+
+  const removeWorkspaceAttachment = useCallback((nodeId: string) => {
+    setAttachedWorkspaceItems(prev => prev.filter(entry => entry.nodeId !== nodeId))
+  }, [])
 
   // ── Config save ──────────────────────────────────────────────────────────────
   const handleConfigChange = useCallback((cfg: ChatConfig) => {
     setConfig(cfg)
     saveConfig(cfg)
   }, [])
+
+  const findExistingAssistantNoteId = useCallback((msg: ChatMessage) => {
+    const mappedNoteId = assistantNoteIds[msg.id]
+    if (mappedNoteId) return mappedNoteId
+
+    const expectedName = deriveAssistantNoteName(msg.content)
+    return Object.values(workspaceNodes).find(node => (
+      node.type === 'note'
+      && node.name === expectedName
+      && node.content === msg.content
+    ))?.id
+  }, [assistantNoteIds, workspaceNodes])
+
+  useEffect(() => {
+    const recoveredAssistantNoteIds = messages.reduce<Record<string, string>>((acc, msg) => {
+      if (msg.role !== 'assistant' || assistantNoteIds[msg.id] || !msg.content.trim()) return acc
+      const noteId = findExistingAssistantNoteId(msg)
+      if (noteId) acc[msg.id] = noteId
+      return acc
+    }, {})
+
+    if (Object.keys(recoveredAssistantNoteIds).length === 0) return
+
+    const nextAssistantNoteIds = { ...assistantNoteIds, ...recoveredAssistantNoteIds }
+    setAssistantNoteIds(nextAssistantNoteIds)
+    const persistedConvId = persistCurrentConversation(messages, attachedContext, attachedWorkspaceItems, currentConvId, nextAssistantNoteIds)
+    if (persistedConvId && !currentConvId) setCurrentConvId(persistedConvId)
+  }, [assistantNoteIds, attachedContext, attachedWorkspaceItems, currentConvId, findExistingAssistantNoteId, messages, persistCurrentConversation])
+
+  const handleAssistantNoteAction = useCallback((msg: ChatMessage) => {
+    if (msg.role !== 'assistant' || !msg.content.trim()) return
+
+    const existingNoteId = findExistingAssistantNoteId(msg)
+    if (existingNoteId) {
+      openWorkspaceTab(existingNoteId)
+      navigate({ type: 'note', noteId: existingNoteId })
+
+      if (assistantNoteIds[msg.id] !== existingNoteId) {
+        const nextAssistantNoteIds = { ...assistantNoteIds, [msg.id]: existingNoteId }
+        setAssistantNoteIds(nextAssistantNoteIds)
+        const persistedConvId = persistCurrentConversation(messages, attachedContext, attachedWorkspaceItems, currentConvId, nextAssistantNoteIds)
+        if (persistedConvId && !currentConvId) setCurrentConvId(persistedConvId)
+      }
+      return
+    }
+
+    const noteId = createWorkspaceNote(null, deriveAssistantNoteName(msg.content))
+    updateWorkspaceNoteContent(noteId, msg.content)
+    clearWorkspacePendingRename()
+    openWorkspaceTab(noteId)
+    navigate({ type: 'note', noteId })
+    const nextAssistantNoteIds = { ...assistantNoteIds, [msg.id]: noteId }
+    setAssistantNoteIds(nextAssistantNoteIds)
+    const persistedConvId = persistCurrentConversation(messages, attachedContext, attachedWorkspaceItems, currentConvId, nextAssistantNoteIds)
+    if (persistedConvId && !currentConvId) setCurrentConvId(persistedConvId)
+  }, [assistantNoteIds, attachedContext, attachedWorkspaceItems, clearWorkspacePendingRename, createWorkspaceNote, currentConvId, findExistingAssistantNoteId, messages, navigate, openWorkspaceTab, persistCurrentConversation, updateWorkspaceNoteContent])
 
   // ── Send message ─────────────────────────────────────────────────────────────
   const messagesEndRef = useRef<HTMLDivElement>(null)
@@ -674,20 +1041,54 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
         sif_registry_md: generateSIFRegistry(projects),
         active_sif_json: contextSIF ? serializeSIFForAI(contextSIF) : undefined,
       }
+      const workspaceAttachments: ChatAttachmentPayload[] = []
+      for (const item of attachedWorkspaceItems) {
+        const node = workspaceNodes[item.nodeId]
+        if (!node) continue
+        if (node.type === 'note') {
+          workspaceAttachments.push({
+            kind: 'note',
+            node_id: node.id,
+            name: node.name,
+            content: node.content,
+          })
+          continue
+        }
+        if (node.type === 'pdf' || node.type === 'image') {
+          let url: string | undefined
+          try {
+            url = await getWorkspaceFileUrl(node.storageKey)
+          } catch {
+            url = undefined
+          }
+          workspaceAttachments.push({
+            kind: node.type,
+            node_id: node.id,
+            name: node.name,
+            ...(url ? { url } : {}),
+          })
+        }
+      }
 
       let accumulated = ''
-      for await (const chunk of streamPRISMAI(updatedMsgs, attachedContext ?? undefined, config, workspaceContext)) {
+      for await (const chunk of streamPRISMAI(
+        updatedMsgs,
+        attachedContext ?? undefined,
+        config,
+        workspaceContext,
+        workspaceAttachments,
+      )) {
         accumulated += chunk
         setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: accumulated } : m))
       }
       // Persist after assistant replies
       const finalMsgs = [...updatedMsgs, { id: assistantId, role: 'assistant' as const, content: accumulated, timestamp: Date.now() }]
-      const newId = persistCurrentConversation(finalMsgs, attachedContext, currentConvId)
+      const newId = persistCurrentConversation(finalMsgs, attachedContext, attachedWorkspaceItems, currentConvId, assistantNoteIds)
       if (newId && !currentConvId) setCurrentConvId(newId)
     } finally {
       setIsStreaming(false)
     }
-  }, [input, isStreaming, messages, attachedContext, config, currentConvId, currentSIF, persistCurrentConversation, prismFiles, projects])
+  }, [input, isStreaming, messages, attachedContext, attachedWorkspaceItems, assistantNoteIds, config, currentConvId, currentSIF, persistCurrentConversation, prismFiles, projects, workspaceNodes])
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
@@ -709,7 +1110,7 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
     position: 'fixed', left: pos.x, top: pos.y, width: size.w, height: size.h,
   }
 
-  const modelLabel = MODELS.find(m => m.id === config.model)?.label.replace('Claude ', '') ?? config.model
+  const attachmentCount = (attachedContext ? 1 : 0) + attachedWorkspaceItems.length
 
   return createPortal(
     <div
@@ -744,15 +1145,14 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
         onPointerMove={maximized ? undefined : onDragMove}
         onPointerUp={maximized ? undefined : onDragUp}
       >
-        <ChatIcon size={15} color={TEAL} />
+        <img
+          src="/prism_ai.png"
+          alt="PRISM AI"
+          className="h-6 w-auto shrink-0 select-none object-contain"
+          draggable={false}
+        />
         <span className="ml-1 text-[11px] font-bold tracking-wide" style={{ color: TEAL }}>
           PRISM AI
-        </span>
-        <span
-          className="rounded px-1.5 py-0.5 text-[9px] font-bold tracking-widest uppercase"
-          style={{ background: `${TEAL}14`, color: TEAL_DIM }}
-        >
-          {modelLabel}
         </span>
 
         <div className="flex-1" />
@@ -760,12 +1160,6 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
         <div className="flex items-center gap-0.5" style={{ pointerEvents: 'auto' }}>
           <WinBtn Icon={Plus}     title="Nouveau chat (⌘N)"                   onClick={handleNewChat} />
           <WinBtn Icon={BookOpen} title="Historique des conversations"          onClick={() => { setHistoryOpen(v => !v); setConfigOpen(false) }} active={historyOpen} />
-          <WinBtn
-            Icon={Paperclip}
-            title={currentSIF ? `Joindre "${currentSIF.title}" comme contexte` : 'Ouvrir un SIF pour joindre son contexte'}
-            onClick={handleAttach}
-            active={!!attachedContext}
-          />
 
           <div className="mx-1 h-3.5 w-px" style={{ background: BORDER }} />
 
@@ -804,26 +1198,31 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
                 {messages.length === 0 ? (
                   /* Empty state */
                   <div className="flex h-full flex-col items-center justify-center gap-4 px-4 text-center">
-                    <div
-                      className="flex h-12 w-12 items-center justify-center rounded-2xl border"
-                      style={{ borderColor: `${TEAL}30`, background: `${TEAL}0E` }}
-                    >
-                      <ChatIcon size={22} color={TEAL} />
-                    </div>
+                    <img
+                      src="/prism_ai.png"
+                      alt="PRISM AI"
+                      className="h-24 w-auto select-none object-contain"
+                      draggable={false}
+                    />
                     <div>
                       <p className="text-[12.5px] font-semibold" style={{ color: TEXT_DIM }}>PRISM AI</p>
                       <p className="mt-1.5 text-[11px] leading-relaxed max-w-[220px]" style={{ color: TEXT_DIM, opacity: 0.55 }}>
                         Analyse SIL contextuelle, suggestions architecture IEC 61511, diagnostic en langage naturel.
                       </p>
                     </div>
-                    <p className="text-[10px] font-semibold uppercase tracking-widest" style={{ color: TEXT_DIM, opacity: 0.3 }}>
-                      Bientôt disponible
-                    </p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-3">
                     {messages.map(msg => (
-                      <MessageBubble key={msg.id} msg={msg} />
+                      <MessageBubble
+                        key={msg.id}
+                        msg={msg}
+                        noteId={findExistingAssistantNoteId(msg)}
+                        noteActionsEnabled={!isStreaming}
+                        createNoteLabel={createNoteLabel}
+                        openNoteLabel={openNoteLabel}
+                        onNoteAction={handleAssistantNoteAction}
+                      />
                     ))}
                     <div ref={messagesEndRef} />
                   </div>
@@ -835,32 +1234,71 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
                 className="shrink-0 border-t px-2.5 py-2"
                 style={{ borderColor: BORDER }}
               >
-                {/* Attached context badge */}
-                {attachedContext && (
-                  <div className="mb-1.5 flex items-center gap-1.5">
-                    <div
-                      className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium"
-                      style={{ borderColor: `${TEAL}30`, background: `${TEAL}0E`, color: TEAL }}
-                    >
-                      <Paperclip size={9} />
-                      <span className="max-w-[180px] truncate">{attachedContext.sifName}</span>
-                      <button
-                        type="button"
-                        onClick={() => setAttachedContext(null)}
-                        className="ml-0.5 flex h-3 w-3 items-center justify-center rounded-full transition-colors"
-                        style={{ color: TEAL }}
-                        onMouseEnter={e => { e.currentTarget.style.background = `${TEAL}30` }}
-                        onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                {attachPickerOpen && (
+                  <AttachPicker
+                    sifs={allSIFs}
+                    workspaceItems={workspaceItems}
+                    attachedContext={attachedContext}
+                    attachedWorkspaceItems={attachedWorkspaceItems}
+                    onAttachSIF={handleAttachSIFSelection}
+                    onToggleWorkspaceItem={toggleWorkspaceAttachment}
+                    onClose={() => setAttachPickerOpen(false)}
+                  />
+                )}
+
+                {(attachedContext || attachedWorkspaceItems.length > 0) && (
+                  <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+                    {attachedContext && (
+                      <div
+                        className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium"
+                        style={{ borderColor: `${TEAL}30`, background: `${TEAL}0E`, color: TEAL }}
                       >
-                        <X size={8} />
-                      </button>
-                    </div>
+                        <Paperclip size={9} />
+                        <span className="rounded px-1 py-0 text-[8px] font-bold uppercase tracking-wide" style={{ background: `${TEAL}24`, color: TEAL }}>
+                          SIF
+                        </span>
+                        <span className="max-w-[170px] truncate">{attachedContext.sifName}</span>
+                        <button
+                          type="button"
+                          onClick={() => setAttachedContext(null)}
+                          className="ml-0.5 flex h-3 w-3 items-center justify-center rounded-full transition-colors"
+                          style={{ color: TEAL }}
+                          onMouseEnter={e => { e.currentTarget.style.background = `${TEAL}30` }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                        >
+                          <X size={8} />
+                        </button>
+                      </div>
+                    )}
+                    {attachedWorkspaceItems.map(item => (
+                      <div
+                        key={item.nodeId}
+                        className="flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-medium"
+                        style={{ borderColor: `${TEAL}30`, background: `${TEAL}0E`, color: TEAL }}
+                      >
+                        <Paperclip size={9} />
+                        <span className="rounded px-1 py-0 text-[8px] font-bold uppercase tracking-wide" style={{ background: `${TEAL}24`, color: TEAL }}>
+                          {item.nodeType}
+                        </span>
+                        <span className="max-w-[150px] truncate">{item.nodeName}</span>
+                        <button
+                          type="button"
+                          onClick={() => removeWorkspaceAttachment(item.nodeId)}
+                          className="ml-0.5 flex h-3 w-3 items-center justify-center rounded-full transition-colors"
+                          style={{ color: TEAL }}
+                          onMouseEnter={e => { e.currentTarget.style.background = `${TEAL}30` }}
+                          onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
+                        >
+                          <X size={8} />
+                        </button>
+                      </div>
+                    ))}
                   </div>
                 )}
 
                 {/* Input row */}
                 <div
-                  className="flex items-end gap-2 rounded-xl border px-2.5 py-2 transition-colors"
+                  className="rounded-xl border px-2.5 py-2 transition-colors"
                   style={{ borderColor: BORDER, background: isDark ? 'rgba(255,255,255,0.04)' : PAGE_BG }}
                   onFocus={() => {}} // handled by textarea
                 >
@@ -870,7 +1308,7 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
                     onChange={e => setInput(e.target.value)}
                     onKeyDown={handleKeyDown}
                     placeholder="Message PRISM AI… (⏎ envoyer, ⇧⏎ nouvelle ligne)"
-                    className="flex-1 resize-none bg-transparent text-[12px] leading-relaxed outline-none"
+                    className="w-full resize-none bg-transparent text-[12px] leading-relaxed outline-none"
                     style={{
                       color: TEXT,
                       maxHeight: 120,
@@ -882,19 +1320,70 @@ export function ChatPanel({ onClose }: ChatPanelProps) {
                       t.style.height = `${Math.min(t.scrollHeight, 120)}px`
                     }}
                   />
-                  <button
-                    type="button"
-                    onClick={() => { void handleSend() }}
-                    disabled={!input.trim() || isStreaming}
-                    className="flex h-6 w-6 shrink-0 items-center justify-center rounded-lg transition-all"
-                    style={{
-                      background: input.trim() && !isStreaming ? `${TEAL}22` : 'transparent',
-                      color: input.trim() && !isStreaming ? TEAL : TEXT_DIM,
-                      opacity: input.trim() && !isStreaming ? 1 : 0.4,
-                    }}
-                  >
-                    <Send size={11} />
-                  </button>
+                  <div className="mt-2 flex items-center gap-2">
+                    <div className="flex min-w-0 flex-1 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={toggleAttachPicker}
+                        className="flex h-7 shrink-0 items-center gap-1.5 rounded-lg border px-2.5 text-[10px] font-medium transition-colors"
+                        style={{
+                          borderColor: attachPickerOpen || attachmentCount > 0 ? `${TEAL}50` : BORDER,
+                          background: attachPickerOpen || attachmentCount > 0 ? `${TEAL}12` : 'transparent',
+                          color: attachPickerOpen || attachmentCount > 0 ? TEAL : TEXT_DIM,
+                        }}
+                      >
+                        <Paperclip size={11} />
+                        <span>Joindre</span>
+                        {attachmentCount > 0 && (
+                          <span
+                            className="rounded-full px-1 py-0 text-[8px] font-bold"
+                            style={{ background: `${TEAL}18`, color: TEAL }}
+                          >
+                            {attachmentCount}
+                          </span>
+                        )}
+                      </button>
+
+                      <div className="min-w-0 max-w-[220px] flex-1">
+                        <select
+                          value={config.model}
+                          onChange={e => handleConfigChange({ ...config, model: e.target.value })}
+                          className="h-7 w-full rounded-lg border px-2.5 text-[10px] font-medium outline-none"
+                          style={{
+                            borderColor: BORDER,
+                            background: isDark ? 'rgba(255,255,255,0.03)' : PANEL_BG,
+                            color: TEXT,
+                          }}
+                        >
+                          {(['Anthropic', 'Mistral AI'] as const).map(group => (
+                            <optgroup key={group} label={group}>
+                              {MODELS.filter(m => m.group === group).map(model => (
+                                <option key={model.id} value={model.id}>
+                                  {model.label}
+                                </option>
+                              ))}
+                            </optgroup>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => { void handleSend() }}
+                      disabled={!input.trim() || isStreaming}
+                      className="flex h-7 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-[10px] font-semibold transition-all"
+                      style={{
+                        background: input.trim() && !isStreaming ? `${TEAL}22` : 'transparent',
+                        color: input.trim() && !isStreaming ? TEAL : TEXT_DIM,
+                        opacity: input.trim() && !isStreaming ? 1 : 0.4,
+                        border: `1px solid ${input.trim() && !isStreaming ? `${TEAL}40` : BORDER}`,
+                      }}
+                    >
+                      <span>Envoyer</span>
+                      <Send size={11} />
+                    </button>
+                  </div>
                 </div>
 
                 <p className="mt-1 text-center text-[9px]" style={{ color: TEXT_DIM, opacity: 0.35 }}>

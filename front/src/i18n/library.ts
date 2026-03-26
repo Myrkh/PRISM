@@ -11,10 +11,12 @@ export interface LibraryStrings {
   searchPlaceholder: string
   ctas: {
     import: string
+    importModel: string
     importModelTitle: string
     export: string
     exportTitle: string
     reloadTitle: string
+    moreActionsTitle: string
   }
   importTarget: (projectLabel: string | null, libraryLabel: string | null) => string
   status: {

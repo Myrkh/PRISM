@@ -140,7 +140,7 @@ function ResultGroupSection({
         </div>
         <div className="shrink-0 text-right">
           <p className="text-[11px] font-semibold" style={{ color: TEXT }}>
-            {group.items.length} résultat{group.items.length > 1 ? 's' : ''}
+            {strings.groupCount(group.items.length)}
           </p>
           {preview && (
             <p className="mt-1 text-[10px]" style={{ color: TEXT_DIM }}>{strings.previewBadge}</p>

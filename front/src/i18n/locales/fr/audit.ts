@@ -4,14 +4,14 @@ export const auditStringsFr: AuditStrings = {
   localeTag: 'fr-FR',
   kinds: {
     governance: 'Gouvernance',
-    'proof-tests': 'Proof test',
+    'proof-tests': 'Test de preuve',
     operations: 'Opérations',
     engine: 'Engine',
   },
   engineSubKinds: {
-    manual: 'Run',
-    compare: 'Compare',
-    batch: 'Batch',
+    manual: 'Exécution',
+    compare: 'Comparaison',
+    batch: 'Lot',
   },
   scopes: {
     all: {
@@ -19,7 +19,7 @@ export const auditStringsFr: AuditStrings = {
       hint: 'Vue complète du journal de traçabilité',
     },
     warnings: {
-      label: 'Warnings',
+      label: 'Alertes',
       hint: 'Événements qui demandent une lecture prioritaire',
     },
     governance: {
@@ -27,7 +27,7 @@ export const auditStringsFr: AuditStrings = {
       hint: 'Création et statut des dossiers',
     },
     'proof-tests': {
-      label: 'Proof tests',
+      label: 'Tests de preuve',
       hint: 'Campagnes et verdicts d\'exploitation',
     },
     operations: {
@@ -35,18 +35,18 @@ export const auditStringsFr: AuditStrings = {
       hint: 'Incidents et événements observés sur le terrain',
     },
     engine: {
-      label: 'Engine runs',
-      hint: 'Runs backend et compare TS / Python',
+      label: 'Calculs Engine',
+      hint: 'Calculs backend et comparaisons TS / Python',
     },
   },
   header: {
     eyebrow: 'Traçabilité active',
     title: 'Audit Log',
-    description: 'Lecture transverse des événements utiles du workspace, des dossiers actifs jusqu\'aux runs Engine.',
+    description: 'Lecture transverse des événements utiles du workspace, des dossiers actifs jusqu\'aux calculs Engine.',
     visible: count => `${count} visible${count > 1 ? 's' : ''}`,
-    warnings: count => `${count} warning${count > 1 ? 's' : ''} dans le périmètre`,
+    warnings: count => `${count} alerte${count > 1 ? 's' : ''} dans le périmètre`,
     statVisibleLabel: 'événements',
-    statWarningsLabel: 'warnings',
+    statWarningsLabel: 'alertes',
   },
   toolbar: {
     sortDesc: 'Plus récent en premier',
@@ -59,17 +59,17 @@ export const auditStringsFr: AuditStrings = {
   },
   sidebar: {
     title: 'Journal d\'audit',
-    summaryLoading: 'Synchronisation des runs Engine en cours…',
+    summaryLoading: 'Synchronisation des calculs Engine en cours…',
     summaryProjectFiltered: count => `${count} événement${count > 1 ? 's' : ''} dans le projet filtré`,
-    summaryDefault: count => `${count} événements reconstruits depuis les dossiers actifs et les runs backend`,
+    summaryDefault: count => `${count} événements reconstruits depuis les dossiers actifs et les calculs backend`,
     reset: 'Réinitialiser',
     scopeTitle: 'Portée',
     projectsTitle: 'Projets',
     allProjectsLabel: 'Tous les projets',
     allProjectsHint: 'Lecture transverse sans restriction',
     quickReadTitle: 'Lecture rapide',
-    warningsSummary: count => `${count} événement${count > 1 ? 's' : ''} warning dans le périmètre courant`,
-    usage: 'Utilise la recherche du panneau central pour retrouver un projet, une SIF, une action ou un run Engine.',
+    warningsSummary: count => `${count} événement${count > 1 ? 's' : ''} d'alerte dans le périmètre courant`,
+    usage: 'Utilise la recherche du panneau central pour retrouver un projet, une SIF, une action ou un calcul Engine.',
   },
   rightPanel: {
     eventTab: 'Événement',
@@ -97,12 +97,12 @@ export const auditStringsFr: AuditStrings = {
     context: 'Contexte',
   },
   badges: {
-    warning: 'Warning',
+    warning: 'Alerte',
     info: 'Info',
   },
   empty: {
     title: 'Aucun événement visible',
-    loadingDescription: 'Le journal charge encore les runs Engine. Réessaie dans un instant.',
+    loadingDescription: 'Le journal charge encore les calculs Engine. Réessaie dans un instant.',
     resetDescription: 'Ajuste la portée dans le panneau gauche ou efface la recherche pour revenir au journal complet.',
   },
   model: {
@@ -129,7 +129,7 @@ export const auditStringsFr: AuditStrings = {
       details: status => `Transition du dossier vers ${status}.`,
     },
     campaign: {
-      action: verdict => `Campagne de proof test (${verdict})`,
+      action: verdict => `Campagne de test de preuve (${verdict})`,
       defaultDetails: 'Campagne enregistrée.',
     },
     event: {
@@ -137,20 +137,20 @@ export const auditStringsFr: AuditStrings = {
       defaultDetails: 'Événement opérationnel enregistré.',
     },
     engine: {
-      runLaunched: 'Run backend lancé',
-      runDone: 'Run backend terminé',
-      runFailed: 'Run backend échoué',
-      compareLaunched: 'Compare TS / Python lancé',
-      compareDone: 'Compare TS / Python terminé',
-      compareFailed: 'Compare TS / Python échoué',
-      batchLaunched: 'Batch run backend lancé',
-      batchDone: 'Batch run backend terminé',
-      batchFailed: 'Batch run backend échoué',
+      runLaunched: 'Calcul backend lancé',
+      runDone: 'Calcul backend terminé',
+      runFailed: 'Calcul backend échoué',
+      compareLaunched: 'Comparaison TS / Python lancée',
+      compareDone: 'Comparaison TS / Python terminée',
+      compareFailed: 'Comparaison TS / Python échouée',
+      batchLaunched: "Lancement d'un lot backend",
+      batchDone: 'Lot backend terminé',
+      batchFailed: 'Lot backend échoué',
       defaultError: 'Le backend a renvoyé une erreur pendant le calcul.',
-      recordedRun: 'Run backend enregistré.',
+      recordedRun: 'Calcul backend enregistré.',
       mode: mode => `Mode ${mode}`,
       sil: value => `SIL ${value}`,
-      warnings: count => `${count} warning${count > 1 ? 's' : ''}`,
+      warnings: count => `${count} avertissement${count > 1 ? 's' : ''}`,
       runtime: ms => `${ms} ms`,
       version: version => `v${version}`,
     },

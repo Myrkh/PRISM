@@ -125,7 +125,7 @@ function EditableEditor({
       <div ref={containerRef} className="flex flex-1 min-h-0">
         {mode === 'edit' && (
           <div className="prism-cm-editor flex-1 min-h-0">
-            <NoteEditor value={value} onChange={onChange} isDark={isDark} />
+            <NoteEditor key={filename} value={value} onChange={onChange} isDark={isDark} />
           </div>
         )}
 
@@ -138,7 +138,7 @@ function EditableEditor({
         {mode === 'split' && (
           <>
             <div className="prism-cm-editor min-h-0" style={{ width: `${splitPct}%`, flexShrink: 0 }}>
-              <NoteEditor value={value} onChange={onChange} isDark={isDark} />
+              <NoteEditor key={'split-' + filename} value={value} onChange={onChange} isDark={isDark} />
             </div>
 
             {/* Divider */}

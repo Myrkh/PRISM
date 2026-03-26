@@ -10,6 +10,8 @@ import {
   Clock,
   FolderOpen,
 } from 'lucide-react'
+import { getPlanningStrings } from '@/i18n/planning'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import { useAppStore } from '@/store/appStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import {
@@ -21,10 +23,8 @@ import {
   sidebarPressUp,
 } from '@/components/layout/SidebarPrimitives'
 import {
-  CAMPAIGN_STATUS_META,
-  DAY_NAMES_SHORT,
-  MONTH_NAMES_FR,
   buildCalendarGrid,
+  getCampaignStatusMeta,
   toDateStr,
   usePlanningData,
   usePlanningNavigation,
@@ -34,6 +34,7 @@ import {
 } from './PlanningNavigation'
 
 function MiniCalendar({ campaigns }: { campaigns: PlanningCampaign[] }) {
+  const strings = useLocaleStrings(getPlanningStrings)
   const { TEAL, TEXT, TEXT_DIM } = usePrismTheme()
   const { currentYear, currentMonth, prevMonth, nextMonth, goToToday, openCreate } = usePlanningNavigation()
 
@@ -72,7 +73,7 @@ function MiniCalendar({ campaigns }: { campaigns: PlanningCampaign[] }) {
           className="text-[11px] font-semibold tracking-wide transition-colors hover:opacity-80"
           style={{ color: TEXT }}
         >
-          {MONTH_NAMES_FR[currentMonth]} {currentYear}
+          {strings.months[currentMonth]} {currentYear}
         </button>
 
         <button
@@ -86,7 +87,7 @@ function MiniCalendar({ campaigns }: { campaigns: PlanningCampaign[] }) {
       </div>
 
       <div className="mb-1 grid grid-cols-7">
-        {DAY_NAMES_SHORT.map(label => (
+        {strings.dayNamesShort.map(label => (
           <div
             key={label}
             className="py-0.5 text-center text-[9px] font-bold uppercase tracking-wide"
@@ -144,6 +145,8 @@ const STATUS_ICONS: Record<CampaignStatus, typeof Circle> = {
 }
 
 function StatusLegend({ campaigns }: { campaigns: PlanningCampaign[] }) {
+  const strings = useLocaleStrings(getPlanningStrings)
+  const statusMeta = getCampaignStatusMeta(strings)
   const counts = useMemo(() => {
     const result: Record<CampaignStatus, number> = {
       planned: 0,
@@ -159,9 +162,9 @@ function StatusLegend({ campaigns }: { campaigns: PlanningCampaign[] }) {
 
   return (
     <>
-      <SidebarSectionTitle className="px-2 pb-1 pt-3">Statuts</SidebarSectionTitle>
+      <SidebarSectionTitle className="px-2 pb-1 pt-3">{strings.sidebar.statusesTitle}</SidebarSectionTitle>
       <div className="space-y-0.5 px-2">
-        {(Object.entries(CAMPAIGN_STATUS_META) as Array<[CampaignStatus, typeof CAMPAIGN_STATUS_META[CampaignStatus]]>).map(([status, meta]) => {
+        {(Object.entries(statusMeta) as Array<[CampaignStatus, typeof statusMeta[CampaignStatus]]>).map(([status, meta]) => {
           const Icon = STATUS_ICONS[status]
           const count = counts[status]
           return (
@@ -187,15 +190,16 @@ function StatusLegend({ campaigns }: { campaigns: PlanningCampaign[] }) {
 }
 
 function ProjectFilter() {
+  const strings = useLocaleStrings(getPlanningStrings)
   const { BORDER, PAGE_BG, SHADOW_CARD, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM, TEAL } = usePrismTheme()
   const { filterProjectId, setFilterProject } = usePlanningNavigation()
   const projects = useAppStore(state => state.projects).filter(project => project.status === 'active')
 
   return (
     <>
-      <SidebarSectionTitle className="px-2 pb-1 pt-3">Projet</SidebarSectionTitle>
+      <SidebarSectionTitle className="px-2 pb-1 pt-3">{strings.sidebar.projectTitle}</SidebarSectionTitle>
       <div className="space-y-0.5 px-2">
-        {[{ id: null, name: 'Tous les projets' }, ...projects.map(project => ({ id: project.id, name: project.name }))].map(item => {
+        {[{ id: null, name: strings.sidebar.allProjects }, ...projects.map(project => ({ id: project.id, name: project.name }))].map(item => {
           const active = filterProjectId === item.id
           return (
             <button
@@ -243,6 +247,7 @@ function ProjectFilter() {
 }
 
 function UpcomingDeadlines({ deadlines }: { deadlines: DeadlineGhost[] }) {
+  const strings = useLocaleStrings(getPlanningStrings)
   const navigate = useAppStore(state => state.navigate)
   const { BORDER, TEXT, TEXT_DIM, semantic } = usePrismTheme()
 
@@ -258,7 +263,7 @@ function UpcomingDeadlines({ deadlines }: { deadlines: DeadlineGhost[] }) {
       <SidebarSectionTitle className="px-2 pb-1 pt-3">
         <span className="flex items-center gap-1.5">
           <CalendarClock size={10} />
-          Échéances T1
+          {strings.sidebar.deadlinesTitle}
         </span>
       </SidebarSectionTitle>
       <div className="space-y-1 px-2">
@@ -285,8 +290,8 @@ function UpcomingDeadlines({ deadlines }: { deadlines: DeadlineGhost[] }) {
               <p className="mt-0.5 text-[10px]" style={{ color: TEXT_DIM }}>{deadline.projectName}</p>
               <p className="mt-0.5 text-[10px] font-medium" style={{ color }}>
                 {deadline.overdue
-                  ? `En retard de ${Math.abs(deadline.daysRemaining)}j`
-                  : `Dans ${deadline.daysRemaining}j`}
+                  ? strings.sidebar.overdueByDays(Math.abs(deadline.daysRemaining))
+                  : strings.sidebar.dueInDays(deadline.daysRemaining)}
               </p>
             </button>
           )
@@ -297,6 +302,7 @@ function UpcomingDeadlines({ deadlines }: { deadlines: DeadlineGhost[] }) {
 }
 
 export function PlanningSidebar() {
+  const strings = useLocaleStrings(getPlanningStrings)
   const { BORDER, PANEL_BG, TEAL, TEXT } = usePrismTheme()
   const { campaigns, deadlines } = usePlanningData()
   const { filterProjectId, openCreate } = usePlanningNavigation()
@@ -318,7 +324,7 @@ export function PlanningSidebar() {
         style={{ borderColor: BORDER, background: PANEL_BG }}
       >
         <CalendarDays size={14} style={{ color: TEAL }} strokeWidth={2} />
-        <span className="text-[12px] font-bold tracking-wide" style={{ color: TEXT }}>Planning</span>
+        <span className="text-[12px] font-bold tracking-wide" style={{ color: TEXT }}>{strings.sidebar.title}</span>
       </div>
 
       <div className="shrink-0 px-2 pb-1 pt-2">
@@ -328,7 +334,7 @@ export function PlanningSidebar() {
           className="flex w-full items-center justify-center gap-1.5 rounded-xl py-1.5 text-[11px] font-bold transition-opacity hover:opacity-80"
           style={{ background: TEAL, color: '#041014' }}
         >
-          + Nouvelle campagne
+          + {strings.sidebar.newCampaign}
         </button>
       </div>
 

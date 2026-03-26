@@ -9,14 +9,13 @@ import {
   Plus,
 } from 'lucide-react'
 import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
+import { getPlanningStrings } from '@/i18n/planning'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { PlanningRightPanel } from './PlanningRightPanel'
 import {
-  CAMPAIGN_STATUS_META,
-  DAY_NAMES_SHORT,
-  MONTH_NAMES_FR,
   buildCalendarGrid,
-  formatDateFr,
+  getCampaignStatusMeta,
   toDateStr,
   usePlanningData,
   usePlanningNavigation,
@@ -32,7 +31,8 @@ interface EventPillProps {
 }
 
 function EventPill({ campaign, compact, selected, onClick }: EventPillProps) {
-  const meta = CAMPAIGN_STATUS_META[campaign.status]
+  const strings = useLocaleStrings(getPlanningStrings)
+  const meta = getCampaignStatusMeta(strings)[campaign.status]
   const [hovered, setHovered] = useState(false)
 
   return (
@@ -112,6 +112,7 @@ function DayCell({
   onDayClick,
   onEventClick,
 }: DayCellProps) {
+  const strings = useLocaleStrings(getPlanningStrings)
   const { BORDER, CARD_BG, TEXT, TEXT_DIM, TEAL, isDark } = usePrismTheme()
   const [hovered, setHovered] = useState(false)
 
@@ -170,7 +171,7 @@ function DayCell({
         ))}
         {overflow > 0 && (
           <p className="px-1.5 text-[9px] font-medium" style={{ color: TEXT_DIM }}>
-            +{overflow} autre{overflow > 1 ? 's' : ''}
+            {strings.workspace.otherItems(overflow)}
           </p>
         )}
       </div>
@@ -187,6 +188,8 @@ function AgendaView({
   selectedId: string | null
   onEventClick: (id: string) => void
 }) {
+  const strings = useLocaleStrings(getPlanningStrings)
+  const statusMeta = getCampaignStatusMeta(strings)
   const { BORDER, PAGE_BG, TEXT, TEXT_DIM, TEAL } = usePrismTheme()
 
   const grouped = useMemo(() => {
@@ -204,7 +207,7 @@ function AgendaView({
     return (
       <div className="flex h-full flex-col items-center justify-center gap-3">
         <CalendarDays size={32} style={{ color: `${TEAL}40` }} strokeWidth={1.5} />
-        <p className="text-[13px]" style={{ color: TEXT_DIM }}>Aucune campagne planifiée</p>
+        <p className="text-[13px]" style={{ color: TEXT_DIM }}>{strings.workspace.emptyAgenda}</p>
       </div>
     )
   }
@@ -216,13 +219,13 @@ function AgendaView({
           <div className="mb-2 flex items-center gap-3">
             <div className="h-px flex-1" style={{ background: BORDER }} />
             <span className="text-[11px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-              {formatDateFr(date)}
+              {strings.runtime.formatDate(date)}
             </span>
             <div className="h-px flex-1" style={{ background: BORDER }} />
           </div>
           <div className="space-y-2">
             {items.map(campaign => {
-              const meta = CAMPAIGN_STATUS_META[campaign.status]
+              const meta = statusMeta[campaign.status]
               const selected = selectedId === campaign.id
               return (
                 <button
@@ -290,6 +293,7 @@ function MonthView({
   onDayClick: (dateStr: string) => void
   onEventClick: (id: string) => void
 }) {
+  const strings = useLocaleStrings(getPlanningStrings)
   const { BORDER, CARD_BG, TEXT_DIM, TEAL } = usePrismTheme()
   const { currentYear, currentMonth } = usePlanningNavigation()
 
@@ -324,7 +328,7 @@ function MonthView({
   return (
     <div className="flex h-full flex-col">
       <div className="grid shrink-0 grid-cols-7 border-b" style={{ borderColor: BORDER, background: CARD_BG }}>
-        {DAY_NAMES_SHORT.map((day, index) => (
+        {strings.dayNamesShort.map((day, index) => (
           <div
             key={day}
             className="border-r py-2 text-center last:border-r-0"
@@ -361,6 +365,7 @@ function MonthView({
 }
 
 export function PlanningWorkspace() {
+  const strings = useLocaleStrings(getPlanningStrings)
   const { BORDER, PANEL_BG, TEXT, TEXT_DIM, TEAL, SHADOW_TAB, isDark } = usePrismTheme()
   const { setRightPanelOverride } = useLayout()
   const { campaigns, deadlines } = usePlanningData()
@@ -422,7 +427,7 @@ export function PlanningWorkspace() {
           className="rounded-xl border px-3 py-1 text-[11px] font-semibold transition-all hover:opacity-80"
           style={{ borderColor: BORDER, background: 'transparent', color: TEXT }}
         >
-          Aujourd'hui
+          {strings.workspace.today}
         </button>
 
         <div className="flex items-center gap-0.5">
@@ -445,7 +450,7 @@ export function PlanningWorkspace() {
         </div>
 
         <h2 className="text-[14px] font-bold" style={{ color: TEXT }}>
-          {MONTH_NAMES_FR[currentMonth]} {currentYear}
+          {strings.months[currentMonth]} {currentYear}
         </h2>
 
         {overdueCount > 0 && (
@@ -455,7 +460,7 @@ export function PlanningWorkspace() {
           >
             <AlertTriangle size={11} style={{ color: '#EF4444' }} />
             <span className="text-[10px] font-bold" style={{ color: '#EF4444' }}>
-              {overdueCount} échéance{overdueCount > 1 ? 's' : ''} dépassée{overdueCount > 1 ? 's' : ''}
+              {strings.workspace.overdueCount(overdueCount)}
             </span>
           </div>
         )}
@@ -464,8 +469,8 @@ export function PlanningWorkspace() {
 
         <div className="flex overflow-hidden rounded-xl border" style={{ borderColor: BORDER }}>
           {([
-            { id: 'month' as const, Icon: Calendar, label: 'Mois' },
-            { id: 'agenda' as const, Icon: List, label: 'Agenda' },
+            { id: 'month' as const, Icon: Calendar },
+            { id: 'agenda' as const, Icon: List },
           ] as const).map(option => (
             <button
               key={option.id}
@@ -479,7 +484,7 @@ export function PlanningWorkspace() {
               }}
             >
               <option.Icon size={12} />
-              {option.label}
+              {strings.viewLabels[option.id]}
             </button>
           ))}
         </div>
@@ -491,7 +496,7 @@ export function PlanningWorkspace() {
           style={{ background: TEAL, color: '#041014' }}
         >
           <Plus size={13} />
-          Campagne
+          {strings.workspace.createButton}
         </button>
       </div>
 

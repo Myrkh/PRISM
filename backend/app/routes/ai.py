@@ -21,6 +21,7 @@ from app.services.ai_service import (
     ChatMessage,
     PrismWorkspaceContext,
     Provider,
+    WorkspaceAttachment,
     get_ai_service,
 )
 
@@ -35,6 +36,11 @@ class ChatMessageSchema(BaseModel):
     content: str
 
 
+class AttachedContextSchema(BaseModel):
+    sif_id: str = Field(..., description="Attached SIF id")
+    sif_name: str = Field(default="", description="Attached SIF name")
+
+
 class WorkspaceContextSchema(BaseModel):
     """Contexte workspace envoyé par le front — fichiers .prism/ + SIF active."""
     context_md: str = Field(default="", description=".prism/context.md content")
@@ -44,9 +50,19 @@ class WorkspaceContextSchema(BaseModel):
     active_sif_json: dict | None = Field(default=None, description="Active SIF full serialization")
 
 
+class AttachmentSchema(BaseModel):
+    kind: Literal["note", "pdf", "image"] = Field(..., description="Attachment kind")
+    node_id: str = Field(..., description="Workspace node id")
+    name: str = Field(..., description="Attachment display name")
+    content: str | None = Field(default=None, description="Inline text/markdown content")
+    url: str | None = Field(default=None, description="Signed URL for binary attachments")
+
+
 class ChatRequest(BaseModel):
     messages: list[ChatMessageSchema] = Field(..., description="Conversation history")
+    context: AttachedContextSchema | None = Field(default=None)
     workspace: WorkspaceContextSchema | None = Field(default=None)
+    attachments: list[AttachmentSchema] = Field(default_factory=list)
     custom_system_prompt: str = Field(default="", description="User-defined system prompt from chat config")
     provider: Literal["anthropic", "mistral", "ollama"] | None = Field(
         default=None,
@@ -84,6 +100,13 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
     # Mapper les schémas Pydantic → modèles internes
     messages = [ChatMessage(role=m.role, content=m.content) for m in request.messages]
 
+    attached_context: AttachedContext | None = None
+    if request.context:
+        attached_context = AttachedContext(
+            sif_id=request.context.sif_id,
+            sif_name=request.context.sif_name,
+        )
+
     workspace: PrismWorkspaceContext | None = None
     if request.workspace:
         workspace = PrismWorkspaceContext(
@@ -94,11 +117,24 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
             active_sif_json=request.workspace.active_sif_json,
         )
 
+    attachments = [
+        WorkspaceAttachment(
+            kind=attachment.kind,
+            node_id=attachment.node_id,
+            name=attachment.name,
+            content=attachment.content or "",
+            url=attachment.url or "",
+        )
+        for attachment in request.attachments
+    ]
+
     async def event_generator():
         try:
             async for chunk in service.stream_response(
                 messages=messages,
+                attached_context=attached_context,
                 workspace=workspace,
+                attachments=attachments,
                 custom_system_prompt=request.custom_system_prompt,
                 provider_override=request.provider,
             ):

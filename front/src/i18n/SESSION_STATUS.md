@@ -1,6 +1,6 @@
 # i18n Session Status
 
-Last update: 2026-03-25
+Last update: 2026-03-26
 
 This file is a working handoff for the current FR/EN migration.
 Goal: keep the next session focused on the next untranslated slice, without having to rediscover what is already done.
@@ -26,6 +26,7 @@ Global / shell:
 - `AppHeader`
 - `CommandPalette`
 - `Search`
+- `Planning`
 - `Library`
 - `Docs`
 - `Audit Log`
@@ -43,6 +44,7 @@ Main namespaces already present:
 - `settings`
 - `shell`
 - `search`
+- `planning`
 - `library`
 - `audit`
 - `engine`
@@ -50,6 +52,31 @@ Main namespaces already present:
 - `sifOverview`
 - `sifVerification`
 - `sifExploitation`
+- `sifWorkflow`
+- `sifCompliance`
+- `sifOverviewPanel`
+- `sifModal`
+
+## Global Screens: Current Real Status
+
+A residual translation pass was completed on the requested global screens:
+
+- `Engine`
+- `Planning`
+- `Library`
+- `Audit Log`
+- `Search`
+
+This pass focused only on visible i18n coverage, with no business-logic changes:
+
+- left / center / right panel labels
+- helper badges and status copy
+- placeholders and empty states
+- FR locale leftovers still surfacing in global workspaces
+
+Validation at the end of this pass:
+
+- `npm run type-check` passes in `front/`
 
 ## Exploitation / Proof Test: Current Real Status
 
@@ -76,11 +103,78 @@ Validation:
 
 - `npm run type-check` was passing in `front/` at the end of the session.
 
+## SIF Workflow: Current Real Status
+
+A larger workflow pass was completed on the visible SIF flow, still without logic changes:
+
+- lifecycle bar / workbench bar
+- breadcrumb
+- project tree child workflow entries + context menus
+- project sidebar action tooltips and pinned/project section labels
+- lifecycle cockpit + cockpit right panel
+- context workspace timing / safe-state labels
+- context right panel
+- overview right panel
+- verification workspace
+- compliance center tab + compliance right panel
+- SIF create/edit modal
+- revision close dialog
+- locked-revision overlay
+
+Main workflow namespaces added or extended in this pass:
+
+- `shell`
+- `sifWorkflow`
+- `sifCompliance`
+- `sifOverviewPanel`
+- `sifModal`
+- `sifContext`
+- `sifOverview`
+- `sifVerification`
+
+Representative files updated in this completion pass:
+
+- `front/src/components/layout/EditorTabBar.tsx`
+- `front/src/components/layout/EditorBreadcrumb.tsx`
+- `front/src/components/layout/ProjectTree.tsx`
+- `front/src/components/layout/ProjectSidebar.tsx`
+- `front/src/components/layout/SIFWorkbenchLayout.tsx`
+- `front/src/components/layout/LifecycleCockpit.tsx`
+- `front/src/components/sif/CockpitRightPanel.tsx`
+- `front/src/components/sif/ContextTab.tsx`
+- `front/src/components/sif/ContextRightPanel.tsx`
+- `front/src/components/sif/OverviewRightPanel.tsx`
+- `front/src/components/sif/VerificationWorkspace.tsx`
+- `front/src/components/sif/VerificationRightPanel.tsx`
+- `front/src/components/sif/ComplianceTab.tsx`
+- `front/src/components/sif/ComplianceRightPanel.tsx`
+- `front/src/components/sif/SIFModal.tsx`
+- `front/src/components/sif/RevisionCloseDialog.tsx`
+- `front/src/components/sif/RevisionLockedOverlay.tsx`
+- `front/src/components/sif/complianceUi.ts`
+- `front/src/i18n/shell.ts`
+- `front/src/i18n/sifWorkflow.ts`
+- `front/src/i18n/sifCompliance.ts`
+- `front/src/i18n/sifOverviewPanel.ts`
+- `front/src/i18n/sifModal.ts`
+- `front/src/i18n/sifContext.ts`
+- `front/src/i18n/sifOverview.ts`
+- `front/src/i18n/sifVerification.ts`
+
+Validation:
+
+- `npm run type-check` passes in `front/`.
+
+Residual workflow-adjacent text still visible after this completion pass:
+
+- report/export document labels in `front/src/components/report/silReportPdf.tsx`
+- report/export document labels in `front/src/components/report/assumptionsPdf.tsx`
+
 ## Important Caveat
 
 Proof Test is no longer the next i18n blocker.
 
-The next high-value slice is now `Report`.
+The next full namespace slice is still `Report`. The visible SIF workflow shell/workspaces/modals pass is now effectively closed, and the remaining user-facing i18n debt is concentrated in report/export documents and later `Architecture` work.
 
 ## Best Next Steps
 

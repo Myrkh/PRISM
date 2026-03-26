@@ -9,6 +9,7 @@
  *   toggleSplitView   Ctrl+\  — split view (skips editable)
  *   globalSearch      Ctrl+Shift+F — navigate to search
  *   commandMode       Ctrl+Shift+P — command palette in commands mode
+ *   openChatPanel     Ctrl+I — open PRISM AI chat
  */
 import { useEffect } from 'react'
 import { useAppStore } from '@/store/appStore'
@@ -21,6 +22,8 @@ export function useGlobalShortcuts() {
   const toggleFocusMode      = useAppStore(s => s.toggleFocusMode)
   const toggleStatusBar      = useAppStore(s => s.toggleStatusBar)
   const toggleCenteredLayout = useAppStore(s => s.toggleCenteredLayout)
+  const toggleChatPanel      = useAppStore(s => s.toggleChatPanel)
+  const chatPanelOpen        = useAppStore(s => s.chatPanelOpen)
   const secondSlot           = useAppStore(s => s.secondSlot)
   const openSecondSlot       = useAppStore(s => s.openSecondSlot)
   const closeSecondSlot      = useAppStore(s => s.closeSecondSlot)
@@ -42,6 +45,13 @@ export function useGlobalShortcuts() {
       if (matchesShortcut(e, kb('globalSearch'))) {
         e.preventDefault()
         navigate({ type: 'search' })
+        return
+      }
+
+      // Ctrl+I — toggle PRISM AI chat
+      if (matchesShortcut(e, kb('openChatPanel'))) {
+        e.preventDefault()
+        toggleChatPanel()
         return
       }
 
@@ -92,7 +102,7 @@ export function useGlobalShortcuts() {
     return () => document.removeEventListener('keydown', handler)
   }, [
     toggleLeftPanel, toggleRightPanel, toggleFocusMode,
-    toggleStatusBar, toggleCenteredLayout,
+    toggleStatusBar, toggleCenteredLayout, toggleChatPanel, chatPanelOpen,
     secondSlot, openSecondSlot, closeSecondSlot, navigate, userKeybindings,
   ])
 }

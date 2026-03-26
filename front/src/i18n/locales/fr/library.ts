@@ -15,10 +15,12 @@ export const libraryStringsFr: LibraryStrings = {
   searchPlaceholder: 'Ex. Rosemount, switch niveau, Safety PLC, SOV, positionneur…',
   ctas: {
     import: 'Importer',
+    importModel: 'Modèle JSON',
     importModelTitle: 'Télécharger un JSON modèle vierge compatible import',
     export: 'Exporter',
     exportTitle: 'Exporter les templates visibles (non-standards) en JSON',
     reloadTitle: 'Recharger la bibliothèque depuis le serveur',
+    moreActionsTitle: "Plus d'actions",
   },
   importTarget: (projectLabel, libraryLabel) => projectLabel
     ? `Import vers ${projectLabel}${libraryLabel ? ` · ${libraryLabel}` : ''}`
@@ -41,7 +43,7 @@ export const libraryStringsFr: LibraryStrings = {
     prismCatalogueTitle: 'Catalogue PRISM',
     prismCatalogueHint: 'lecture seule',
     myLibraryTitle: 'Ma bibliothèque',
-    myLibraryAllLabel: 'Tout ma bibliothèque',
+    myLibraryAllLabel: 'Toute ma bibliothèque',
     myLibraryPersonalLabel: 'Mes templates',
     myLibraryPersonalHint: 'tous projets',
     familiesTitle: 'Famille',

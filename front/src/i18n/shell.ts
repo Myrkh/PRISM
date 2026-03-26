@@ -5,6 +5,9 @@ import { shellStringsFr } from './locales/fr/shell'
 export interface ShellStrings {
   sifTabLabels: Record<string, string>
   viewLabels: Record<string, string>
+  editorBreadcrumb: {
+    settingsSections: Record<string, string>
+  }
   iconRail: {
     leftCollapse: string
     leftExpand: string
@@ -67,6 +70,7 @@ export interface ShellStrings {
       engine: string
       docs: string
       settings: string
+      aiChat: string
       active: string
       navigate: string
       select: string
@@ -125,6 +129,52 @@ export interface ShellStrings {
     noSIF: string
     pass: string
     fail: string
+  }
+  workbenchBar: {
+    switchSif: string
+    backToSelection: string
+  }
+  projectTree: {
+    pinSif: string
+    unpinSif: string
+    sifActions: string
+    rename: string
+    exportSif: string
+    deleteSif: string
+    projectActions: string
+    exportProject: string
+    importSif: string
+    deleteProject: string
+    emptyProject: string
+    newSif: string
+    newSifInProject: (projectName: string) => string
+  }
+  projectSidebar: {
+    pinned: string
+    projects: string
+    unpin: string
+    newProject: string
+    newSif: string
+    importPrism: string
+  }
+  workbenchInspector: {
+    properties: string
+    silVerification: string
+    targetSil: string
+    achievedSil: string
+    pfdavg: string
+    rrf: string
+    sff: string
+    dc: string
+    resizePanel: string
+  }
+  rightPanelPlaceholder: {
+    labels: Record<'audit' | 'history' | 'planning' | 'engine' | 'hazop', string>
+    descriptions: {
+      default: string
+      planning: string
+      engine: string
+    }
   }
 }
 

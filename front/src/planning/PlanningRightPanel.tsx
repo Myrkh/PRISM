@@ -12,11 +12,12 @@ import {
 import { createDefaultProofTestCampaignArtifact } from '@/core/models/proofTestCampaignWorkflow'
 import type { TestCampaign } from '@/core/types'
 import { RightPanelSection, RightPanelShell } from '@/components/layout/RightPanelShell'
+import { getPlanningStrings } from '@/i18n/planning'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import { useAppStore } from '@/store/appStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import {
-  CAMPAIGN_STATUS_META,
-  formatDateFr,
+  getCampaignStatusMeta,
   usePlanningData,
   usePlanningNavigation,
   type NewCampaignDraft,
@@ -26,12 +27,13 @@ import {
 type VerdictValue = 'pass' | 'fail' | 'conditional' | null
 
 function VerdictChip({ value, onChange }: { value: VerdictValue; onChange: (value: VerdictValue) => void }) {
+  const strings = useLocaleStrings(getPlanningStrings)
   const { TEXT_DIM } = usePrismTheme()
 
   const options: Array<{ value: VerdictValue; label: string; color: string; bg: string }> = [
-    { value: 'pass', label: 'OK', color: '#4ADE80', bg: '#4ADE8018' },
-    { value: 'conditional', label: 'Cond.', color: '#F59E0B', bg: '#F59E0B18' },
-    { value: 'fail', label: 'NOK', color: '#EF4444', bg: '#EF444418' },
+    { value: 'pass', label: strings.rightPanel.verdicts.pass, color: '#4ADE80', bg: '#4ADE8018' },
+    { value: 'conditional', label: strings.rightPanel.verdicts.conditional, color: '#F59E0B', bg: '#F59E0B18' },
+    { value: 'fail', label: strings.rightPanel.verdicts.fail, color: '#EF4444', bg: '#EF444418' },
   ]
 
   return (
@@ -57,10 +59,11 @@ function VerdictChip({ value, onChange }: { value: VerdictValue; onChange: (valu
 }
 
 function CampaignDetailPanel({ campaign }: { campaign: PlanningCampaign }) {
+  const strings = useLocaleStrings(getPlanningStrings)
   const { BORDER, CARD_BG, PAGE_BG, TEXT, TEXT_DIM, TEAL, semantic } = usePrismTheme()
   const navigate = useAppStore(state => state.navigate)
   const projects = useAppStore(state => state.projects)
-  const meta = CAMPAIGN_STATUS_META[campaign.status]
+  const meta = getCampaignStatusMeta(strings)[campaign.status]
   const [verdicts, setVerdicts] = useState<Record<string, VerdictValue>>(() => campaign.verdicts ?? {})
 
   const sifObjects = useMemo(() => {
@@ -95,11 +98,11 @@ function CampaignDetailPanel({ campaign }: { campaign: PlanningCampaign }) {
           <CalendarDays size={13} style={{ color: TEAL }} />
           <div>
             <p className="mb-0.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-              Période
+              {strings.rightPanel.period}
             </p>
             <p className="text-[12px] font-semibold" style={{ color: TEXT }}>
-              {formatDateFr(campaign.startDate)}
-              {campaign.endDate !== campaign.startDate && <> → {formatDateFr(campaign.endDate)}</>}
+              {strings.runtime.formatDate(campaign.startDate)}
+              {campaign.endDate !== campaign.startDate && <> → {strings.runtime.formatDate(campaign.endDate)}</>}
             </p>
           </div>
         </div>
@@ -109,21 +112,21 @@ function CampaignDetailPanel({ campaign }: { campaign: PlanningCampaign }) {
         <div className="px-4 pb-2">
           <div className="rounded-xl border px-3 py-2.5" style={{ borderColor: BORDER, background: PAGE_BG }}>
             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-              Progression
+              {strings.rightPanel.progress}
             </p>
             <div className="mb-2 flex gap-3">
               <div className="flex items-center gap-1.5">
                 <CheckCircle2 size={11} style={{ color: semantic.success }} />
-                <span className="text-[11px] font-semibold" style={{ color: semantic.success }}>{passCount} OK</span>
+                <span className="text-[11px] font-semibold" style={{ color: semantic.success }}>{passCount} {strings.rightPanel.verdicts.pass}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <XCircle size={11} style={{ color: semantic.error }} />
-                <span className="text-[11px] font-semibold" style={{ color: semantic.error }}>{failCount} NOK</span>
+                <span className="text-[11px] font-semibold" style={{ color: semantic.error }}>{failCount} {strings.rightPanel.verdicts.fail}</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <Clock size={11} style={{ color: TEXT_DIM }} />
                 <span className="text-[11px]" style={{ color: TEXT_DIM }}>
-                  {totalSifs - passCount - failCount} restantes
+                  {strings.rightPanel.remaining(totalSifs - passCount - failCount)}
                 </span>
               </div>
             </div>
@@ -143,7 +146,7 @@ function CampaignDetailPanel({ campaign }: { campaign: PlanningCampaign }) {
       {campaign.team.length > 0 && (
         <div className="px-4 pb-2">
           <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-            Équipe
+            {strings.rightPanel.team}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {campaign.team.map(member => (
@@ -168,7 +171,7 @@ function CampaignDetailPanel({ campaign }: { campaign: PlanningCampaign }) {
       {sifObjects.length > 0 && (
         <div className="px-4 pb-2">
           <p className="mb-1.5 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-            SIFs testées
+            {strings.rightPanel.testedSifs}
           </p>
           <div className="space-y-1.5">
             {sifObjects.map(sif => {
@@ -212,7 +215,7 @@ function CampaignDetailPanel({ campaign }: { campaign: PlanningCampaign }) {
       {campaign.notes && (
         <div className="px-4 pb-3">
           <p className="mb-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-            Notes
+            {strings.rightPanel.notes}
           </p>
           <p className="text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>{campaign.notes}</p>
         </div>
@@ -222,6 +225,7 @@ function CampaignDetailPanel({ campaign }: { campaign: PlanningCampaign }) {
 }
 
 function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
+  const strings = useLocaleStrings(getPlanningStrings)
   const { BORDER, CARD_BG, PAGE_BG, TEXT, TEXT_DIM, TEAL } = usePrismTheme()
   const addTestCampaign = useAppStore(state => state.addTestCampaign)
   const { closeCreate } = usePlanningNavigation()
@@ -302,12 +306,12 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
       <div className="space-y-3 px-4 pb-2 pt-4">
         <div>
           <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-            Titre
+            {strings.rightPanel.form.title}
           </label>
           <input
             className={inputCls}
             style={inputStyle}
-            placeholder="ex: Arrêt T2 2025 — Unité HP"
+            placeholder={strings.rightPanel.form.titlePlaceholder}
             value={title}
             onChange={event => setTitle(event.target.value)}
           />
@@ -316,7 +320,7 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
         <div className="flex gap-2">
           <div className="flex-1">
             <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-              Début
+              {strings.rightPanel.form.start}
             </label>
             <input
               type="date"
@@ -328,7 +332,7 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
           </div>
           <div className="flex-1">
             <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-              Fin
+              {strings.rightPanel.form.end}
             </label>
             <input
               type="date"
@@ -343,7 +347,7 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
 
         <div>
           <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-            Projet
+            {strings.rightPanel.form.project}
           </label>
           <select
             className={inputCls}
@@ -354,6 +358,9 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
               setSelectedSifs([])
             }}
           >
+            <option value="">
+              {projects.length > 0 ? strings.rightPanel.form.selectProject : strings.rightPanel.form.noProjectAvailable}
+            </option>
             {projects.map(projectOption => (
               <option key={projectOption.id} value={projectOption.id}>{projectOption.name}</option>
             ))}
@@ -363,7 +370,7 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
         {project && (
           <div>
             <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-              SIFs concernées
+              {strings.rightPanel.form.sifs}
             </label>
             {availableSifs.length > 0 ? (
               <div className="overflow-hidden rounded-xl border" style={{ borderColor: BORDER }}>
@@ -401,7 +408,7 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
               </div>
             ) : (
               <div className="rounded-xl border px-3 py-3 text-[11px]" style={{ borderColor: BORDER, background: PAGE_BG, color: TEXT_DIM }}>
-                Aucune SIF active avec procédure de proof test disponible dans ce projet.
+                {strings.rightPanel.form.noSifAvailable}
               </div>
             )}
           </div>
@@ -409,13 +416,13 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
 
         <div>
           <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-            Équipe
+            {strings.rightPanel.form.team}
           </label>
           <div className="mb-2 flex gap-2">
             <input
               className={`${inputCls} flex-1`}
               style={inputStyle}
-              placeholder="Prénom Nom"
+              placeholder={strings.rightPanel.form.memberPlaceholder}
               value={newMember}
               onChange={event => setNewMember(event.target.value)}
               onKeyDown={event => {
@@ -459,13 +466,13 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
 
         <div>
           <label className="mb-1 block text-[10px] font-bold uppercase tracking-widest" style={{ color: TEXT_DIM }}>
-            Notes
+            {strings.rightPanel.form.notes}
           </label>
           <textarea
             className={`${inputCls} resize-none`}
             style={inputStyle}
             rows={3}
-            placeholder="Permis de feu requis, accès restreint…"
+            placeholder={strings.rightPanel.form.notesPlaceholder}
             value={notes}
             onChange={event => setNotes(event.target.value)}
           />
@@ -485,7 +492,7 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
           className="flex-1 rounded-xl border py-2 text-[12px] font-semibold transition-opacity hover:opacity-70"
           style={{ borderColor: BORDER, color: TEXT_DIM }}
         >
-          Annuler
+          {strings.rightPanel.form.cancel}
         </button>
         <button
           type="button"
@@ -494,7 +501,7 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
           style={{ background: TEAL, color: '#041014' }}
           onClick={() => { void handleCreate() }}
         >
-          {isSubmitting ? 'Création…' : 'Créer'}
+          {isSubmitting ? strings.rightPanel.form.creating : strings.rightPanel.form.create}
         </button>
       </div>
     </div>
@@ -502,16 +509,17 @@ function NewCampaignForm({ draft }: { draft: NewCampaignDraft }) {
 }
 
 function EmptyRightPanel() {
+  const strings = useLocaleStrings(getPlanningStrings)
   const { TEXT_DIM, TEAL } = usePrismTheme()
   return (
     <div className="flex h-full flex-col items-center justify-center gap-3 px-4">
       <CalendarDays size={28} style={{ color: `${TEAL}50` }} strokeWidth={1.5} />
       <div className="text-center">
         <p className="mb-1 text-[12px] font-semibold" style={{ color: TEXT_DIM }}>
-          Sélectionnez une campagne
+          {strings.rightPanel.empty.title}
         </p>
         <p className="text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-          ou cliquez sur un jour pour en planifier une nouvelle
+          {strings.rightPanel.empty.description}
         </p>
       </div>
     </div>
@@ -519,6 +527,7 @@ function EmptyRightPanel() {
 }
 
 export function PlanningRightPanel() {
+  const strings = useLocaleStrings(getPlanningStrings)
   const { PANEL_BG } = usePrismTheme()
   const { campaigns } = usePlanningData()
   const { selectedId, isCreating, draft } = usePlanningNavigation()
@@ -526,7 +535,7 @@ export function PlanningRightPanel() {
 
   return (
     <RightPanelShell contentBg={PANEL_BG} persistKey="planning">
-      <RightPanelSection id="detail" label="Campagne" Icon={ClipboardList} noPadding>
+      <RightPanelSection id="detail" label={strings.rightPanel.sectionLabel} Icon={ClipboardList} noPadding>
         {isCreating && draft
           ? <NewCampaignForm draft={draft} />
           : selected

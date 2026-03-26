@@ -4,22 +4,16 @@
  * Height: 26px, tokens-based, dark/light aware.
  */
 import { ChevronRight } from 'lucide-react'
+import { getShellStrings } from '@/i18n/shell'
+import { useLocaleStrings } from '@/i18n/useLocale'
 import { normalizeSIFTab } from '@/store/types'
 import { useAppStore } from '@/store/appStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
-const TAB_LABELS: Record<string, string> = {
-  cockpit:      'Cockpit',
-  context:      'Context',
-  architecture: 'Architecture',
-  verification: 'Verification',
-  exploitation: 'Operations',
-  report:       'Report',
-}
-
 type Crumb = { label: string; onClick?: () => void }
 
 export function EditorBreadcrumb() {
+  const strings = useLocaleStrings(getShellStrings)
   const { BORDER, PANEL_BG, TEXT, TEXT_DIM } = usePrismTheme()
   const view     = useAppStore(s => s.view)
   const projects = useAppStore(s => s.projects)
@@ -40,23 +34,15 @@ export function EditorBreadcrumb() {
         onClick: tab !== 'cockpit' ? () => navigate({ ...view, tab: 'cockpit' }) : undefined,
       })
     }
-    const tabLabel = TAB_LABELS[tab]
+    const tabLabel = strings.sifTabLabels[tab]
     if (tabLabel && tab !== 'cockpit') crumbs.push({ label: tabLabel })
   } else if (view.type === 'settings') {
-    crumbs.push({ label: 'Settings', onClick: () => navigate({ type: 'settings', section: 'general' }) })
+    crumbs.push({ label: strings.viewLabels.settings, onClick: () => navigate({ type: 'settings', section: 'general' }) })
     if (view.section) {
-      const sectionLabels: Record<string, string> = {
-        general: 'General', workspace: 'Workspace', engine: 'Engine', shortcuts: 'Keyboard Shortcuts',
-      }
-      crumbs.push({ label: sectionLabels[view.section] ?? view.section })
+      crumbs.push({ label: strings.editorBreadcrumb.settingsSections[view.section] ?? view.section })
     }
   } else {
-    const viewLabels: Record<string, string> = {
-      projects: 'Projects', library: 'Library', engine: 'Engine',
-      'audit-log': 'Audit Log', planning: 'Test Planning', hazop: 'HAZOP / LOPA',
-      docs: 'Help & Docs', search: 'Global Search', 'sif-history': 'SIF History',
-    }
-    const label = viewLabels[view.type]
+    const label = strings.viewLabels[view.type]
     if (label) crumbs.push({ label })
   }
 

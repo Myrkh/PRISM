@@ -6,6 +6,9 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import type { PlanningStrings } from '@/i18n/planning'
+import { getPlanningStrings } from '@/i18n/planning'
+import { useAppLocale } from '@/i18n/useLocale'
 import { loadSIFAnalysisSettings } from '@/core/models/analysisSettings'
 import { useAppStore } from '@/store/appStore'
 
@@ -108,6 +111,8 @@ function mergeStatus(current: CampaignStatus, incoming: CampaignStatus): Campaig
 }
 
 export function PlanningNavigationProvider({ children }: { children: ReactNode }) {
+  const locale = useAppLocale()
+  const strings = useMemo(() => getPlanningStrings(locale), [locale])
   const now = new Date()
   const projects = useAppStore(state => state.projects)
 
@@ -181,7 +186,9 @@ export function PlanningNavigationProvider({ children }: { children: ReactNode }
             ? campaign.team.split(',').map(entry => entry.trim()).filter(Boolean)
             : []
           const title = planningMeta.title
-            ?? (team.length > 0 ? `Campagne — ${team.join(', ')}` : `Campagne ${formatDateFr(startDate)}`)
+            ?? (team.length > 0
+              ? strings.runtime.defaultCampaignWithTeam(team.join(', '))
+              : strings.runtime.defaultCampaignOnDate(strings.runtime.formatDate(startDate)))
           const groupKey = [project.id, startDate, endDate, title, campaign.team ?? ''].join('::')
           const existing = campaignsByKey.get(groupKey)
 
@@ -246,7 +253,7 @@ export function PlanningNavigationProvider({ children }: { children: ReactNode }
       }),
       deadlines,
     }
-  }, [projects])
+  }, [projects, strings])
 
   const navigationValue = useMemo<PlanningNavigationState>(() => ({
     view,
@@ -301,24 +308,30 @@ export function usePlanningData(): PlanningDataState {
   return context
 }
 
-export const CAMPAIGN_STATUS_META: Record<CampaignStatus, {
-  label: string
+const CAMPAIGN_STATUS_TONES: Record<CampaignStatus, {
   color: string
   bg: string
   border: string
 }> = {
-  planned: { label: 'Planifiée', color: '#009BA4', bg: '#009BA415', border: '#009BA430' },
-  in_progress: { label: 'En cours', color: '#F59E0B', bg: '#F59E0B15', border: '#F59E0B30' },
-  completed: { label: 'Terminée', color: '#4ADE80', bg: '#4ADE8015', border: '#4ADE8030' },
-  overdue: { label: 'En retard', color: '#EF4444', bg: '#EF444415', border: '#EF444430' },
+  planned: { color: '#009BA4', bg: '#009BA415', border: '#009BA430' },
+  in_progress: { color: '#F59E0B', bg: '#F59E0B15', border: '#F59E0B30' },
+  completed: { color: '#4ADE80', bg: '#4ADE8015', border: '#4ADE8030' },
+  overdue: { color: '#EF4444', bg: '#EF444415', border: '#EF444430' },
 }
 
-export const MONTH_NAMES_FR = [
-  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
-  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
-]
-
-export const DAY_NAMES_SHORT = ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim']
+export function getCampaignStatusMeta(strings: Pick<PlanningStrings, 'statusLabels'>): Record<CampaignStatus, {
+  label: string
+  color: string
+  bg: string
+  border: string
+}> {
+  return {
+    planned: { label: strings.statusLabels.planned, ...CAMPAIGN_STATUS_TONES.planned },
+    in_progress: { label: strings.statusLabels.in_progress, ...CAMPAIGN_STATUS_TONES.in_progress },
+    completed: { label: strings.statusLabels.completed, ...CAMPAIGN_STATUS_TONES.completed },
+    overdue: { label: strings.statusLabels.overdue, ...CAMPAIGN_STATUS_TONES.overdue },
+  }
+}
 
 export function buildCalendarGrid(year: number, month: number): Array<{
   date: Date
@@ -355,9 +368,4 @@ export function buildCalendarGrid(year: number, month: number): Array<{
 
 export function toDateStr(date: Date): string {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
-}
-
-export function formatDateFr(dateStr: string): string {
-  const [year, month, day] = dateStr.split('-').map(Number)
-  return `${day} ${MONTH_NAMES_FR[(month ?? 1) - 1]?.slice(0, 3) ?? ''} ${year}`
 }
