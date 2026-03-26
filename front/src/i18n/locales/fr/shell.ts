@@ -28,6 +28,8 @@ export const shellStringsFr: ShellStrings = {
       workspace: 'Espace de travail',
       engine: 'Moteur de calcul',
       shortcuts: 'Raccourcis clavier',
+      account: 'Compte',
+      session: 'Session',
     },
   },
   iconRail: {
@@ -106,6 +108,8 @@ export const shellStringsFr: ShellStrings = {
       splitView: 'Disposition : Vue en split',
       customizeLayout: 'Disposition : Personnaliser',
       centeredLayout: 'Disposition : Éditeur centré',
+      workflowBreadcrumbShow: 'Disposition : Afficher la barre workflow',
+      workflowBreadcrumbHide: 'Disposition : Masquer la barre workflow',
       commandPaletteTop: 'Disposition : Palette haute',
       commandPaletteCenter: 'Disposition : Palette centrale',
       panelSectionsOpenByDefault: 'Volets : Sections ouvertes',

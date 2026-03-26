@@ -13,4 +13,5 @@ contextBridge.exposeInMainWorld('prismDesktop', {
   maximize:  () => ipcRenderer.invoke('prism-win:maximize'),
   close:     () => ipcRenderer.invoke('prism-win:close'),
   recordRecentProject: (data) => ipcRenderer.invoke('prism:recent:record', data),
+  exportNotePdf: (payload) => ipcRenderer.invoke('prism:note:exportPdf', payload),
 })

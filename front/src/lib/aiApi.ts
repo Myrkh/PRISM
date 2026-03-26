@@ -9,7 +9,7 @@
  *   // Remplacer streamAIResponseStub par streamPRISMAI
  */
 
-import type { ChatMessage, AttachedContext, ChatConfig } from '@/components/layout/ChatPanel'
+import type { ChatMessage, AttachedContext, ChatConfig } from '@/components/layout/prism-ai/types'
 import type { SIF } from '@/core/types'
 
 // ─── Types workspace context ──────────────────────────────────────────────────
@@ -28,6 +28,13 @@ export interface ChatAttachmentPayload {
   name: string
   content?: string
   url?: string
+}
+
+export type ChatResponseMode = 'default' | 'draft_note'
+
+export interface ChatRequestOptions {
+  strictMode?: boolean
+  responseMode?: ChatResponseMode
 }
 
 // ─── Sérialisation SIF → contexte JSON ───────────────────────────────────────
@@ -92,6 +99,7 @@ export async function* streamPRISMAI(
   config?: ChatConfig,
   workspace?: WorkspaceContext,
   attachments?: ChatAttachmentPayload[],
+  options?: ChatRequestOptions,
 ): AsyncGenerator<string> {
   const model = config?.model ?? null
   const provider = model?.startsWith('mistral-') || model?.startsWith('codestral-')
@@ -111,6 +119,8 @@ export async function* streamPRISMAI(
     workspace: workspace ?? null,
     attachments: attachments ?? [],
     custom_system_prompt: config?.systemPrompt ?? '',
+    strict_mode: options?.strictMode ?? false,
+    response_mode: options?.responseMode ?? 'default',
     provider,
     model,
   }

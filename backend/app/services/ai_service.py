@@ -26,6 +26,7 @@ logger = logging.getLogger(__name__)
 # ── Types ──────────────────────────────────────────────────────────────────────
 
 Provider = Literal["anthropic", "mistral", "ollama"]
+ResponseMode = Literal["default", "draft_note"]
 
 SUPPORTED_ANTHROPIC_MODELS = {
     "claude-sonnet-4-6": "claude-sonnet-4-6",
@@ -275,6 +276,8 @@ class AIService:
         attachments: list[WorkspaceAttachment] | None,
         last_user_message: str,
         custom_system_prompt: str = "",
+        strict_mode: bool = False,
+        response_mode: ResponseMode = "default",
     ) -> str:
         """
         Construit le system prompt complet en 5 couches :
@@ -288,6 +291,27 @@ class AIService:
 
         base_prompt = custom_system_prompt.strip() if custom_system_prompt.strip() else DEFAULT_SYSTEM_PROMPT
         parts.append(base_prompt)
+
+        if strict_mode:
+            parts.append(
+                "## Mode strict PRISM\n\n"
+                "- Réponds de manière sobre, structurée et prudente.\n"
+                "- N'invente jamais une donnée absente du contexte.\n"
+                "- Signale explicitement les hypothèses et les données manquantes.\n"
+                "- Si une conclusion IEC 61511 est incertaine, dis-le clairement au lieu de surconclure."
+            )
+
+        if response_mode == "draft_note":
+            parts.append(
+                "## Mode draft_note\n\n"
+                "- Retourne uniquement le contenu final de la note en Markdown.\n"
+                "- N'ajoute aucune introduction ni conclusion conversationnelle.\n"
+                "- N'écris jamais des phrases comme \"Voici une note\", \"Vous pouvez la copier\" ou \"Besoin d'un exemple\".\n"
+                "- N'entoure pas la note complète avec des triple backticks.\n"
+                "- Commence directement par le titre ou le premier paragraphe utile de la note.\n"
+                "- Utilise du vrai Markdown: titres avec #, listes Markdown, tableaux Markdown si utile.\n"
+                "- Si tu ajoutes un schéma ASCII ou un extrait de code, garde-le à l'intérieur de la note sans remplacer le reste du contenu."
+            )
 
         knowledge_ctx = self._knowledge.build_knowledge_context(
             query=last_user_message,
@@ -520,6 +544,8 @@ class AIService:
         workspace: PrismWorkspaceContext | None = None,
         attachments: list[WorkspaceAttachment] | None = None,
         custom_system_prompt: str = "",
+        strict_mode: bool = False,
+        response_mode: ResponseMode = "default",
         provider_override: Provider | None = None,
     ) -> AsyncGenerator[str, None]:
         """
@@ -531,6 +557,8 @@ class AIService:
             workspace: Contexte workspace (.prism/ + SIF active).
             attachments: Fichiers workspace joints explicitement pour cette requête.
             custom_system_prompt: System prompt personnalisé (depuis config chat).
+            strict_mode: Active les garde-fous PRISM stricts.
+            response_mode: Mode de réponse métier (ex: draft_note).
             provider_override: Forcer un provider (ignore la config globale).
         """
         provider = provider_override or self._cfg.provider
@@ -545,6 +573,8 @@ class AIService:
             attachments=prepared_attachments,
             last_user_message=last_user_message,
             custom_system_prompt=custom_system_prompt,
+            strict_mode=strict_mode,
+            response_mode=response_mode,
         )
 
         logger.debug(

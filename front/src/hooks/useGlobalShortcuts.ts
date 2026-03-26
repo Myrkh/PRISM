@@ -10,6 +10,7 @@
  *   globalSearch      Ctrl+Shift+F — navigate to search
  *   commandMode       Ctrl+Shift+P — command palette in commands mode
  *   openChatPanel     Ctrl+I — open PRISM AI chat
+ *   toggleWorkflowBreadcrumb — toggle SIF workflow breadcrumb bar
  */
 import { useEffect } from 'react'
 import { useAppStore } from '@/store/appStore'
@@ -22,6 +23,8 @@ export function useGlobalShortcuts() {
   const toggleFocusMode      = useAppStore(s => s.toggleFocusMode)
   const toggleStatusBar      = useAppStore(s => s.toggleStatusBar)
   const toggleCenteredLayout = useAppStore(s => s.toggleCenteredLayout)
+  const updateAppPreferences = useAppStore(s => s.updateAppPreferences)
+  const showWorkflowBreadcrumb = useAppStore(s => s.preferences.showWorkflowBreadcrumb)
   const toggleChatPanel      = useAppStore(s => s.toggleChatPanel)
   const chatPanelOpen        = useAppStore(s => s.chatPanelOpen)
   const secondSlot           = useAppStore(s => s.secondSlot)
@@ -75,6 +78,12 @@ export function useGlobalShortcuts() {
         return
       }
 
+      if (matchesShortcut(e, kb('toggleWorkflowBreadcrumb'))) {
+        e.preventDefault()
+        updateAppPreferences({ showWorkflowBreadcrumb: !showWorkflowBreadcrumb })
+        return
+      }
+
       // Panel + split shortcuts skip text inputs
       if (isEditable(e.target)) return
 
@@ -102,8 +111,9 @@ export function useGlobalShortcuts() {
     return () => document.removeEventListener('keydown', handler)
   }, [
     toggleLeftPanel, toggleRightPanel, toggleFocusMode,
-    toggleStatusBar, toggleCenteredLayout, toggleChatPanel, chatPanelOpen,
-    secondSlot, openSecondSlot, closeSecondSlot, navigate, userKeybindings,
+    toggleStatusBar, toggleCenteredLayout, updateAppPreferences, showWorkflowBreadcrumb,
+    toggleChatPanel, chatPanelOpen, secondSlot, openSecondSlot, closeSecondSlot,
+    navigate, userKeybindings,
   ])
 }
 

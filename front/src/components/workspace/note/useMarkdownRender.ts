@@ -16,8 +16,6 @@ import rehypeKatex from 'rehype-katex'
 import rehypeHighlight from 'rehype-highlight'
 import rehypeStringify from 'rehype-stringify'
 
-// ─── Singleton processor (built once) ────────────────────────────────────────
-
 const processor = unified()
   .use(remarkParse)
   .use(remarkGfm)
@@ -27,7 +25,10 @@ const processor = unified()
   .use(rehypeHighlight, { detect: true, ignoreMissing: true })
   .use(rehypeStringify, { allowDangerousHtml: true })
 
-// ─── Hook ────────────────────────────────────────────────────────────────────
+export async function renderMarkdownToHtml(markdown: string): Promise<string> {
+  const file = await processor.process(markdown)
+  return String(file)
+}
 
 export function useMarkdownRender(markdown: string): { html: string; rendering: boolean } {
   const [html, setHtml] = useState('')
@@ -37,9 +38,9 @@ export function useMarkdownRender(markdown: string): { html: string; rendering: 
     let cancelled = false
     setRendering(true)
 
-    processor.process(markdown).then(file => {
+    renderMarkdownToHtml(markdown).then(nextHtml => {
       if (!cancelled) {
-        setHtml(String(file))
+        setHtml(nextHtml)
         setRendering(false)
       }
     }).catch(() => {

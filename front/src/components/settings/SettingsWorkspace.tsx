@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState, type ElementType, type ReactNode } from 'react'
-import { Cpu, Keyboard, Moon, Settings2, SlidersHorizontal, Sun } from 'lucide-react'
+import { Cpu, Keyboard, Moon, Settings2, ShieldCheck, SlidersHorizontal, Sun, UserRound } from 'lucide-react'
 import { KeyboardShortcutsSettings } from './KeyboardShortcutsSettings'
+import { ProfileScopeCard } from './ProfileScopeCard'
+import { ProfileSettingsPanel } from './ProfileSettingsPanel'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import {
@@ -14,7 +16,12 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
-import { useAppStore, type SettingsSection } from '@/store/appStore'
+import {
+  isProfileSettingsSection,
+  useAppStore,
+  type AppSettingsSection,
+  type SettingsSection,
+} from '@/store/appStore'
 import {
   DECIMAL_ROUNDING_MAX,
   DECIMAL_ROUNDING_MIN,
@@ -85,20 +92,28 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
 
   const locale = resolveAppLocale(draft.language)
   const strings = useMemo(() => getSettingsStrings(locale), [locale])
+  const inProfileScope = isProfileSettingsSection(section)
 
-  const sections: {
-    id: SettingsSection
+  const appSections: {
+    id: AppSettingsSection
     label: string
     hint: string
     Icon: ElementType
   }[] = useMemo(() => [
-    { id: 'general',   label: strings.sections.general.label,   hint: strings.sections.general.hint,   Icon: Settings2       },
-    { id: 'workspace', label: strings.sections.workspace.label, hint: strings.sections.workspace.hint, Icon: SlidersHorizontal },
-    { id: 'engine',    label: strings.sections.engine.label,    hint: strings.sections.engine.hint,    Icon: Cpu             },
-    { id: 'shortcuts', label: strings.sections.shortcuts.label, hint: strings.sections.shortcuts.hint, Icon: Keyboard        },
+    { id: 'general', label: strings.sections.app.general.label, hint: strings.sections.app.general.hint, Icon: Settings2 },
+    { id: 'workspace', label: strings.sections.app.workspace.label, hint: strings.sections.app.workspace.hint, Icon: SlidersHorizontal },
+    { id: 'engine', label: strings.sections.app.engine.label, hint: strings.sections.app.engine.hint, Icon: Cpu },
+    { id: 'shortcuts', label: strings.sections.app.shortcuts.label, hint: strings.sections.app.shortcuts.hint, Icon: Keyboard },
   ], [strings])
 
-  const currentSection = sections.find(item => item.id === section) ?? sections[0]
+  const profileSections = useMemo(() => [
+    { id: 'account', label: strings.sections.profile.account.label, hint: strings.sections.profile.account.hint, Icon: UserRound },
+    { id: 'session', label: strings.sections.profile.session.label, hint: strings.sections.profile.session.hint, Icon: ShieldCheck },
+  ] as const, [strings])
+
+  const currentSection = (inProfileScope ? profileSections : appSections).find(item => item.id === section)
+    ?? (inProfileScope ? profileSections[0] : appSections[0])
+
   const isDirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(saved), [draft, saved])
 
   const requestExit = () => {
@@ -139,11 +154,7 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
   }
 
   const discard = () => setDraft(saved)
-
-  const resetDraftToDefaults = () => {
-    setDraft(DEFAULT_APP_PREFERENCES)
-  }
-
+  const resetDraftToDefaults = () => setDraft(DEFAULT_APP_PREFERENCES)
   const confirmExit = () => {
     setShowExitDialog(false)
     onExit()
@@ -153,7 +164,7 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
     <>
       <div className="flex-1 min-h-0 px-5 pb-5 pt-2" onClick={requestExit}>
         <div
-          className="grid h-full min-h-0 grid-cols-[240px_1fr] overflow-hidden rounded-xl border"
+          className="grid h-full min-h-0 grid-cols-[280px_1fr] overflow-hidden rounded-xl border"
           style={{
             borderColor: BORDER,
             background: CARD_BG,
@@ -162,11 +173,22 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
           onClick={event => event.stopPropagation()}
         >
           <aside className="overflow-y-auto border-r p-3" style={{ borderColor: BORDER, background: PANEL_BG }}>
-            <p className="px-2 pb-2 text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: TEXT_DIM }}>
-              {strings.sidebarTitle}
-            </p>
-            <div className="space-y-1">
-              {sections.map(({ id, label, hint, Icon }) => {
+            <div className="flex items-center justify-between px-2 pb-2">
+              <p className="text-[10px] font-bold uppercase tracking-[0.12em]" style={{ color: TEXT_DIM }}>
+                {inProfileScope ? strings.sidebarTitle.profile : strings.sidebarTitle.app}
+              </p>
+              {isDirty && <span className="inline-flex h-1.5 w-1.5 rounded-full" style={{ background: TEAL }} />}
+            </div>
+
+            <ProfileScopeCard
+              strings={strings}
+              active={inProfileScope}
+              onOpenProfile={() => onSectionChange('account')}
+              onOpenAppSettings={() => onSectionChange('general')}
+            />
+
+            <div className="mt-1 space-y-1">
+              {(inProfileScope ? profileSections : appSections).map(({ id, label, hint, Icon }) => {
                 const selected = id === section
                 return (
                   <button
@@ -175,7 +197,7 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
                     onClick={() => onSectionChange(id)}
                     className={cn('relative w-full overflow-hidden rounded-lg border px-2.5 py-2 text-left transition-colors')}
                     style={selected
-                      ? { borderColor: TEAL + '80', background: CARD_BG }
+                      ? { borderColor: `${TEAL}80`, background: CARD_BG }
                       : { borderColor: 'transparent', background: 'transparent' }}
                     onMouseEnter={event => {
                       if (!selected) {
@@ -193,10 +215,7 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
                     <span
                       aria-hidden="true"
                       className="absolute inset-y-1.5 left-1.5 w-1 rounded-full transition-opacity"
-                      style={{
-                        background: TEAL,
-                        opacity: selected ? 1 : 0,
-                      }}
+                      style={{ background: TEAL, opacity: selected ? 1 : 0 }}
                     />
                     <div className="pl-4">
                       <div className="flex items-center gap-2">
@@ -219,296 +238,325 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
             </header>
 
             <div
-              className={section === 'shortcuts' ? 'flex-1 min-h-0 overflow-hidden' : 'flex-1 min-h-0 overflow-y-auto p-5'}
+              className={section === 'shortcuts' ? 'flex-1 min-h-0 overflow-hidden' : inProfileScope ? 'flex-1 min-h-0 overflow-y-auto' : 'flex-1 min-h-0 overflow-y-auto p-5'}
               style={{ background: CARD_BG }}
             >
               {section === 'shortcuts' ? (
                 <KeyboardShortcutsSettings strings={strings.shortcuts} locale={draft.language} />
+              ) : inProfileScope ? (
+                <ProfileSettingsPanel locale={draft.language} section={section} strings={strings} />
               ) : (
-              <div className="space-y-4">
-                {section === 'general' && (
-                  <>
-                    <SettingRow label={strings.general.language.label} hint={strings.general.language.hint}>
-                      <div className="inline-flex rounded-lg border p-1" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                        <button
-                          type="button"
-                          onClick={() => setDraft(current => ({ ...current, language: 'fr' }))}
-                          className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-                          style={draft.language === 'fr'
-                            ? { background: TEAL, color: '#fff' }
-                            : { color: TEXT_DIM }}
-                        >
-                          FR
-                          {strings.general.language.fr}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDraft(current => ({ ...current, language: 'en' }))}
-                          className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-                          style={draft.language === 'en'
-                            ? { background: TEAL, color: '#fff' }
-                            : { color: TEXT_DIM }}
-                        >
-                          EN
-                          {strings.general.language.en}
-                        </button>
-                      </div>
-                    </SettingRow>
-
-                    <SettingRow label={strings.general.theme.label} hint={strings.general.theme.hint}>
-                      <div className="inline-flex rounded-lg border p-1" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                        <button
-                          type="button"
-                          onClick={() => setDraft(current => ({ ...current, theme: 'dark' }))}
-                          className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-                          style={draft.theme === 'dark'
-                            ? { background: TEAL, color: '#fff' }
-                            : { color: TEXT_DIM }}
-                        >
-                          <Moon size={13} />
-                          {strings.general.theme.dark}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDraft(current => ({ ...current, theme: 'light' }))}
-                          className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-                          style={draft.theme === 'light'
-                            ? { background: TEAL, color: '#fff' }
-                            : { color: TEXT_DIM }}
-                        >
-                          <Sun size={13} />
-                          {strings.general.theme.light}
-                        </button>
-                      </div>
-                    </SettingRow>
-
-                    <SettingRow label={strings.general.landingView.label} hint={strings.general.landingView.hint}>
-                      <div className="flex flex-wrap gap-1.5">
-                        {LANDING_VIEWS.map(view => (
+                <div className="space-y-4">
+                  {section === 'general' && (
+                    <>
+                      <SettingRow label={strings.general.language.label} hint={strings.general.language.hint}>
+                        <div className="inline-flex rounded-lg border p-1" style={{ borderColor: BORDER, background: PAGE_BG }}>
                           <button
-                            key={view}
                             type="button"
-                            onClick={() => setDraft(current => ({ ...current, defaultLandingView: view }))}
-                            className="rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors"
-                            style={draft.defaultLandingView === view
-                              ? { borderColor: TEAL, background: TEAL, color: '#fff' }
-                              : { borderColor: BORDER, background: 'transparent', color: TEXT_DIM }}
-                          >
-                            {strings.general.landingView.views[view] ?? view}
-                          </button>
-                        ))}
-                      </div>
-                    </SettingRow>
-                  </>
-                )}
-
-                {section === 'workspace' && (
-                  <>
-                    <SettingRow
-                      label={strings.workspace.leftPanel.label}
-                      hint={strings.workspace.leftPanel.hint(WORKSPACE_LEFT_PANEL_WIDTH_MIN, WORKSPACE_LEFT_PANEL_WIDTH_MAX)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min={String(WORKSPACE_LEFT_PANEL_WIDTH_MIN)}
-                          max={String(WORKSPACE_LEFT_PANEL_WIDTH_MAX)}
-                          step="10"
-                          value={String(draft.workspaceLeftPanelWidth)}
-                          onChange={event => {
-                            const nextValue = Number(event.currentTarget.value)
-                            if (!Number.isFinite(nextValue)) return
-                            setDraft(current => ({
-                              ...current,
-                              workspaceLeftPanelWidth: nextValue,
-                            }))
-                          }}
-                          className="w-28 text-right"
-                        />
-                        <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.workspace.unit}</span>
-                      </div>
-                    </SettingRow>
-
-                    <SettingRow
-                      label={strings.workspace.rightPanel.label}
-                      hint={strings.workspace.rightPanel.hint(WORKSPACE_RIGHT_PANEL_WIDTH_MIN, WORKSPACE_RIGHT_PANEL_WIDTH_MAX)}
-                    >
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min={String(WORKSPACE_RIGHT_PANEL_WIDTH_MIN)}
-                          max={String(WORKSPACE_RIGHT_PANEL_WIDTH_MAX)}
-                          step="10"
-                          value={String(draft.workspaceRightPanelWidth)}
-                          onChange={event => {
-                            const nextValue = Number(event.currentTarget.value)
-                            if (!Number.isFinite(nextValue)) return
-                            setDraft(current => ({
-                              ...current,
-                              workspaceRightPanelWidth: nextValue,
-                            }))
-                          }}
-                          className="w-28 text-right"
-                        />
-                        <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.workspace.unit}</span>
-                      </div>
-                    </SettingRow>
-
-                    <SettingRow
-                      label={strings.workspace.rightPanelDefaultState.label}
-                      hint={strings.workspace.rightPanelDefaultState.hint}
-                    >
-                      <div className="inline-flex rounded-lg border p-1" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                        <button
-                          type="button"
-                          onClick={() => setDraft(current => ({ ...current, rightPanelDefaultState: 'open' }))}
-                          className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-                          style={draft.rightPanelDefaultState !== 'closed'
-                            ? { background: TEAL, color: '#fff' }
-                            : { color: TEXT_DIM }}
-                        >
-                          {strings.workspace.rightPanelDefaultState.open}
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDraft(current => ({ ...current, rightPanelDefaultState: 'closed' }))}
-                          className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-                          style={draft.rightPanelDefaultState === 'closed'
-                            ? { background: TEAL, color: '#fff' }
-                            : { color: TEXT_DIM }}
-                        >
-                          {strings.workspace.rightPanelDefaultState.closed}
-                        </button>
-                      </div>
-                    </SettingRow>
-
-                    <SettingRow label={strings.workspace.pdfPageSize.label} hint={strings.workspace.pdfPageSize.hint}>
-                      <div className="inline-flex rounded-lg border p-1" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                        {(['A4', 'Letter'] as const).map(size => (
-                          <button
-                            key={size}
-                            type="button"
-                            onClick={() => setDraft(current => ({ ...current, pdfPageSize: size }))}
+                            onClick={() => setDraft(current => ({ ...current, language: 'fr' }))}
                             className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
-                            style={draft.pdfPageSize === size
+                            style={draft.language === 'fr'
                               ? { background: TEAL, color: '#fff' }
                               : { color: TEXT_DIM }}
                           >
-                            {size === 'A4' ? strings.workspace.pdfPageSize.a4 : strings.workspace.pdfPageSize.letter}
+                            FR
+                            {strings.general.language.fr}
                           </button>
-                        ))}
-                      </div>
-                    </SettingRow>
-                  </>
-                )}
+                          <button
+                            type="button"
+                            onClick={() => setDraft(current => ({ ...current, language: 'en' }))}
+                            className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                            style={draft.language === 'en'
+                              ? { background: TEAL, color: '#fff' }
+                              : { color: TEXT_DIM }}
+                          >
+                            EN
+                            {strings.general.language.en}
+                          </button>
+                        </div>
+                      </SettingRow>
 
-                {section === 'engine' && (
-                  <>
-                    <SettingRow label={strings.engine.tolerance.label} hint={strings.engine.tolerance.hint}>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min="0"
-                          max="5"
-                          step="0.05"
-                          value={String(draft.engineCompareTolerancePct)}
-                          onChange={event => {
-                            const nextValue = Number(event.currentTarget.value)
-                            if (!Number.isFinite(nextValue)) return
-                            setDraft(current => ({ ...current, engineCompareTolerancePct: nextValue }))
-                          }}
-                          className="w-28 text-right"
-                        />
-                        <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.engine.tolerance.unit}</span>
-                      </div>
-                    </SettingRow>
+                      <SettingRow label={strings.general.theme.label} hint={strings.general.theme.hint}>
+                        <div className="inline-flex rounded-lg border p-1" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                          <button
+                            type="button"
+                            onClick={() => setDraft(current => ({ ...current, theme: 'dark' }))}
+                            className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                            style={draft.theme === 'dark'
+                              ? { background: TEAL, color: '#fff' }
+                              : { color: TEXT_DIM }}
+                          >
+                            <Moon size={13} />
+                            {strings.general.theme.dark}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDraft(current => ({ ...current, theme: 'light' }))}
+                            className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                            style={draft.theme === 'light'
+                              ? { background: TEAL, color: '#fff' }
+                              : { color: TEXT_DIM }}
+                          >
+                            <Sun size={13} />
+                            {strings.general.theme.light}
+                          </button>
+                        </div>
+                      </SettingRow>
 
-                    <SettingRow label={strings.engine.scientificNotation.label} hint={strings.engine.scientificNotation.hint}>
-                      <div className="inline-flex rounded-lg border p-1" style={{ borderColor: BORDER, background: PAGE_BG }}>
-                        <button
-                          type="button"
-                          onClick={() => setDraft(current => ({ ...current, useScientificNotation: true }))}
-                          className="rounded-md px-3 py-1.5 text-xs font-semibold font-mono transition-colors"
-                          style={draft.useScientificNotation
-                            ? { background: TEAL, color: '#fff' }
-                            : { color: TEXT_DIM }}
-                        >
-                          1.23e-4
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setDraft(current => ({ ...current, useScientificNotation: false }))}
-                          className="rounded-md px-3 py-1.5 text-xs font-semibold font-mono transition-colors"
-                          style={!draft.useScientificNotation
-                            ? { background: TEAL, color: '#fff' }
-                            : { color: TEXT_DIM }}
-                        >
-                          0.000123
-                        </button>
-                      </div>
-                    </SettingRow>
+                      <SettingRow label={strings.general.landingView.label} hint={strings.general.landingView.hint}>
+                        <div className="flex flex-wrap gap-1.5">
+                          {LANDING_VIEWS.map(view => (
+                            <button
+                              key={view}
+                              type="button"
+                              onClick={() => setDraft(current => ({ ...current, defaultLandingView: view }))}
+                              className="rounded-md border px-3 py-1.5 text-xs font-semibold transition-colors"
+                              style={draft.defaultLandingView === view
+                                ? { borderColor: TEAL, background: TEAL, color: '#fff' }
+                                : { borderColor: BORDER, background: 'transparent', color: TEXT_DIM }}
+                            >
+                              {strings.general.landingView.views[view] ?? view}
+                            </button>
+                          ))}
+                        </div>
+                      </SettingRow>
+                    </>
+                  )}
 
-                    <SettingRow label={strings.engine.decimalRounding.label} hint={strings.engine.decimalRounding.hint}>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min={String(DECIMAL_ROUNDING_MIN)}
-                          max={String(DECIMAL_ROUNDING_MAX)}
-                          step="1"
-                          value={String(draft.decimalRoundingDigits)}
-                          onChange={event => {
-                            const nextValue = Number(event.currentTarget.value)
-                            if (!Number.isFinite(nextValue)) return
-                            setDraft(current => ({ ...current, decimalRoundingDigits: nextValue }))
-                          }}
-                          className="w-28 text-right"
-                        />
-                        <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.engine.decimalRounding.unit}</span>
-                      </div>
-                    </SettingRow>
+                  {section === 'workspace' && (
+                    <>
+                      <SettingRow
+                        label={strings.workspace.leftPanel.label}
+                        hint={strings.workspace.leftPanel.hint(WORKSPACE_LEFT_PANEL_WIDTH_MIN, WORKSPACE_LEFT_PANEL_WIDTH_MAX)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={String(WORKSPACE_LEFT_PANEL_WIDTH_MIN)}
+                            max={String(WORKSPACE_LEFT_PANEL_WIDTH_MAX)}
+                            step="10"
+                            value={String(draft.workspaceLeftPanelWidth)}
+                            onChange={event => {
+                              const nextValue = Number(event.currentTarget.value)
+                              if (!Number.isFinite(nextValue)) return
+                              setDraft(current => ({
+                                ...current,
+                                workspaceLeftPanelWidth: nextValue,
+                              }))
+                            }}
+                            className="w-28 text-right"
+                          />
+                          <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.workspace.unit}</span>
+                        </div>
+                      </SettingRow>
 
-                    <SettingRow label={strings.engine.defaultMissionTime.label} hint={strings.engine.defaultMissionTime.hint}>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={String(draft.defaultMissionTimeTH)}
-                          onChange={event => {
-                            const nextValue = Number(event.currentTarget.value)
-                            if (!Number.isFinite(nextValue) || nextValue <= 0) return
-                            setDraft(current => ({ ...current, defaultMissionTimeTH: nextValue }))
-                          }}
-                          className="w-28 text-right"
-                        />
-                        <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.engine.defaultMissionTime.unit}</span>
-                      </div>
-                    </SettingRow>
+                      <SettingRow
+                        label={strings.workspace.rightPanel.label}
+                        hint={strings.workspace.rightPanel.hint(WORKSPACE_RIGHT_PANEL_WIDTH_MIN, WORKSPACE_RIGHT_PANEL_WIDTH_MAX)}
+                      >
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={String(WORKSPACE_RIGHT_PANEL_WIDTH_MIN)}
+                            max={String(WORKSPACE_RIGHT_PANEL_WIDTH_MAX)}
+                            step="10"
+                            value={String(draft.workspaceRightPanelWidth)}
+                            onChange={event => {
+                              const nextValue = Number(event.currentTarget.value)
+                              if (!Number.isFinite(nextValue)) return
+                              setDraft(current => ({
+                                ...current,
+                                workspaceRightPanelWidth: nextValue,
+                              }))
+                            }}
+                            className="w-28 text-right"
+                          />
+                          <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.workspace.unit}</span>
+                        </div>
+                      </SettingRow>
 
-                    <SettingRow label={strings.engine.defaultProofTestInterval.label} hint={strings.engine.defaultProofTestInterval.hint}>
-                      <div className="flex items-center gap-2">
-                        <Input
-                          type="number"
-                          min="1"
-                          step="1"
-                          value={String(draft.defaultProofTestIntervalTH)}
-                          onChange={event => {
-                            const nextValue = Number(event.currentTarget.value)
-                            if (!Number.isFinite(nextValue) || nextValue <= 0) return
-                            setDraft(current => ({ ...current, defaultProofTestIntervalTH: nextValue }))
-                          }}
-                          className="w-28 text-right"
-                        />
-                        <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.engine.defaultProofTestInterval.unit}</span>
-                      </div>
-                    </SettingRow>
-                  </>
-                )}
-              </div>
+                      <SettingRow
+                        label={strings.workspace.rightPanelDefaultState.label}
+                        hint={strings.workspace.rightPanelDefaultState.hint}
+                      >
+                        <div className="inline-flex rounded-lg border p-1" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                          <button
+                            type="button"
+                            onClick={() => setDraft(current => ({ ...current, rightPanelDefaultState: 'open' }))}
+                            className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                            style={draft.rightPanelDefaultState !== 'closed'
+                              ? { background: TEAL, color: '#fff' }
+                              : { color: TEXT_DIM }}
+                          >
+                            {strings.workspace.rightPanelDefaultState.open}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDraft(current => ({ ...current, rightPanelDefaultState: 'closed' }))}
+                            className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                            style={draft.rightPanelDefaultState === 'closed'
+                              ? { background: TEAL, color: '#fff' }
+                              : { color: TEXT_DIM }}
+                          >
+                            {strings.workspace.rightPanelDefaultState.closed}
+                          </button>
+                        </div>
+                      </SettingRow>
+
+                      <SettingRow
+                        label={strings.workspace.workflowBreadcrumb.label}
+                        hint={strings.workspace.workflowBreadcrumb.hint}
+                      >
+                        <div className="inline-flex rounded-lg border p-1" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                          <button
+                            type="button"
+                            onClick={() => setDraft(current => ({ ...current, showWorkflowBreadcrumb: true }))}
+                            className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                            style={draft.showWorkflowBreadcrumb !== false
+                              ? { background: TEAL, color: '#fff' }
+                              : { color: TEXT_DIM }}
+                          >
+                            {strings.workspace.workflowBreadcrumb.visible}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDraft(current => ({ ...current, showWorkflowBreadcrumb: false }))}
+                            className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                            style={draft.showWorkflowBreadcrumb === false
+                              ? { background: TEAL, color: '#fff' }
+                              : { color: TEXT_DIM }}
+                          >
+                            {strings.workspace.workflowBreadcrumb.hidden}
+                          </button>
+                        </div>
+                      </SettingRow>
+
+                      <SettingRow label={strings.workspace.pdfPageSize.label} hint={strings.workspace.pdfPageSize.hint}>
+                        <div className="inline-flex rounded-lg border p-1" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                          {(['A4', 'Letter'] as const).map(size => (
+                            <button
+                              key={size}
+                              type="button"
+                              onClick={() => setDraft(current => ({ ...current, pdfPageSize: size }))}
+                              className="inline-flex items-center gap-2 rounded-md px-3 py-1.5 text-xs font-semibold transition-colors"
+                              style={draft.pdfPageSize === size
+                                ? { background: TEAL, color: '#fff' }
+                                : { color: TEXT_DIM }}
+                            >
+                              {size === 'A4' ? strings.workspace.pdfPageSize.a4 : strings.workspace.pdfPageSize.letter}
+                            </button>
+                          ))}
+                        </div>
+                      </SettingRow>
+                    </>
+                  )}
+
+                  {section === 'engine' && (
+                    <>
+                      <SettingRow label={strings.engine.tolerance.label} hint={strings.engine.tolerance.hint}>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="0"
+                            max="5"
+                            step="0.05"
+                            value={String(draft.engineCompareTolerancePct)}
+                            onChange={event => {
+                              const nextValue = Number(event.currentTarget.value)
+                              if (!Number.isFinite(nextValue)) return
+                              setDraft(current => ({ ...current, engineCompareTolerancePct: nextValue }))
+                            }}
+                            className="w-28 text-right"
+                          />
+                          <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.engine.tolerance.unit}</span>
+                        </div>
+                      </SettingRow>
+
+                      <SettingRow label={strings.engine.scientificNotation.label} hint={strings.engine.scientificNotation.hint}>
+                        <div className="inline-flex rounded-lg border p-1" style={{ borderColor: BORDER, background: PAGE_BG }}>
+                          <button
+                            type="button"
+                            onClick={() => setDraft(current => ({ ...current, useScientificNotation: true }))}
+                            className="rounded-md px-3 py-1.5 text-xs font-semibold font-mono transition-colors"
+                            style={draft.useScientificNotation
+                              ? { background: TEAL, color: '#fff' }
+                              : { color: TEXT_DIM }}
+                          >
+                            1.23e-4
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setDraft(current => ({ ...current, useScientificNotation: false }))}
+                            className="rounded-md px-3 py-1.5 text-xs font-semibold font-mono transition-colors"
+                            style={!draft.useScientificNotation
+                              ? { background: TEAL, color: '#fff' }
+                              : { color: TEXT_DIM }}
+                          >
+                            0.000123
+                          </button>
+                        </div>
+                      </SettingRow>
+
+                      <SettingRow label={strings.engine.decimalRounding.label} hint={strings.engine.decimalRounding.hint}>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min={String(DECIMAL_ROUNDING_MIN)}
+                            max={String(DECIMAL_ROUNDING_MAX)}
+                            step="1"
+                            value={String(draft.decimalRoundingDigits)}
+                            onChange={event => {
+                              const nextValue = Number(event.currentTarget.value)
+                              if (!Number.isFinite(nextValue)) return
+                              setDraft(current => ({ ...current, decimalRoundingDigits: nextValue }))
+                            }}
+                            className="w-28 text-right"
+                          />
+                          <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.engine.decimalRounding.unit}</span>
+                        </div>
+                      </SettingRow>
+
+                      <SettingRow label={strings.engine.defaultMissionTime.label} hint={strings.engine.defaultMissionTime.hint}>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={String(draft.defaultMissionTimeTH)}
+                            onChange={event => {
+                              const nextValue = Number(event.currentTarget.value)
+                              if (!Number.isFinite(nextValue) || nextValue <= 0) return
+                              setDraft(current => ({ ...current, defaultMissionTimeTH: nextValue }))
+                            }}
+                            className="w-28 text-right"
+                          />
+                          <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.engine.defaultMissionTime.unit}</span>
+                        </div>
+                      </SettingRow>
+
+                      <SettingRow label={strings.engine.defaultProofTestInterval.label} hint={strings.engine.defaultProofTestInterval.hint}>
+                        <div className="flex items-center gap-2">
+                          <Input
+                            type="number"
+                            min="1"
+                            step="1"
+                            value={String(draft.defaultProofTestIntervalTH)}
+                            onChange={event => {
+                              const nextValue = Number(event.currentTarget.value)
+                              if (!Number.isFinite(nextValue) || nextValue <= 0) return
+                              setDraft(current => ({ ...current, defaultProofTestIntervalTH: nextValue }))
+                            }}
+                            className="w-28 text-right"
+                          />
+                          <span className="text-sm font-semibold" style={{ color: TEXT_DIM }}>{strings.engine.defaultProofTestInterval.unit}</span>
+                        </div>
+                      </SettingRow>
+                    </>
+                  )}
+                </div>
               )}
             </div>
 
-            {section !== 'shortcuts' && (
             <footer className="flex items-center justify-between border-t px-5 py-3" style={{ borderColor: BORDER, background: CARD_BG }}>
               <p className="text-xs" style={{ color: TEXT_DIM }}>
                 {isDirty ? strings.footer.dirty : strings.footer.saved} · {strings.footer.esc}
@@ -525,7 +573,6 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
                 </Button>
               </div>
             </footer>
-            )}
           </section>
         </div>
       </div>

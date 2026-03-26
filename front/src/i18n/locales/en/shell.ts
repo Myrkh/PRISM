@@ -28,6 +28,8 @@ export const shellStringsEn: ShellStrings = {
       workspace: 'Workspace',
       engine: 'Engine',
       shortcuts: 'Keyboard Shortcuts',
+      account: 'Account',
+      session: 'Session',
     },
   },
   iconRail: {
@@ -106,6 +108,8 @@ export const shellStringsEn: ShellStrings = {
       splitView: 'Layout: Split View',
       customizeLayout: 'Layout: Customize',
       centeredLayout: 'Layout: Centered Editor',
+      workflowBreadcrumbShow: 'Layout: Show Workflow Breadcrumb',
+      workflowBreadcrumbHide: 'Layout: Hide Workflow Breadcrumb',
       commandPaletteTop: 'Layout: Palette Top',
       commandPaletteCenter: 'Layout: Palette Center',
       panelSectionsOpenByDefault: 'Layout: Panel Sections Open',

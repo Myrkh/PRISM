@@ -8,8 +8,10 @@
  */
 import { useEffect, useRef, useState } from 'react'
 import {
+  APP_SETTINGS_SECTIONS,
+  isProfileSettingsSection,
   normalizeSIFTab,
-  SETTINGS_SECTIONS,
+  PROFILE_SETTINGS_SECTIONS,
   useAppStore,
   type AppView,
   type SettingsSection,
@@ -61,7 +63,11 @@ function viewToHash(view: AppView): string {
     const query = params.toString()
     return query ? `#/library?${query}` : '#/library'
   }
-  if (view.type === 'settings') return `#/settings/${view.section}`
+  if (view.type === 'settings') {
+    return isProfileSettingsSection(view.section)
+      ? `#/settings/profile/${view.section}`
+      : `#/settings/${view.section}`
+  }
   if (view.type === 'docs') return '#/docs'
   if (view.type === 'audit-log') return '#/audit'
   if (view.type === 'sif-history') return '#/history'
@@ -82,12 +88,24 @@ function hashToView(hash: string): AppView | null {
     const tab = normalizeSIFTab(m[3])
     return { type: 'sif-dashboard', projectId: m[1], sifId: m[2], tab }
   }
-  const mSettings = path.match(/^\/settings(?:\/([^/]+))?$/)
-  if (mSettings) {
-    const section = mSettings[1] as SettingsSection | undefined
+  const settingsSegments = path.split('/').filter(Boolean)
+  if (settingsSegments[0] === 'settings') {
+    if (settingsSegments[1] === 'profile') {
+      const profileSection = settingsSegments[2] as SettingsSection | undefined
+      return {
+        type: 'settings',
+        section: profileSection && PROFILE_SETTINGS_SECTIONS.includes(profileSection as typeof PROFILE_SETTINGS_SECTIONS[number])
+          ? profileSection
+          : 'account',
+      }
+    }
+
+    const appSection = settingsSegments[1] as SettingsSection | undefined
     return {
       type: 'settings',
-      section: section && SETTINGS_SECTIONS.includes(section) ? section : 'general',
+      section: appSection && APP_SETTINGS_SECTIONS.includes(appSection as typeof APP_SETTINGS_SECTIONS[number])
+        ? appSection
+        : 'general',
     }
   }
   if (path === '/search') return { type: 'search' }

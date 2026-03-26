@@ -18,9 +18,21 @@ import type {
 import type { AppPreferences } from '@/core/models/appPreferences'
 
 // ─── Navigation ───────────────────────────────────────────────────────────
-export type SettingsSection = 'general' | 'workspace' | 'engine' | 'shortcuts'
+export type AppSettingsSection = 'general' | 'workspace' | 'engine' | 'shortcuts'
+export type ProfileSettingsSection = 'account' | 'session'
+export type SettingsSection = AppSettingsSection | ProfileSettingsSection
 
-export const SETTINGS_SECTIONS: readonly SettingsSection[] = ['general', 'workspace', 'engine', 'shortcuts']
+export const APP_SETTINGS_SECTIONS: readonly AppSettingsSection[] = ['general', 'workspace', 'engine', 'shortcuts']
+export const PROFILE_SETTINGS_SECTIONS: readonly ProfileSettingsSection[] = ['account', 'session']
+export const SETTINGS_SECTIONS: readonly SettingsSection[] = [...APP_SETTINGS_SECTIONS, ...PROFILE_SETTINGS_SECTIONS]
+
+export function isProfileSettingsSection(section: SettingsSection | string | null | undefined): section is ProfileSettingsSection {
+  return typeof section === 'string' && PROFILE_SETTINGS_SECTIONS.includes(section as ProfileSettingsSection)
+}
+
+export function isAppSettingsSection(section: SettingsSection | string | null | undefined): section is AppSettingsSection {
+  return typeof section === 'string' && APP_SETTINGS_SECTIONS.includes(section as AppSettingsSection)
+}
 
 export type CanonicalSIFTab =
   | 'cockpit'

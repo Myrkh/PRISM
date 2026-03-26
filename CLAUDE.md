@@ -36,3 +36,10 @@ backend/
 ```bash
 docker-compose up   # frontend :5173, backend :8000, nginx :80
 ```
+
+## Master Rules
+- Always verify that each feature is clean, well-designed, and fully functional
+- Each feature may include a command palette input and keyboard shortcuts when relevant
+- Always write clean, professional, production-ready code
+- Avoid monolithic files; structure the codebase into clear, modular components
+- Enforce separation of concerns to ensure maintainability and readability

@@ -528,6 +528,22 @@ export function useCommandGroups({
         shortcut: kb('toggleCenteredLayout'),
         level: 0,
       },
+      {
+        id: 'layout-workflow-breadcrumb',
+        label: (preferences.showWorkflowBreadcrumb ?? true)
+          ? strings.commandPalette.labels.workflowBreadcrumbHide
+          : strings.commandPalette.labels.workflowBreadcrumbShow,
+        keywords: 'workflow breadcrumb editor breadcrumb fil ariane barre navigation sif project projet header layout disposition',
+        Icon: ArrowUpToLine,
+        onSelect: () => run(() =>
+          useAppStore.getState().updateAppPreferences({
+            showWorkflowBreadcrumb: !(preferences.showWorkflowBreadcrumb ?? true),
+          }),
+        ),
+        isActive: preferences.showWorkflowBreadcrumb ?? true,
+        shortcut: kb('toggleWorkflowBreadcrumb'),
+        level: 0,
+      },
       // ── Panel sections default state ──
       {
         id: 'layout-panel-sections-default',

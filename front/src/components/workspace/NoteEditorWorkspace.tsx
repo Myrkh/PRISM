@@ -12,12 +12,14 @@
 import '@/styles/notePreview.css'
 import 'katex/dist/katex.min.css'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { FileText, Columns2, Eye, PenLine, Link2, Link2Off } from 'lucide-react'
+import { FileText, Columns2, Eye, PenLine, Link2, Link2Off, Printer } from 'lucide-react'
 import { useWorkspaceStore } from '@/store/workspaceStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import { toast } from '@/components/ui/toast'
 import { WorkspaceTabBar } from './WorkspaceTabBar'
 import { NoteEditor } from './note/NoteEditor'
 import { NotePreview } from './note/NotePreview'
+import { printMarkdownNote } from './note/printMarkdownNote'
 import { colors } from '@/styles/tokens'
 
 // ─── Types ───────────────────────────────────────────────────────────────────
@@ -53,6 +55,7 @@ export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
   const [mode, setMode]                 = useState<EditorMode>('edit')
   const [localContent, setLocalContent] = useState(note?.type === 'note' ? note.content : '')
   const [renamingTitle, setRenamingTitle] = useState(false)
+  const [printingPdf, setPrintingPdf]   = useState(false)
 
   // Auto-rename when this note was just created from the command palette
   useEffect(() => {
@@ -143,6 +146,51 @@ export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
     ['--prism-code-bg' as string]:   isDark ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.05)',
     ['--prism-row-hover' as string]: isDark ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
   }
+
+  const handlePrintPdf = useCallback(async () => {
+    setPrintingPdf(true)
+    try {
+      const result = await printMarkdownNote({
+        title: note?.type === 'note' ? note.name : 'Note',
+        markdown: localContent,
+        theme: isDark
+          ? {
+              page: '#FFFFFF',
+              panel: '#F8FAFC',
+              card: '#F8FAFC',
+              border: '#D7E0EA',
+              text: '#0F172A',
+              textDim: '#64748B',
+              teal: TEAL,
+              tealDim: colors.tealDim,
+              codeBg: 'rgba(15,23,42,0.05)',
+              rowHover: 'rgba(15,23,42,0.03)',
+            }
+          : {
+              page: PAGE_BG,
+              panel: PANEL_BG,
+              card: CARD_BG,
+              border: BORDER,
+              text: TEXT,
+              textDim: TEXT_DIM,
+              teal: TEAL,
+              tealDim: colors.tealDim,
+              codeBg: 'rgba(0,0,0,0.05)',
+              rowHover: 'rgba(0,0,0,0.02)',
+            },
+      })
+      if (result.kind === 'desktop-pdf') {
+        toast.success('PDF exporté', result.filePath ?? 'Note enregistrée en PDF.')
+      }
+    } catch (error) {
+      if (error instanceof Error && error.message === 'desktop-pdf-canceled') {
+        return
+      }
+      toast.error('Impression PDF impossible', 'Impossible de préparer le rendu PDF de la note.')
+    } finally {
+      setPrintingPdf(false)
+    }
+  }, [BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEXT, TEXT_DIM, isDark, localContent, note?.name])
 
   // ── Not found ──
   if (!note || note.type !== 'note') {
@@ -250,6 +298,22 @@ export function NoteEditorWorkspace({ noteId }: { noteId: string }) {
             )
           })}
         </div>
+
+        <button
+          type="button"
+          onClick={() => { void handlePrintPdf() }}
+          disabled={printingPdf}
+          title="Imprimer / enregistrer en PDF"
+          className="flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-medium transition-all disabled:opacity-50"
+          style={{
+            background: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.03)',
+            color: printingPdf ? TEAL : TEXT_DIM,
+            border: `1px solid ${printingPdf ? `${TEAL}55` : BORDER}`,
+          }}
+        >
+          <Printer size={11} />
+          {printingPdf ? 'PDF…' : 'PDF'}
+        </button>
       </div>
 
       {/* ── Content area ── */}

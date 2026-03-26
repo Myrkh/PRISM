@@ -64,6 +64,8 @@ class ChatRequest(BaseModel):
     workspace: WorkspaceContextSchema | None = Field(default=None)
     attachments: list[AttachmentSchema] = Field(default_factory=list)
     custom_system_prompt: str = Field(default="", description="User-defined system prompt from chat config")
+    strict_mode: bool = Field(default=False, description="Enable PRISM strict answer mode")
+    response_mode: Literal["default", "draft_note"] = Field(default="default", description="Chat response mode")
     provider: Literal["anthropic", "mistral", "ollama"] | None = Field(
         default=None,
         description="Provider override (default: use server config)"
@@ -136,6 +138,8 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
                 workspace=workspace,
                 attachments=attachments,
                 custom_system_prompt=request.custom_system_prompt,
+                strict_mode=request.strict_mode,
+                response_mode=request.response_mode,
                 provider_override=request.provider,
             ):
                 if chunk:

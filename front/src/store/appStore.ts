@@ -96,8 +96,22 @@ import { selectSIF } from './selectors'
 import type { Subscription } from '@supabase/supabase-js'
 
 // Re-export types for backward compatibility
-export type { AppView, SIFTab, SettingsSection, AppState } from './types'
-export { SETTINGS_SECTIONS, normalizeSIFTab } from './types'
+export type {
+  AppSettingsSection,
+  AppView,
+  ProfileSettingsSection,
+  SIFTab,
+  SettingsSection,
+  AppState,
+} from './types'
+export {
+  APP_SETTINGS_SECTIONS,
+  PROFILE_SETTINGS_SECTIONS,
+  SETTINGS_SECTIONS,
+  isAppSettingsSection,
+  isProfileSettingsSection,
+  normalizeSIFTab,
+} from './types'
 export {
   selectProject,
   selectSIF,

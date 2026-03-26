@@ -22,6 +22,8 @@ export interface AppPreferences {
   panelsInverted: boolean
   /** Centers the editor column with a max-width, like VS Code Centered Layout. */
   centeredLayout: boolean
+  /** Shows the clickable workflow breadcrumb bar under the header inside SIF workflow screens. */
+  showWorkflowBreadcrumb: boolean
   /** Where the command palette dropdown appears: 'top' (under header) or 'center' (floating). */
   commandPalettePosition: 'top' | 'center'
   /** User-defined keybinding overrides: shortcut id → keybinding string (empty = unbound). */
@@ -79,6 +81,7 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   activityBarVisible: true,
   panelsInverted: false,
   centeredLayout: false,
+  showWorkflowBreadcrumb: true,
   commandPalettePosition: 'top',
   userKeybindings: {},
   rightPanelDefaultState: 'open',
@@ -124,6 +127,9 @@ export function resolveAppPreferences(input?: Partial<AppPreferences> | null): A
     ? source.panelsInverted : DEFAULT_APP_PREFERENCES.panelsInverted
   const centeredLayout = typeof source.centeredLayout === 'boolean'
     ? source.centeredLayout : DEFAULT_APP_PREFERENCES.centeredLayout
+  const showWorkflowBreadcrumb = typeof source.showWorkflowBreadcrumb === 'boolean'
+    ? source.showWorkflowBreadcrumb
+    : DEFAULT_APP_PREFERENCES.showWorkflowBreadcrumb
   const commandPalettePosition = source.commandPalettePosition === 'center' ? 'center' as const
     : DEFAULT_APP_PREFERENCES.commandPalettePosition
 
@@ -180,6 +186,7 @@ export function resolveAppPreferences(input?: Partial<AppPreferences> | null): A
     activityBarVisible,
     panelsInverted,
     centeredLayout,
+    showWorkflowBreadcrumb,
     commandPalettePosition,
     userKeybindings,
     rightPanelDefaultState,

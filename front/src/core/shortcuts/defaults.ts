@@ -110,6 +110,14 @@ export const DEFAULT_KEYBINDINGS: KeybindingEntry[] = [
     when: 'global',
     category: 'layout',
   },
+  {
+    id: 'toggleWorkflowBreadcrumb',
+    commandFr: 'Basculer la barre de navigation workflow',
+    commandEn: 'Toggle Workflow Breadcrumb Bar',
+    keybinding: '',
+    when: 'global',
+    category: 'layout',
+  },
   // ── Navigation ───────────────────────────────────────────────────────────
   {
     id: 'globalSearch',

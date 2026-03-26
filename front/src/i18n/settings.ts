@@ -2,17 +2,65 @@ import type { AppLocale } from './types'
 import { settingsStringsEn } from './locales/en/settings'
 import { settingsStringsFr } from './locales/fr/settings'
 
-export type SettingsSectionKey = 'general' | 'workspace' | 'engine' | 'shortcuts'
+export type AppSettingsSectionKey = 'general' | 'workspace' | 'engine' | 'shortcuts'
+export type ProfileSettingsSectionKey = 'account' | 'session'
 
 export interface SettingsStrings {
-  sidebarTitle: string
+  sidebarTitle: {
+    app: string
+    profile: string
+  }
+  scopeSwitcher: {
+    backToSettings: string
+  }
   confirmExit: {
     title: string
     message: string
     cancel: string
     confirm: string
   }
-  sections: Record<SettingsSectionKey, { label: string; hint: string }>
+  sections: {
+    app: Record<AppSettingsSectionKey, { label: string; hint: string }>
+    profile: Record<ProfileSettingsSectionKey, { label: string; hint: string }>
+  }
+  profileCard: {
+    eyebrow: string
+    openProfile: string
+    profileActive: string
+    openHint: string
+    providerFallback: string
+    memberSince: string
+    lastSignIn: string
+    editProfile: string
+    prismSettings: string
+  }
+  profile: {
+    values: {
+      active: string
+      unavailable: string
+    }
+    account: {
+      heroTitle: string
+      heroDescription: string
+      fullName: string
+      email: string
+      provider: string
+      userId: string
+      profileUpdated: string
+    }
+    session: {
+      heroTitle: string
+      heroDescription: string
+      currentSession: string
+      provider: string
+      lastSignIn: string
+      memberSince: string
+      signOutTitle: string
+      signOutHint: string
+      signOutAction: string
+      signingOut: string
+    }
+  }
   shortcuts: {
     searchPlaceholder: string
     jsonToggle: string
@@ -73,6 +121,12 @@ export interface SettingsStrings {
       hint: string
       open: string
       closed: string
+    }
+    workflowBreadcrumb: {
+      label: string
+      hint: string
+      visible: string
+      hidden: string
     }
     pdfPageSize: {
       label: string

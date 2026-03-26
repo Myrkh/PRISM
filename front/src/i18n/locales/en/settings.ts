@@ -1,7 +1,13 @@
 import type { SettingsStrings } from '@/i18n/settings'
 
 export const settingsStringsEn: SettingsStrings = {
-  sidebarTitle: 'Settings',
+  sidebarTitle: {
+    app: 'PRISM Settings',
+    profile: 'User Profile',
+  },
+  scopeSwitcher: {
+    backToSettings: 'Back to PRISM settings',
+  },
   confirmExit: {
     title: 'Leave settings?',
     message: 'Unsaved changes will be lost.',
@@ -9,21 +15,71 @@ export const settingsStringsEn: SettingsStrings = {
     confirm: 'Leave',
   },
   sections: {
-    general: {
-      label: 'General',
-      hint: 'Language, appearance & startup',
+    app: {
+      general: {
+        label: 'General',
+        hint: 'Language, appearance and startup',
+      },
+      workspace: {
+        label: 'Workspace',
+        hint: 'Panels, widths and export',
+      },
+      engine: {
+        label: 'Engine',
+        hint: 'Calculations and SIF defaults',
+      },
+      shortcuts: {
+        label: 'Keyboard Shortcuts',
+        hint: 'Customize key bindings',
+      },
     },
-    workspace: {
-      label: 'Workspace',
-      hint: 'Panels, widths & export',
+    profile: {
+      account: {
+        label: 'Account',
+        hint: 'Identity, provider and synced profile',
+      },
+      session: {
+        label: 'Session',
+        hint: 'Current session and sign out',
+      },
     },
-    engine: {
-      label: 'Engine',
-      hint: 'Calculations & SIF defaults',
+  },
+  profileCard: {
+    eyebrow: 'PRISM Profile',
+    openProfile: 'Open profile',
+    profileActive: 'Profile active',
+    openHint: 'Identity, sessions and account access',
+    providerFallback: 'Unknown provider',
+    memberSince: 'Member since',
+    lastSignIn: 'Last sign-in',
+    editProfile: 'Edit profile',
+    prismSettings: 'PRISM Settings',
+  },
+  profile: {
+    values: {
+      active: 'Active',
+      unavailable: 'Unavailable',
     },
-    shortcuts: {
-      label: 'Keyboard Shortcuts',
-      hint: 'Customize key bindings',
+    account: {
+      heroTitle: 'Identity synced from Supabase',
+      heroDescription: 'This profile is derived from the authenticated session and acts as the entry point for user-specific settings.',
+      fullName: 'Full name',
+      email: 'Email address',
+      provider: 'Provider',
+      userId: 'User identifier',
+      profileUpdated: 'Last profile sync',
+    },
+    session: {
+      heroTitle: 'Current session and basic security',
+      heroDescription: 'Keep connection information here without cluttering PRISM application settings.',
+      currentSession: 'Session status',
+      provider: 'Current provider',
+      lastSignIn: 'Last sign-in',
+      memberSince: 'Account created',
+      signOutTitle: 'Sign out',
+      signOutHint: 'Ends the local session and returns to the authentication screen.',
+      signOutAction: 'Sign out',
+      signingOut: 'Signing out...',
     },
   },
   general: {
@@ -64,9 +120,15 @@ export const settingsStringsEn: SettingsStrings = {
     },
     rightPanelDefaultState: {
       label: 'Panel sections at startup',
-      hint: 'Default open/closed state for accordion sections when opening a panel for the first time.',
+      hint: 'Default open or closed state for accordion sections when opening a panel for the first time.',
       open: 'Open',
       closed: 'Closed',
+    },
+    workflowBreadcrumb: {
+      label: 'Workflow breadcrumb bar',
+      hint: 'Shows the clickable bar under the header inside the SIF workflow.',
+      visible: 'Visible',
+      hidden: 'Hidden',
     },
     pdfPageSize: {
       label: 'PDF page size',
@@ -83,11 +145,11 @@ export const settingsStringsEn: SettingsStrings = {
     },
     scientificNotation: {
       label: 'Scientific notation',
-      hint: 'Display PFD/λ values in scientific notation (e.g. 1.23e-4).',
+      hint: 'Display PFD/lambda values in scientific notation (e.g. 1.23e-4).',
     },
     decimalRounding: {
       label: 'Significant digits',
-      hint: 'Number of digits shown for PFD/λ numeric values.',
+      hint: 'Number of digits shown for PFD/lambda numeric values.',
       unit: 'digits',
     },
     defaultMissionTime: {
@@ -102,11 +164,11 @@ export const settingsStringsEn: SettingsStrings = {
     },
   },
   shortcuts: {
-    searchPlaceholder: 'Filter by command or keybinding…',
+    searchPlaceholder: 'Filter by command or keybinding...',
     jsonToggle: 'Switch to JSON',
     tableToggle: 'Switch to table',
     resetAll: 'Reset all',
-    pressKey: 'Press a shortcut…',
+    pressKey: 'Press a shortcut...',
     pressKeyCancel: 'Escape to cancel',
     reset: 'Reset',
     columns: {
@@ -124,7 +186,7 @@ export const settingsStringsEn: SettingsStrings = {
       default: 'Default',
       user: 'User',
     },
-    unbound: '—',
+    unbound: '-',
     jsonHint: 'Only your custom keybindings are shown here. Edit them directly in the table.',
   },
   footer: {

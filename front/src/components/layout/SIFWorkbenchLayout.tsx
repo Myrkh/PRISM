@@ -402,6 +402,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
   const panelsInverted    = preferences.panelsInverted    ?? false
   const activityBarVisible = preferences.activityBarVisible ?? true
   const centeredLayout    = preferences.centeredLayout    ?? false
+  const showWorkflowBreadcrumb = preferences.showWorkflowBreadcrumb ?? true
 
   // Helper: wraps content with a max-width centered column when centeredLayout is on.
   const wrapCentered = (content: ReactNode): ReactNode =>
@@ -647,7 +648,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                       className="relative flex min-h-0 flex-col overflow-hidden"
                       style={{ width: splitWidth ?? '50%', minWidth: 280, flexShrink: 0 }}
                     >
-                      <EditorBreadcrumb />
+                      {showWorkflowBreadcrumb && <EditorBreadcrumb />}
                       <SIFWorkbenchBar
                         active={visibleTab}
                         onSelect={(id) => setTab(id)}
@@ -691,7 +692,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                 ) : (
                   // ── SINGLE MODE ──────────────────────────────────────────
                   <div className="flex flex-1 min-w-0 min-h-0 flex-col overflow-hidden">
-                    <EditorBreadcrumb />
+                    {showWorkflowBreadcrumb && <EditorBreadcrumb />}
                     {!leftOpen && (
                       <SIFWorkbenchBar
                         active={visibleTab}

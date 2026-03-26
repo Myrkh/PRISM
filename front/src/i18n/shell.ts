@@ -85,6 +85,8 @@ export interface ShellStrings {
       splitView: string
       customizeLayout: string
       centeredLayout: string
+      workflowBreadcrumbShow: string
+      workflowBreadcrumbHide: string
       commandPaletteTop: string
       commandPaletteCenter: string
       panelSectionsOpenByDefault: string

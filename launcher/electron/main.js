@@ -8,7 +8,7 @@
  *   4. Gestion des téléchargements GitHub Releases (IPC vers le renderer)
  */
 
-const { app, BrowserWindow, ipcMain, shell } = require('electron')
+const { app, BrowserWindow, ipcMain, shell, dialog } = require('electron')
 const path   = require('path')
 const fs     = require('fs')
 const https  = require('https')
@@ -420,6 +420,74 @@ ipcMain.handle('prism:recent:record', (_event, data) => {
   const entries = readRecentProjects().filter(e => e.id !== sanitized.id)
   entries.unshift(sanitized)
   writeRecentProjects(entries.slice(0, MAX_RECENT_PROJECTS))
+})
+
+function sanitizePdfFileName(value) {
+  const base = String(value || 'note')
+    .replace(/[\/:*?"<>|]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return (base || 'note').slice(0, 96)
+}
+
+ipcMain.handle('prism:note:exportPdf', async (_event, payload) => {
+  const title = typeof payload?.title === 'string' ? payload.title : 'Note'
+  const html = typeof payload?.html === 'string' ? payload.html : ''
+  if (!html.trim()) return { ok: false, error: 'Empty HTML payload.' }
+
+  const pdfWindow = new BrowserWindow({
+    show: false,
+    width: 1240,
+    height: 1754,
+    backgroundColor: '#ffffff',
+    webPreferences: {
+      sandbox: true,
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  })
+
+  try {
+    await pdfWindow.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(html)}`)
+    await pdfWindow.webContents.executeJavaScript(
+      `new Promise(resolve => {
+        const done = () => setTimeout(resolve, 120)
+        const fontPromise = document.fonts?.ready ? document.fonts.ready.catch(() => undefined) : Promise.resolve()
+        const imagePromises = Array.from(document.images || []).map(image => {
+          if (image.complete) return Promise.resolve()
+          return new Promise(innerResolve => {
+            image.addEventListener('load', innerResolve, { once: true })
+            image.addEventListener('error', innerResolve, { once: true })
+          })
+        })
+        Promise.all([fontPromise, ...imagePromises]).then(done).catch(done)
+      })`,
+      true,
+    )
+
+    const pdfBuffer = await pdfWindow.webContents.printToPDF({
+      printBackground: true,
+      pageSize: 'A4',
+      landscape: false,
+      preferCSSPageSize: true,
+    })
+
+    const suggested = `${sanitizePdfFileName(payload?.suggestedFileName || title)}.pdf`
+    const result = await dialog.showSaveDialog(prismWindow || undefined, {
+      title: 'Enregistrer la note en PDF',
+      defaultPath: path.join(app.getPath('documents'), suggested),
+      filters: [{ name: 'PDF', extensions: ['pdf'] }],
+    })
+
+    if (result.canceled || !result.filePath) return { ok: false, canceled: true }
+
+    fs.writeFileSync(result.filePath, pdfBuffer)
+    return { ok: true, filePath: result.filePath }
+  } catch (error) {
+    return { ok: false, error: error?.message || String(error) }
+  } finally {
+    if (!pdfWindow.isDestroyed()) pdfWindow.close()
+  }
 })
 
 // Docs window
