@@ -26,7 +26,7 @@ logger = logging.getLogger(__name__)
 # ── Types ──────────────────────────────────────────────────────────────────────
 
 Provider = Literal["anthropic", "mistral", "ollama"]
-ResponseMode = Literal["default", "draft_note"]
+ResponseMode = Literal["default", "draft_note", "create_project", "create_sif", "draft_sif", "create_library"]
 
 SUPPORTED_ANTHROPIC_MODELS = {
     "claude-sonnet-4-6": "claude-sonnet-4-6",
@@ -108,7 +108,7 @@ class AttachedContext:
 class WorkspaceAttachment:
     def __init__(
         self,
-        kind: Literal["note", "pdf", "image"],
+        kind: Literal["note", "pdf", "image", "json"],
         node_id: str,
         name: str,
         content: str = "",
@@ -136,12 +136,14 @@ class PrismWorkspaceContext:
         standards_md: str = "",        # .prism/standards.md
         sif_registry_md: str = "",     # .prism/sif-registry.md (auto-généré)
         active_sif_json: dict | None = None,  # SIF active sérialisée
+        target_project_json: dict | None = None,  # Projet ciblé pour create_sif / draft_sif
     ) -> None:
         self.context_md = context_md
         self.conventions_md = conventions_md
         self.standards_md = standards_md
         self.sif_registry_md = sif_registry_md
         self.active_sif_json = active_sif_json
+        self.target_project_json = target_project_json
 
     def to_markdown(self) -> str:
         """Sérialise le contexte workspace en Markdown pour injection dans le prompt."""
@@ -164,6 +166,13 @@ class PrismWorkspaceContext:
             parts.append(
                 f"## SIF active — données complètes\n\n"
                 f"```json\n{sif_str}\n```"
+            )
+
+        if self.target_project_json:
+            project_str = json.dumps(self.target_project_json, ensure_ascii=False, indent=2)
+            parts.append(
+                f"## Projet cible — métadonnées\n\n"
+                f"```json\n{project_str}\n```"
             )
 
         if not parts:
@@ -311,6 +320,203 @@ class AIService:
                 "- Commence directement par le titre ou le premier paragraphe utile de la note.\n"
                 "- Utilise du vrai Markdown: titres avec #, listes Markdown, tableaux Markdown si utile.\n"
                 "- Si tu ajoutes un schéma ASCII ou un extrait de code, garde-le à l'intérieur de la note sans remplacer le reste du contenu."
+            )
+
+        if response_mode == "create_project":
+            parts.append(
+                "## Mode structured_project_draft\n\n"
+                "- Retourne uniquement un objet JSON valide. Aucun Markdown, aucune phrase hors JSON.\n"
+                "- Utilise d'abord le contexte .prism fourni, puis les pièces jointes éventuelles.\n"
+                "- Réutilise strictement le contrat .prism projet attendu par PRISM.\n"
+                "- N'invente jamais une donnée absente du contexte. Si l'information manque, laisse une chaîne vide quand le contrat l'autorise et documente-la dans missing_data ou uncertain_data.\n"
+                "- N'ajoute pas de SIF au projet si le contexte ne permet pas d'en proposer une de manière crédible. Dans ce cas, renvoie payload.sifs = [].\n"
+                "- Si le contexte .prism est insuffisant ou contradictoire, remonte l'écart dans uncertain_data ou conflicts au lieu de fabriquer une valeur.\n"
+                "- Le JSON doit respecter exactement ce schéma:\n"
+                "{\n"
+                "  \"kind\": \"project_draft\",\n"
+                "  \"summary\": \"...\",\n"
+                "  \"assumptions\": [\"...\"],\n"
+                "  \"missing_data\": [\"...\"],\n"
+                "  \"uncertain_data\": [\"...\"],\n"
+                "  \"conflicts\": [\"...\"],\n"
+                "  \"prism_file\": {\n"
+                "    \"prismVersion\": \"1.0\",\n"
+                "    \"type\": \"project\",\n"
+                "    \"exportedAt\": \"2026-03-27T12:00:00Z\",\n"
+                "    \"payload\": {\n"
+                "      \"projectMeta\": {\n"
+                "        \"name\": \"...\",\n"
+                "        \"ref\": \"...\",\n"
+                "        \"client\": \"...\",\n"
+                "        \"site\": \"...\",\n"
+                "        \"unit\": \"...\",\n"
+                "        \"standard\": \"IEC61511|IEC61508|ISA84\",\n"
+                "        \"revision\": \"A\",\n"
+                "        \"description\": \"...\",\n"
+                "        \"status\": \"active|completed|archived\"\n"
+                "      },\n"
+                "      \"sifs\": []\n"
+                "    }\n"
+                "  }\n"
+                "}\n"
+                "- Le nom du projet est obligatoire.\n"
+                "- standard doit valoir IEC61511, IEC61508 ou ISA84.\n"
+                "- status doit valoir active, completed ou archived.\n"
+                "- La sortie doit être directement parsable par un JSON.parse."
+            )
+
+        if response_mode == "create_library":
+            parts.append(
+                "## Mode structured_library_draft\n\n"
+                "- Retourne uniquement un objet JSON valide. Aucun Markdown, aucune phrase hors JSON.\n"
+                "- Utilise d'abord le contexte .prism fourni, puis les pièces jointes éventuelles, puis le projet cible s'il est explicitement fourni.\n"
+                "- Réutilise strictement le contrat d'export/import Library PRISM attendu par l'application: prism.component-templates.\n"
+                "- Retourne exactement un template dans library_file.templates.\n"
+                "- N'invente jamais une donnée absente du contexte. Si une information manque, utilise une chaîne vide pour le texte, 0 pour les champs numériques, false pour les booléens, puis documente explicitement le manque dans missing_data ou uncertain_data.\n"
+                "- N'utilise jamais de valeurs typiques, conservatrices, par défaut ou d'exemple pour remplir manufacturer, data_source, lambdas, DC, test intervals, proof_test_coverage ou lifetime.\n"
+                "- Si un projet cible explicite est fourni par PRISM, target_scope doit valoir project. Sinon target_scope doit valoir user.\n"
+                "- Si field_status d'un champ vaut missing, uncertain ou conflict, la valeur correspondante dans library_file doit rester vide, nulle, false ou 0 selon son type.\n"
+                "- Le JSON doit respecter exactement ce schéma:\n"
+                "{\n"
+                "  \"kind\": \"library_draft\",\n"
+                "  \"summary\": \"...\",\n"
+                "  \"target_scope\": \"user|project\",\n"
+                "  \"assumptions\": [\"...\"],\n"
+                "  \"missing_data\": [\"...\"],\n"
+                "  \"uncertain_data\": [\"...\"],\n"
+                "  \"conflicts\": [\"...\"],\n"
+                "  \"field_status\": {\n"
+                "    \"template_name\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"template_scope\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"target_project\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"library_name\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"review_status\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"source_reference\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"tags\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"subsystem_type\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"instrument_category\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"instrument_type\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"manufacturer\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"data_source\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"determined_character\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"component_description\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"factorized_lambda\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"factorized_lambda_d_ratio\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"factorized_dcd\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"factorized_dcs\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"lambda_du\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"lambda_dd\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"lambda_su\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"lambda_sd\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"test_t1\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"test_t0\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"test_type\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"proof_test_coverage\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"lifetime\": \"provided|missing|uncertain|conflict\"\n"
+                "  },\n"
+                "  \"library_file\": {\n"
+                "    \"format\": \"prism.component-templates\",\n"
+                "    \"version\": 1,\n"
+                "    \"exportedAt\": \"2026-03-27T12:00:00Z\",\n"
+                "    \"exportedByProfileId\": null,\n"
+                "    \"projectId\": null,\n"
+                "    \"libraryName\": \"...\",\n"
+                "    \"templates\": [\n"
+                "      {\n"
+                "        \"name\": \"...\",\n"
+                "        \"description\": \"...\",\n"
+                "        \"subsystemType\": \"sensor|logic|actuator\",\n"
+                "        \"sourceReference\": \"...\",\n"
+                "        \"tags\": [\"...\"],\n"
+                "        \"reviewStatus\": \"draft|review|approved\",\n"
+                "        \"libraryName\": \"...\",\n"
+                "        \"componentSnapshot\": {\n"
+                "          \"subsystemType\": \"sensor|logic|actuator\",\n"
+                "          \"instrumentCategory\": \"...\",\n"
+                "          \"instrumentType\": \"...\",\n"
+                "          \"manufacturer\": \"...\",\n"
+                "          \"dataSource\": \"...\",\n"
+                "          \"determinedCharacter\": \"TYPE_A|TYPE_B|NON_TYPE_AB\",\n"
+                "          \"description\": \"...\",\n"
+                "          \"paramMode\": \"factorized|developed\",\n"
+                "          \"factorized\": { \"lambda\": 0, \"lambdaDRatio\": 0, \"DCd\": 0, \"DCs\": 0 },\n"
+                "          \"developed\": { \"lambda_DU\": 0, \"lambda_DD\": 0, \"lambda_SU\": 0, \"lambda_SD\": 0 },\n"
+                "          \"test\": { \"T1\": 0, \"T0\": 0, \"testType\": \"none\" },\n"
+                "          \"advanced\": { \"proofTestCoverage\": 0, \"lifetime\": 0 }\n"
+                "        }\n"
+                "      }\n"
+                "    ]\n"
+                "  }\n"
+                "}\n"
+                "- Le champ summary est obligatoire.\n"
+                "- subsystemType et componentSnapshot.subsystemType doivent toujours être cohérents.\n"
+                "- La sortie doit être directement parsable par un JSON.parse."
+            )
+
+        if response_mode in {"create_sif", "draft_sif"}:
+            parts.append(
+                "## Mode structured_sif_draft\n\n"
+                "- Retourne uniquement un objet JSON valide. Aucun Markdown, aucune phrase hors JSON.\n"
+                "- Utilise d'abord le contexte .prism fourni, puis les pièces jointes éventuelles, puis le projet cible.\n"
+                "- N'invente jamais une donnée absente du contexte. Si l'information manque, laisse le champ vide et documente-le dans missing_data ou uncertain_data.\n"
+                "- N'utilise jamais de valeur typique, conservative, par défaut, d'exemple ou de bonne pratique pour remplir un champ.\n"
+                "- N'utilise jamais des exemples de composants, des lambda, des DC, des beta, des PFD, des SFF, des PST, des temps de réponse, des demand rates, des proof test intervals ou des SIL cibles s'ils ne sont pas explicitement présents dans le contexte.\n"
+                "- Un SIL maximum autorisé ne définit pas à lui seul le SIL cible. Si seul un SIL max est connu, cible -> uncertain_data, pas target_sil.\n"
+                "- Un préfixe de tag (ex: R201-) ne définit pas à lui seul un process_tag complet.\n"
+                "- Ne propage jamais automatiquement la même architecture à sensor, logic et actuator. Raisonne chaque sous-système séparément.\n"
+                "- Si le contexte .prism contredit le projet cible, ajoute l'écart dans conflicts et n'affirme pas une version comme certaine.\n"
+                "- Le JSON doit respecter exactement ce schéma:\n"
+                "{\n"
+                "  \"kind\": \"sif_draft\",\n"
+                "  \"summary\": \"...\",\n"
+                "  \"assumptions\": [\"...\"],\n"
+                "  \"missing_data\": [\"...\"],\n"
+                "  \"uncertain_data\": [\"...\"],\n"
+                "  \"conflicts\": [\"...\"],\n"
+                "  \"field_status\": {\n"
+                "    \"process_tag\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"target_sil\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"demand_rate\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"rrf_required\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"process_safety_time\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"sif_response_time\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"safe_state\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"sensor_architecture\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"logic_architecture\": \"provided|missing|uncertain|conflict\",\n"
+                "    \"actuator_architecture\": \"provided|missing|uncertain|conflict\"\n"
+                "  },\n"
+                "  \"sif_draft\": {\n"
+                "    \"sif_number\": \"SIF-...\",\n"
+                "    \"title\": \"...\",\n"
+                "    \"description\": \"...\",\n"
+                "    \"pid\": \"...\",\n"
+                "    \"location\": \"...\",\n"
+                "    \"process_tag\": \"...\",\n"
+                "    \"hazardous_event\": \"...\",\n"
+                "    \"demand_rate\": 0.1,\n"
+                "    \"target_sil\": 2,\n"
+                "    \"rrf_required\": 100,\n"
+                "    \"made_by\": \"...\",\n"
+                "    \"verified_by\": \"...\",\n"
+                "    \"approved_by\": \"...\",\n"
+                "    \"date\": \"YYYY-MM-DD\",\n"
+                "    \"process_safety_time\": 30,\n"
+                "    \"sif_response_time\": 10,\n"
+                "    \"safe_state\": \"...\",\n"
+                "    \"status\": \"draft\",\n"
+                "    \"subsystem_architecture\": {\n"
+                "      \"sensor\": \"1oo2\",\n"
+                "      \"logic\": \"1oo1\",\n"
+                "      \"actuator\": \"1oo1\"\n"
+                "    }\n"
+                "  }\n"
+                "}\n"
+                "- Les valeurs autorisées pour subsystem_architecture.sensor|logic|actuator sont: 1oo1, 1oo2, 2oo2, 2oo3, 1oo2D, custom.\n"
+                "- Les valeurs autorisées pour target_sil sont: 1, 2, 3, 4.\n"
+                "- Le champ summary est obligatoire. Le champ title est fortement recommandé.\n"
+                "- Si field_status d'un champ critique vaut missing, uncertain ou conflict, n'écris aucune valeur pour ce champ dans sif_draft.\n"
+                "- Si field_status vaut provided, la valeur correspondante doit être présente dans sif_draft.\n"
+                "- La sortie doit être directement parsable par un JSON.parse."
             )
 
         knowledge_ctx = self._knowledge.build_knowledge_context(

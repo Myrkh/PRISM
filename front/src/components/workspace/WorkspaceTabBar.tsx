@@ -35,6 +35,13 @@ function TabIcon({ node, isActive }: { node: WorkspaceNode | undefined; isActive
   if (node.type === 'image') {
     return <FileImage size={12} style={{ color: isActive ? '#A78BFA' : TEXT_DIM }} />
   }
+  if (node.type === 'json') {
+    return (
+      <span style={{ fontSize: 9, fontWeight: 700, color: isActive ? '#38BDF8' : TEXT_DIM, lineHeight: 1, letterSpacing: 0 }}>
+        JSON
+      </span>
+    )
+  }
   // note
   return <FileText size={12} style={{ color: isActive ? TEAL : TEXT_DIM }} />
 }

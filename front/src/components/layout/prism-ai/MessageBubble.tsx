@@ -1,6 +1,7 @@
 import { BookOpen, Plus } from 'lucide-react'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { MarkdownMessage } from './MarkdownMessage'
+import { ProposalCard } from './ProposalCard'
 import { resolveMessageModeBadge } from './noteUtils'
 import type { ChatMessage } from './types'
 
@@ -31,13 +32,19 @@ export function MessageBubble({
   createNoteLabel,
   openNoteLabel,
   onNoteAction,
+  proposalActive,
+  proposalCompleted,
+  onProposalOpen,
 }: {
   msg: ChatMessage
-  noteId?: string
+  noteId?: string | null
   noteActionsEnabled: boolean
   createNoteLabel: string
   openNoteLabel: string
   onNoteAction: (msg: ChatMessage) => void
+  proposalActive?: boolean
+  proposalCompleted?: boolean
+  onProposalOpen?: (msg: ChatMessage) => void
 }) {
   const { TEAL, TEXT, TEXT_DIM, BORDER, PAGE_BG, isDark } = usePrismTheme()
   const isUser = msg.role === 'user'
@@ -123,7 +130,15 @@ export function MessageBubble({
             </span>
           )}
         </div>
-        {noteActionsEnabled && msg.content.trim() && (
+        {msg.proposal && onProposalOpen && (
+          <ProposalCard
+            proposal={msg.proposal}
+            active={Boolean(proposalActive)}
+            completed={Boolean(proposalCompleted)}
+            onOpen={() => onProposalOpen(msg)}
+          />
+        )}
+        {!msg.proposal && noteActionsEnabled && msg.content.trim() && (
           <button
             type="button"
             onClick={() => onNoteAction(msg)}

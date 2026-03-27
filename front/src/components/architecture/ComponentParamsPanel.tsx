@@ -140,7 +140,7 @@ const PANEL_TABS: { id: PanelTab; label: string; Icon: React.ElementType }[] = [
 
 const TEMPLATE_SCOPE_OPTIONS: {
   value: ComponentTemplateUpsertInput['scope']
-  label: string
+  label: React.ReactNode
   description: string
 }[] = [
   { value: 'user', label: 'My Library', description: 'Disponible dans tous vos projets.' },
@@ -168,7 +168,7 @@ function inputToTags(raw: string): string[] {
 }
 
 // ─── Small reusable form widgets ──────────────────────────────────────────
-export function FieldRow({ label, children }: { label: string; children: React.ReactNode }) {
+export function FieldRow({ label, children }: { label: React.ReactNode; children: React.ReactNode }) {
   const { TEXT_DIM } = usePrismTheme()
   return (
     <div className="space-y-1">
@@ -315,9 +315,9 @@ export function CheckboxField({
   )
 }
 
-export function SliderField({ label, value, min, max, step = 0.01, format, onChange, color }: {
-  label: string; value: number; min: number; max: number; step?: number
-  format: (v: number) => string; onChange: (v: number) => void; color?: string
+export function SliderField({ label, value, min, max, step = 0.01, format, onChange, color, ariaLabel }: {
+  label: React.ReactNode; value: number; min: number; max: number; step?: number
+  format: (v: number) => string; onChange: (v: number) => void; color?: string; ariaLabel?: string
 }) {
   const { BORDER, PAGE_BG, TEXT, TEXT_DIM } = usePrismTheme()
   const scale = max <= 1 ? 100 : 1
@@ -377,7 +377,7 @@ export function SliderField({ label, value, min, max, step = 0.01, format, onCha
             borderColor: invalid ? semantic.error : BORDER,
             color: TEXT,
           }}
-          aria-label={label}
+          aria-label={ariaLabel ?? (typeof label === 'string' ? label : undefined)}
         />
         <span className="text-[11px] font-semibold font-mono" style={{ color: tone }}>
           {unit ?? format(value)}

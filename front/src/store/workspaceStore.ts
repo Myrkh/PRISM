@@ -4,8 +4,8 @@
  * Free-form workspace tree (folders + markdown notes).
  *
  * Persistence strategy (hybrid):
- *   - localStorage via zustand/persist  → instant load, works offline
- *   - Supabase workspace_tree table     → synced per authenticated profile
+ *   - localStorage via zustand/persist              → instant load, works offline
+ *   - Supabase workspace_nodes / prism files tables → synced per authenticated profile
  *     Sync is debounced (2s) after any mutation, and pulled on login.
  *     Last-write-wins: server state is loaded only when its updated_at is
  *     more recent than the local snapshot (stored in localSnapshotAt).
@@ -14,9 +14,22 @@ import { create } from 'zustand'
 import { persist, subscribeWithSelector } from 'zustand/middleware'
 import { immer } from 'zustand/middleware/immer'
 import { nanoid } from 'nanoid'
-import { supabase } from '@/lib/supabase'
 import { useAppStore } from './appStore'
-import { DEFAULT_PRISM_FILES, type PrismEditableFile } from './types'
+import { DEFAULT_PRISM_FILES, PRISM_EDITABLE_FILES, type PrismEditableFile } from './types'
+import {
+  deleteWorkspaceNodeRows,
+  fetchLegacyWorkspaceTreeRow,
+  fetchWorkspaceNodeRows,
+  fetchWorkspacePrismFileRows,
+  fetchWorkspaceUserStateRow,
+  listWorkspaceNodeIds,
+  upsertWorkspaceNodeRows,
+  upsertWorkspacePrismFileRows,
+  upsertWorkspaceUserStateRow,
+  type WorkspaceNodeRow,
+  type WorkspacePrismFileRow,
+  type WorkspaceUserStateRow,
+} from './workspaceSyncDb'
 
 export const WORKSPACE_ROOT = '__root__'
 
@@ -52,7 +65,24 @@ export type WorkspaceImage = {
   parentId: string | null
 }
 
-export type WorkspaceNode = WorkspaceFolder | WorkspaceNote | WorkspacePDF | WorkspaceImage
+export type WorkspaceJsonSchema = 'generic' | 'ai_sif_draft' | 'prism_project_draft' | 'prism_library_draft' | 'library_import'
+
+export type WorkspaceJsonBinding =
+  | { kind: 'ai_sif_draft'; messageId: string }
+  | { kind: 'ai_project_draft'; messageId: string }
+  | { kind: 'ai_library_draft'; messageId: string }
+
+export type WorkspaceJSON = {
+  type: 'json'
+  id: string
+  name: string
+  content: string
+  schema: WorkspaceJsonSchema
+  binding?: WorkspaceJsonBinding
+  parentId: string | null
+}
+
+export type WorkspaceNode = WorkspaceFolder | WorkspaceNote | WorkspacePDF | WorkspaceImage | WorkspaceJSON
 type PrismFilesMap = Record<PrismEditableFile, string>
 
 // ── Persisted shape (subset of state) ───────────────────────────────────────
@@ -81,6 +111,12 @@ interface WorkspaceState extends WorkspacePersisted {
 
   createFolder: (parentId: string | null, name: string) => string
   createNote: (parentId: string | null, name: string) => string
+  createJsonNode: (
+    parentId: string | null,
+    name: string,
+    content?: string,
+    options?: { schema?: WorkspaceJsonSchema; binding?: WorkspaceJsonBinding },
+  ) => string
   /** Register an already-uploaded file node (pdf or image). storageKey = Supabase Storage path. */
   createFileNode: (parentId: string | null, type: 'pdf' | 'image', name: string, storageKey: string) => string
   clearPendingRename: () => void
@@ -91,6 +127,7 @@ interface WorkspaceState extends WorkspacePersisted {
   toggleFolder: (id: string) => void
   toggleSection: () => void
   updateNoteContent: (id: string, content: string) => void
+  updateJsonContent: (id: string, content: string) => void
   pinNode: (id: string) => void
   unpinNode: (id: string) => void
 
@@ -141,6 +178,25 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             if (!state.childOrder[key]) state.childOrder[key] = []
             state.childOrder[key].push(id)
             state.pendingRenameId = id
+          })
+          return id
+        },
+
+        createJsonNode: (parentId, name, content = '', options) => {
+          const id = nanoid(8)
+          const key = parentId ?? WORKSPACE_ROOT
+          set(state => {
+            state.nodes[id] = {
+              type: 'json',
+              id,
+              name,
+              content,
+              schema: options?.schema ?? 'generic',
+              binding: options?.binding,
+              parentId,
+            }
+            if (!state.childOrder[key]) state.childOrder[key] = []
+            state.childOrder[key].push(id)
           })
           return id
         },
@@ -224,6 +280,11 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         updateNoteContent: (id, content) => set(state => {
           const node = state.nodes[id]
           if (node?.type === 'note') node.content = content
+        }),
+
+        updateJsonContent: (id, content) => set(state => {
+          const node = state.nodes[id]
+          if (node?.type === 'json') node.content = content
         }),
 
         pinNode: (id) => set(state => {
@@ -310,6 +371,8 @@ export const useWorkspaceStore = create<WorkspaceState>()(
 
 // ── Supabase sync helpers ────────────────────────────────────────────────────
 
+let _lastSyncedWorkspaceNodeIds: string[] | null = null
+
 function normalizePrismFiles(prismFiles: Partial<PrismFilesMap> | null | undefined): PrismFilesMap {
   return { ...DEFAULT_PRISM_FILES, ...(prismFiles ?? {}) }
 }
@@ -337,66 +400,267 @@ function pickPersisted(s: WorkspaceState): WorkspacePersisted {
   }
 }
 
+function hasLocalWorkspaceData(state: WorkspaceState, prismFiles: PrismFilesMap): boolean {
+  return (
+    Object.keys(state.nodes).length > 0
+    || state.pinnedNodeIds.length > 0
+    || state.sectionCollapsed
+    || PRISM_EDITABLE_FILES.some(filename => (prismFiles[filename] ?? '').trim().length > 0)
+  )
+}
+
+function workspaceNodeToRow(userId: string, state: WorkspaceState, node: WorkspaceNode): WorkspaceNodeRow {
+  const key = node.parentId ?? WORKSPACE_ROOT
+  const sortIndex = Math.max(0, state.childOrder[key]?.indexOf(node.id) ?? 0)
+
+  if (node.type === 'folder') {
+    return {
+      user_id: userId,
+      node_id: node.id,
+      node_type: 'folder',
+      parent_id: node.parentId,
+      sort_index: sortIndex,
+      name: node.name,
+      content: null,
+      storage_key: null,
+      collapsed: node.collapsed,
+      json_schema: null,
+      binding: null,
+    }
+  }
+
+  if (node.type === 'note') {
+    return {
+      user_id: userId,
+      node_id: node.id,
+      node_type: 'note',
+      parent_id: node.parentId,
+      sort_index: sortIndex,
+      name: node.name,
+      content: node.content,
+      storage_key: null,
+      collapsed: false,
+      json_schema: null,
+      binding: null,
+    }
+  }
+
+  if (node.type === 'json') {
+    return {
+      user_id: userId,
+      node_id: node.id,
+      node_type: 'json',
+      parent_id: node.parentId,
+      sort_index: sortIndex,
+      name: node.name,
+      content: node.content,
+      storage_key: null,
+      collapsed: false,
+      json_schema: node.schema,
+      binding: (node.binding ?? null) as Record<string, unknown> | null,
+    }
+  }
+
+  return {
+    user_id: userId,
+    node_id: node.id,
+    node_type: node.type,
+    parent_id: node.parentId,
+    sort_index: sortIndex,
+    name: node.name,
+    content: null,
+    storage_key: node.storageKey,
+    collapsed: false,
+    json_schema: null,
+    binding: null,
+  }
+}
+
+function buildSnapshotFromRows(
+  userId: string,
+  nodeRows: WorkspaceNodeRow[],
+  prismRows: WorkspacePrismFileRow[],
+  stateRow: WorkspaceUserStateRow | null,
+  remoteTimestamp: string | null,
+): WorkspaceSnapshot {
+  const snapshot = buildEmptyWorkspaceSnapshot(userId)
+  snapshot.sectionCollapsed = stateRow?.section_collapsed ?? false
+  snapshot.pinnedNodeIds = Array.isArray(stateRow?.pinned_node_ids) ? stateRow.pinned_node_ids : []
+  snapshot.localSnapshotAt = remoteTimestamp
+
+  const orderedRows = [...nodeRows].sort((left, right) => {
+    const leftParent = left.parent_id ?? ''
+    const rightParent = right.parent_id ?? ''
+    if (leftParent !== rightParent) return leftParent.localeCompare(rightParent)
+    return left.sort_index - right.sort_index
+  })
+
+  for (const row of orderedRows) {
+    if (row.node_type === 'folder') {
+      snapshot.nodes[row.node_id] = {
+        type: 'folder',
+        id: row.node_id,
+        name: row.name,
+        collapsed: row.collapsed,
+        parentId: row.parent_id,
+      }
+    } else if (row.node_type === 'note') {
+      snapshot.nodes[row.node_id] = {
+        type: 'note',
+        id: row.node_id,
+        name: row.name,
+        content: row.content ?? '',
+        parentId: row.parent_id,
+      }
+    } else if (row.node_type === 'json') {
+      snapshot.nodes[row.node_id] = {
+        type: 'json',
+        id: row.node_id,
+        name: row.name,
+        content: row.content ?? '',
+        schema: (row.json_schema as WorkspaceJsonSchema | null) ?? 'generic',
+        binding: (row.binding ?? undefined) as WorkspaceJsonBinding | undefined,
+        parentId: row.parent_id,
+      }
+    } else if (row.node_type === 'pdf' || row.node_type === 'image') {
+      snapshot.nodes[row.node_id] = {
+        type: row.node_type,
+        id: row.node_id,
+        name: row.name,
+        storageKey: row.storage_key ?? '',
+        parentId: row.parent_id,
+      }
+    }
+
+    const key = row.parent_id ?? WORKSPACE_ROOT
+    ;(snapshot.childOrder[key] ??= []).push(row.node_id)
+  }
+
+  snapshot.prismFiles = normalizePrismFiles(
+    Object.fromEntries(prismRows.map(row => [row.file_name, row.content])) as Partial<PrismFilesMap>,
+  )
+
+  return snapshot
+}
+
+function buildSnapshotFromLegacyRow(userId: string, row: { data: unknown; updated_at: string }): WorkspaceSnapshot {
+  const remote = (row.data ?? {}) as Partial<WorkspaceSnapshot>
+  return {
+    ...buildEmptyWorkspaceSnapshot(userId),
+    ...remote,
+    ownerUserId: userId,
+    localSnapshotAt: remote.localSnapshotAt ?? row.updated_at,
+    prismFiles: normalizePrismFiles(remote.prismFiles),
+  }
+}
+
+function getRemoteWorkspaceTimestamp(
+  nodeRows: WorkspaceNodeRow[],
+  prismRows: WorkspacePrismFileRow[],
+  stateRow: WorkspaceUserStateRow | null,
+): string | null {
+  const timestamps = [
+    ...nodeRows.map(row => row.updated_at).filter((value): value is string => Boolean(value)),
+    ...prismRows.map(row => row.updated_at).filter((value): value is string => Boolean(value)),
+    ...(stateRow?.updated_at ? [stateRow.updated_at] : []),
+  ]
+  if (timestamps.length === 0) return null
+  return timestamps.reduce((latest, current) => (current > latest ? current : latest))
+}
+
 /** Push current local state to Supabase. Updates localSnapshotAt on success. */
 export async function pushWorkspaceToSupabase(userId: string): Promise<void> {
   const state = useWorkspaceStore.getState()
+  const prismFiles = normalizePrismFiles(useAppStore.getState().prismFiles)
+  const nodeRows = Object.values(state.nodes).map(node => workspaceNodeToRow(userId, state, node))
+  const prismRows: WorkspacePrismFileRow[] = PRISM_EDITABLE_FILES.map(filename => ({
+    user_id: userId,
+    file_name: filename,
+    content: prismFiles[filename] ?? '',
+  }))
+  const userStateRow: WorkspaceUserStateRow = {
+    user_id: userId,
+    section_collapsed: state.sectionCollapsed,
+    pinned_node_ids: [...state.pinnedNodeIds],
+  }
+
+  const knownNodeIds = _lastSyncedWorkspaceNodeIds ?? await listWorkspaceNodeIds(userId)
+  const currentNodeIds = nodeRows.map(row => row.node_id)
+  const staleNodeIds = knownNodeIds.filter(nodeId => !currentNodeIds.includes(nodeId))
+
+  await Promise.all([
+    upsertWorkspaceNodeRows(nodeRows),
+    upsertWorkspacePrismFileRows(prismRows),
+    upsertWorkspaceUserStateRow(userStateRow),
+  ])
+
+  if (staleNodeIds.length > 0) {
+    await deleteWorkspaceNodeRows(userId, staleNodeIds)
+  }
+
   const now = new Date().toISOString()
-  const data: WorkspaceSnapshot = {
-    ...pickPersisted(state),
-    ownerUserId: userId,
-    localSnapshotAt: now,
-    prismFiles: normalizePrismFiles(useAppStore.getState().prismFiles),
-  }
-
-  const { error } = await supabase
-    .from('workspace_tree')
-    .upsert({ user_id: userId, data }, { onConflict: 'user_id' })
-
-  if (!error) {
-    useWorkspaceStore.setState(s => {
-      s.localSnapshotAt = now
-      s.ownerUserId = userId
-    })
-  }
+  _lastSyncedWorkspaceNodeIds = currentNodeIds
+  useWorkspaceStore.setState(s => {
+    s.localSnapshotAt = now
+    s.ownerUserId = userId
+  })
 }
 
 /**
  * Pull workspace from Supabase and merge into local store.
- * Server wins only when its updated_at is strictly newer than localSnapshotAt.
+ * Server wins unless the local snapshot for the same user is newer.
  */
 export async function pullWorkspaceFromSupabase(userId: string): Promise<void> {
-  const { data: row, error } = await supabase
-    .from('workspace_tree')
-    .select('data, updated_at')
-    .eq('user_id', userId)
-    .maybeSingle()
+  const [nodeRows, prismRows, stateRow] = await Promise.all([
+    fetchWorkspaceNodeRows(userId),
+    fetchWorkspacePrismFileRows(userId),
+    fetchWorkspaceUserStateRow(userId),
+  ])
 
   const local = useWorkspaceStore.getState()
   const localUserMatches = local.ownerUserId === userId
+  const localPrismFiles = normalizePrismFiles(useAppStore.getState().prismFiles)
+  const localHasData = hasLocalWorkspaceData(local, localPrismFiles)
+  const localAt = local.localSnapshotAt ? new Date(local.localSnapshotAt).getTime() : 0
+  const normalizedRemoteHasData = nodeRows.length > 0 || prismRows.length > 0 || Boolean(stateRow)
 
-  if (error) return
+  if (normalizedRemoteHasData) {
+    const remoteTimestamp = getRemoteWorkspaceTimestamp(nodeRows, prismRows, stateRow)
+    const remoteAt = remoteTimestamp ? new Date(remoteTimestamp).getTime() : 0
+    const snapshot = buildSnapshotFromRows(userId, nodeRows, prismRows, stateRow, remoteTimestamp)
+    _lastSyncedWorkspaceNodeIds = nodeRows.map(row => row.node_id)
 
-  if (!row) {
-    if (!localUserMatches) {
-      useWorkspaceStore.getState()._loadSnapshot(buildEmptyWorkspaceSnapshot(userId))
+    if (!localUserMatches || !localHasData || remoteAt >= localAt) {
+      useWorkspaceStore.getState()._loadSnapshot(snapshot)
+      return
     }
+
+    await pushWorkspaceToSupabase(userId)
     return
   }
 
-  const remoteAt = new Date(row.updated_at as string).getTime()
-  const localAt = local.localSnapshotAt ? new Date(local.localSnapshotAt).getTime() : 0
-  const remote = row.data as Partial<WorkspaceSnapshot>
-  const snapshot: WorkspaceSnapshot = {
-    ...buildEmptyWorkspaceSnapshot(userId),
-    ...remote,
-    ownerUserId: remote.ownerUserId ?? userId,
-    localSnapshotAt: remote.localSnapshotAt ?? (row.updated_at as string),
-    prismFiles: normalizePrismFiles(remote.prismFiles),
+  const legacyRow = await fetchLegacyWorkspaceTreeRow(userId)
+  if (legacyRow) {
+    const snapshot = buildSnapshotFromLegacyRow(userId, legacyRow)
+    const remoteAt = new Date(legacyRow.updated_at).getTime()
+    _lastSyncedWorkspaceNodeIds = Object.keys(snapshot.nodes)
+
+    if (!localUserMatches || !localHasData || remoteAt >= localAt) {
+      useWorkspaceStore.getState()._loadSnapshot(snapshot)
+    }
+
+    await pushWorkspaceToSupabase(userId)
+    return
   }
 
-  if (!localUserMatches || remoteAt > localAt) {
-    useWorkspaceStore.getState()._loadSnapshot(snapshot)
+  if (localUserMatches && localHasData) {
+    _lastSyncedWorkspaceNodeIds = []
+    await pushWorkspaceToSupabase(userId)
+    return
   }
+
+  _lastSyncedWorkspaceNodeIds = []
+  useWorkspaceStore.getState()._loadSnapshot(buildEmptyWorkspaceSnapshot(userId))
 }
 
 // ── Debounced push wired up to store mutations ───────────────────────────────
@@ -427,15 +691,14 @@ export async function initWorkspaceSync(userId: string | null): Promise<void> {
   _prismUnsubscribe?.()
   _workspaceUnsubscribe = null
   _prismUnsubscribe = null
+  _lastSyncedWorkspaceNodeIds = null
 
   if (!userId) return
 
-  // Initial pull
   await pullWorkspaceFromSupabase(userId)
 
-  // Watch subsequent mutations — skip the read-only tab/UI fields for efficiency
   _workspaceUnsubscribe = useWorkspaceStore.subscribe(
-    (s) => ({
+    s => ({
       nodes: s.nodes,
       childOrder: s.childOrder,
       sectionCollapsed: s.sectionCollapsed,

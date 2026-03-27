@@ -6,7 +6,7 @@ import { useMemo } from 'react'
 import { getEffectiveKeybinding } from '@/core/shortcuts/defaults'
 import {
   LayoutDashboard, Network, BarChart3, Shield, FlaskConical,
-  FileText, FileImage, Home, Pencil, History, ClipboardCheck, CalendarDays,
+  FileText, FileImage, FileCode2, Home, Pencil, History, ClipboardCheck, CalendarDays,
   Cpu, BookOpen, BookOpenText, FolderPlus, FilePlus, Search, Settings, MessageSquare,
   Moon, Sun, PanelLeftOpen, PanelLeftClose, PanelRightOpen, PanelRightClose,
   Maximize2, Minimize2, Columns2, Hash, AtSign, HelpCircle, Terminal,
@@ -717,20 +717,20 @@ export function useCommandGroups({
   )
   const workspaceNodes = useWorkspaceStore(s => Object.values(s.nodes))
 
-  // ── Workspace nodes (# mode) — notes, PDFs, images ──────────────────────
+  // ── Workspace nodes (# mode) — notes, PDFs, images, JSON ─────────────────
 
   const workspaceDocsGroup: CommandGroup = {
     heading: 'Workspace',
     items: workspaceNodes
-      .filter(n => n.type === 'note' || n.type === 'pdf' || n.type === 'image')
+      .filter(n => n.type === 'note' || n.type === 'pdf' || n.type === 'image' || n.type === 'json')
       .map(node => {
-        const Icon = node.type === 'note' ? FileText : node.type === 'pdf' ? BookOpen : FileImage
+        const Icon = node.type === 'note' ? FileText : node.type === 'pdf' ? BookOpen : node.type === 'json' ? FileCode2 : FileImage
         return {
           id: `ws-${node.id}`,
           label: node.name,
           keywords: `workspace ${node.type} ${node.name}`,
           Icon,
-          meta: node.type === 'note' ? 'Note' : node.type === 'pdf' ? 'PDF' : 'Image',
+          meta: node.type === 'note' ? 'Note' : node.type === 'pdf' ? 'PDF' : node.type === 'json' ? 'JSON' : 'Image',
           onSelect: () => run(() => {
             if (node.type === 'note') {
               useWorkspaceStore.getState().openTab(node.id)

@@ -27,6 +27,7 @@ export function AttachPicker({
     note: 'Markdown',
     pdf: 'PDF',
     image: 'Image',
+    json: 'JSON',
   }
 
   const filteredSIFs = normalized

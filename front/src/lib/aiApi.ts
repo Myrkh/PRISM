@@ -10,7 +10,7 @@
  */
 
 import type { ChatMessage, AttachedContext, ChatConfig } from '@/components/layout/prism-ai/types'
-import type { SIF } from '@/core/types'
+import type { Project, SIF } from '@/core/types'
 
 // ─── Types workspace context ──────────────────────────────────────────────────
 
@@ -20,24 +20,25 @@ export interface WorkspaceContext {
   standards_md?: string      // .prism/standards.md
   sif_registry_md?: string   // .prism/sif-registry.md (auto-généré)
   active_sif_json?: object   // SIF active sérialisée
+  target_project_json?: object // Projet ciblé pour create_sif / draft_sif / create_library
 }
 
 export interface ChatAttachmentPayload {
-  kind: 'note' | 'pdf' | 'image'
+  kind: 'note' | 'pdf' | 'image' | 'json'
   node_id: string
   name: string
   content?: string
   url?: string
 }
 
-export type ChatResponseMode = 'default' | 'draft_note'
+export type ChatResponseMode = 'default' | 'draft_note' | 'create_project' | 'create_sif' | 'draft_sif' | 'create_library'
 
 export interface ChatRequestOptions {
   strictMode?: boolean
   responseMode?: ChatResponseMode
 }
 
-// ─── Sérialisation SIF → contexte JSON ───────────────────────────────────────
+// ─── Sérialisation contexte → JSON ───────────────────────────────────────────
 
 /**
  * Sérialise une SIF complète en objet JSON pour injection dans le contexte IA.
@@ -81,6 +82,22 @@ export function serializeSIFForAI(sif: SIF): object {
   }
 }
 
+export function serializeProjectForAI(project: Project): object {
+  return {
+    id: project.id,
+    name: project.name,
+    ref: project.ref,
+    client: project.client,
+    site: project.site,
+    unit: project.unit,
+    standard: project.standard,
+    revision: project.revision,
+    description: project.description,
+    sifCount: project.sifs.length,
+    sifNumbers: project.sifs.map(sif => sif.sifNumber),
+  }
+}
+
 // ─── Stream SSE depuis le backend ────────────────────────────────────────────
 
 /**
@@ -106,7 +123,7 @@ export async function* streamPRISMAI(
     ? 'mistral'
     : model?.startsWith('claude-')
       ? 'anthropic'
-      : null  // utilise la config serveur (définie dans .env)
+      : null
 
   const body = {
     messages: messages.map(m => ({ role: m.role, content: m.content })),
@@ -159,18 +176,17 @@ export async function* streamPRISMAI(
 
       buffer += decoder.decode(value, { stream: true })
       const lines = buffer.split('\n')
-      buffer = lines.pop() ?? ''  // conserver la ligne incomplète
+      buffer = lines.pop() ?? ''
 
       for (const line of lines) {
         if (!line.startsWith('data: ')) continue
         const data = line.slice(6).trim()
         if (data === '[DONE]') return
         try {
-          // Le backend escape les \n en \\n pour le format SSE
           const text = JSON.parse(data) as string
           yield text.replace(/\\n/g, '\n')
         } catch {
-          // ligne SSE malformée — ignorer
+          // ignore malformed SSE lines
         }
       }
     }

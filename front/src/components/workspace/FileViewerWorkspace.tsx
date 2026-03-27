@@ -16,6 +16,7 @@ import { useWorkspaceStore } from '@/store/workspaceStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { getWorkspaceFileUrl } from '@/lib/workspaceStorage'
 import { WorkspaceTabBar } from './WorkspaceTabBar'
+import { JsonEditorWorkspace } from '@/components/workspace/json/JsonEditorWorkspace'
 import pdfWorkerUrl from 'pdfjs-dist/build/pdf.worker.min.mjs?url'
 
 // ?url lets Vite emit the worker file into dist/assets and gives a resolved URL,
@@ -249,6 +250,8 @@ export function FileViewerWorkspace({ nodeId }: { nodeId: string }) {
       {content}
     </div>
   )
+
+  if (node?.type === 'json') return <JsonEditorWorkspace nodeId={nodeId} />
 
   if (!node || (node.type !== 'pdf' && node.type !== 'image')) {
     return wrap(

@@ -21,7 +21,7 @@ export function AppHeader() {
 
   return (
     <header
-      className='relative sticky top-0 z-50 grid h-10 items-center border-b'
+      className='relative sticky top-0 z-50 grid h-12 items-center border-b'
       style={{
         gridTemplateColumns: '288px 1fr auto',
         background: RAIL_BG,

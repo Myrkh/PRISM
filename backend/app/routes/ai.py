@@ -48,10 +48,11 @@ class WorkspaceContextSchema(BaseModel):
     standards_md: str = Field(default="", description=".prism/standards.md content")
     sif_registry_md: str = Field(default="", description=".prism/sif-registry.md content (auto-generated)")
     active_sif_json: dict | None = Field(default=None, description="Active SIF full serialization")
+    target_project_json: dict | None = Field(default=None, description="Target project serialization for structured SIF or Library drafts")
 
 
 class AttachmentSchema(BaseModel):
-    kind: Literal["note", "pdf", "image"] = Field(..., description="Attachment kind")
+    kind: Literal["note", "pdf", "image", "json"] = Field(..., description="Attachment kind")
     node_id: str = Field(..., description="Workspace node id")
     name: str = Field(..., description="Attachment display name")
     content: str | None = Field(default=None, description="Inline text/markdown content")
@@ -65,7 +66,7 @@ class ChatRequest(BaseModel):
     attachments: list[AttachmentSchema] = Field(default_factory=list)
     custom_system_prompt: str = Field(default="", description="User-defined system prompt from chat config")
     strict_mode: bool = Field(default=False, description="Enable PRISM strict answer mode")
-    response_mode: Literal["default", "draft_note"] = Field(default="default", description="Chat response mode")
+    response_mode: Literal["default", "draft_note", "create_project", "create_sif", "draft_sif", "create_library"] = Field(default="default", description="Chat response mode")
     provider: Literal["anthropic", "mistral", "ollama"] | None = Field(
         default=None,
         description="Provider override (default: use server config)"
@@ -117,6 +118,7 @@ async def chat_stream(request: ChatRequest) -> StreamingResponse:
             standards_md=request.workspace.standards_md,
             sif_registry_md=request.workspace.sif_registry_md,
             active_sif_json=request.workspace.active_sif_json,
+            target_project_json=request.workspace.target_project_json,
         )
 
     attachments = [

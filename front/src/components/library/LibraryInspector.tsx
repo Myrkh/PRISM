@@ -4,6 +4,8 @@ import { InspectorBlock, RightPanelSection, RightPanelShell } from '@/components
 import { useAppLocale } from '@/i18n/useLocale'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { useLibraryNavigation } from './LibraryNavigation'
+import { useAppStore } from '@/store/appStore'
+import { AILibraryDraftInspector } from './AILibraryDraftInspector'
 import { LibraryTemplateParamsPanel } from './LibraryTemplateParamsPanel'
 
 const INSPECTOR_STRINGS = {
@@ -146,6 +148,7 @@ function EmptyLibraryInspector() {
 }
 
 export function LibraryInspector() {
+  const aiLibraryDraftPreview = useAppStore(state => state.aiLibraryDraftPreview)
   const {
     editorMode,
     editorState,
@@ -155,6 +158,10 @@ export function LibraryInspector() {
     clearEditor,
     focusSavedTemplate,
   } = useLibraryNavigation()
+
+  if (aiLibraryDraftPreview) {
+    return <AILibraryDraftInspector />
+  }
 
   if (editorMode === 'empty') {
     return <EmptyLibraryInspector />

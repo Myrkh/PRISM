@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { ProofTestTab } from '@/components/prooftest/ProofTestTab'
 import { useAppStore } from '@/store/appStore'
+import { useWorkspaceStore } from '@/store/workspaceStore'
 import { LoopEditorFlow } from '@/components/architecture/LoopEditorFlow'
 import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { ArchitectureWorkspace } from '@/components/sif/ArchitectureWorkspace'
@@ -11,6 +12,8 @@ import { ExploitationWorkspace } from '@/components/sif/ExploitationWorkspace'
 import { RevisionCloseDialog } from '@/components/sif/RevisionCloseDialog'
 import { RevisionLockedOverlay } from '@/components/sif/RevisionLockedOverlay'
 import { OverviewTab } from '@/components/sif/OverviewTab'
+import { AIDraftPreviewBanner } from '@/components/sif/AIDraftPreviewBanner'
+import { ensureAISIFDraftWorkspaceNode, findAISIFDraftWorkspaceNodeId } from '@/components/layout/prism-ai/sifDraftWorkspaceNode'
 import { VerificationRightPanel } from '@/components/sif/VerificationRightPanel'
 import { VerificationWorkspace } from '@/components/sif/VerificationWorkspace'
 import { SILReportStudio } from '@/components/report/SILReportStudio'
@@ -44,6 +47,12 @@ export function SIFDashboard({ projectId, sifId, tabOverride, onTabChange }: Pro
   const publishRevision = useAppStore(s => s.publishRevision)
   const startNextRevision = useAppStore(s => s.startNextRevision)
   const updateSIF = useAppStore(s => s.updateSIF)
+  const aiDraftPreview = useAppStore(s => s.aiDraftPreview)
+  const applyAISIFDraftPreview = useAppStore(s => s.applyAISIFDraftPreview)
+  const discardAISIFDraftPreview = useAppStore(s => s.discardAISIFDraftPreview)
+  const navigate = useAppStore(s => s.navigate)
+  const openWorkspaceTab = useWorkspaceStore(s => s.openTab)
+  const deleteWorkspaceNode = useWorkspaceStore(s => s.deleteNode)
   const { setRightPanelOverride } = useLayout()
   const locale = useAppLocale()
   const project = useAppStore(s => s.projects.find(p => p.id === projectId))
@@ -58,6 +67,7 @@ export function SIFDashboard({ projectId, sifId, tabOverride, onTabChange }: Pro
   const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false)
   const [isPublishingRevision, setIsPublishingRevision] = useState(false)
   const [isStartingNextRevision, setIsStartingNextRevision] = useState(false)
+  const [isApplyingAIDraft, setIsApplyingAIDraft] = useState(false)
 
   useEffect(() => {
     if (activeTab !== 'history') return
@@ -158,7 +168,22 @@ export function SIFDashboard({ projectId, sifId, tabOverride, onTabChange }: Pro
   if (!project || !sif || !result || !compliance || !overviewMetrics) return null
 
   const isLocked = Boolean(sif.revisionLockedAt)
-  const lockCurrentTab = isLocked && resolvedTab !== 'exploitation' && resolvedTab !== 'report'
+  const isAIDraftPreview = aiDraftPreview?.projectId === projectId && aiDraftPreview?.sifId === sifId
+  const previewMeta = isAIDraftPreview ? aiDraftPreview : null
+  const isRevisionLockedView = isLocked && resolvedTab !== 'exploitation' && resolvedTab !== 'report'
+  const contentLockStyle = isAIDraftPreview
+    ? {
+        filter: 'none',
+        opacity: 1,
+        pointerEvents: 'none' as const,
+        userSelect: 'none' as const,
+      }
+    : {
+        filter: isRevisionLockedView ? 'blur(3px)' : 'none',
+        opacity: isRevisionLockedView ? 0.45 : 1,
+        pointerEvents: isRevisionLockedView ? 'none' as const : 'auto' as const,
+        userSelect: isRevisionLockedView ? 'none' as const : 'auto' as const,
+      }
 
   const handlePublishRevision = async (payload: { changeDescription: string; createdBy: string }) => {
     setIsPublishingRevision(true)
@@ -180,18 +205,46 @@ export function SIFDashboard({ projectId, sifId, tabOverride, onTabChange }: Pro
     }
   }
 
+  const handleApplyAIDraft = async () => {
+    const draftJsonNodeId = previewMeta ? findAISIFDraftWorkspaceNodeId(previewMeta.messageId) : null
+    setIsApplyingAIDraft(true)
+    try {
+      const applied = await applyAISIFDraftPreview()
+      if (applied && draftJsonNodeId) deleteWorkspaceNode(draftJsonNodeId)
+    } finally {
+      setIsApplyingAIDraft(false)
+    }
+  }
+
+  const handleDiscardAIDraft = () => {
+    const draftJsonNodeId = previewMeta ? findAISIFDraftWorkspaceNodeId(previewMeta.messageId) : null
+    discardAISIFDraftPreview()
+    if (draftJsonNodeId) deleteWorkspaceNode(draftJsonNodeId)
+  }
+
+  const handleOpenDraftJson = useCallback(() => {
+    if (!previewMeta) return
+    const nodeId = ensureAISIFDraftWorkspaceNode(previewMeta)
+    openWorkspaceTab(nodeId)
+    navigate({ type: 'workspace-file', nodeId })
+  }, [navigate, openWorkspaceTab, previewMeta])
+
   if (resolvedTab === 'architecture') {
     return (
       <>
         <div className="relative flex flex-1 min-h-0 min-w-0 flex-col overflow-y-auto px-3 pb-3 pt-2">
+          {previewMeta && (
+            <AIDraftPreviewBanner
+              preview={previewMeta}
+              isApplying={isApplyingAIDraft}
+              onApply={() => { void handleApplyAIDraft() }}
+              onDiscard={handleDiscardAIDraft}
+              onOpenJson={handleOpenDraftJson}
+            />
+          )}
           <div
             className="relative flex min-h-full min-w-0 flex-col transition-[filter,opacity] duration-200"
-            style={{
-              filter: isLocked ? 'blur(3px)' : 'none',
-              opacity: isLocked ? 0.45 : 1,
-              pointerEvents: isLocked ? 'none' : 'auto',
-              userSelect: isLocked ? 'none' : 'auto',
-            }}
+            style={contentLockStyle}
           >
             <ArchitectureWorkspace
               sif={sif}
@@ -201,7 +254,7 @@ export function SIFDashboard({ projectId, sifId, tabOverride, onTabChange }: Pro
             </ArchitectureWorkspace>
           </div>
 
-          {isLocked && (
+          {isLocked && !isAIDraftPreview && (
             <RevisionLockedOverlay
               sif={sif}
               isStartingNextRevision={isStartingNextRevision}
@@ -224,14 +277,18 @@ export function SIFDashboard({ projectId, sifId, tabOverride, onTabChange }: Pro
   return (
     <>
       <div className="relative flex-1 min-h-0 overflow-y-auto px-3 pb-3 pt-2">
+        {previewMeta && (
+          <AIDraftPreviewBanner
+            preview={previewMeta}
+            isApplying={isApplyingAIDraft}
+            onApply={() => { void handleApplyAIDraft() }}
+            onDiscard={handleDiscardAIDraft}
+            onOpenJson={handleOpenDraftJson}
+          />
+        )}
         <div
           className="space-y-4 transition-[filter,opacity] duration-200"
-          style={{
-            filter: lockCurrentTab ? 'blur(3px)' : 'none',
-            opacity: lockCurrentTab ? 0.45 : 1,
-            pointerEvents: lockCurrentTab ? 'none' : 'auto',
-            userSelect: lockCurrentTab ? 'none' : 'auto',
-          }}
+          style={contentLockStyle}
         >
           {resolvedTab === 'cockpit' && (
             <OverviewTab
@@ -283,7 +340,7 @@ export function SIFDashboard({ projectId, sifId, tabOverride, onTabChange }: Pro
           )}
         </div>
 
-        {lockCurrentTab && (
+        {isLocked && !isAIDraftPreview && resolvedTab !== 'exploitation' && resolvedTab !== 'report' && (
           <RevisionLockedOverlay
             sif={sif}
             isStartingNextRevision={isStartingNextRevision}

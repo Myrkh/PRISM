@@ -57,6 +57,8 @@ import { InstrumentationIcon } from '@/components/architecture/InstrumentationIc
 import { LoopEditorRightPanel } from '@/components/architecture/LoopEditorRightPanel'
 import { instantiateComponentTemplate, parseLibraryDragPayload } from '@/features/library'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import type { AISIFDraftFieldState } from '@/store/types'
+import { AIDraftFieldIndicator, getAIDraftFieldDecoration, useAISIFDraftFieldStatus } from '@/components/sif/aiDraftFieldIndicators'
 
 const SUB_META: Record<SubsystemType, { color: string; label: string; Icon: React.ElementType }> = {
   sensor:   { color: '#0284C7', label: 'Capteur(s)',    Icon: Activity },
@@ -366,13 +368,15 @@ function ChannelBlock({
 }
 
 // ─── Architecture Selector ───────────────────────────────────────────────
-function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUpdateEngineSettings }: {
+function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUpdateEngineSettings, fieldState }: {
   subsystem: SIFSubsystem; color: string
   onUpdateArch: (subId: string, arch: Architecture) => void
   onUpdateCustomGate: (subId: string, gate: BooleanGate, expression: string) => void
   onUpdateEngineSettings: (subId: string, patch: Pick<SIFSubsystem, 'voteType' | 'ccf'>) => void
+  fieldState?: AISIFDraftFieldState | null
 }) {
   const { BORDER, PAGE_BG, SHADOW_SOFT, SURFACE, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  const decoration = getAIDraftFieldDecoration(fieldState)
   const isCustom = subsystem.architecture === 'custom'
   const gate = subsystem.customBooleanArch?.gate ?? 'OR'
   const expr = subsystem.customBooleanArch?.expression ?? ''
@@ -381,8 +385,11 @@ function ArchSelector({ subsystem, color, onUpdateArch, onUpdateCustomGate, onUp
 
   return (
     <div className="space-y-3">
-      <div className="space-y-1.5">
-        <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Architecture</span>
+      <div className="space-y-1.5 rounded-xl border px-3 py-3" style={{ borderColor: decoration.borderColor ?? `${color}20`, background: decoration.background ?? 'transparent' }}>
+        <div className="flex items-center justify-between gap-2">
+          <span className="text-[9px] font-bold uppercase tracking-wider" style={{ color: TEXT_DIM }}>Architecture</span>
+          <AIDraftFieldIndicator state={fieldState} compact />
+        </div>
         <div className="flex flex-wrap gap-1.5">
           {ARCH_OPTIONS.map(option => {
             const active = subsystem.architecture === option
@@ -494,13 +501,16 @@ function SubsystemComposerColumn({
 }) {
   const meta = SUB_META[subsystem.type]
   const { BORDER, CARD_BG, PAGE_BG, SHADOW_PANEL, SHADOW_SOFT, SURFACE, TEXT, TEXT_DIM, semantic } = usePrismTheme()
+  const { getSubsystemArchitectureState } = useAISIFDraftFieldStatus(sifId)
+  const architectureFieldState = getSubsystemArchitectureState(subsystem.type)
+  const architectureDecoration = getAIDraftFieldDecoration(architectureFieldState)
   const isCustom = subsystem.architecture === 'custom'
   const lastChannelId = subsystem.channels[subsystem.channels.length - 1]?.id
 
   return (
     <section
       className="flex min-w-[320px] flex-1 flex-col overflow-hidden rounded-xl border"
-      style={{ borderColor: BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}
+      style={{ borderColor: architectureDecoration.borderColor ?? BORDER, background: CARD_BG, boxShadow: SHADOW_PANEL }}
     >
       <header className="border-b px-4 py-4" style={{ borderColor: BORDER }}>
         <ComposerSectionHeader icon={<meta.Icon size={12} />} accent={meta.color}>
@@ -517,6 +527,7 @@ function SubsystemComposerColumn({
               >
                 {subsystem.architecture}
               </span>
+              <AIDraftFieldIndicator state={architectureFieldState} compact />
             </div>
             <p className="mt-1 text-xs leading-relaxed" style={{ color: TEXT_DIM }}>
               {meta.label} du SIS. Structurez les voies puis ajoutez les composants defendables.
@@ -563,6 +574,7 @@ function SubsystemComposerColumn({
           onUpdateArch={onUpdateArch}
           onUpdateCustomGate={onUpdateCustomGate}
           onUpdateEngineSettings={onUpdateEngineSettings}
+          fieldState={architectureFieldState}
         />
       </div>
 
@@ -670,18 +682,23 @@ function SubsystemComposerColumn({
 
 function MissingSubsystemColumn({
   type,
+  sifId,
   onAdd,
 }: {
   type: SubsystemType
+  sifId: string
   onAdd: () => void
 }) {
   const meta = SUB_META[type]
   const { BORDER, CARD_BG, SHADOW_PANEL, TEXT, TEXT_DIM } = usePrismTheme()
+  const { getSubsystemArchitectureState } = useAISIFDraftFieldStatus(sifId)
+  const fieldState = getSubsystemArchitectureState(type)
+  const decoration = getAIDraftFieldDecoration(fieldState)
 
   return (
     <section
       className="flex min-w-[320px] flex-1 flex-col items-center justify-center rounded-xl border-2 border-dashed px-6 py-8 text-center"
-      style={{ borderColor: `${meta.color}28`, background: CARD_BG, boxShadow: SHADOW_PANEL }}
+      style={{ borderColor: decoration.borderColor ?? `${meta.color}28`, background: decoration.background ?? CARD_BG, boxShadow: SHADOW_PANEL }}
     >
       <div
         className="flex h-12 w-12 items-center justify-center rounded-2xl border"
@@ -689,9 +706,12 @@ function MissingSubsystemColumn({
       >
         <meta.Icon size={20} />
       </div>
-      <p className="mt-4 text-base font-semibold" style={{ color: TEXT }}>
-        Ajouter {meta.label}
-      </p>
+      <div className="mt-4 flex items-center gap-2">
+        <p className="text-base font-semibold" style={{ color: TEXT }}>
+          Ajouter {meta.label}
+        </p>
+        <AIDraftFieldIndicator state={fieldState} compact />
+      </div>
       <p className="mt-2 max-w-[240px] text-sm leading-relaxed" style={{ color: TEXT_DIM }}>
         Creez ce sous-systeme pour completer la chaine de securite et parametrer son architecture.
       </p>
@@ -718,6 +738,8 @@ function SubsystemNode({ data }: NodeProps<SubsystemNodeData>) {
   const meta  = SUB_META[subsystem.type as SubsystemType]
   const { color, Icon } = meta
   const { CARD_BG, TEXT_DIM, semantic } = usePrismTheme()
+  const { getSubsystemArchitectureState } = useAISIFDraftFieldStatus(sifId)
+  const architectureFieldState = getSubsystemArchitectureState(subsystem.type)
   const [collapsed, setCollapsed] = useState(false)
 
   return (
@@ -732,6 +754,7 @@ function SubsystemNode({ data }: NodeProps<SubsystemNodeData>) {
         <span className="text-sm font-bold flex-1 truncate" style={{ color }}>{subsystem.label}</span>
         <span className="text-[9px] font-mono font-bold rounded px-1.5 py-0.5 shrink-0"
           style={{ background: `${color}20`, color }}>{subsystem.architecture}</span>
+        <AIDraftFieldIndicator state={architectureFieldState} compact />
         {calcResult && (
           <span className="text-[10px] font-mono font-bold shrink-0"
             style={{ color: calcResult.SIL >= 2 ? semantic.success : semantic.warning }}>
@@ -1357,6 +1380,7 @@ export function LoopEditorFlow({ sif, projectId }: Props) {
                       <MissingSubsystemColumn
                         key={type}
                         type={type}
+                        sifId={sif.id}
                         onAdd={() => addSubsystem(projectId, sif.id, DEFAULT_SUBSYSTEM(type, sif.sifNumber))}
                       />
                     )

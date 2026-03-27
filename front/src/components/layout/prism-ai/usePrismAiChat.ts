@@ -2,9 +2,17 @@ import { useCallback, useEffect, useRef, useState, type KeyboardEvent, type Mous
 import { useAppStore } from '@/store/appStore'
 import { useWorkspaceStore } from '@/store/workspaceStore'
 import { getWorkspaceFileUrl } from '@/lib/workspaceStorage'
-import { serializeSIFForAI, streamPRISMAI, type ChatAttachmentPayload, type WorkspaceContext } from '@/lib/aiApi'
+import { serializeProjectForAI, serializeSIFForAI, streamPRISMAI, type ChatAttachmentPayload, type WorkspaceContext } from '@/lib/aiApi'
 import { detectMode } from '../command-palette/modes'
 import { generateSIFRegistry } from '@/utils/generateSIFRegistry'
+import {
+  buildProjectCommandSeed,
+  parseLibraryDraftProposal,
+  parseProjectDraftProposal,
+  parseProjectScopedCommand,
+  parseSifDraftProposal,
+  resolveProjectCandidate,
+} from './commands'
 import {
   ATTACH_BADGE_COLOR,
   COMMAND_BADGE_COLOR,
@@ -17,15 +25,15 @@ import {
   resolveCommandTokenBadge,
 } from './noteUtils'
 import {
+  DEFAULT_CONFIG,
+  clearLegacyChatStorage,
   genId,
-  loadActiveConversationId,
-  loadConfig,
-  loadConversations,
-  saveActiveConversationId,
-  saveConfig,
-  saveConversations,
+  loadLegacyActiveConversationId,
+  loadLegacyConfig,
+  loadLegacyConversations,
   titleFromMessages,
 } from './persistence'
+import { loadPrismAIState, savePrismAIState } from './persistenceDb'
 import type {
   AttachableSIF,
   AttachedContext,
@@ -43,12 +51,30 @@ export function usePrismAiChat() {
   const navigate = useAppStore(s => s.navigate)
   const projects = useAppStore(s => s.projects)
   const prismFiles = useAppStore(s => s.prismFiles)
+  const authUser = useAppStore(s => s.authUser)
+  const aiDraftPreview = useAppStore(s => s.aiDraftPreview)
+  const aiDraftResults = useAppStore(s => s.aiDraftResults)
+  const aiProjectDraftPreview = useAppStore(s => s.aiProjectDraftPreview)
+  const aiProjectDraftResults = useAppStore(s => s.aiProjectDraftResults)
+  const aiLibraryDraftPreview = useAppStore(s => s.aiLibraryDraftPreview)
+  const aiLibraryDraftResults = useAppStore(s => s.aiLibraryDraftResults)
+  const componentTemplates = useAppStore(s => s.componentTemplates)
+  const openAISIFDraftPreview = useAppStore(s => s.openAISIFDraftPreview)
+  const openAIProjectDraftPreview = useAppStore(s => s.openAIProjectDraftPreview)
+  const openAILibraryDraftPreview = useAppStore(s => s.openAILibraryDraftPreview)
+  const clearAISIFDraftResult = useAppStore(s => s.clearAISIFDraftResult)
+  const clearAIProjectDraftResult = useAppStore(s => s.clearAIProjectDraftResult)
+  const clearAILibraryDraftResult = useAppStore(s => s.clearAILibraryDraftResult)
+  const setRightPanelOpen = useAppStore(s => s.setRightPanelOpen)
   const appLocale = useAppStore(s => s.preferences.language)
   const workspaceNodes = useWorkspaceStore(s => s.nodes)
   const createWorkspaceNote = useWorkspaceStore(s => s.createNote)
   const updateWorkspaceNoteContent = useWorkspaceStore(s => s.updateNoteContent)
   const openWorkspaceTab = useWorkspaceStore(s => s.openTab)
   const clearWorkspacePendingRename = useWorkspaceStore(s => s.clearPendingRename)
+  const currentProject = view.type === 'sif-dashboard'
+    ? projects.find(project => project.id === view.projectId) ?? null
+    : null
   const currentSIF = view.type === 'sif-dashboard'
     ? projects.flatMap(p => p.sifs).find(s => s.id === view.sifId) ?? null
     : null
@@ -61,7 +87,7 @@ export function usePrismAiChat() {
     })))
     .sort((a, b) => `${a.sifNumber} ${a.sifName}`.localeCompare(`${b.sifNumber} ${b.sifName}`, 'fr', { sensitivity: 'base' }))
   const workspaceItems: AttachedWorkspaceItem[] = Object.values(workspaceNodes)
-    .filter(node => node.type === 'note' || node.type === 'pdf' || node.type === 'image')
+    .filter(node => node.type === 'note' || node.type === 'pdf' || node.type === 'image' || node.type === 'json')
     .map(node => ({
       nodeId: node.id,
       nodeName: node.name,
@@ -74,36 +100,131 @@ export function usePrismAiChat() {
     note: 'Markdown',
     pdf: 'PDF',
     image: 'Image',
+    json: 'JSON',
   } satisfies Record<AttachedWorkspaceItem['nodeType'], string>
   const strictModeLabel = appLocale === 'fr' ? 'Mode strict' : 'Strict mode'
 
   // ── Chat state ──────────────────────────────────────────────────────────────
-  const [conversations, setConversations] = useState<ChatConversation[]>(loadConversations)
-  const initialActiveConversation = (() => {
-    const activeId = loadActiveConversationId()
-    if (!activeId) return null
-    return conversations.find(conv => conv.id === activeId) ?? null
-  })()
-  const [currentConvId, setCurrentConvId] = useState<string | null>(initialActiveConversation?.id ?? null)
-  const [messages, setMessages]           = useState<ChatMessage[]>(initialActiveConversation?.messages ?? [])
-  const [input, setInput]                 = useState('')
+  const [conversations, setConversations] = useState<ChatConversation[]>([])
+  const [currentConvId, setCurrentConvId] = useState<string | null>(null)
+  const [messages, setMessages] = useState<ChatMessage[]>([])
+  const [input, setInput] = useState('')
   const { mode: inputMode, query: inputModeQuery, config: inputModeConfig } = detectMode(input)
-  const [strictMode, setStrictMode]       = useState(initialActiveConversation?.strictMode ?? false)
-  const [isStreaming, setIsStreaming]     = useState(false)
-  const [attachedContext, setAttachedContext] = useState<AttachedContext | null>(
-    initialActiveConversation?.contextSIFId
-      ? { sifId: initialActiveConversation.contextSIFId, sifName: initialActiveConversation.contextSIFName ?? '' }
-      : null,
-  )
-  const [attachedWorkspaceItems, setAttachedWorkspaceItems] = useState<AttachedWorkspaceItem[]>(initialActiveConversation?.attachedWorkspaceItems ?? [])
-  const [config, setConfig]               = useState<ChatConfig>(loadConfig)
-  const [assistantNoteIds, setAssistantNoteIds] = useState<Record<string, string>>(initialActiveConversation?.assistantNoteIds ?? {})
+  const [strictMode, setStrictMode] = useState(false)
+  const [isStreaming, setIsStreaming] = useState(false)
+  const [attachedContext, setAttachedContext] = useState<AttachedContext | null>(null)
+  const [attachedWorkspaceItems, setAttachedWorkspaceItems] = useState<AttachedWorkspaceItem[]>([])
+  const [config, setConfig] = useState<ChatConfig>(DEFAULT_CONFIG)
+  const [assistantNoteIds, setAssistantNoteIds] = useState<Record<string, string>>({})
 
   // ── UI state ────────────────────────────────────────────────────────────────
-  const [historyOpen, setHistoryOpen]   = useState(false)
-  const [configOpen, setConfigOpen]     = useState(false)
+  const [historyOpen, setHistoryOpen] = useState(false)
+  const [configOpen, setConfigOpen] = useState(false)
   const [attachPickerOpen, setAttachPickerOpen] = useState(false)
 
+  const prismAiConversationIdsRef = useRef<string[] | null>(null)
+  const prismAiHydratedRef = useRef(false)
+
+  const hydrateConversationState = useCallback((
+    nextConversations: ChatConversation[],
+    nextActiveConversationId: string | null,
+    nextConfig: ChatConfig,
+  ) => {
+    const activeConversation = (nextActiveConversationId
+      ? nextConversations.find(conv => conv.id === nextActiveConversationId) ?? null
+      : null) ?? nextConversations[0] ?? null
+
+    setConversations(nextConversations)
+    setCurrentConvId(activeConversation?.id ?? null)
+    setMessages(activeConversation?.messages ?? [])
+    setStrictMode(activeConversation?.strictMode ?? false)
+    setAttachedContext(activeConversation?.contextSIFId
+      ? { sifId: activeConversation.contextSIFId, sifName: activeConversation.contextSIFName ?? '' }
+      : null)
+    setAttachedWorkspaceItems(activeConversation?.attachedWorkspaceItems ?? [])
+    setAssistantNoteIds(activeConversation?.assistantNoteIds ?? {})
+    setConfig(nextConfig)
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
+
+    const applyLegacyState = () => {
+      const legacyConversations = loadLegacyConversations()
+      const legacyActiveConversationId = loadLegacyActiveConversationId()
+      const legacyConfig = loadLegacyConfig()
+      if (cancelled) return
+      hydrateConversationState(legacyConversations, legacyActiveConversationId, legacyConfig)
+      prismAiConversationIdsRef.current = legacyConversations.map(conv => conv.id)
+      prismAiHydratedRef.current = true
+    }
+
+    const hydrate = async () => {
+      prismAiHydratedRef.current = false
+      const userId = authUser?.id ?? null
+
+      if (!userId) {
+        applyLegacyState()
+        return
+      }
+
+      try {
+        let remoteState = await loadPrismAIState(userId)
+        if (remoteState.conversations.length === 0) {
+          const legacyConversations = loadLegacyConversations()
+          const legacyActiveConversationId = loadLegacyActiveConversationId()
+          const legacyConfig = loadLegacyConfig()
+          const hasLegacyData = legacyConversations.length > 0
+            || Boolean(legacyActiveConversationId)
+            || legacyConfig.model !== DEFAULT_CONFIG.model
+            || legacyConfig.systemPrompt !== DEFAULT_CONFIG.systemPrompt
+
+          if (hasLegacyData) {
+            await savePrismAIState(userId, legacyConversations, legacyActiveConversationId, legacyConfig, [])
+            clearLegacyChatStorage()
+            remoteState = {
+              conversations: legacyConversations,
+              activeConversationId: legacyActiveConversationId,
+              config: legacyConfig,
+            }
+          }
+        }
+
+        if (cancelled) return
+        hydrateConversationState(remoteState.conversations, remoteState.activeConversationId, remoteState.config)
+        prismAiConversationIdsRef.current = remoteState.conversations.map(conv => conv.id)
+        prismAiHydratedRef.current = true
+      } catch {
+        applyLegacyState()
+      }
+    }
+
+    void hydrate()
+
+    return () => {
+      cancelled = true
+    }
+  }, [authUser?.id, hydrateConversationState])
+
+  useEffect(() => {
+    if (!prismAiHydratedRef.current || !authUser?.id) return
+
+    let cancelled = false
+    const timer = setTimeout(() => {
+      void savePrismAIState(authUser.id, conversations.slice(0, 50), currentConvId, config, prismAiConversationIdsRef.current)
+        .then(ids => {
+          if (!cancelled) prismAiConversationIdsRef.current = ids
+        })
+        .catch(() => {
+          // keep local in-memory state; next mutation will retry
+        })
+    }, 400)
+
+    return () => {
+      cancelled = true
+      clearTimeout(timer)
+    }
+  }, [authUser?.id, config, conversations, currentConvId])
 
   // ── Conversation persistence ─────────────────────────────────────────────────
   const persistCurrentConversation = useCallback((
@@ -128,12 +249,7 @@ export function usePrismAiChat() {
       assistantNoteIds: assistantNotesToPersist,
       strictMode: strictModeToPersist,
     }
-    setConversations(prev => {
-      const next = [conv, ...prev.filter(c => c.id !== id)]
-      saveConversations(next)
-      return next
-    })
-    saveActiveConversationId(id)
+    setConversations(prev => [conv, ...prev.filter(entry => entry.id !== id)])
     return id
   }, [])
 
@@ -144,7 +260,6 @@ export function usePrismAiChat() {
     setAssistantNoteIds({})
     setCurrentConvId(null)
     setStrictMode(false)
-    saveActiveConversationId(null)
     setAttachedContext(null)
     setAttachedWorkspaceItems([])
     setAttachPickerOpen(false)
@@ -159,7 +274,6 @@ export function usePrismAiChat() {
     setAssistantNoteIds(conv.assistantNoteIds ?? {})
     setCurrentConvId(conv.id)
     setStrictMode(conv.strictMode ?? false)
-    saveActiveConversationId(conv.id)
     setAttachedContext(conv.contextSIFId ? { sifId: conv.contextSIFId, sifName: conv.contextSIFName ?? '' } : null)
     setAttachedWorkspaceItems(conv.attachedWorkspaceItems ?? [])
     setAttachPickerOpen(false)
@@ -169,17 +283,14 @@ export function usePrismAiChat() {
   // ── Delete conversation ──────────────────────────────────────────────────────
   const handleDeleteConversation = useCallback((id: string, e: MouseEvent) => {
     e.stopPropagation()
-    setConversations(prev => {
-      const next = prev.filter(c => c.id !== id)
-      saveConversations(next)
-      return next
-    })
+    setConversations(prev => prev.filter(conv => conv.id !== id))
     if (currentConvId === id) {
       setMessages([])
       setAssistantNoteIds({})
       setCurrentConvId(null)
       setStrictMode(false)
-      saveActiveConversationId(null)
+      setAttachedContext(null)
+      setAttachedWorkspaceItems([])
     }
   }, [currentConvId])
 
@@ -210,10 +321,11 @@ export function usePrismAiChat() {
   // ── Config save ──────────────────────────────────────────────────────────────
   const handleConfigChange = useCallback((cfg: ChatConfig) => {
     setConfig(cfg)
-    saveConfig(cfg)
   }, [])
 
   const findExistingAssistantNoteId = useCallback((msg: ChatMessage) => {
+    if (msg.proposal) return null
+
     const mappedNoteId = assistantNoteIds[msg.id]
     if (mappedNoteId) {
       const mappedNode = workspaceNodes[mappedNoteId]
@@ -278,7 +390,7 @@ export function usePrismAiChat() {
       convId?: string | null
     },
   ) => {
-    if (msg.role !== 'assistant' || !msg.content.trim()) return null
+    if (msg.role !== 'assistant' || msg.proposal || !msg.content.trim()) return null
 
     const openAfterCreate = options?.openAfterCreate ?? true
     const conversationMessages = options?.conversationMessages ?? messages
@@ -335,6 +447,155 @@ export function usePrismAiChat() {
     createAssistantNoteFromMessage(msg, { openAfterCreate: true })
   }, [createAssistantNoteFromMessage])
 
+  const findExistingSIFProposalResult = useCallback((msg: ChatMessage) => {
+    if (msg.proposal?.kind !== 'sif_draft') return null
+    const mappedResult = aiDraftResults[msg.id]
+    if (!mappedResult) return null
+
+    const exists = projects.some(project => (
+      project.id === mappedResult.projectId
+      && project.sifs.some(sif => sif.id === mappedResult.sifId)
+    ))
+
+    return exists ? mappedResult : null
+  }, [aiDraftResults, projects])
+
+  const findExistingProjectProposalResult = useCallback((msg: ChatMessage) => {
+    if (msg.proposal?.kind !== 'project_draft') return null
+    const mappedResult = aiProjectDraftResults[msg.id]
+    if (!mappedResult) return null
+
+    const exists = projects.some(project => project.id === mappedResult.projectId)
+    return exists ? mappedResult : null
+  }, [aiProjectDraftResults, projects])
+
+  const findExistingLibraryProposalResult = useCallback((msg: ChatMessage) => {
+    if (msg.proposal?.kind !== 'library_draft') return null
+    const mappedResult = aiLibraryDraftResults[msg.id]
+    if (!mappedResult) return null
+
+    const exists = componentTemplates.some(template => template.id === mappedResult.templateId)
+    return exists ? mappedResult : null
+  }, [aiLibraryDraftResults, componentTemplates])
+
+  const findExistingProposalResult = useCallback((msg: ChatMessage) => {
+    if (msg.proposal?.kind === 'sif_draft') return findExistingSIFProposalResult(msg)
+    if (msg.proposal?.kind === 'project_draft') return findExistingProjectProposalResult(msg)
+    if (msg.proposal?.kind === 'library_draft') return findExistingLibraryProposalResult(msg)
+    return null
+  }, [findExistingLibraryProposalResult, findExistingProjectProposalResult, findExistingSIFProposalResult])
+
+  useEffect(() => {
+    const staleMessageIds = Object.keys(aiDraftResults).filter(messageId => {
+      const mappedResult = aiDraftResults[messageId]
+      return !projects.some(project => (
+        project.id === mappedResult.projectId
+        && project.sifs.some(sif => sif.id === mappedResult.sifId)
+      ))
+    })
+
+    if (staleMessageIds.length === 0) return
+    staleMessageIds.forEach(clearAISIFDraftResult)
+  }, [aiDraftResults, clearAISIFDraftResult, projects])
+
+  useEffect(() => {
+    const staleMessageIds = Object.keys(aiProjectDraftResults).filter(messageId => {
+      const mappedResult = aiProjectDraftResults[messageId]
+      return !projects.some(project => project.id === mappedResult.projectId)
+    })
+
+    if (staleMessageIds.length === 0) return
+    staleMessageIds.forEach(clearAIProjectDraftResult)
+  }, [aiProjectDraftResults, clearAIProjectDraftResult, projects])
+
+  useEffect(() => {
+    const staleMessageIds = Object.keys(aiLibraryDraftResults).filter(messageId => {
+      const mappedResult = aiLibraryDraftResults[messageId]
+      return !componentTemplates.some(template => template.id === mappedResult.templateId)
+    })
+
+    if (staleMessageIds.length === 0) return
+    staleMessageIds.forEach(clearAILibraryDraftResult)
+  }, [aiLibraryDraftResults, clearAILibraryDraftResult, componentTemplates])
+
+  const handleProposalOpen = useCallback((msg: ChatMessage) => {
+    if (!msg.proposal) return
+
+    const existingResult = findExistingProposalResult(msg)
+    if (msg.proposal.kind === 'project_draft') {
+      if (existingResult && 'firstSifId' in existingResult) {
+        if (existingResult.firstSifId) {
+          navigate({ type: 'sif-dashboard', projectId: existingResult.projectId, sifId: existingResult.firstSifId, tab: 'context' })
+        } else {
+          navigate({ type: 'projects' })
+        }
+        return
+      }
+
+      openAIProjectDraftPreview({
+        messageId: msg.id,
+        command: msg.proposal.command,
+        summary: msg.proposal.summary,
+        assumptions: msg.proposal.assumptions,
+        missingData: msg.proposal.missingData,
+        uncertainData: msg.proposal.uncertainData,
+        conflicts: msg.proposal.conflicts,
+        prismFile: msg.proposal.prismFile,
+      })
+      return
+    }
+
+    if (msg.proposal.kind === 'library_draft') {
+      if (existingResult && 'templateId' in existingResult) {
+        navigate({
+          type: 'library',
+          templateId: existingResult.templateId,
+          origin: existingResult.origin,
+          libraryName: existingResult.libraryName,
+        })
+        setRightPanelOpen(true)
+        return
+      }
+
+      navigate({ type: 'library' })
+      setRightPanelOpen(true)
+      openAILibraryDraftPreview({
+        messageId: msg.id,
+        command: msg.proposal.command,
+        targetScope: msg.proposal.targetScope,
+        targetProjectId: msg.proposal.targetProjectId,
+        targetProjectName: msg.proposal.targetProjectName,
+        summary: msg.proposal.summary,
+        assumptions: msg.proposal.assumptions,
+        missingData: msg.proposal.missingData,
+        uncertainData: msg.proposal.uncertainData,
+        conflicts: msg.proposal.conflicts,
+        fieldStatus: msg.proposal.fieldStatus,
+        libraryFile: msg.proposal.libraryFile,
+        templateInput: msg.proposal.templateInput,
+      })
+      return
+    }
+
+    if (existingResult && 'sifId' in existingResult) {
+      navigate({ type: 'sif-dashboard', projectId: existingResult.projectId, sifId: existingResult.sifId, tab: 'context' })
+      return
+    }
+
+    openAISIFDraftPreview({
+      messageId: msg.id,
+      command: msg.proposal.command,
+      projectId: msg.proposal.targetProjectId,
+      summary: msg.proposal.summary,
+      assumptions: msg.proposal.assumptions,
+      missingData: msg.proposal.missingData,
+      uncertainData: msg.proposal.uncertainData,
+      conflicts: msg.proposal.conflicts,
+      fieldStatus: msg.proposal.fieldStatus,
+      draft: msg.proposal.draft,
+    })
+  }, [findExistingProposalResult, navigate, openAILibraryDraftPreview, openAIProjectDraftPreview, openAISIFDraftPreview, setRightPanelOpen])
+
   const applyStrictMode = useCallback((nextStrictMode: boolean) => {
     setStrictMode(nextStrictMode)
     const persistedConvId = persistCurrentConversation(
@@ -353,6 +614,7 @@ export function usePrismAiChat() {
   const composerRef = useRef<HTMLTextAreaElement>(null)
   const [commandMenuIndex, setCommandMenuIndex] = useState(0)
 
+  const parsedProjectCommand = inputMode === 'commands' ? parseProjectScopedCommand(inputModeQuery) : null
   const isDraftNoteInput = inputMode === 'commands' && isDraftNoteCommandQuery(inputModeQuery)
   const composerPlaceholder = inputModeConfig?.placeholder
     || (appLocale === 'fr'
@@ -397,6 +659,62 @@ export function usePrismAiChat() {
                 focusComposer()
               },
             },
+        {
+          id: 'create-project',
+          badge: 'PROJECT',
+          badgeColor: COMMAND_BADGE_COLOR,
+          label: 'create_project',
+          meta: appLocale === 'fr'
+            ? 'Créer un nouveau projet gouverné au format .prism, avec preview et validation avant application.'
+            : 'Create a governed new project using the .prism contract, with preview and validation before apply.',
+          onSelect: () => {
+            setInput(buildProjectCommandSeed('create_project'))
+            setCommandMenuIndex(0)
+            focusComposer()
+          },
+        },
+        {
+          id: 'create-library',
+          badge: 'LIB',
+          badgeColor: DOCUMENT_BADGE_COLOR,
+          label: 'create_library',
+          meta: appLocale === 'fr'
+            ? 'Créer un template Library gouverné avec preview de configuration avant application.'
+            : 'Create a governed Library template with configuration preview before apply.',
+          onSelect: () => {
+            setInput(buildProjectCommandSeed('create_library', currentProject))
+            setCommandMenuIndex(0)
+            focusComposer()
+          },
+        },
+        {
+          id: 'create-sif',
+          badge: 'SIF',
+          badgeColor: COMMAND_BADGE_COLOR,
+          label: 'create_sif',
+          meta: appLocale === 'fr'
+            ? 'Créer une nouvelle SIF gouvernée pour un projet cible, avec preview workflow avant application.'
+            : 'Create a governed new SIF for a target project, with workflow preview before apply.',
+          onSelect: () => {
+            setInput(buildProjectCommandSeed('create_sif', currentProject))
+            setCommandMenuIndex(0)
+            focusComposer()
+          },
+        },
+        {
+          id: 'draft-sif',
+          badge: 'SIF',
+          badgeColor: COMMAND_BADGE_COLOR,
+          label: 'draft_sif',
+          meta: appLocale === 'fr'
+            ? 'Préparer un brouillon de SIF gouverné pour un projet cible, sans rien appliquer avant validation.'
+            : 'Prepare a governed SIF draft for a target project, without applying anything before approval.',
+          onSelect: () => {
+            setInput(buildProjectCommandSeed('draft_sif', currentProject))
+            setCommandMenuIndex(0)
+            focusComposer()
+          },
+        },
         {
           id: 'draft-note',
           badge: 'NOTE',
@@ -484,14 +802,31 @@ export function usePrismAiChat() {
       return
     }
 
-    if (inputMode === 'commands' && !isDraftNoteInput) {
+    if (inputMode === 'commands' && !isDraftNoteInput && !parsedProjectCommand) {
       const selectedCommand = commandMenuItems[commandMenuIndex] ?? commandMenuItems[0]
       selectedCommand?.onSelect()
       return
     }
 
-    const responseMode: ChatResponseMode = isDraftNoteInput ? 'draft_note' : 'default'
-    const requestText = responseMode === 'draft_note' ? extractDraftNotePrompt(inputModeQuery) : text
+    const responseMode: ChatResponseMode = isDraftNoteInput
+      ? 'draft_note'
+      : parsedProjectCommand?.kind ?? 'default'
+    const defaultStructuredPrompt = responseMode === 'create_project'
+      ? (appLocale === 'fr'
+        ? 'Prépare un brouillon de projet .prism cohérent avec le contexte, les conventions et les standards fournis.'
+        : 'Prepare a .prism project draft that is consistent with the provided context, conventions, and standards.')
+      : responseMode === 'create_library'
+        ? (appLocale === 'fr'
+          ? 'Prépare un template Library gouverné cohérent avec le contexte, les conventions et les standards fournis.'
+          : 'Prepare a governed Library template consistent with the provided context, conventions, and standards.')
+        : (appLocale === 'fr'
+          ? 'Prépare un brouillon SIF cohérent avec le contexte projet, les conventions et les standards fournis.'
+          : 'Prepare a SIF draft that is consistent with the project context, conventions, and standards provided.')
+    const requestText = responseMode === 'draft_note'
+      ? extractDraftNotePrompt(inputModeQuery)
+      : parsedProjectCommand
+        ? (parsedProjectCommand.prompt || defaultStructuredPrompt)
+        : text
     if (!requestText.trim()) return
 
     const userMsg: ChatMessage = { id: genId(), role: 'user', content: text, timestamp: Date.now() }
@@ -503,30 +838,74 @@ export function usePrismAiChat() {
     setMessages(updatedMsgs)
     setInput('')
     setCommandMenuIndex(0)
-    setIsStreaming(true)
 
+    const targetProjectResolution = parsedProjectCommand && (
+      parsedProjectCommand.kind === 'create_sif'
+      || parsedProjectCommand.kind === 'draft_sif'
+      || (parsedProjectCommand.kind === 'create_library' && Boolean(parsedProjectCommand.projectQuery))
+    )
+      ? resolveProjectCandidate(projects, parsedProjectCommand.projectQuery)
+      : null
+
+    if (targetProjectResolution && targetProjectResolution.status !== 'ok') {
+      const errorContent = targetProjectResolution.status === 'missing'
+        ? (appLocale === 'fr'
+          ? 'La commande exige un projet cible explicite. Utilisez `project:REF` ou `project:"Nom du projet"`.'
+          : 'This command requires an explicit target project. Use `project:REF` or `project:"Project Name"`.')
+        : targetProjectResolution.status === 'not_found'
+          ? (appLocale === 'fr'
+            ? `Projet cible introuvable: ${targetProjectResolution.query}`
+            : `Target project not found: ${targetProjectResolution.query}`)
+          : (appLocale === 'fr'
+            ? `Projet cible ambigu: ${targetProjectResolution.query}. Correspondances: ${targetProjectResolution.matches.map(project => project.ref || project.name).join(', ')}`
+            : `Ambiguous target project: ${targetProjectResolution.query}. Matches: ${targetProjectResolution.matches.map(project => project.ref || project.name).join(', ')}`)
+
+      const assistantError: ChatMessage = { id: genId(), role: 'assistant', content: errorContent, timestamp: Date.now() }
+      const finalMsgs = [...updatedMsgs, assistantError]
+      setMessages(finalMsgs)
+      const newId = persistCurrentConversation(
+        finalMsgs,
+        attachedContext,
+        attachedWorkspaceItems,
+        currentConvId,
+        assistantNoteIds,
+        strictMode,
+      )
+      if (newId && !currentConvId) setCurrentConvId(newId)
+      return
+    }
+
+    const targetProject = targetProjectResolution?.status === 'ok' ? targetProjectResolution.project : null
+
+    setIsStreaming(true)
     const assistantId = genId()
     setMessages(prev => [...prev, { id: assistantId, role: 'assistant', content: '', timestamp: Date.now() }])
 
     try {
-      const attachedSIF = attachedContext?.sifId
-        ? projects.flatMap(project => project.sifs).find(sif => sif.id === attachedContext.sifId) ?? null
-        : null
-      const contextSIF = attachedSIF ?? currentSIF
+      const isProjectStructureMode = responseMode === 'create_project' || responseMode === 'create_sif' || responseMode === 'draft_sif' || responseMode === 'create_library'
+      const attachedSIF = isProjectStructureMode
+        ? null
+        : attachedContext?.sifId
+          ? projects.flatMap(project => project.sifs).find(sif => sif.id === attachedContext.sifId) ?? null
+          : null
+      const contextSIF = isProjectStructureMode
+        ? null
+        : attachedSIF ?? currentSIF
       const workspaceContext: WorkspaceContext = {
         context_md: prismFiles['context.md'] ?? '',
         conventions_md: prismFiles['conventions.md'] ?? '',
         standards_md: prismFiles['standards.md'] ?? '',
         sif_registry_md: generateSIFRegistry(projects),
         active_sif_json: contextSIF ? serializeSIFForAI(contextSIF) : undefined,
+        target_project_json: targetProject ? serializeProjectForAI(targetProject) : undefined,
       }
       const workspaceAttachments: ChatAttachmentPayload[] = []
       for (const item of attachedWorkspaceItems) {
         const node = workspaceNodes[item.nodeId]
         if (!node) continue
-        if (node.type === 'note') {
+        if (node.type === 'note' || node.type === 'json') {
           workspaceAttachments.push({
-            kind: 'note',
+            kind: node.type,
             node_id: node.id,
             name: node.name,
             content: node.content,
@@ -552,7 +931,9 @@ export function usePrismAiChat() {
       let accumulated = ''
       for await (const chunk of streamPRISMAI(
         requestMsgs,
-        attachedContext ?? undefined,
+        isProjectStructureMode
+          ? undefined
+          : attachedContext ?? undefined,
         config,
         workspaceContext,
         workspaceAttachments,
@@ -565,13 +946,147 @@ export function usePrismAiChat() {
         setMessages(prev => prev.map(m => m.id === assistantId ? { ...m, content: accumulated } : m))
       }
 
-      const finalAssistantMessage: ChatMessage = {
-        id: assistantId,
-        role: 'assistant',
-        content: accumulated,
-        timestamp: Date.now(),
+      let finalAssistantMessage: ChatMessage
+      if (responseMode === 'create_project') {
+        const parsedProposal = parseProjectDraftProposal(accumulated)
+        if (parsedProposal.ok) {
+          finalAssistantMessage = {
+            id: assistantId,
+            role: 'assistant',
+            content: appLocale === 'fr'
+              ? 'Brouillon projet structuré prêt. Ouvrez la preview pour le relire avant application.'
+              : 'Structured project draft ready. Open the preview to review it before applying.',
+            timestamp: Date.now(),
+            proposal: parsedProposal.proposal,
+          }
+          openAIProjectDraftPreview({
+            messageId: assistantId,
+            command: parsedProposal.proposal.command,
+            summary: parsedProposal.proposal.summary,
+            assumptions: parsedProposal.proposal.assumptions,
+            missingData: parsedProposal.proposal.missingData,
+            uncertainData: parsedProposal.proposal.uncertainData,
+            conflicts: parsedProposal.proposal.conflicts,
+            prismFile: parsedProposal.proposal.prismFile,
+          })
+        } else {
+          finalAssistantMessage = {
+            id: assistantId,
+            role: 'assistant',
+            content: appLocale === 'fr'
+              ? `Réponse structurée invalide pour ${responseMode}.
+
+${parsedProposal.error}
+
+${accumulated}`
+              : `Invalid structured response for ${responseMode}.
+
+${parsedProposal.error}
+
+${accumulated}`,
+            timestamp: Date.now(),
+          }
+        }
+      } else if (responseMode === 'create_library') {
+        const parsedProposal = parseLibraryDraftProposal(accumulated, targetProject)
+        if (parsedProposal.ok) {
+          finalAssistantMessage = {
+            id: assistantId,
+            role: 'assistant',
+            content: appLocale === 'fr'
+              ? 'Brouillon Library structuré prêt. Ouvrez la preview de configuration pour le relire avant application.'
+              : 'Structured Library draft ready. Open the configuration preview to review it before applying.',
+            timestamp: Date.now(),
+            proposal: parsedProposal.proposal,
+          }
+          navigate({ type: 'library' })
+          setRightPanelOpen(true)
+          openAILibraryDraftPreview({
+            messageId: assistantId,
+            command: parsedProposal.proposal.command,
+            targetScope: parsedProposal.proposal.targetScope,
+            targetProjectId: parsedProposal.proposal.targetProjectId,
+            targetProjectName: parsedProposal.proposal.targetProjectName,
+            summary: parsedProposal.proposal.summary,
+            assumptions: parsedProposal.proposal.assumptions,
+            missingData: parsedProposal.proposal.missingData,
+            uncertainData: parsedProposal.proposal.uncertainData,
+            conflicts: parsedProposal.proposal.conflicts,
+            fieldStatus: parsedProposal.proposal.fieldStatus,
+            libraryFile: parsedProposal.proposal.libraryFile,
+            templateInput: parsedProposal.proposal.templateInput,
+          })
+        } else {
+          finalAssistantMessage = {
+            id: assistantId,
+            role: 'assistant',
+            content: appLocale === 'fr'
+              ? `Réponse structurée invalide pour ${responseMode}.
+
+${parsedProposal.error}
+
+${accumulated}`
+              : `Invalid structured response for ${responseMode}.
+
+${parsedProposal.error}
+
+${accumulated}` ,
+            timestamp: Date.now(),
+          }
+        }
+      } else if ((responseMode === 'create_sif' || responseMode === 'draft_sif') && targetProject) {
+        const parsedProposal = parseSifDraftProposal(accumulated, responseMode, targetProject)
+        if (parsedProposal.ok) {
+          finalAssistantMessage = {
+            id: assistantId,
+            role: 'assistant',
+            content: appLocale === 'fr'
+              ? 'Brouillon SIF structuré prêt. Ouvrez la preview workflow pour le relire avant application.'
+              : 'Structured SIF draft ready. Open the workflow preview to review it before applying.',
+            timestamp: Date.now(),
+            proposal: parsedProposal.proposal,
+          }
+          openAISIFDraftPreview({
+            messageId: assistantId,
+            command: parsedProposal.proposal.command,
+            projectId: parsedProposal.proposal.targetProjectId,
+            summary: parsedProposal.proposal.summary,
+            assumptions: parsedProposal.proposal.assumptions,
+            missingData: parsedProposal.proposal.missingData,
+            uncertainData: parsedProposal.proposal.uncertainData,
+            conflicts: parsedProposal.proposal.conflicts,
+            fieldStatus: parsedProposal.proposal.fieldStatus,
+            draft: parsedProposal.proposal.draft,
+          })
+        } else {
+          finalAssistantMessage = {
+            id: assistantId,
+            role: 'assistant',
+            content: appLocale === 'fr'
+              ? `Réponse structurée invalide pour ${responseMode}.
+
+${parsedProposal.error}
+
+${accumulated}`
+              : `Invalid structured response for ${responseMode}.
+
+${parsedProposal.error}
+
+${accumulated}`,
+            timestamp: Date.now(),
+          }
+        }
+      } else {
+        finalAssistantMessage = {
+          id: assistantId,
+          role: 'assistant',
+          content: accumulated,
+          timestamp: Date.now(),
+        }
       }
+
       const finalMsgs = [...updatedMsgs, finalAssistantMessage]
+      setMessages(finalMsgs)
 
       if (responseMode === 'draft_note') {
         createAssistantNoteFromMessage(finalAssistantMessage, {
@@ -593,7 +1108,7 @@ export function usePrismAiChat() {
     } finally {
       setIsStreaming(false)
     }
-  }, [attachmentMenuItems, attachedContext, attachedWorkspaceItems, assistantNoteIds, commandMenuIndex, commandMenuItems, config, createAssistantNoteFromMessage, currentConvId, currentSIF, input, inputMode, inputModeQuery, isDraftNoteInput, isStreaming, messages, persistCurrentConversation, prismFiles, projects, strictMode, workspaceNodes])
+  }, [activeCommandMenuItems.length, appLocale, attachedContext, attachedWorkspaceItems, assistantNoteIds, attachmentMenuItems, commandMenuIndex, commandMenuItems, config, createAssistantNoteFromMessage, currentConvId, currentProject, currentSIF, input, inputMode, inputModeQuery, isDraftNoteInput, isStreaming, messages, navigate, openAILibraryDraftPreview, openAIProjectDraftPreview, openAISIFDraftPreview, parsedProjectCommand, persistCurrentConversation, prismFiles, projects, setRightPanelOpen, strictMode, workspaceNodes])
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (activeCommandMenuItems.length > 0 && e.key === 'ArrowDown') {
@@ -615,6 +1130,9 @@ export function usePrismAiChat() {
   const attachmentCount = (attachedContext ? 1 : 0) + attachedWorkspaceItems.length
 
   return {
+    aiDraftPreview,
+    aiProjectDraftPreview,
+    aiLibraryDraftPreview,
     allSIFs,
     applyStrictMode,
     attachPickerOpen,
@@ -636,10 +1154,13 @@ export function usePrismAiChat() {
     handleKeyDown,
     handleLoadConversation,
     handleNewChat,
+    handleProposalOpen,
     handleSend,
     historyOpen,
     findExistingAssistantNoteId,
+    findExistingProposalResult,
     input,
+    inputMode,
     inputModeConfig,
     isStreaming,
     messages,

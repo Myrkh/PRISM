@@ -575,7 +575,9 @@ function pushWorkspaceNodeResult(results: SearchResult[], node: WorkspaceNode) {
     ? (node.content.slice(0, 120).replace(/#+\s*/g, '').trim() || 'Note Markdown')
     : node.type === 'pdf'
       ? 'PDF'
-      : 'Image'
+      : node.type === 'json'
+        ? 'JSON workspace file'
+        : 'Image'
 
   results.push({
     id: `workspace:${node.id}`,
@@ -584,7 +586,7 @@ function pushWorkspaceNodeResult(results: SearchResult[], node: WorkspaceNode) {
     title: node.name,
     subtitle,
     context: 'Espace libre',
-    keywords: [node.name, node.type === 'note' ? node.content.slice(0, 500) : node.name].join(' '),
+    keywords: [node.name, node.type === 'note' || node.type === 'json' ? node.content.slice(0, 500) : node.name].join(' '),
     projectId: null,
     projectName: '',
     sifId: null,

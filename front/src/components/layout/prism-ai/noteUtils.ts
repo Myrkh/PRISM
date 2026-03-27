@@ -1,4 +1,5 @@
 import { detectMode } from '../command-palette/modes'
+import { parseProjectScopedCommand } from './commands'
 import type { ChatInputMenuItem } from './types'
 
 const ASSISTANT_NOTE_END_MARKERS = [
@@ -86,10 +87,13 @@ export function extractDraftNotePrompt(query: string): string {
 
 export function normalizeOutgoingUserContent(content: string): string {
   const { mode, query } = detectMode(content.trim())
-  if (mode === 'commands' && isDraftNoteCommandQuery(query)) {
+  if (mode !== 'commands') return content
+  if (isDraftNoteCommandQuery(query)) {
     const prompt = extractDraftNotePrompt(query)
     return prompt || content
   }
+  const projectCommand = parseProjectScopedCommand(query)
+  if (projectCommand) return projectCommand.prompt || content
   return content
 }
 
@@ -99,6 +103,8 @@ export function resolveCommandTokenLabel(query: string): string | null {
   if (/^strict\s+off(?:\s|$)/i.test(trimmed)) return 'strict off'
   if (/^strict(?:\s|$)/i.test(trimmed)) return 'strict'
   if (isDraftNoteCommandQuery(trimmed)) return 'draft_note'
+  const projectCommand = parseProjectScopedCommand(trimmed)
+  if (projectCommand) return projectCommand.kind
   const [token] = trimmed.split(/\s+/, 1)
   return token?.trim() || null
 }
@@ -109,6 +115,7 @@ export function resolveCommandTokenBadge(query: string, items: ChatInputMenuItem
   const tokenLabel = resolveCommandTokenLabel(trimmed)
   if (tokenLabel === 'strict off' || tokenLabel === 'strict') return { label: tokenLabel, color: COMMAND_BADGE_COLOR }
   if (tokenLabel === 'draft_note') return { label: tokenLabel, color: DOCUMENT_BADGE_COLOR }
+  if (tokenLabel === 'create_sif' || tokenLabel === 'draft_sif') return { label: tokenLabel, color: COMMAND_BADGE_COLOR }
 
   const lowered = trimmed.toLowerCase()
   const matchedItem = items.find(item => item.label.toLowerCase().startsWith(lowered)) ?? items[0]

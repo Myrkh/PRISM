@@ -22,6 +22,7 @@ import { SIFModal } from '@/components/sif/SIFModal'
 import { SIFWorkbenchLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { ProjectModal } from '@/components/projects/ProjectModal'
 import { ProjectAccessDialog } from '@/components/projects/ProjectAccessDialog'
+import { AIProjectDraftPreviewDialog } from '@/components/projects/AIProjectDraftPreviewDialog'
 import { AuthScreen } from '@/components/auth/AuthScreen'
 import { SettingsWorkspace } from '@/components/settings/SettingsWorkspace'
 import { AuditLogWorkspace } from '@/components/global/AuditLogWorkspace'
@@ -460,6 +461,7 @@ export default function App() {
       {/* Modales à la racine — disponibles depuis toutes les vues */}
       <ProjectModal />
       <ProjectAccessDialog />
+      <AIProjectDraftPreviewDialog />
       <SIFModal />
       <ToastStack />
     </div>

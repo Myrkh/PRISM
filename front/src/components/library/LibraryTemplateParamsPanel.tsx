@@ -1,6 +1,9 @@
 import { useEffect, useState, type ElementType } from 'react'
 import {
   Activity,
+  AlertTriangle,
+  Braces,
+  Check,
   ClipboardList,
   Cpu,
   FlaskConical,
@@ -66,8 +69,11 @@ import {
 import { RightPanelSection, RightPanelShell } from '@/components/layout/RightPanelShell'
 import { useAppLocale } from '@/i18n/useLocale'
 import { useAppStore } from '@/store/appStore'
+import type { AILibraryDraftFieldKey, AISIFDraftFieldState } from '@/store/types'
 import { semantic } from '@/styles/tokens'
+import { AIDraftFieldIndicator } from '@/components/sif/aiDraftFieldIndicators'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import { LibraryDraftPreviewOverview } from './LibraryDraftPreviewOverview'
 import type { LibraryOriginBadge } from './LibraryTemplateCard'
 
 type FactorizedLambdaUnit = 'FIT' | 'PER_HOUR'
@@ -124,6 +130,35 @@ const DEFAULT_TAG_BY_SUBSYSTEM: Record<SubsystemType, string> = {
   actuator: 'LIB-A-001',
 }
 
+type LibraryDraftPreviewState = {
+  targetScope: 'user' | 'project'
+  summary: string
+  assumptions: string[]
+  missingData: string[]
+  uncertainData: string[]
+  conflicts: string[]
+  fieldStatus: Partial<Record<AILibraryDraftFieldKey, AISIFDraftFieldState>>
+  onOpenJson: () => void
+  onDiscard: () => void
+  onApply: () => void
+  applyBusy: boolean
+}
+
+function renderDraftLabel(
+  label: string,
+  draftPreview: LibraryDraftPreviewState | undefined,
+  key: AILibraryDraftFieldKey,
+) {
+  const state = draftPreview?.fieldStatus[key]
+  if (!state || state === 'provided') return label
+  return (
+    <span className="inline-flex items-center gap-1.5">
+      <span>{label}</span>
+      <AIDraftFieldIndicator state={state} compact />
+    </span>
+  )
+}
+
 function tagsToInput(tags: string[]) {
   return tags.join(', ')
 }
@@ -149,7 +184,19 @@ function synchronizeComponentParams(component: SIFComponent): SIFComponent {
   }
 }
 
-function buildInitialComponent(subsystemType: SubsystemType, template?: ComponentTemplate | null) {
+function buildInitialComponent(
+  subsystemType: SubsystemType,
+  template?: ComponentTemplate | null,
+  templateInputOverride?: ComponentTemplateUpsertInput | null,
+) {
+  if (templateInputOverride) {
+    return hydrateComponentSnapshot(
+      templateInputOverride.componentSnapshot,
+      subsystemType,
+      templateInputOverride.componentSnapshot.tagName || DEFAULT_TAG_BY_SUBSYSTEM[subsystemType],
+    )
+  }
+
   if (!template) {
     return DEFAULT_COMPONENT(subsystemType, DEFAULT_TAG_BY_SUBSYSTEM[subsystemType])
   }
@@ -189,6 +236,9 @@ export function LibraryTemplateParamsPanel({
   defaultLibraryName,
   onSaved,
   onClose,
+  templateInputOverride,
+  readOnly = false,
+  draftPreview,
 }: {
   mode: TemplateEditorMode
   template?: ComponentTemplate | null
@@ -198,6 +248,9 @@ export function LibraryTemplateParamsPanel({
   defaultLibraryName: string | null
   onSaved: (template: ComponentTemplate) => void
   onClose: () => void
+  templateInputOverride?: ComponentTemplateUpsertInput | null
+  readOnly?: boolean
+  draftPreview?: LibraryDraftPreviewState
 }) {
   const locale = useAppLocale()
   const isEn = locale === 'en'
@@ -215,54 +268,74 @@ export function LibraryTemplateParamsPanel({
   const dataSourceOptions = getTemplateDataSourceOptions(locale)
   const timeUnitOptions = getTimeUnitOptions(locale)
 
-  const [local, setLocal] = useState<SIFComponent>(() => synchronizeComponentParams(buildInitialComponent(subsystemType, template)))
+  const [local, setLocal] = useState<SIFComponent>(() => synchronizeComponentParams(buildInitialComponent(subsystemType, template, templateInputOverride)))
   const [factorizedLambdaUnit, setFactorizedLambdaUnit] = useState<FactorizedLambdaUnit>('FIT')
   const [developedLambdaUnit, setDevelopedLambdaUnit] = useState<DevelopedLambdaUnit>('FIT')
   const [lambdaStarUnit, setLambdaStarUnit] = useState<DevelopedLambdaUnit>('PER_HOUR')
   const [lifetimeUnit, setLifetimeUnit] = useState<TimeDisplayUnit>('yr')
   const [templateScope, setTemplateScope] = useState<ComponentTemplateUpsertInput['scope']>(
-    template?.scope === 'project' ? 'project' : defaultProjectId ? 'project' : 'user',
+    templateInputOverride?.scope === 'project'
+      ? 'project'
+      : template?.scope === 'project'
+        ? 'project'
+        : defaultProjectId
+          ? 'project'
+          : 'user',
   )
-  const [templateProjectId, setTemplateProjectId] = useState<string | null>(template?.projectId ?? defaultProjectId ?? null)
-  const [templateName, setTemplateName] = useState(template?.name ?? template?.componentSnapshot.instrumentType ?? '')
-  const [templateDescription, setTemplateDescription] = useState(template?.description ?? template?.componentSnapshot.description ?? '')
-  const [templateTags, setTemplateTags] = useState(tagsToInput(template?.tags ?? []))
-  const [templateLibraryName, setTemplateLibraryName] = useState(template?.libraryName ?? defaultLibraryName ?? '')
-  const [templateSourceReference, setTemplateSourceReference] = useState(template?.sourceReference ?? '')
+  const [templateProjectId, setTemplateProjectId] = useState<string | null>(templateInputOverride?.projectId ?? template?.projectId ?? defaultProjectId ?? null)
+  const [templateName, setTemplateName] = useState(templateInputOverride?.name ?? template?.name ?? template?.componentSnapshot.instrumentType ?? '')
+  const [templateDescription, setTemplateDescription] = useState(templateInputOverride?.description ?? template?.description ?? template?.componentSnapshot.description ?? '')
+  const [templateTags, setTemplateTags] = useState(tagsToInput(templateInputOverride?.tags ?? template?.tags ?? []))
+  const [templateLibraryName, setTemplateLibraryName] = useState(templateInputOverride?.libraryName ?? template?.libraryName ?? defaultLibraryName ?? '')
+  const [templateSourceReference, setTemplateSourceReference] = useState(templateInputOverride?.sourceReference ?? template?.sourceReference ?? '')
   const [templateReviewStatus, setTemplateReviewStatus] = useState<NonNullable<ComponentTemplateUpsertInput['reviewStatus']>>(
-    template?.reviewStatus === 'approved' || template?.reviewStatus === 'review' ? template.reviewStatus : 'draft',
+    templateInputOverride?.reviewStatus === 'approved' || templateInputOverride?.reviewStatus === 'review'
+      ? templateInputOverride.reviewStatus
+      : template?.reviewStatus === 'approved' || template?.reviewStatus === 'review'
+        ? template.reviewStatus
+        : 'draft',
   )
   const [saveBusy, setSaveBusy] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const [saveNotice, setSaveNotice] = useState<string | null>(null)
 
   useEffect(() => {
-    const nextComponent = synchronizeComponentParams(buildInitialComponent(subsystemType, template))
+    const nextComponent = synchronizeComponentParams(buildInitialComponent(subsystemType, template, templateInputOverride))
     setLocal(nextComponent)
     setFactorizedLambdaUnit('FIT')
     setDevelopedLambdaUnit('FIT')
     setLambdaStarUnit('PER_HOUR')
     setLifetimeUnit(nextComponent.advanced.lifetime && nextComponent.advanced.lifetime < 8760 ? 'hr' : 'yr')
-    setTemplateScope(template?.scope === 'project' ? 'project' : defaultProjectId ? 'project' : 'user')
-    setTemplateProjectId(template?.projectId ?? defaultProjectId ?? null)
-    setTemplateName(template?.name ?? (nextComponent.instrumentType || nextComponent.tagName))
-    setTemplateDescription(template?.description ?? nextComponent.description)
-    setTemplateTags(tagsToInput(template?.tags ?? [
+    setTemplateScope(
+      templateInputOverride?.scope === 'project'
+        ? 'project'
+        : template?.scope === 'project'
+          ? 'project'
+          : defaultProjectId
+            ? 'project'
+            : 'user',
+    )
+    setTemplateProjectId(templateInputOverride?.projectId ?? template?.projectId ?? defaultProjectId ?? null)
+    setTemplateName(templateInputOverride?.name ?? template?.name ?? (nextComponent.instrumentType || nextComponent.tagName))
+    setTemplateDescription(templateInputOverride?.description ?? template?.description ?? nextComponent.description)
+    setTemplateTags(tagsToInput(templateInputOverride?.tags ?? template?.tags ?? [
       nextComponent.subsystemType,
       nextComponent.instrumentCategory,
       nextComponent.manufacturer,
     ].filter(Boolean)))
-    setTemplateLibraryName(template?.libraryName ?? defaultLibraryName ?? '')
-    setTemplateSourceReference(template?.sourceReference ?? '')
+    setTemplateLibraryName(templateInputOverride?.libraryName ?? template?.libraryName ?? defaultLibraryName ?? '')
+    setTemplateSourceReference(templateInputOverride?.sourceReference ?? template?.sourceReference ?? '')
     setTemplateReviewStatus(
-      template?.reviewStatus === 'approved' || template?.reviewStatus === 'review'
-        ? template.reviewStatus
-        : 'draft',
+      templateInputOverride?.reviewStatus === 'approved' || templateInputOverride?.reviewStatus === 'review'
+        ? templateInputOverride.reviewStatus
+        : template?.reviewStatus === 'approved' || template?.reviewStatus === 'review'
+          ? template.reviewStatus
+          : 'draft',
     )
     setSaveBusy(false)
     setSaveError(null)
     setSaveNotice(null)
-  }, [defaultLibraryName, defaultProjectId, subsystemType, template, mode])
+  }, [defaultLibraryName, defaultProjectId, subsystemType, template, templateInputOverride, mode])
 
   useEffect(() => {
     if (templateScope === 'project' && projects.length === 0) {
@@ -299,11 +372,13 @@ export function LibraryTemplateParamsPanel({
   const headerTypeLabel = local.instrumentType
     ? getLibraryInstrumentTypeLabel(locale, local.instrumentType)
     : categoryLabels[local.instrumentCategory] || localizedTypeMeta.singularLabel
-  const modeLabel = mode === 'edit'
-    ? (isEn ? 'Template editing' : 'Édition du template')
-    : mode === 'clone'
-      ? (isEn ? 'Duplicate standard' : 'Duplication du standard')
-      : (isEn ? 'New template' : 'Nouveau template')
+  const modeLabel = draftPreview
+    ? (isEn ? 'AI draft preview' : 'Preview draft IA')
+    : mode === 'edit'
+      ? (isEn ? 'Template editing' : 'Édition du template')
+      : mode === 'clone'
+        ? (isEn ? 'Duplicate standard' : 'Duplication du standard')
+        : (isEn ? 'New template' : 'Nouveau template')
   const saveLabel = mode === 'edit'
     ? (isEn ? 'Save' : 'Enregistrer')
     : mode === 'clone'
@@ -312,13 +387,34 @@ export function LibraryTemplateParamsPanel({
   const selectedProjectName = templateProjectId
     ? projects.find(project => project.id === templateProjectId)?.name ?? null
     : null
-  const sourceOrigin = origin ?? (template?.scope === 'project' ? 'project' : 'user')
+  const sourceOrigin = origin ?? (templateInputOverride?.scope === 'project' ? 'project' : template?.scope === 'project' ? 'project' : 'user')
   const personalLibraryLabel = isEn ? 'Personal library' : 'Bibliothèque personnelle'
   const sourceOriginLabel = sourceOrigin === 'builtin'
     ? (isEn ? 'Validated standard' : 'Standard validé')
     : sourceOrigin === 'project'
       ? (isEn ? 'Project template' : 'Template projet')
       : personalLibraryLabel
+  const draftSections = draftPreview
+    ? [
+        { kind: 'conflicts', label: isEn ? 'Conflicts to resolve' : 'Conflits à résoudre', color: '#ef4444', border: 'rgba(239,68,68,0.32)', bg: 'rgba(239,68,68,0.08)', items: draftPreview.conflicts },
+        { kind: 'missing', label: isEn ? 'Missing information' : 'Informations manquantes', color: '#ef4444', border: 'rgba(239,68,68,0.24)', bg: 'rgba(239,68,68,0.05)', items: draftPreview.missingData },
+        { kind: 'uncertain', label: isEn ? 'Insufficient information' : 'Informations insuffisantes', color: '#f59e0b', border: 'rgba(245,158,11,0.28)', bg: 'rgba(245,158,11,0.08)', items: draftPreview.uncertainData },
+        { kind: 'assumptions', label: isEn ? 'Assumptions' : 'Hypothèses', color: TEAL, border: `${TEAL}28`, bg: `${TEAL}0D`, items: draftPreview.assumptions },
+      ].filter(section => section.items.length > 0)
+    : []
+  const draftApplyLabel = draftPreview?.applyBusy
+    ? (draftPreview.targetScope === 'project'
+        ? (isEn ? 'Applying to project…' : 'Application au projet…')
+        : (isEn ? 'Applying to library…' : 'Application à la bibliothèque…'))
+    : (draftPreview?.targetScope === 'project'
+        ? (isEn ? 'Apply to project' : 'Appliquer au projet')
+        : (isEn ? 'Apply to library' : 'Appliquer à la bibliothèque'))
+  const draftDiscardLabel = isEn ? 'Discard preview' : 'Annuler la preview'
+  const sectionVariant = draftPreview ? 'static' : 'accordion'
+
+  const sectionContentClass = readOnly
+    ? 'space-y-3 select-none [&_input]:pointer-events-none [&_select]:pointer-events-none [&_textarea]:pointer-events-none [&_button]:pointer-events-none [&_label]:pointer-events-none'
+    : 'space-y-3'
 
   const submitSave = async () => {
     const trimmedName = templateName.trim()
@@ -371,7 +467,7 @@ export function LibraryTemplateParamsPanel({
   }
 
   return (
-    <RightPanelShell persistKey="library">
+    <RightPanelShell persistKey="library" staticSections={Boolean(draftPreview)}>
       {/* ── Pinned header — always visible ── */}
       <div className="shrink-0 border-b px-3 py-3" style={{ borderColor: `${BORDER}A6` }}>
           <div className="mb-3 flex items-start justify-between gap-3">
@@ -397,24 +493,59 @@ export function LibraryTemplateParamsPanel({
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => void submitSave()}
-                disabled={saveBusy}
-                className="prism-action inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-50"
-                style={{ borderColor: `${meta.color}45`, background: `${meta.color}12`, color: meta.color }}
-              >
-                <Save size={11} />
-                {saveBusy ? (isEn ? 'Saving…' : 'Enregistrement…') : saveLabel}
-              </button>
-              <button
-                type="button"
-                onClick={onClose}
-                className="prism-action shrink-0 rounded-md border p-1.5"
-                style={{ color: TEXT_DIM, borderColor: BORDER }}
-              >
-                <X size={12} />
-              </button>
+              {draftPreview ? (
+                <>
+                  <button
+                    type="button"
+                    onClick={draftPreview.onOpenJson}
+                    className="prism-action inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-[10px] font-semibold"
+                    style={{ borderColor: BORDER, background: BG, color: TEXT_DIM }}
+                  >
+                    <Braces size={11} />
+                    <span>JSON</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={draftPreview.onDiscard}
+                    className="prism-action inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-[10px] font-semibold"
+                    style={{ borderColor: BORDER, background: BG, color: TEXT_DIM }}
+                  >
+                    <X size={11} />
+                    <span>{draftDiscardLabel}</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={draftPreview.onApply}
+                    disabled={draftPreview.applyBusy}
+                    className="prism-action inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ borderColor: `${meta.color}45`, background: `${meta.color}12`, color: meta.color }}
+                  >
+                    <Check size={11} />
+                    <span>{draftApplyLabel}</span>
+                  </button>
+                </>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void submitSave()}
+                    disabled={saveBusy}
+                    className="prism-action inline-flex h-8 items-center gap-1 rounded-md border px-2.5 text-[10px] font-bold disabled:cursor-not-allowed disabled:opacity-50"
+                    style={{ borderColor: `${meta.color}45`, background: `${meta.color}12`, color: meta.color }}
+                  >
+                    <Save size={11} />
+                    {saveBusy ? (isEn ? 'Saving…' : 'Enregistrement…') : saveLabel}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={onClose}
+                    className="prism-action shrink-0 rounded-md border p-1.5"
+                    style={{ color: TEXT_DIM, borderColor: BORDER }}
+                  >
+                    <X size={12} />
+                  </button>
+                </>
+              )}
             </div>
           </div>
 
@@ -436,14 +567,34 @@ export function LibraryTemplateParamsPanel({
             </div>
           )}
 
-          <div className="grid gap-2">
-            <LibraryLiveMetric label="PFD" value={formatPFD(componentPFD)} />
-          </div>
+          {!draftPreview && (
+            <div className="grid gap-2">
+              <LibraryLiveMetric label="PFD" value={formatPFD(componentPFD)} />
+            </div>
+          )}
       </div>
 
+      {draftPreview && (
+        <RightPanelSection
+          id="preview"
+          label={isEn ? 'Preview' : 'Aperçu'}
+          Icon={AlertTriangle}
+          variant={sectionVariant}
+        >
+          <LibraryDraftPreviewOverview
+            summary={draftPreview.summary}
+            sections={draftSections}
+            pfdLabel="PFD"
+            pfdValue={formatPFD(componentPFD)}
+            textColor={TEXT}
+            accentColor={meta.color}
+          />
+        </RightPanelSection>
+      )}
+
       {/* ── Template metadata ── */}
-      <RightPanelSection id="template" label="Template" Icon={Tag}>
-        <div className="space-y-3">
+      <RightPanelSection id="template" label="Template" Icon={Tag} variant={sectionVariant}>
+        <div className={sectionContentClass}>
           {mode === 'clone' && (
                 <div
                   className="rounded-lg border px-3 py-2 text-[11px] leading-relaxed"
@@ -456,17 +607,17 @@ export function LibraryTemplateParamsPanel({
               )}
 
               <div className="grid gap-3" style={{ gridTemplateColumns: PANEL_FORM_GRID }}>
-                <FieldRow label={isEn ? 'Template name' : 'Nom du template'}>
+                <FieldRow label={renderDraftLabel(isEn ? 'Template name' : 'Nom du template', draftPreview, 'template_name')}>
                   <StyledInput value={templateName} onChange={setTemplateName} placeholder={isEn ? 'Pressure transmitter - Rosemount 3051S' : 'Ex. transmetteur de pression - Rosemount 3051S'} />
                 </FieldRow>
-                <FieldRow label={isEn ? 'Scope' : 'Portée'}>
+                <FieldRow label={renderDraftLabel(isEn ? 'Scope' : 'Portée', draftPreview, 'template_scope')}>
                   <StyledSelect
                     value={templateScope}
                     onChange={value => setTemplateScope(value as ComponentTemplateUpsertInput['scope'])}
                     options={templateScopeOptions}
                   />
                 </FieldRow>
-                <FieldRow label={isEn ? 'Target project' : 'Projet cible'}>
+                <FieldRow label={renderDraftLabel(isEn ? 'Target project' : 'Projet cible', draftPreview, 'target_project')}>
                   {templateScope === 'project' ? (
                     <StyledSelect
                       value={templateProjectId ?? ''}
@@ -480,17 +631,17 @@ export function LibraryTemplateParamsPanel({
                     <StyledInput value={selectedProjectName ?? personalLibraryLabel} onChange={() => {}} />
                   )}
                 </FieldRow>
-                <FieldRow label={isEn ? 'Named library' : 'Bibliothèque nommée'}>
+                <FieldRow label={renderDraftLabel(isEn ? 'Named library' : 'Bibliothèque nommée', draftPreview, 'library_name')}>
                   <StyledInput value={templateLibraryName} onChange={setTemplateLibraryName} placeholder={isEn ? 'Ex. TotalEnergies client / tank farm' : 'Ex. client TotalEnergies / parc de stockage'} />
                 </FieldRow>
-                <FieldRow label={isEn ? 'Review status' : 'Statut de revue'}>
+                <FieldRow label={renderDraftLabel(isEn ? 'Review status' : 'Statut de revue', draftPreview, 'review_status')}>
                   <StyledSelect
                     value={templateReviewStatus}
                     onChange={value => setTemplateReviewStatus(value as NonNullable<ComponentTemplateUpsertInput['reviewStatus']>)}
                     options={templateReviewOptions}
                   />
                 </FieldRow>
-                <FieldRow label={isEn ? 'Source reference' : 'Référence source'}>
+                <FieldRow label={renderDraftLabel(isEn ? 'Source reference' : 'Référence source', draftPreview, 'source_reference')}>
                   <StyledInput value={templateSourceReference} onChange={setTemplateSourceReference} placeholder={isEn ? 'FMEDA ref, certificate, internal note…' : 'FMEDA ref, certificat, note interne…'} />
                 </FieldRow>
                 <FieldRow label={isEn ? 'Origin' : 'Origine'}>
@@ -501,7 +652,7 @@ export function LibraryTemplateParamsPanel({
                 </FieldRow>
               </div>
 
-              <FieldRow label="Tags">
+              <FieldRow label={renderDraftLabel('Tags', draftPreview, 'tags')}>
                 <StyledInput value={templateTags} onChange={setTemplateTags} placeholder={isEn ? 'pressure, transmitter, rosemount, SIL2' : 'pression, transmetteur, rosemount, SIL2'} />
               </FieldRow>
 
@@ -518,37 +669,37 @@ export function LibraryTemplateParamsPanel({
         </div>
       </RightPanelSection>
 
-      <RightPanelSection id="identification" label="Identification" Icon={Tag}>
-        <div className="space-y-3">
+      <RightPanelSection id="identification" label="Identification" Icon={Tag} variant={sectionVariant}>
+        <div className={sectionContentClass}>
                 <div className="grid gap-3" style={{ gridTemplateColumns: PANEL_FORM_GRID }}>
                   <FieldRow label="Tag">
                     <StyledInput value={local.tagName} onChange={v => upd({ tagName: v })} placeholder="PT-001" />
                   </FieldRow>
-                  <FieldRow label={isEn ? 'Category' : 'Catégorie'}>
+                  <FieldRow label={renderDraftLabel(isEn ? 'Category' : 'Catégorie', draftPreview, 'instrument_category')}>
                     <StyledSelect
                       value={local.instrumentCategory}
                       onChange={v => upd({ instrumentCategory: v as InstrumentCategory })}
                       options={INSTRUMENT_CATEGORIES.map(category => ({ value: category, label: categoryLabels[category] }))}
                     />
                   </FieldRow>
-                  <FieldRow label={isEn ? 'Instrument type' : "Type d'instrument"}>
+                  <FieldRow label={renderDraftLabel(isEn ? 'Instrument type' : "Type d'instrument", draftPreview, 'instrument_type')}>
                     <StyledSelect
                       value={local.instrumentType}
                       onChange={v => upd({ instrumentType: v })}
                       options={(INSTRUMENT_TYPES[local.instrumentCategory] ?? ['Other']).map(type => ({ value: type, label: getLibraryInstrumentTypeLabel(locale, type) }))}
                     />
                   </FieldRow>
-                  <FieldRow label={isEn ? 'Manufacturer' : 'Fabricant'}>
+                  <FieldRow label={renderDraftLabel(isEn ? 'Manufacturer' : 'Fabricant', draftPreview, 'manufacturer')}>
                     <StyledInput value={local.manufacturer} onChange={v => upd({ manufacturer: v })} placeholder="Rosemount, Emerson…" />
                   </FieldRow>
-                  <FieldRow label={isEn ? 'Data source' : 'Source des données'}>
+                  <FieldRow label={renderDraftLabel(isEn ? 'Data source' : 'Source des données', draftPreview, 'data_source')}>
                     <StyledSelect
                       value={local.dataSource}
                       onChange={v => upd({ dataSource: v })}
                       options={dataSourceOptions}
                     />
                   </FieldRow>
-                  <FieldRow label={isEn ? 'IEC 61508 characterization' : 'Caractérisation IEC 61508'}>
+                  <FieldRow label={renderDraftLabel(isEn ? 'IEC 61508 characterization' : 'Caractérisation IEC 61508', draftPreview, 'determined_character')}>
                     <StyledSelect
                       value={local.determinedCharacter ?? (subsystemType === 'actuator' ? 'TYPE_A' : 'TYPE_B')}
                       onChange={v => upd({ determinedCharacter: v as DeterminedCharacter })}
@@ -557,7 +708,7 @@ export function LibraryTemplateParamsPanel({
                   </FieldRow>
                 </div>
 
-                <FieldRow label={isEn ? 'Component description' : 'Description composant'}>
+                <FieldRow label={renderDraftLabel(isEn ? 'Component description' : 'Description composant', draftPreview, 'component_description')}>
                   <textarea
                     value={local.description}
                     onChange={event => upd({ description: event.target.value })}
@@ -570,8 +721,8 @@ export function LibraryTemplateParamsPanel({
         </div>
       </RightPanelSection>
 
-      <RightPanelSection id="parameters" label={isEn ? 'Parameters' : 'Paramètres'} Icon={FlaskConical}>
-        <div className="space-y-3">
+      <RightPanelSection id="parameters" label={isEn ? 'Parameters' : 'Paramètres'} Icon={FlaskConical} variant={sectionVariant}>
+        <div className={sectionContentClass}>
                 <div className="flex gap-1 rounded-lg p-0.5" style={{ background: BG }}>
                   {(['factorized', 'developed'] as ParamMode[]).map(nextMode => (
                     <button
@@ -595,7 +746,7 @@ export function LibraryTemplateParamsPanel({
                     <div className="space-y-1">
                       <div className="flex items-center justify-between gap-2">
                         <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>
-                          λ total
+                          {renderDraftLabel('λ total', draftPreview, 'factorized_lambda')}
                         </label>
                         <div className="flex rounded-md p-0.5" style={{ background: BG }}>
                           {FACTORIZED_LAMBDA_UNITS.map(unit => (
@@ -625,7 +776,7 @@ export function LibraryTemplateParamsPanel({
                       </p>
                     </div>
                     <SliderField
-                      label={isEn ? 'λD/λ ratio' : 'Ratio λD/λ'}
+                      label={renderDraftLabel(isEn ? 'λD/λ ratio' : 'Ratio λD/λ', draftPreview, 'factorized_lambda_d_ratio')}
                       value={local.factorized.lambdaDRatio}
                       min={0}
                       max={1}
@@ -636,7 +787,7 @@ export function LibraryTemplateParamsPanel({
                     />
                     <SectionTitle>{isEn ? 'Diagnostic coverage' : 'Couverture diagnostic'}</SectionTitle>
                     <SliderField
-                      label={isEn ? 'DCd - Dangerous' : 'DCd - Dangereux'}
+                      label={renderDraftLabel(isEn ? 'DCd - Dangerous' : 'DCd - Dangereux', draftPreview, 'factorized_dcd')}
                       value={local.factorized.DCd}
                       min={0}
                       max={1}
@@ -645,7 +796,7 @@ export function LibraryTemplateParamsPanel({
                       onChange={value => updF({ DCd: value })}
                     />
                     <SliderField
-                      label={isEn ? 'DCs - Safe' : 'DCs - Sûr'}
+                      label={renderDraftLabel(isEn ? 'DCs - Safe' : 'DCs - Sûr', draftPreview, 'factorized_dcs')}
                       value={local.factorized.DCs}
                       min={0}
                       max={1}
@@ -686,12 +837,15 @@ export function LibraryTemplateParamsPanel({
 
                     <div className="grid gap-3" style={{ gridTemplateColumns: PANEL_FORM_GRID }}>
                       {[
-                        { key: 'lambda_DU', label: 'λDU' },
-                        { key: 'lambda_DD', label: 'λDD' },
-                        { key: 'lambda_SU', label: 'λSU' },
-                        { key: 'lambda_SD', label: 'λSD' },
-                      ].map(({ key, label }) => (
-                        <FieldRow key={key} label={`${label} [${developedLambdaUnit === 'FIT' ? 'FIT' : 'h^-1'}]`}>
+                        { key: 'lambda_DU', fieldKey: 'lambda_du', label: 'λDU' },
+                        { key: 'lambda_DD', fieldKey: 'lambda_dd', label: 'λDD' },
+                        { key: 'lambda_SU', fieldKey: 'lambda_su', label: 'λSU' },
+                        { key: 'lambda_SD', fieldKey: 'lambda_sd', label: 'λSD' },
+                      ].map(({ key, fieldKey, label }) => (
+                        <FieldRow
+                          key={key}
+                          label={renderDraftLabel(`${label} [${developedLambdaUnit === 'FIT' ? 'FIT' : 'h^-1'}]`, draftPreview, fieldKey as AILibraryDraftFieldKey)}
+                        >
                           <ScientificInput
                             value={developedLambdaToDisplay(local.developed[key as keyof typeof local.developed] as number, developedLambdaUnit)}
                             onCommit={value => updD({ [key]: displayToDevelopedLambda(value, developedLambdaUnit) })}
@@ -712,11 +866,11 @@ export function LibraryTemplateParamsPanel({
         </div>
       </RightPanelSection>
 
-      <RightPanelSection id="test" label="Test" Icon={ClipboardList}>
-        <div className="space-y-3">
+      <RightPanelSection id="test" label="Test" Icon={ClipboardList} variant={sectionVariant}>
+        <div className={sectionContentClass}>
                 <SectionTitle>{isEn ? 'Proof test interval' : 'Intervalle de test de preuve'}</SectionTitle>
                 <div className="grid gap-3" style={{ gridTemplateColumns: PANEL_WIDE_GRID }}>
-                  <FieldRow label="T1">
+                  <FieldRow label={renderDraftLabel('T1', draftPreview, 'test_t1')}>
                     <div className="flex gap-2">
                       <StyledInput
                         type="number"
@@ -734,7 +888,7 @@ export function LibraryTemplateParamsPanel({
                     </div>
                   </FieldRow>
 
-                  <FieldRow label={isEn ? 'T0 - First test' : 'T0 — Premier test'}>
+                  <FieldRow label={renderDraftLabel(isEn ? 'T0 - First test' : 'T0 — Premier test', draftPreview, 'test_t0')}>
                     <div className="flex gap-2">
                       <StyledInput
                         type="number"
@@ -753,7 +907,7 @@ export function LibraryTemplateParamsPanel({
                   </FieldRow>
                 </div>
 
-                <SectionTitle>{isEn ? 'Test type' : 'Type de test'}</SectionTitle>
+                <SectionTitle>{renderDraftLabel(isEn ? 'Test type' : 'Type de test', draftPreview, 'test_type')}</SectionTitle>
                 <div className="space-y-1.5">
                   {TEST_TYPES.map(testTypeValue => {
                   const testType = testTypeMeta[testTypeValue]
@@ -799,8 +953,8 @@ export function LibraryTemplateParamsPanel({
         </div>
       </RightPanelSection>
 
-      <RightPanelSection id="advanced" label={isEn ? 'Advanced' : 'Avancé'} Icon={Settings2}>
-        <div className="space-y-3">
+      <RightPanelSection id="advanced" label={isEn ? 'Advanced' : 'Avancé'} Icon={Settings2} variant={sectionVariant}>
+        <div className={sectionContentClass}>
                 <SectionTitle>{isEn ? 'Repair' : 'Réparation'}</SectionTitle>
                 <div className="grid gap-3" style={{ gridTemplateColumns: PANEL_WIDE_GRID }}>
                   <FieldRow label={isEn ? 'MTTR [hours]' : 'MTTR [heures]'}>
@@ -822,7 +976,7 @@ export function LibraryTemplateParamsPanel({
                 </div>
 
                 <SectionTitle>{isEn ? 'Advanced test parameters' : 'Paramètres test avancés'}</SectionTitle>
-                <div className="space-y-3">
+                <div className={sectionContentClass}>
                   <div className="space-y-1">
                     <div className="flex items-center justify-between gap-2">
                       <label className="text-[10px] font-semibold uppercase tracking-wider" style={{ color: TEXT_DIM }}>
@@ -887,7 +1041,7 @@ export function LibraryTemplateParamsPanel({
                   onChange={value => updA({ omega2: value })}
                 />
 
-                <SectionTitle>{isEn ? 'Proof test coverage' : 'Couverture test de preuve'}</SectionTitle>
+                <SectionTitle>{renderDraftLabel(isEn ? 'Proof test coverage' : 'Couverture test de preuve', draftPreview, 'proof_test_coverage')}</SectionTitle>
                 <SliderField
                   label={isEn ? 'Coverage (%)' : 'Couverture (%)'}
                   value={local.advanced.proofTestCoverage}
@@ -909,7 +1063,7 @@ export function LibraryTemplateParamsPanel({
                 />
 
                 <SectionTitle>{isEn ? 'Lifetime' : 'Durée de vie'}</SectionTitle>
-                <FieldRow label={isEn ? 'Component lifetime' : 'Durée de vie composant'}>
+                <FieldRow label={renderDraftLabel(isEn ? 'Component lifetime' : 'Durée de vie composant', draftPreview, 'lifetime')}>
                   <div className="flex gap-2">
                     <StyledInput
                       value={hoursToDisplay(local.advanced.lifetime, lifetimeUnit)}
@@ -940,7 +1094,7 @@ export function LibraryTemplateParamsPanel({
                 </FieldRow>
 
                 <SectionTitle>{isEn ? 'Partial test (PST)' : 'Test partiel (PST)'}</SectionTitle>
-                <div className="space-y-3">
+                <div className={sectionContentClass}>
                   <CheckboxField
                     label={isEn ? 'Enable partial test' : 'Activer le test partiel'}
                     description={isEn ? 'Enable the intermediate PST logic between two full proof tests.' : 'Active la logique PST intermédiaire entre deux tests de preuve complets.'}

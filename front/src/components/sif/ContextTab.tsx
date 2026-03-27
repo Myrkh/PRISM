@@ -7,11 +7,12 @@ import { useAppStore } from '@/store/appStore'
 import type { HAZOPTrace, SIF, SILLevel } from '@/core/types'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
 import type { OverviewMetrics } from '@/components/sif/overviewMetrics'
-import type { SIFTab } from '@/store/types'
+import type { AISIFDraftFieldState, SIFTab } from '@/store/types'
 import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { getSifContextStrings } from '@/i18n/sifContext'
 import { useLocaleStrings } from '@/i18n/useLocale'
+import { AIDraftFieldIndicator, getAIDraftFieldDecoration, useAISIFDraftFieldStatus } from '@/components/sif/aiDraftFieldIndicators'
 
 type ContextDraft = Pick<
   SIF,
@@ -88,20 +89,25 @@ function SectionHeader({ icon, children }: { icon: ReactNode; children: ReactNod
   )
 }
 
-function FieldLabel({ children }: { children: ReactNode }) {
+function FieldLabel({ children, fieldState }: { children: ReactNode; fieldState?: AISIFDraftFieldState | null }) {
   const { TEXT_DIM } = usePrismTheme()
   return (
-    <label className="block text-[9px] font-bold uppercase tracking-[0.12em] mb-1" style={{ color: TEXT_DIM }}>
-      {children}
-    </label>
+    <div className="mb-1 flex items-center justify-between gap-2">
+      <label className="block text-[9px] font-bold uppercase tracking-[0.12em]" style={{ color: TEXT_DIM }}>
+        {children}
+      </label>
+      <AIDraftFieldIndicator state={fieldState} compact />
+    </div>
   )
 }
 
-function FInput({ value, onChange, placeholder, type = 'text', step, readOnly }: {
+function FInput({ value, onChange, placeholder, type = 'text', step, readOnly, fieldState }: {
   value: string | number; onChange?: (v: string) => void
   placeholder?: string; type?: string; step?: string; readOnly?: boolean
+  fieldState?: AISIFDraftFieldState | null
 }) {
   const { BORDER, SURFACE, TEXT } = usePrismTheme()
+  const decoration = getAIDraftFieldDecoration(fieldState)
   return (
     <input
       type={type} step={step} value={value} readOnly={readOnly}
@@ -109,23 +115,27 @@ function FInput({ value, onChange, placeholder, type = 'text', step, readOnly }:
       placeholder={placeholder}
       className="prism-field w-full rounded-lg border px-2.5 py-2 text-xs outline-none"
       style={{
-        background: SURFACE, borderColor: BORDER, color: TEXT,
+        background: decoration.background ?? SURFACE,
+        borderColor: decoration.borderColor ?? BORDER,
+        color: TEXT,
         opacity: readOnly ? 0.6 : 1,
       }}
     />
   )
 }
 
-function FTextarea({ value, onChange, placeholder, rows = 3 }: {
+function FTextarea({ value, onChange, placeholder, rows = 3, fieldState }: {
   value: string; onChange: (v: string) => void; placeholder?: string; rows?: number
+  fieldState?: AISIFDraftFieldState | null
 }) {
   const { BORDER, SURFACE, TEXT } = usePrismTheme()
+  const decoration = getAIDraftFieldDecoration(fieldState)
   return (
     <textarea
       value={value} onChange={e => onChange(e.target.value)}
       rows={rows} placeholder={placeholder}
       className="prism-field w-full rounded-lg border px-2.5 py-2 text-xs outline-none resize-none"
-      style={{ background: SURFACE, borderColor: BORDER, color: TEXT }}
+      style={{ background: decoration.background ?? SURFACE, borderColor: decoration.borderColor ?? BORDER, color: TEXT }}
     />
   )
 }
@@ -141,10 +151,11 @@ function Card({ children }: { children: ReactNode }) {
 
 const SIL_COLORS: Record<number, string> = { 1: '#16A34A', 2: '#2563EB', 3: '#D97706', 4: '#7C3AED' }
 
-function SILSelector({ value, onChange }: { value: SILLevel; onChange: (v: SILLevel) => void }) {
+function SILSelector({ value, onChange, fieldState }: { value: SILLevel; onChange: (v: SILLevel) => void; fieldState?: AISIFDraftFieldState | null }) {
   const { BORDER, SHADOW_SOFT, SURFACE, TEXT_DIM } = usePrismTheme()
+  const decoration = getAIDraftFieldDecoration(fieldState)
   return (
-    <div className="flex gap-1.5">
+    <div className="flex gap-1.5 rounded-xl border p-1" style={{ borderColor: decoration.borderColor ?? 'transparent', background: decoration.background ?? 'transparent' }}>
       {([1, 2, 3, 4] as SILLevel[]).map(sil => {
         const active = value === sil
         const color = SIL_COLORS[sil]
@@ -166,6 +177,7 @@ export function ContextTab({ projectId, sif }: Props) {
   const { BORDER, CARD_BG, SHADOW_CARD, SHADOW_PANEL, SURFACE, TEAL, TEAL_DIM, TEXT_DIM } = usePrismTheme()
   const updateSIF = useAppStore(s => s.updateSIF)
   const updateHAZOPTrace = useAppStore(s => s.updateHAZOPTrace)
+  const { getFieldState } = useAISIFDraftFieldStatus(sif.id)
 
   const [draft, setDraft] = useState<ContextDraft>(() => buildDraft(sif))
   const [isSaving, setIsSaving] = useState(false)
@@ -228,12 +240,12 @@ export function ContextTab({ projectId, sif }: Props) {
           <SectionHeader icon={<Hash size={12} />}>{strings.sections.identification}</SectionHeader>
           <div className="grid gap-3 md:grid-cols-2">
             <div>
-              <FieldLabel>{strings.fields.sifNumber}</FieldLabel>
-              <FInput value={sif.sifNumber} readOnly />
+              <FieldLabel fieldState={getFieldState('sif_number')}>{strings.fields.sifNumber}</FieldLabel>
+              <FInput value={sif.sifNumber} readOnly fieldState={getFieldState('sif_number')} />
             </div>
             <div>
-              <FieldLabel>{strings.fields.title}</FieldLabel>
-              <FInput value={draft.title} onChange={v => upd('title', v)} placeholder={strings.placeholders.title} />
+              <FieldLabel fieldState={getFieldState('title')}>{strings.fields.title}</FieldLabel>
+              <FInput value={draft.title} onChange={v => upd('title', v)} placeholder={strings.placeholders.title} fieldState={getFieldState('title')} />
             </div>
             <div>
               <FieldLabel>{strings.fields.pidZone}</FieldLabel>
@@ -244,8 +256,8 @@ export function ContextTab({ projectId, sif }: Props) {
               <FInput value={draft.location} onChange={v => upd('location', v)} placeholder={strings.placeholders.location} />
             </div>
             <div>
-              <FieldLabel>{strings.fields.processTag}</FieldLabel>
-              <FInput value={draft.processTag} onChange={v => upd('processTag', v)} placeholder={strings.placeholders.processTag} />
+              <FieldLabel fieldState={getFieldState('process_tag')}>{strings.fields.processTag}</FieldLabel>
+              <FInput value={draft.processTag} onChange={v => upd('processTag', v)} placeholder={strings.placeholders.processTag} fieldState={getFieldState('process_tag')} />
             </div>
             <div className="md:col-span-2">
               <FieldLabel>{strings.fields.functionalDescription}</FieldLabel>
@@ -258,17 +270,17 @@ export function ContextTab({ projectId, sif }: Props) {
           <SectionHeader icon={<Shield size={12} />}>{strings.sections.srs}</SectionHeader>
           <div className="space-y-4">
             <div>
-              <FieldLabel>{strings.fields.targetSil}</FieldLabel>
-              <SILSelector value={draft.targetSIL} onChange={v => upd('targetSIL', v)} />
+              <FieldLabel fieldState={getFieldState('target_sil')}>{strings.fields.targetSil}</FieldLabel>
+              <SILSelector value={draft.targetSIL} onChange={v => upd('targetSIL', v)} fieldState={getFieldState('target_sil')} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
-                <FieldLabel>{strings.fields.demandRate}</FieldLabel>
-                <FInput type="number" step="0.01" value={draft.demandRate} onChange={v => upd('demandRate', Number(v) || 0)} />
+                <FieldLabel fieldState={getFieldState('demand_rate')}>{strings.fields.demandRate}</FieldLabel>
+                <FInput type="number" step="0.01" value={draft.demandRate} onChange={v => upd('demandRate', Number(v) || 0)} fieldState={getFieldState('demand_rate')} />
               </div>
               <div>
-                <FieldLabel>{strings.fields.requiredRrf}</FieldLabel>
-                <FInput type="number" step="1" value={draft.rrfRequired} onChange={v => upd('rrfRequired', Number(v) || 0)} />
+                <FieldLabel fieldState={getFieldState('rrf_required')}>{strings.fields.requiredRrf}</FieldLabel>
+                <FInput type="number" step="1" value={draft.rrfRequired} onChange={v => upd('rrfRequired', Number(v) || 0)} fieldState={getFieldState('rrf_required')} />
               </div>
             </div>
             <div className="rounded-lg border p-3 flex items-center justify-between" style={{ borderColor: `${TEAL}25`, background: `${TEAL}06` }}>
@@ -284,30 +296,33 @@ export function ContextTab({ projectId, sif }: Props) {
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <FieldLabel>{strings.fields.processSafetyTime}</FieldLabel>
+                  <FieldLabel fieldState={getFieldState('process_safety_time')}>{strings.fields.processSafetyTime}</FieldLabel>
                   <FInput
                     type="number" step="1"
                     value={draft.processSafetyTime ?? ''}
                     onChange={v => upd('processSafetyTime', v === '' ? undefined : Number(v))}
                     placeholder={strings.placeholders.processSafetyTime}
+                    fieldState={getFieldState('process_safety_time')}
                   />
                 </div>
                 <div>
-                  <FieldLabel>{strings.fields.sifResponseTime}</FieldLabel>
+                  <FieldLabel fieldState={getFieldState('sif_response_time')}>{strings.fields.sifResponseTime}</FieldLabel>
                   <FInput
                     type="number" step="0.1"
                     value={draft.sifResponseTime ?? ''}
                     onChange={v => upd('sifResponseTime', v === '' ? undefined : Number(v))}
                     placeholder={strings.placeholders.sifResponseTime}
+                    fieldState={getFieldState('sif_response_time')}
                   />
                 </div>
               </div>
               <div className="mt-3">
-                <FieldLabel>{strings.fields.safeState}</FieldLabel>
+                <FieldLabel fieldState={getFieldState('safe_state')}>{strings.fields.safeState}</FieldLabel>
                 <FInput
                   value={draft.safeState ?? ''}
                   onChange={v => upd('safeState', v)}
                   placeholder={strings.placeholders.safeState}
+                  fieldState={getFieldState('safe_state')}
                 />
               </div>
             </div>
@@ -320,8 +335,8 @@ export function ContextTab({ projectId, sif }: Props) {
         <div className="grid gap-4 xl:grid-cols-2">
           <div className="space-y-3">
             <div>
-              <FieldLabel>{strings.fields.hazardousEvent}</FieldLabel>
-              <FTextarea value={draft.hazardousEvent} onChange={v => upd('hazardousEvent', v)} placeholder={strings.placeholders.hazardousEvent} rows={3} />
+              <FieldLabel fieldState={getFieldState('hazardous_event')}>{strings.fields.hazardousEvent}</FieldLabel>
+              <FTextarea value={draft.hazardousEvent} onChange={v => upd('hazardousEvent', v)} placeholder={strings.placeholders.hazardousEvent} rows={3} fieldState={getFieldState('hazardous_event')} />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

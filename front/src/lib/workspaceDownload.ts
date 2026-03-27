@@ -9,7 +9,7 @@
 import JSZip from 'jszip'
 import { supabase } from '@/lib/supabase'
 import { triggerDownload } from '@/lib/prismFormat'
-import type { WorkspaceNode, WorkspaceNote, WorkspacePDF, WorkspaceImage } from '@/store/workspaceStore'
+import type { WorkspaceNode, WorkspaceNote, WorkspacePDF, WorkspaceImage, WorkspaceJSON } from '@/store/workspaceStore'
 
 const BUCKET = 'workspace-files'
 
@@ -26,7 +26,12 @@ export function downloadNote(note: WorkspaceNote) {
 }
 
 /** Download a PDF or image by fetching it from Supabase Storage. */
-export async function downloadFile(node: WorkspacePDF | WorkspaceImage): Promise<void> {
+export async function downloadFile(node: WorkspacePDF | WorkspaceImage | WorkspaceJSON): Promise<void> {
+  if (node.type === 'json') {
+    const name = node.name.endsWith('.json') ? node.name : `${node.name}.json`
+    triggerDownload(node.content, name, 'application/json; charset=utf-8')
+    return
+  }
   const blob = await fetchBlob(node.storageKey)
   if (!blob) throw new Error('Impossible de récupérer le fichier depuis le serveur.')
   triggerDownload(blob, node.name)
@@ -64,6 +69,10 @@ async function buildZip(
     if (child.type === 'note') {
       onProgress?.(child.name)
       const name = child.name.endsWith('.md') ? child.name : `${child.name}.md`
+      zip.file(name, child.content)
+    } else if (child.type === 'json') {
+      onProgress?.(child.name)
+      const name = child.name.endsWith('.json') ? child.name : `${child.name}.json`
       zip.file(name, child.content)
     } else if (child.type === 'pdf' || child.type === 'image') {
       onProgress?.(child.name)

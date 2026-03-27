@@ -131,3 +131,8 @@ export function getAnalysisSubsystemColors(settings: SIFAnalysisSettings): Recor
     actuator: settings.chart.actuatorColor,
   }
 }
+
+export function clearSIFAnalysisSettings(sifId: string): void {
+  if (typeof window === 'undefined') return
+  window.localStorage.removeItem(getSIFAnalysisSettingsKey(sifId))
+}

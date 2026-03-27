@@ -76,6 +76,8 @@ function NodeIcon({ node, isActive, isOpen }: { node: WorkspaceNode; isActive: b
     return <span className="shrink-0 text-[9px] font-bold" style={{ color: isActive ? '#F87171' : TEXT_DIM }}>PDF</span>
   if (node.type === 'image')
     return <FileImage size={13} className="shrink-0" style={{ color: isActive ? '#A78BFA' : TEXT_DIM }} />
+  if (node.type === 'json')
+    return <span className="shrink-0 text-[9px] font-bold" style={{ color: isActive ? '#38BDF8' : TEXT_DIM }}>JSON</span>
   return <FileText size={13} className="shrink-0" style={{ color: isActive ? TEAL : TEXT_DIM }} />
 }
 
@@ -166,7 +168,7 @@ function SortableNodeRow({
 
   const isNote   = node.type === 'note'
   const isFolder = node.type === 'folder'
-  const isFile   = node.type === 'pdf' || node.type === 'image'
+  const isFile   = node.type === 'pdf' || node.type === 'image' || node.type === 'json'
   const isOpen   = isFolder && !node.collapsed
   const isActive = node.id === activeNodeId
   const isPinned = isNote && pinnedNodeIds.includes(node.id)
@@ -250,8 +252,8 @@ function SortableNodeRow({
   }
   if (isFile) {
     menuItems.push({
-      kind: 'action', label: 'Télécharger', icon: <Download size={12} />,
-      onClick: () => { void downloadFile(node as import('@/store/workspaceStore').WorkspacePDF | import('@/store/workspaceStore').WorkspaceImage) },
+      kind: 'action', label: node.type === 'json' ? 'Télécharger (.json)' : 'Télécharger', icon: <Download size={12} />,
+      onClick: () => { void downloadFile(node as import('@/store/workspaceStore').WorkspacePDF | import('@/store/workspaceStore').WorkspaceImage | import('@/store/workspaceStore').WorkspaceJSON) },
     })
     menuItems.push({ kind: 'separator' })
   }

@@ -104,6 +104,9 @@ function WinBtn({ Icon, title, onClick, active, danger }: {
 export function PrismAiShell({ onClose }: { onClose: () => void }) {
   const { BORDER, PANEL_BG, PAGE_BG, TEAL, TEXT, TEXT_DIM, isDark } = usePrismTheme()
   const {
+    aiDraftPreview,
+    aiProjectDraftPreview,
+    aiLibraryDraftPreview,
     allSIFs,
     applyStrictMode,
     attachPickerOpen,
@@ -125,10 +128,13 @@ export function PrismAiShell({ onClose }: { onClose: () => void }) {
     handleKeyDown,
     handleLoadConversation,
     handleNewChat,
+    handleProposalOpen,
     handleSend,
     historyOpen,
     findExistingAssistantNoteId,
+    findExistingProposalResult,
     input,
+    inputMode,
     inputModeConfig,
     isStreaming,
     messages,
@@ -448,6 +454,9 @@ export function PrismAiShell({ onClose }: { onClose: () => void }) {
                             createNoteLabel={createNoteLabel}
                             openNoteLabel={openNoteLabel}
                             onNoteAction={handleAssistantNoteAction}
+                            proposalActive={aiDraftPreview?.messageId === msg.id || aiProjectDraftPreview?.messageId === msg.id || aiLibraryDraftPreview?.messageId === msg.id}
+                            proposalCompleted={Boolean(findExistingProposalResult(msg))}
+                            onProposalOpen={handleProposalOpen}
                           />
                         </div>
                       ))}
@@ -631,6 +640,7 @@ export function PrismAiShell({ onClose }: { onClose: () => void }) {
                       items={activeCommandMenuItems}
                       selectedIndex={Math.min(commandMenuIndex, activeCommandMenuItems.length - 1)}
                       onHover={setCommandMenuIndex}
+                      layout={inputMode === 'commands' ? 'command' : 'attachment'}
                     />
                   )}
                   <div className="mt-2 flex items-center gap-2">

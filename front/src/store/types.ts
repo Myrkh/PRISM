@@ -11,11 +11,12 @@ import type {
   ProjectAccessSnapshot,
   ProjectMemberStatus,
   ProjectPermissionKey,
-  Project, SIF, SIFSubsystem, SIFComponent,
+  Project, SIF, SIFSubsystem, SIFComponent, Architecture,
   ProofTestProcedure, TestCampaign, OperationalEvent, HAZOPTrace,
   OAuthProviderName, PasswordSignUpResult, SIFRevision, UserProfile,
 } from '@/core/types'
 import type { AppPreferences } from '@/core/models/appPreferences'
+import type { PrismFile, PrismProjectPayload } from '@/lib/prismFormat'
 
 // ─── Navigation ───────────────────────────────────────────────────────────
 export type AppSettingsSection = 'general' | 'workspace' | 'engine' | 'shortcuts'
@@ -235,6 +236,213 @@ export const PRISM_FILE_META: Readonly<Record<PrismEditableFile, { label: string
 export type RightPanelSection = 'analysis' | 'compliance' | 'prooftest' | 'verification' | 'exploitation'
 export type RightPanelTabsState = Record<RightPanelSection, string | null>
 
+export type AISIFDraftCommand = 'create_sif' | 'draft_sif'
+export type AIProjectDraftCommand = 'create_project'
+
+export type AILibraryDraftCommand = 'create_library'
+
+export type AISIFDraftFieldState = 'provided' | 'missing' | 'uncertain' | 'conflict'
+export type AISIFDraftFieldKey =
+  | 'sif_number'
+  | 'title'
+  | 'process_tag'
+  | 'hazardous_event'
+  | 'target_sil'
+  | 'demand_rate'
+  | 'rrf_required'
+  | 'process_safety_time'
+  | 'sif_response_time'
+  | 'safe_state'
+  | 'sensor_architecture'
+  | 'logic_architecture'
+  | 'actuator_architecture'
+
+export type AILibraryDraftFieldKey =
+  | 'template_name'
+  | 'template_scope'
+  | 'target_project'
+  | 'library_name'
+  | 'review_status'
+  | 'source_reference'
+  | 'tags'
+  | 'subsystem_type'
+  | 'instrument_category'
+  | 'instrument_type'
+  | 'manufacturer'
+  | 'data_source'
+  | 'determined_character'
+  | 'component_description'
+  | 'factorized_lambda'
+  | 'factorized_lambda_d_ratio'
+  | 'factorized_dcd'
+  | 'factorized_dcs'
+  | 'lambda_du'
+  | 'lambda_dd'
+  | 'lambda_su'
+  | 'lambda_sd'
+  | 'test_t1'
+  | 'test_t0'
+  | 'test_type'
+  | 'proof_test_coverage'
+  | 'lifetime'
+
+export interface AILibraryDraftTemplateFileEntry {
+  id?: string
+  name: string
+  description: string
+  subsystemType: SIFComponent['subsystemType']
+  libraryName: string | null
+  sourceReference: string | null
+  tags: string[]
+  reviewStatus: 'draft' | 'review' | 'approved'
+  componentSnapshot: SIFComponent
+}
+
+export interface AILibraryDraftFile {
+  format: 'prism.component-templates'
+  version: number
+  exportedAt: string
+  exportedByProfileId: string | null
+  projectId: string | null
+  libraryName: string | null
+  templates: AILibraryDraftTemplateFileEntry[]
+}
+
+export interface AISIFDraftSubsystemArchitecture {
+  sensor?: Architecture
+  logic?: Architecture
+  actuator?: Architecture
+}
+
+export interface AISIFDraftSeed {
+  sifNumber?: string
+  title?: string
+  description?: string
+  pid?: string
+  location?: string
+  processTag?: string
+  hazardousEvent?: string
+  demandRate?: number
+  targetSIL?: 0 | 1 | 2 | 3 | 4
+  rrfRequired?: number
+  madeBy?: string
+  verifiedBy?: string
+  approvedBy?: string
+  date?: string
+  processSafetyTime?: number
+  sifResponseTime?: number
+  safeState?: string
+  status?: SIF['status']
+  subsystemArchitecture?: AISIFDraftSubsystemArchitecture
+  initArchitecture?: Architecture
+}
+
+export type PrismProjectDraftFile = PrismFile & {
+  type: 'project'
+  payload: PrismProjectPayload
+}
+
+export interface AISIFDraftPreviewInput {
+  messageId: string
+  command: AISIFDraftCommand
+  projectId: string
+  summary: string
+  assumptions: string[]
+  missingData: string[]
+  uncertainData: string[]
+  conflicts: string[]
+  fieldStatus: Partial<Record<AISIFDraftFieldKey, AISIFDraftFieldState>>
+  draft: AISIFDraftSeed
+}
+
+export interface AISIFDraftPreview {
+  messageId: string
+  command: AISIFDraftCommand
+  projectId: string
+  projectName: string
+  sifId: string
+  summary: string
+  assumptions: string[]
+  missingData: string[]
+  uncertainData: string[]
+  conflicts: string[]
+  fieldStatus: Partial<Record<AISIFDraftFieldKey, AISIFDraftFieldState>>
+  draft: AISIFDraftSeed
+}
+
+export interface AISIFDraftResult {
+  messageId: string
+  projectId: string
+  sifId: string
+}
+
+export interface AIProjectDraftPreviewInput {
+  messageId: string
+  command: AIProjectDraftCommand
+  summary: string
+  assumptions: string[]
+  missingData: string[]
+  uncertainData: string[]
+  conflicts: string[]
+  prismFile: PrismProjectDraftFile
+}
+
+export interface AIProjectDraftPreview {
+  messageId: string
+  command: AIProjectDraftCommand
+  summary: string
+  assumptions: string[]
+  missingData: string[]
+  uncertainData: string[]
+  conflicts: string[]
+  prismFile: PrismProjectDraftFile
+}
+
+export interface AIProjectDraftResult {
+  messageId: string
+  projectId: string
+  firstSifId: string | null
+}
+
+export interface AILibraryDraftPreviewInput {
+  messageId: string
+  command: AILibraryDraftCommand
+  targetScope: 'user' | 'project'
+  targetProjectId: string | null
+  targetProjectName: string | null
+  summary: string
+  assumptions: string[]
+  missingData: string[]
+  uncertainData: string[]
+  conflicts: string[]
+  fieldStatus: Partial<Record<AILibraryDraftFieldKey, AISIFDraftFieldState>>
+  libraryFile: AILibraryDraftFile
+  templateInput: ComponentTemplateUpsertInput
+}
+
+export interface AILibraryDraftPreview {
+  messageId: string
+  command: AILibraryDraftCommand
+  targetScope: 'user' | 'project'
+  targetProjectId: string | null
+  targetProjectName: string | null
+  summary: string
+  assumptions: string[]
+  missingData: string[]
+  uncertainData: string[]
+  conflicts: string[]
+  fieldStatus: Partial<Record<AILibraryDraftFieldKey, AISIFDraftFieldState>>
+  libraryFile: AILibraryDraftFile
+  templateInput: ComponentTemplateUpsertInput
+}
+
+export interface AILibraryDraftResult {
+  messageId: string
+  templateId: string
+  origin: 'project' | 'user'
+  libraryName: string | null
+}
+
 // ─── State interface ───────────────────────────────────────────────────────
 export interface AppState {
   // ── Data ──
@@ -282,6 +490,12 @@ export interface AppState {
 
   // ── .prism/ workspace intelligence files ──
   prismFiles: Record<PrismEditableFile, string>
+  aiDraftPreview: AISIFDraftPreview | null
+  aiDraftResults: Record<string, AISIFDraftResult>
+  aiProjectDraftPreview: AIProjectDraftPreview | null
+  aiProjectDraftResults: Record<string, AIProjectDraftResult>
+  aiLibraryDraftPreview: AILibraryDraftPreview | null
+  aiLibraryDraftResults: Record<string, AILibraryDraftResult>
 
   // ── Split view ──
   // null = split closed  |  projectId/sifId null = split open, no SIF selected yet
@@ -306,6 +520,21 @@ export interface AppState {
   toggleChatPanel: () => void
   setPrismFile: (filename: PrismEditableFile, content: string) => void
   replacePrismFiles: (files: Record<PrismEditableFile, string>) => void
+  openAISIFDraftPreview: (input: AISIFDraftPreviewInput) => AISIFDraftPreview | null
+  replaceAISIFDraftPreview: (input: AISIFDraftPreviewInput) => AISIFDraftPreview | null
+  discardAISIFDraftPreview: () => void
+  applyAISIFDraftPreview: () => Promise<AISIFDraftResult | null>
+  clearAISIFDraftResult: (messageId: string) => void
+  openAIProjectDraftPreview: (input: AIProjectDraftPreviewInput) => AIProjectDraftPreview | null
+  replaceAIProjectDraftPreview: (input: AIProjectDraftPreviewInput) => AIProjectDraftPreview | null
+  discardAIProjectDraftPreview: () => void
+  applyAIProjectDraftPreview: () => Promise<AIProjectDraftResult | null>
+  clearAIProjectDraftResult: (messageId: string) => void
+  openAILibraryDraftPreview: (input: AILibraryDraftPreviewInput) => AILibraryDraftPreview | null
+  replaceAILibraryDraftPreview: (input: AILibraryDraftPreviewInput) => AILibraryDraftPreview | null
+  discardAILibraryDraftPreview: () => void
+  applyAILibraryDraftPreview: () => Promise<AILibraryDraftResult | null>
+  clearAILibraryDraftResult: (messageId: string) => void
   toggleFocusMode: () => void
   toggleStatusBar: () => void
   toggleActivityBar: () => void

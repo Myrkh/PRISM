@@ -84,9 +84,10 @@ interface SectionProps {
   Icon: ElementType
   children: ReactNode
   noPadding?: boolean
+  variant?: 'accordion' | 'static'
 }
 
-export function RightPanelSection({ id, label, Icon, children, noPadding }: SectionProps) {
+export function RightPanelSection({ id, label, Icon, children, noPadding, variant = 'accordion' }: SectionProps) {
   const { BORDER, TEAL, TEXT_DIM } = usePrismTheme()
   const ctx = useContext(SectionCtx)
   const isOpen    = ctx ? !ctx.closedIds.has(id) : true
@@ -131,6 +132,46 @@ export function RightPanelSection({ id, label, Icon, children, noPadding }: Sect
           {children}
         </FloatingPanel>
       </>
+    )
+  }
+
+  if (variant === 'static') {
+    return (
+      <div className="flex shrink-0 flex-col overflow-hidden border-b" style={{ borderColor: BORDER }}>
+        <div
+          className="group flex w-full shrink-0 items-center gap-2 px-3"
+          style={{
+            height: HEADER_H,
+            background: `${TEAL}0C`,
+            borderBottom: `1px solid ${BORDER}`,
+            flexShrink: 0,
+          }}
+        >
+          <Icon size={13} style={{ color: TEAL, flexShrink: 0 }} />
+          <span
+            className="flex-1 text-left text-[10px] font-bold uppercase tracking-widest"
+            style={{ color: TEAL }}
+          >
+            {label}
+          </span>
+
+          <span
+            className="mr-1 inline-flex h-5 w-5 items-center justify-center rounded opacity-0 transition-opacity group-hover:opacity-60 hover:!opacity-100"
+            style={{ color: TEXT_DIM }}
+            role="button"
+            title="Détacher"
+            onClick={e => { e.stopPropagation(); ctx?.toggleFloat(id) }}
+            onKeyDown={e => { if (e.key === 'Enter' || e.key === ' ') { e.stopPropagation(); ctx?.toggleFloat(id) } }}
+            tabIndex={-1}
+          >
+            <ExternalLink size={10} />
+          </span>
+        </div>
+
+        {noPadding
+          ? <div className="min-h-0 flex flex-col overflow-hidden">{children}</div>
+          : <div className="px-3 py-3">{children}</div>}
+      </div>
     )
   }
 
@@ -212,6 +253,7 @@ export function RightPanelShell<T extends string = string>({
   contentBg,
   openSectionId,
   persistKey,
+  staticSections = false,
 }: {
   items?: readonly RightPanelRailItem<T>[]
   active?: T
@@ -221,6 +263,7 @@ export function RightPanelShell<T extends string = string>({
   openSectionId?: string | null
   /** Stable key for persisting accordion open/closed state across navigation. */
   persistKey?: string
+  staticSections?: boolean
 }) {
   const { BORDER, CARD_BG, PANEL_BG, SHADOW_DOCK, SHADOW_PANEL, SHADOW_SOFT, isDark } = usePrismTheme()
   const { isRightPanelOpen } = useLayout()
@@ -483,14 +526,23 @@ export function RightPanelShell<T extends string = string>({
             </div>
           </>
         ) : (
-          // ── Accordion mode ─────────────────────────────────────────────
+          // ── Accordion / static section mode ───────────────────────────
           <SectionCtx.Provider value={ctxValue}>
-            <div
-              ref={containerRef}
-              className="flex flex-col flex-1 min-h-0 overflow-hidden"
-            >
-              {renderAccordion()}
-            </div>
+            {staticSections ? (
+              <div ref={containerRef} className="flex flex-1 min-h-0 flex-col overflow-hidden">
+                {React.Children.toArray(children).filter(child => !(React.isValidElement(child) && child.type === RightPanelSection))}
+                <div className="min-h-0 flex-1 overflow-y-auto" style={{ scrollbarGutter: 'stable' }}>
+                  {React.Children.toArray(children).filter(child => React.isValidElement(child) && child.type === RightPanelSection)}
+                </div>
+              </div>
+            ) : (
+              <div
+                ref={containerRef}
+                className="flex flex-col flex-1 min-h-0 overflow-hidden"
+              >
+                {renderAccordion()}
+              </div>
+            )}
           </SectionCtx.Provider>
         )}
       </div>

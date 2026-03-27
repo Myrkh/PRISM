@@ -307,6 +307,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
   const projects = useAppStore(s => s.projects)
   const preferences = useAppStore(s => s.preferences)
   const updateAppPreferences = useAppStore(s => s.updateAppPreferences)
+  const aiDraftPreview = useAppStore(s => s.aiDraftPreview)
 
   const project = projectId ? projects.find(p => p.id === projectId) : undefined
   const sif     = project && sifId ? project.sifs.find(s => s.id === sifId) : undefined
@@ -403,6 +404,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
   const activityBarVisible = preferences.activityBarVisible ?? true
   const centeredLayout    = preferences.centeredLayout    ?? false
   const showWorkflowBreadcrumb = preferences.showWorkflowBreadcrumb ?? true
+  const isCurrentAIDraftPreview = aiDraftPreview?.projectId === projectId && aiDraftPreview?.sifId === sifId
 
   // Helper: wraps content with a max-width centered column when centeredLayout is on.
   const wrapCentered = (content: ReactNode): ReactNode =>
@@ -729,9 +731,18 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                 {rightOpen && (
                   <ResizeDivider isResizing={isResizingRightPanel} onPointerDown={startResize} side={panelsInverted ? 'right' : 'left'} />
                 )}
-                {rightPanelOverride || rightPanelContent || (
-                  <RightPanel projectId={projectId ?? ''} sifId={sifId ?? ''} />
-                )}
+                <div
+                  className="h-full transition-[opacity] duration-200"
+                  style={{
+                    opacity: 1,
+                    pointerEvents: isCurrentAIDraftPreview ? 'none' : 'auto',
+                    userSelect: isCurrentAIDraftPreview ? 'none' : 'auto',
+                  }}
+                >
+                  {rightPanelOverride || rightPanelContent || (
+                    <RightPanel projectId={projectId ?? ''} sifId={sifId ?? ''} />
+                  )}
+                </div>
               </div>
             </>
           )}

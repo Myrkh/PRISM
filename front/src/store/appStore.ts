@@ -21,6 +21,7 @@ import {
   saveSIFAnalysisSettings,
   analysisSettingsToMissionTimeHours,
   loadSIFAnalysisSettings,
+  clearSIFAnalysisSettings,
 } from '@/core/models/analysisSettings'
 import {
   dbCreateProject, dbUpdateProject, dbDeleteProject,
@@ -93,6 +94,24 @@ import type {
 } from '@/core/types'
 import { DEFAULT_PRISM_FILES, normalizeSIFTab, type AppState } from './types'
 import { selectSIF } from './selectors'
+import {
+  buildAISIFDraftPreview,
+  buildAISIFDraftSIF,
+  isAISIFDraftSIFId,
+  loadAISIFDraftResults,
+  removeAISIFDraftPreviewFromProjects,
+  saveAISIFDraftResults,
+} from './aiDraftPreview'
+import {
+  buildAIProjectDraftPreview,
+  loadAIProjectDraftResults,
+  saveAIProjectDraftResults,
+} from './aiProjectDraftPreview'
+import {
+  buildAILibraryDraftPreview,
+  loadAILibraryDraftResults,
+  saveAILibraryDraftResults,
+} from './aiLibraryDraftPreview'
 import type { Subscription } from '@supabase/supabase-js'
 
 // Re-export types for backward compatibility
@@ -317,6 +336,12 @@ export const useAppStore = create<AppState>()(
           return { ...DEFAULT_PRISM_FILES }
         }
       })(),
+      aiDraftPreview: null,
+      aiDraftResults: loadAISIFDraftResults(),
+      aiProjectDraftPreview: null,
+      aiProjectDraftResults: loadAIProjectDraftResults(),
+      aiLibraryDraftPreview: null,
+      aiLibraryDraftResults: loadAILibraryDraftResults(),
 
       // Split view
       secondSlot: null,
@@ -468,6 +493,230 @@ export const useAppStore = create<AppState>()(
       replacePrismFiles: files => set(s => {
         s.prismFiles = { ...DEFAULT_PRISM_FILES, ...files }
         try { localStorage.setItem(PRISM_FILES_STORAGE_KEY, JSON.stringify(s.prismFiles)) } catch { /* quota */ }
+      }),
+      openAISIFDraftPreview: input => {
+        const activePreview = get().aiDraftPreview
+        const activeProject = activePreview
+          ? get().projects.find(project => project.id === activePreview.projectId)
+          : null
+        const activePreviewExists = Boolean(
+          activePreview
+          && activeProject?.sifs.some(sif => sif.id === activePreview.sifId),
+        )
+
+        if (activePreview && activePreview.messageId === input.messageId && activePreviewExists) {
+          const currentView = get().view
+          const currentTab = currentView.type === 'sif-dashboard' && currentView.sifId === activePreview.sifId
+            ? normalizeSIFTab(currentView.tab)
+            : 'context'
+          get().navigate({ type: 'sif-dashboard', projectId: activePreview.projectId, sifId: activePreview.sifId, tab: currentTab })
+          return activePreview
+        }
+
+        const createdPreview = get().replaceAISIFDraftPreview(input)
+        if (!createdPreview) return null
+        get().navigate({ type: 'sif-dashboard', projectId: createdPreview.projectId, sifId: createdPreview.sifId, tab: 'context' })
+        return createdPreview
+      },
+      replaceAISIFDraftPreview: input => {
+        const activePreview = get().aiDraftPreview
+        const currentView = get().view
+        const currentTab = currentView.type === 'sif-dashboard' && activePreview && currentView.sifId === activePreview.sifId
+          ? normalizeSIFTab(currentView.tab)
+          : 'context'
+        const reuseSifId = activePreview?.messageId === input.messageId ? activePreview.sifId : undefined
+        const stalePreview = activePreview
+        let createdPreview: AppState['aiDraftPreview'] = null
+
+        set(state => {
+          if (state.aiDraftPreview) {
+            removeAISIFDraftPreviewFromProjects(state.projects, state.aiDraftPreview)
+            state.aiDraftPreview = null
+          }
+
+          const project = state.projects.find(entry => entry.id === input.projectId)
+          if (!project) return
+
+          const draftSIF = buildAISIFDraftSIF(project, input, reuseSifId)
+          project.sifs.push(draftSIF)
+          project.updatedAt = new Date().toISOString()
+
+          createdPreview = buildAISIFDraftPreview(input, draftSIF.id, project.name)
+          state.aiDraftPreview = createdPreview
+        })
+
+        if (stalePreview?.sifId && stalePreview.sifId !== reuseSifId) {
+          clearSIFAnalysisSettings(stalePreview.sifId)
+        }
+
+        const nextPreview = get().aiDraftPreview
+        if (
+          nextPreview
+          && stalePreview
+          && currentView.type === 'sif-dashboard'
+          && currentView.sifId === stalePreview.sifId
+          && (currentView.projectId !== nextPreview.projectId || currentView.sifId !== nextPreview.sifId)
+        ) {
+          get().navigate({ type: 'sif-dashboard', projectId: nextPreview.projectId, sifId: nextPreview.sifId, tab: currentTab })
+        }
+
+        return nextPreview?.messageId === input.messageId ? nextPreview : null
+      },
+      discardAISIFDraftPreview: () => {
+        const preview = get().aiDraftPreview
+        if (!preview) return
+
+        set(state => {
+          removeAISIFDraftPreviewFromProjects(state.projects, preview)
+          state.aiDraftPreview = null
+        })
+        clearSIFAnalysisSettings(preview.sifId)
+
+        const currentView = get().view
+        if (currentView.type === 'sif-dashboard' && currentView.sifId === preview.sifId) {
+          get().navigate({ type: 'projects' })
+        }
+      },
+      applyAISIFDraftPreview: async () => {
+        const preview = get().aiDraftPreview
+        if (!preview) return null
+
+        const project = get().projects.find(entry => entry.id === preview.projectId)
+        const draftSIF = project?.sifs.find(entry => entry.id === preview.sifId)
+        if (!project || !draftSIF) {
+          set(state => { state.aiDraftPreview = null })
+          clearSIFAnalysisSettings(preview.sifId)
+          return null
+        }
+
+        const currentView = get().view
+        const nextTab = currentView.type === 'sif-dashboard' && currentView.sifId === preview.sifId
+          ? normalizeSIFTab(currentView.tab)
+          : 'context'
+
+        const { id: _draftId, projectId: _draftProjectId, ...payload } = draftSIF
+        const created = await get().createSIF(preview.projectId, payload)
+
+        set(state => {
+          removeAISIFDraftPreviewFromProjects(state.projects, preview)
+          state.aiDraftPreview = null
+          state.aiDraftResults[preview.messageId] = {
+            messageId: preview.messageId,
+            projectId: preview.projectId,
+            sifId: created.id,
+          }
+        })
+        clearSIFAnalysisSettings(preview.sifId)
+        saveAISIFDraftResults(get().aiDraftResults)
+        get().navigate({ type: 'sif-dashboard', projectId: preview.projectId, sifId: created.id, tab: nextTab })
+        return get().aiDraftResults[preview.messageId] ?? null
+      },
+      clearAISIFDraftResult: messageId => set(state => {
+        if (!state.aiDraftResults[messageId]) return
+        delete state.aiDraftResults[messageId]
+        saveAISIFDraftResults(state.aiDraftResults)
+      }),
+      openAIProjectDraftPreview: input => {
+        const activePreview = get().aiProjectDraftPreview
+        if (activePreview?.messageId === input.messageId) return activePreview
+        return get().replaceAIProjectDraftPreview(input)
+      },
+      replaceAIProjectDraftPreview: input => {
+        const preview = buildAIProjectDraftPreview(input)
+        set(state => {
+          state.aiProjectDraftPreview = preview
+        })
+        return get().aiProjectDraftPreview
+      },
+      discardAIProjectDraftPreview: () => set(state => {
+        state.aiProjectDraftPreview = null
+      }),
+      applyAIProjectDraftPreview: async () => {
+        const preview = get().aiProjectDraftPreview
+        if (!preview) return null
+
+        const projectPayload = preview.prismFile.payload
+        const createdProject = await get().createProject({
+          ...projectPayload.projectMeta,
+          status: projectPayload.projectMeta.status ?? 'active',
+        })
+        let firstSifId: string | null = null
+
+        for (const sif of projectPayload.sifs) {
+          const source = sif as unknown as Record<string, unknown>
+          const { id: _id, projectId: _projectId, revisionLockedAt: _revisionLockedAt, lockedRevisionId: _lockedRevisionId, ...sifData } = source
+          const createdSif = await get().createSIF(createdProject.id, {
+            ...(sifData as Partial<SIF>),
+            status: typeof sifData.status === 'string' ? (sifData.status as SIF['status']) : 'draft',
+          })
+          if (!firstSifId) firstSifId = createdSif.id
+        }
+
+        set(state => {
+          state.aiProjectDraftPreview = null
+          state.aiProjectDraftResults[preview.messageId] = {
+            messageId: preview.messageId,
+            projectId: createdProject.id,
+            firstSifId,
+          }
+        })
+        saveAIProjectDraftResults(get().aiProjectDraftResults)
+
+        if (firstSifId) {
+          get().navigate({ type: 'sif-dashboard', projectId: createdProject.id, sifId: firstSifId, tab: 'context' })
+        } else {
+          get().navigate({ type: 'projects' })
+        }
+
+        return get().aiProjectDraftResults[preview.messageId] ?? null
+      },
+      clearAIProjectDraftResult: messageId => set(state => {
+        if (!state.aiProjectDraftResults[messageId]) return
+        delete state.aiProjectDraftResults[messageId]
+        saveAIProjectDraftResults(state.aiProjectDraftResults)
+      }),
+      openAILibraryDraftPreview: input => {
+        const activePreview = get().aiLibraryDraftPreview
+        if (activePreview?.messageId === input.messageId) return activePreview
+        return get().replaceAILibraryDraftPreview(input)
+      },
+      replaceAILibraryDraftPreview: input => {
+        const preview = buildAILibraryDraftPreview(input)
+        set(state => {
+          state.aiLibraryDraftPreview = preview
+        })
+        return get().aiLibraryDraftPreview
+      },
+      discardAILibraryDraftPreview: () => set(state => {
+        state.aiLibraryDraftPreview = null
+      }),
+      applyAILibraryDraftPreview: async () => {
+        const preview = get().aiLibraryDraftPreview
+        if (!preview) return null
+
+        const saved = await get().saveComponentTemplate(preview.templateInput)
+        set(state => {
+          state.aiLibraryDraftPreview = null
+          state.aiLibraryDraftResults[preview.messageId] = {
+            messageId: preview.messageId,
+            templateId: saved.id,
+            origin: preview.targetScope,
+            libraryName: saved.libraryName ?? null,
+          }
+        })
+        saveAILibraryDraftResults(get().aiLibraryDraftResults)
+        get().navigate({
+          type: 'library',
+          templateId: saved.id,
+          origin: preview.targetScope,
+          libraryName: saved.libraryName ?? null,
+        })
+        return get().aiLibraryDraftResults[preview.messageId] ?? null
+      },
+      clearAILibraryDraftResult: messageId => set(state => {
+        if (!state.aiLibraryDraftResults[messageId]) return
+        delete state.aiLibraryDraftResults[messageId]
+        saveAILibraryDraftResults(state.aiLibraryDraftResults)
       }),
       setRightPanelOpen: (open) => set(s => { s.rightPanelOpen = open }),
       toggleFocusMode: () => set(s => {
@@ -1462,6 +1711,10 @@ export const useAppStore = create<AppState>()(
       // ══════════════════════════════════════════════════════════════════════
       fetchRevisions: async (sifId) => {
         if (get().revisions[sifId]) return
+        if (isAISIFDraftSIFId(sifId)) {
+          set(s => { s.revisions[sifId] = [] })
+          return
+        }
         try {
           const revs = await dbFetchRevisions(sifId)
           set(s => { s.revisions[sifId] = revs })
