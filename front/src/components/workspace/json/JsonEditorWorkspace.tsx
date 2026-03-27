@@ -5,6 +5,10 @@ import { toast } from '@/components/ui/toast'
 import { parseAISIFDraftWorkspaceDocument, readAISIFDraftWorkspaceMeta, serializeAISIFDraftWorkspaceDocument } from '@/components/layout/prism-ai/sifDraftWorkspaceJson'
 import { parseAIProjectDraftWorkspaceDocument, readAIProjectDraftWorkspaceMeta, serializeAIProjectDraftWorkspaceDocument } from '@/components/layout/prism-ai/projectDraftWorkspaceJson'
 import { parseAILibraryDraftWorkspaceDocument, readAILibraryDraftWorkspaceMeta, serializeAILibraryDraftWorkspaceDocument } from '@/components/layout/prism-ai/libraryDraftWorkspaceJson'
+import { formatLibraryCollectionWorkspaceSource, parseLibraryCollectionWorkspaceDocument, readLibraryCollectionWorkspaceMeta, validateLibraryCollectionWorkspaceSource } from '@/components/library/libraryCollectionWorkspaceJson'
+import { useLibraryCollectionsStore } from '@/features/library/libraryCollectionsStore'
+import { applyCollectionNameToImportedTemplates, componentTemplateToUpsertInput, getTemplatesForLibraryCollection } from '@/features/library/libraryCollectionSync'
+import { dbUpdateLibraryCollection } from '@/lib/libraryCollections'
 import { useAppStore } from '@/store/appStore'
 import { useWorkspaceStore } from '@/store/workspaceStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
@@ -34,12 +38,17 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
     TEAL, TEXT, TEXT_DIM,
   } = usePrismTheme()
 
-  const { nodes, openTab, renameNode, updateJsonContent } = useWorkspaceStore()
+  const { nodes, openTab, renameNode, updateJsonContent, deleteNode } = useWorkspaceStore()
   const projects = useAppStore(s => s.projects)
+  const componentTemplates = useAppStore(s => s.componentTemplates)
   const isDark = useAppStore(s => s.isDark)
+  const navigate = useAppStore(s => s.navigate)
+  const ownerProfileId = useAppStore(s => s.profile?.id ?? s.authUser?.id ?? null)
+  const importComponentTemplates = useAppStore(s => s.importComponentTemplates)
   const replaceAISIFDraftPreview = useAppStore(s => s.replaceAISIFDraftPreview)
   const replaceAIProjectDraftPreview = useAppStore(s => s.replaceAIProjectDraftPreview)
   const replaceAILibraryDraftPreview = useAppStore(s => s.replaceAILibraryDraftPreview)
+  const fetchLibraryCollections = useLibraryCollectionsStore(state => state.fetchCollections)
   const node = nodes[nodeId]
 
   useEffect(() => { openTab(nodeId) }, [nodeId, openTab])
@@ -47,8 +56,8 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
   const [localContent, setLocalContent] = useState(node?.type === 'json' ? node.content : '')
   const [renamingTitle, setRenamingTitle] = useState(false)
   const [titleVal, setTitleVal] = useState(node?.type === 'json' ? node.name : '')
-  const [isApplyingDraft, setIsApplyingDraft] = useState(false)
-  const [draftApplyError, setDraftApplyError] = useState<string | null>(null)
+  const [isApplyingJson, setIsApplyingJson] = useState(false)
+  const [applyError, setApplyError] = useState<string | null>(null)
   const [editorZoom, setEditorZoom] = useState(loadJsonEditorZoom)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const titleRef = useRef<HTMLInputElement>(null)
@@ -57,7 +66,7 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
     if (node?.type === 'json') {
       setLocalContent(node.content)
       setTitleVal(node.name)
-      setDraftApplyError(null)
+      setApplyError(null)
     }
   }, [nodeId, node])
 
@@ -66,6 +75,10 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
   }, [renamingTitle])
 
   const validationState = useMemo<JsonValidationState>(() => {
+    if (node?.type === 'json' && (node.schema === 'prism_library_collection' || node.binding?.kind === 'library_collection')) {
+      const error = validateLibraryCollectionWorkspaceSource(localContent)
+      return error ? { kind: 'invalid', message: error } : { kind: 'valid' }
+    }
     try {
       JSON.parse(localContent)
       return { kind: 'valid' }
@@ -75,7 +88,7 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
         message: error instanceof Error ? error.message : 'JSON invalide.',
       }
     }
-  }, [localContent])
+  }, [localContent, node])
 
   const persistedSifDraftMeta = useMemo(() => (
     node?.type === 'json' && node.schema === 'ai_sif_draft'
@@ -113,9 +126,21 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
       : null
   ), [localContent, node])
 
+  const persistedLibraryCollectionMeta = useMemo(() => (
+    node?.type === 'json' && node.schema === 'prism_library_collection'
+      ? readLibraryCollectionWorkspaceMeta(node.content)
+      : null
+  ), [node])
+
+  const liveLibraryCollectionMeta = useMemo(() => (
+    node?.type === 'json' && (node.schema === 'prism_library_collection' || node.binding?.kind === 'library_collection')
+      ? readLibraryCollectionWorkspaceMeta(localContent)
+      : null
+  ), [localContent, node])
+
   const handleChange = useCallback((value: string) => {
     setLocalContent(value)
-    setDraftApplyError(null)
+    setApplyError(null)
     if (saveTimer.current) clearTimeout(saveTimer.current)
     saveTimer.current = setTimeout(() => updateJsonContent(nodeId, value), 300)
   }, [nodeId, updateJsonContent])
@@ -141,19 +166,32 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
   }
 
   const handleFormat = () => {
+    if (node?.type === 'json' && (node.schema === 'prism_library_collection' || node.binding?.kind === 'library_collection')) {
+      const formatted = formatLibraryCollectionWorkspaceSource(localContent)
+      if (!formatted.ok) {
+        setApplyError(formatted.error)
+        toast.error('Format JSON impossible', formatted.error)
+        return
+      }
+      setLocalContent(formatted.formatted)
+      updateJsonContent(nodeId, formatted.formatted)
+      setApplyError(null)
+      return
+    }
+
     try {
       const formatted = JSON.stringify(JSON.parse(localContent), null, 2)
       setLocalContent(formatted)
       updateJsonContent(nodeId, formatted)
-      setDraftApplyError(null)
+      setApplyError(null)
     } catch (error) {
       const message = error instanceof Error ? error.message : 'JSON invalide.'
-      setDraftApplyError(message)
+      setApplyError(message)
       toast.error('Format JSON impossible', message)
     }
   }
 
-  const draftKind = node?.type === 'json'
+  const syncMode = node?.type === 'json'
     ? (node.binding?.kind === 'ai_project_draft'
         || node.schema === 'prism_project_draft'
         || persistedProjectDraftMeta !== null
@@ -163,7 +201,12 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
           || node.schema === 'prism_library_draft'
           || persistedLibraryDraftMeta !== null
           || liveLibraryDraftMeta !== null
-          ? 'library'
+          ? 'library_draft'
+          : node.binding?.kind === 'library_collection'
+            || node.schema === 'prism_library_collection'
+            || persistedLibraryCollectionMeta !== null
+            || liveLibraryCollectionMeta !== null
+            ? 'library_collection'
           : node.binding?.kind === 'ai_sif_draft'
             || node.schema === 'ai_sif_draft'
             || persistedSifDraftMeta !== null
@@ -171,48 +214,123 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
             ? 'sif'
             : null)
     : null
-  const isDraftJson = draftKind !== null
+  const canApplyJson = syncMode !== null
   const expectedDraftMessageId = node?.type === 'json'
-    ? (draftKind === 'project'
+    ? (syncMode === 'project'
         ? (node.binding?.kind === 'ai_project_draft'
             ? node.binding.messageId
             : persistedProjectDraftMeta?.messageId ?? liveProjectDraftMeta?.messageId ?? null)
-        : draftKind === 'library'
+        : syncMode === 'library_draft'
           ? (node.binding?.kind === 'ai_library_draft'
               ? node.binding.messageId
               : persistedLibraryDraftMeta?.messageId ?? liveLibraryDraftMeta?.messageId ?? null)
-          : draftKind === 'sif'
+          : syncMode === 'sif'
             ? (node.binding?.kind === 'ai_sif_draft'
                 ? node.binding.messageId
                 : persistedSifDraftMeta?.messageId ?? liveSifDraftMeta?.messageId ?? null)
             : null)
     : null
 
-  const handleApplyDraft = async () => {
-    if (!node || node.type !== 'json' || !isDraftJson) return
+  const expectedCollectionId = node?.type === 'json'
+    ? (syncMode === 'library_collection'
+        ? (node.binding?.kind === 'library_collection'
+            ? node.binding.collectionId
+            : persistedLibraryCollectionMeta?.collectionId ?? liveLibraryCollectionMeta?.collectionId ?? null)
+        : null)
+    : null
 
-    if (!expectedDraftMessageId || !draftKind) {
-      const message = 'Impossible de rattacher ce JSON à un brouillon PRISM AI.'
-      setDraftApplyError(message)
-      toast.error('Draft IA indisponible', message)
-      return
-    }
+  const handleApplyJson = async () => {
+    if (!node || node.type !== 'json' || !canApplyJson) return
 
     if (validationState.kind === 'invalid') {
-      setDraftApplyError(validationState.message)
+      setApplyError(validationState.message)
       toast.error('Draft IA invalide', validationState.message)
       return
     }
 
-    setIsApplyingDraft(true)
-    setDraftApplyError(null)
+    setIsApplyingJson(true)
+    setApplyError(null)
     try {
-      if (draftKind === 'project') {
+      if (syncMode === 'library_collection') {
+        if (!expectedCollectionId) {
+          const message = 'Impossible de rattacher ce JSON à une collection Library.'
+          setApplyError(message)
+          toast.error('Collection JSON indisponible', message)
+          return
+        }
+
+        const parsed = parseLibraryCollectionWorkspaceDocument(localContent, {
+          expectedCollectionId,
+        })
+        if (!parsed.ok) {
+          setApplyError(parsed.error)
+          toast.error('Collection JSON invalide', parsed.error)
+          return
+        }
+
+        const currentCollection = useLibraryCollectionsStore.getState().collections.find(collection => collection.id === expectedCollectionId)
+        if (!currentCollection) {
+          const message = 'La collection Library ciblée est introuvable.'
+          setApplyError(message)
+          toast.error('Collection JSON indisponible', message)
+          return
+        }
+
+        if (
+          parsed.value.collection.scope !== currentCollection.scope
+          || parsed.value.collection.project_id !== currentCollection.projectId
+        ) {
+          const message = 'Le scope ou le projet de la collection ne peut pas être modifié depuis ce JSON.'
+          setApplyError(message)
+          toast.error('Collection JSON invalide', message)
+          return
+        }
+
+        const targetCollection = {
+          scope: currentCollection.scope,
+          projectId: currentCollection.projectId,
+          name: parsed.value.collection.name,
+        }
+        const upsertInputs = applyCollectionNameToImportedTemplates(parsed.value.templateInputs, targetCollection)
+        const retainedIds = new Set(
+          upsertInputs
+            .map(input => input.id)
+            .filter((value): value is string => typeof value === 'string' && value.trim().length > 0),
+        )
+        const existingTemplates = getTemplatesForLibraryCollection(componentTemplates, currentCollection)
+        const detachInputs = existingTemplates
+          .filter(template => !retainedIds.has(template.id))
+          .map(template => componentTemplateToUpsertInput(template, { libraryName: null }))
+
+        await dbUpdateLibraryCollection(expectedCollectionId, {
+          name: parsed.value.collection.name,
+          color: parsed.value.collection.color,
+        })
+        if (upsertInputs.length > 0 || detachInputs.length > 0) {
+          await importComponentTemplates([...upsertInputs, ...detachInputs])
+        }
+        if (ownerProfileId) {
+          await fetchLibraryCollections(ownerProfileId)
+        }
+        deleteNode(nodeId)
+        navigate({ type: 'library' })
+        toast.success('Collection mise à jour', 'La collection Library a été reconstruite depuis le JSON.')
+        return
+      }
+
+      if (!expectedDraftMessageId || !syncMode) {
+        const message = 'Impossible de rattacher ce JSON à un brouillon PRISM AI.'
+        setApplyError(message)
+        toast.error('Draft IA indisponible', message)
+        return
+      }
+
+      if (syncMode === 'project') {
         const parsed = parseAIProjectDraftWorkspaceDocument(localContent, {
           expectedMessageId: expectedDraftMessageId,
         })
         if (!parsed.ok) {
-          setDraftApplyError(parsed.error)
+          setApplyError(parsed.error)
           toast.error('Draft IA invalide', parsed.error)
           return
         }
@@ -220,7 +338,7 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
         const preview = replaceAIProjectDraftPreview(parsed.input)
         if (!preview) {
           const message = 'Impossible de reconstruire la preview IA depuis ce JSON.'
-          setDraftApplyError(message)
+          setApplyError(message)
           toast.error('Draft IA indisponible', message)
           return
         }
@@ -232,12 +350,12 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
         return
       }
 
-      if (draftKind === 'library') {
+      if (syncMode === 'library_draft') {
         const parsed = parseAILibraryDraftWorkspaceDocument(localContent, {
           expectedMessageId: expectedDraftMessageId,
         })
         if (!parsed.ok) {
-          setDraftApplyError(parsed.error)
+          setApplyError(parsed.error)
           toast.error('Draft IA invalide', parsed.error)
           return
         }
@@ -245,7 +363,7 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
         const preview = replaceAILibraryDraftPreview(parsed.input)
         if (!preview) {
           const message = 'Impossible de reconstruire la preview IA depuis ce JSON.'
-          setDraftApplyError(message)
+          setApplyError(message)
           toast.error('Draft IA indisponible', message)
           return
         }
@@ -261,7 +379,7 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
         expectedMessageId: expectedDraftMessageId,
       })
       if (!parsed.ok) {
-        setDraftApplyError(parsed.error)
+        setApplyError(parsed.error)
         toast.error('Draft IA invalide', parsed.error)
         return
       }
@@ -269,7 +387,7 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
       const preview = replaceAISIFDraftPreview(parsed.input)
       if (!preview) {
         const message = 'Impossible de reconstruire la preview IA depuis ce JSON.'
-        setDraftApplyError(message)
+        setApplyError(message)
         toast.error('Draft IA indisponible', message)
         return
       }
@@ -279,7 +397,7 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
       updateJsonContent(nodeId, normalizedContent)
       toast.success('Preview IA mise à jour', 'Le workflow SIF a été resynchronisé depuis le JSON.')
     } finally {
-      setIsApplyingDraft(false)
+      setIsApplyingJson(false)
     }
   }
 
@@ -303,6 +421,12 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
   const wordCount = localContent.trim() ? localContent.trim().split(/\s+/).length : 0
   const lineCount = localContent.split(/\n/).length
   const charCount = localContent.length
+  const applyButtonLabel = syncMode === 'library_collection'
+    ? (isApplyingJson ? 'Apply…' : 'Save & apply collection')
+    : (isApplyingJson ? 'Update…' : 'Save & update draft')
+  const applyButtonTitle = syncMode === 'library_collection'
+    ? 'Valider le JSON et mettre à jour la collection Library'
+    : 'Valider le JSON et resynchroniser la preview IA'
 
   return (
     <div className="flex flex-1 min-w-0 flex-col min-h-0" style={{ background: PAGE_BG }}>
@@ -373,17 +497,17 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
           <span>Format</span>
         </button>
 
-        {isDraftJson && (
+        {canApplyJson && (
           <button
             type="button"
-            title="Valider le JSON et resynchroniser la preview IA"
-            onClick={() => { void handleApplyDraft() }}
-            disabled={isApplyingDraft}
+            title={applyButtonTitle}
+            onClick={() => { void handleApplyJson() }}
+            disabled={isApplyingJson}
             className="inline-flex shrink-0 items-center gap-1.5 rounded-md px-2 py-1 text-[11px] font-semibold transition-colors disabled:opacity-50"
             style={{ color: TEAL, background: `${TEAL}14`, border: `1px solid ${TEAL}28` }}
           >
             <Save size={12} />
-            <span>{isApplyingDraft ? 'Update…' : 'Save & update draft'}</span>
+            <span>{applyButtonLabel}</span>
           </button>
         )}
 
@@ -410,10 +534,10 @@ export function JsonEditorWorkspace({ nodeId }: { nodeId: string }) {
         </span>
 
         <div className="ml-auto flex shrink-0 items-center gap-3">
-          {draftApplyError ? (
+          {applyError ? (
             <span className="flex items-center gap-1.5 text-[10px]" style={{ color: '#EF4444' }}>
               <AlertTriangle size={10} />
-              <span>{draftApplyError}</span>
+              <span>{applyError}</span>
             </span>
           ) : (
             <span className="text-[10px]" style={{ color: `${TEAL}99` }}>

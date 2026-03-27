@@ -49,7 +49,11 @@ export interface LibraryStrings {
     newCollectionPlaceholder: string
     newCollectionConfirm: string
     collectionColorTitle: string
+    collectionEditJsonTitle: string
     collectionDeleteTitle: string
+    collectionDeleteConfirmTitle: string
+    collectionDeleteConfirmMessage: (name: string) => string
+    collectionDeleteConfirmAction: string
   }
 }
 

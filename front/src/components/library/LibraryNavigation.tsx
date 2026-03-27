@@ -82,12 +82,14 @@ type LibraryNavigationContextValue = {
   setProjectFilter: (value: string | null) => void
   setLibraryFilter: (value: string | null) => void
   clearFilters: () => void
-  // Collections (local, Supabase-ready)
+  collectionsLoading: boolean
+  collectionsError: string | null
   collections: LibraryCollection[]
-  createCollection: (name: string) => boolean
-  renameCollection: (oldName: string, newName: string) => void
-  deleteCollection: (name: string) => void
-  setCollectionColor: (name: string, color: string) => void
+  createCollection: (name: string, options?: { scope?: 'user' | 'project'; projectId?: string | null; color?: string }) => Promise<LibraryCollection | null>
+  renameCollection: (collectionId: string, newName: string) => Promise<LibraryCollection | null>
+  deleteCollection: (collectionId: string) => Promise<void>
+  setCollectionColor: (collectionId: string, color: string) => Promise<LibraryCollection | null>
+  getCollectionTemplates: (collectionId: string) => ComponentTemplate[]
 }
 
 const LibraryNavigationContext = createContext<LibraryNavigationContextValue | null>(null)
@@ -210,7 +212,20 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
     deleteTemplate,
     clearError,
   } = useComponentLibrary(null)
-  const { collections, createCollection, renameCollection, deleteCollection, setCollectionColor } = useLibraryCollections()
+  const customTemplates = useMemo(
+    () => [...allProjectTemplates, ...userTemplates],
+    [allProjectTemplates, userTemplates],
+  )
+  const {
+    collections,
+    loading: collectionsLoading,
+    error: collectionsError,
+    createCollection,
+    renameCollection,
+    deleteCollection,
+    setCollectionColor,
+    getCollectionTemplates,
+  } = useLibraryCollections({ templates: customTemplates, importTemplates })
 
   const [query, setQuery] = useState('')
   const [sourceScope, setSourceScope] = useState<LibrarySourceScope>('all')
@@ -438,11 +453,14 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
     setProjectFilter,
     setLibraryFilter,
     clearFilters,
+    collectionsLoading,
+    collectionsError,
     collections,
     createCollection,
     renameCollection,
     deleteCollection,
     setCollectionColor,
+    getCollectionTemplates,
   }), [
     allEntries.length,
     allProjectTemplates,
@@ -450,6 +468,8 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
     clearEditor,
     clearError,
     collections,
+    collectionsError,
+    collectionsLoading,
     createCollection,
     deferredQuery,
     deleteCollection,
@@ -467,6 +487,7 @@ export function LibraryNavigationProvider({ children }: { children: ReactNode })
     libraryFilters,
     loading,
     openEntry,
+    getCollectionTemplates,
     projectFilter,
     projectFilters,
     query,

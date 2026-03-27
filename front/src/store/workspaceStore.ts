@@ -65,12 +65,19 @@ export type WorkspaceImage = {
   parentId: string | null
 }
 
-export type WorkspaceJsonSchema = 'generic' | 'ai_sif_draft' | 'prism_project_draft' | 'prism_library_draft' | 'library_import'
+export type WorkspaceJsonSchema =
+  | 'generic'
+  | 'ai_sif_draft'
+  | 'prism_project_draft'
+  | 'prism_library_draft'
+  | 'prism_library_collection'
+  | 'library_import'
 
 export type WorkspaceJsonBinding =
   | { kind: 'ai_sif_draft'; messageId: string }
   | { kind: 'ai_project_draft'; messageId: string }
   | { kind: 'ai_library_draft'; messageId: string }
+  | { kind: 'library_collection'; collectionId: string }
 
 export type WorkspaceJSON = {
   type: 'json'

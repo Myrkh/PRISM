@@ -55,6 +55,10 @@ export const libraryStringsEn: LibraryStrings = {
     newCollectionPlaceholder: 'Collection name…',
     newCollectionConfirm: 'OK',
     collectionColorTitle: 'Change color',
+    collectionEditJsonTitle: 'Edit as JSON',
     collectionDeleteTitle: 'Delete',
+    collectionDeleteConfirmTitle: 'Delete collection',
+    collectionDeleteConfirmMessage: name => `Permanently delete the ${name} collection and detach its components?`,
+    collectionDeleteConfirmAction: 'Delete',
   },
 }

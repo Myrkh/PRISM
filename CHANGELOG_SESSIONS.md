@@ -2,7 +2,148 @@
 # PRISM — Journal de développement
 
 > Historique des sessions Claude × PRISM Desktop
-> Dernière mise à jour : 2026-03-24
+> Dernière mise à jour : 2026-03-27
+
+---
+
+## Session 7 — 2026-03-27 · i18n finalisation + PRISM AI gouvernée + Persistance Supabase normalisée
+
+### i18n — Fermeture des écrans visibles et du workflow SIF principal
+
+Poursuite de la traduction applicative sans changement de logique métier, avec fermeture des écrans visibles `Engine`, `Planning`, `Library`, `Audit Log`, `Search`, puis de la coque visible du workflow SIF.
+
+#### Fichiers modifiés
+
+| Fichier | Changement |
+|---------|-----------|
+| `front/src/i18n/planning.ts` + locales FR/EN | Nouveau namespace Planning |
+| `front/src/components/global/EngineWorkspace.tsx` | Suppression des reliquats FR visibles |
+| `front/src/components/library/LibraryInspector.tsx` | Derniers labels Library visibles branchés sur i18n |
+| `front/src/components/layout/EditorTabBar.tsx` | Shell workflow SIF branché sur i18n |
+| `front/src/components/layout/ProjectTree.tsx` | Arborescence projet/SIF localisée |
+| `front/src/components/sif/ComplianceRightPanel.tsx` | Panneau de vérification localisé |
+| `front/src/components/sif/SIFModal.tsx` | Modale création/édition SIF localisée |
+
+#### Notes
+
+- La logique métier n’a pas été modifiée volontairement pendant cette passe.
+- Le reliquat i18n restant est désormais concentré sur certains exports/documents `Report`.
+
+---
+
+### PRISM AI — Passage d’un chat simple à un copilote gouverné du workspace
+
+Refonte majeure de PRISM AI pour en faire un assistant gouverné, attaché au contexte projet réel, avec commandes clavier, previews contrôlées et artefacts JSON temporaires.
+
+#### Commandes et contexte
+
+- `#` : attachements clavier SIF/workspace
+- `>strict` : mode strict gouverné côté backend
+- `>draft_note` : génération de note directe, sans prose parasite dans la note sauvegardée
+- `>draft_sif project:...` / `>create_sif project:...` : brouillons et créations SIF gouvernées
+- `>create_project` : brouillon projet gouverné avec preview dédiée
+- `>create_library` : brouillon Library gouverné avec preview dans le vrai panneau Library
+
+#### Fichiers modifiés
+
+| Fichier | Changement |
+|---------|-----------|
+| `front/src/components/layout/prism-ai/usePrismAiChat.ts` | Orchestration du chat, commandes, previews, persistance DB |
+| `front/src/components/layout/prism-ai/PrismAiShell.tsx` | Shell chat, overview rail, autoscroll, composer |
+| `front/src/components/layout/prism-ai/ComposerCommandMenu.tsx` | Menus `>` et `#` alignés en colonnes stables |
+| `front/src/components/layout/prism-ai/ProposalCard.tsx` | Cartes de proposition SIF/projet/library avec états gouvernés |
+| `front/src/components/layout/prism-ai/sifDraftWorkspaceJson.ts` | Contrat JSON éditable des drafts SIF |
+| `front/src/components/layout/prism-ai/projectDraftWorkspaceJson.ts` | Contrat JSON éditable des drafts projet |
+| `front/src/components/layout/prism-ai/libraryDraftWorkspaceJson.ts` | Contrat JSON éditable des drafts Library |
+| `front/src/components/sif/AIDraftPreviewBanner.tsx` | Bannière d’application/annulation des previews IA |
+| `front/src/components/projects/AIProjectDraftPreviewDialog.tsx` | Preview projet gouvernée |
+| `front/src/components/library/AILibraryDraftInspector.tsx` | Preview Library dans l’inspecteur réel |
+| `backend/app/services/ai_service.py` | Sorties structurées, modes strict/draft, garde-fous anti-invention |
+| `backend/app/routes/ai.py` | Contrat API étendu pour commandes et modes gouvernés |
+
+#### Décisions produit
+
+- Les previews SIF s’ouvrent dans le vrai workflow, sans write DB avant `Apply`.
+- Les previews projet et library ont un bouton `JSON` ouvrant un artefact temporaire éditable.
+- Les drafts IA restent temporaires ; leur JSON de travail est supprimé sur `Apply` ou `Discard`.
+
+---
+
+### Workspace + PRISM AI — Normalisation Supabase par document/message
+
+Abandon progressif des gros blobs `localStorage` pour les zones structurantes du produit.
+
+#### Changements principaux
+
+- workspace synchronisé en lignes par document au lieu d’un blob `workspace_tree.data`
+- fichiers `.prism` persistés par fichier
+- conversations PRISM AI persistées en base (`conversations`, `messages`, `settings`)
+- fallback legacy conservé uniquement pour migration / mode non authentifié
+
+#### Fichiers modifiés
+
+| Fichier | Changement |
+|---------|-----------|
+| `supabase/migrations/20260327_workspace_documents_and_prism_ai.sql` | Nouvelles tables normalisées workspace + PRISM AI |
+| `front/src/store/workspaceSyncDb.ts` | API DB normalisée pour le workspace |
+| `front/src/store/workspaceStore.ts` | Sync workspace normalisé + cache local piloté |
+| `front/src/components/layout/prism-ai/persistenceDb.ts` | Persistance Supabase des conversations/messages/settings |
+| `front/src/components/layout/prism-ai/persistence.ts` | Migration/compat legacy localStorage |
+
+---
+
+### Library — Collections persistées en base + menu unifié + édition JSON
+
+Les collections Library ne sont plus locales uniquement. Elles sont reliées à la table `prism_library_collections`, avec synchronisation des templates liés et édition JSON temporaire pilotée par le contrat d’import Library existant.
+
+#### Fonctionnalités livrées
+
+- création / renommage / suppression / couleur de collection via Supabase
+- suppression gardée par confirmation
+- menu collection aligné sur la logique visuelle du workspace
+- `Éditer en JSON` : ouverture d’un fichier JSON temporaire dans le workspace
+- `Save & apply collection` : mise à jour de la collection + des composants associés, puis suppression du JSON temporaire
+
+#### Fichiers modifiés
+
+| Fichier | Changement |
+|---------|-----------|
+| `front/src/lib/libraryCollections.ts` | CRUD Supabase des collections Library |
+| `front/src/features/library/libraryCollectionsStore.ts` | Store Zustand collections |
+| `front/src/features/library/useLibraryCollections.ts` | Hook collections DB + resync templates |
+| `front/src/features/library/libraryCollectionSync.ts` | Retarget/detach des templates lors des mutations de collection |
+| `front/src/components/library/LibrarySidebar.tsx` | Sidebar recâblée collections DB + menu + confirmation |
+| `front/src/components/library/LibraryCollectionRow.tsx` | Ligne de collection dédiée |
+| `front/src/components/library/LibraryCollectionMenu.tsx` | Menu palette / JSON / suppression |
+| `front/src/components/library/libraryCollectionWorkspaceJson.ts` | Contrat JSON temporaire des collections |
+| `front/src/components/library/libraryCollectionWorkspaceNode.ts` | Création/résolution du fichier JSON temporaire |
+| `front/src/components/workspace/json/JsonEditorWorkspace.tsx` | Application JSON vers collection réelle |
+
+---
+
+### UX Desktop / Settings / Header
+
+Plusieurs finitions produit ont été livrées en parallèle de PRISM AI.
+
+#### Points marquants
+
+- sélecteur modèle déplacé au bas du chat, à côté du trombone, comme VS Code
+- raccourci global pour ouvrir/fermer PRISM AI + commande palette dédiée
+- logo `PRISM AI` dans le header et sur le bouton adjacent à la command palette
+- overview rail cliquable + bouton “aller en bas” dans la conversation
+- card profil déplacée dans `Settings`, avec scope `Profile` séparé du scope `PRISM Settings`
+- préférence pour masquer l’`EditorBreadcrumb` du workflow + commande palette + keyboard shortcut associé
+
+#### Fichiers modifiés
+
+| Fichier | Changement |
+|---------|-----------|
+| `front/src/components/layout/AppHeader.tsx` | Rééquilibrage header, bouton PRISM AI, command palette centrée |
+| `front/src/components/layout/ChatPanel.tsx` | Réduit à un wrapper fin, shell déplacé vers `prism-ai/` |
+| `front/src/components/settings/SettingsWorkspace.tsx` | Scopes PRISM/Profile |
+| `front/src/components/settings/ProfileScopeCard.tsx` | Card profil dédiée |
+| `front/src/core/shortcuts/defaults.ts` | Raccourci PRISM AI + toggle breadcrumb workflow |
+| `front/src/components/layout/command-palette/useCommandGroups.ts` | Commandes PRISM AI / workflow breadcrumb |
 
 ---
 

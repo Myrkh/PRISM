@@ -41,6 +41,7 @@ import {
 import { uploadWorkspaceFile } from '@/lib/workspaceStorage'
 import { downloadNote, downloadFile, downloadFolderAsZip } from '@/lib/workspaceDownload'
 import { nanoid } from 'nanoid'
+import { ContextMenu, type ContextMenuItem } from '@/shared/ContextMenu'
 
 // ─── Inline rename input ──────────────────────────────────────────────────
 function RenameInput({
@@ -91,57 +92,6 @@ function DragGhost({ node }: { node: WorkspaceNode | undefined }) {
       <GripVertical size={11} style={{ color: TEAL, flexShrink: 0 }} />
       <NodeIcon node={node} isActive isOpen={false} />
       <span className="truncate">{node.name}</span>
-    </div>
-  )
-}
-
-// ─── Context menu ─────────────────────────────────────────────────────────
-type MenuItem =
-  | { kind: 'action'; label: string; icon: React.ReactNode; onClick: () => void; danger?: boolean }
-  | { kind: 'separator' }
-
-function ContextMenu({ items, onClose }: { items: MenuItem[]; onClose: () => void }) {
-  const { CARD_BG, BORDER, TEXT, TEXT_DIM, SHADOW_SOFT } = usePrismTheme()
-  const ref = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) onClose()
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [onClose])
-
-  return (
-    <div
-      ref={ref}
-      className="absolute z-50 right-0 top-full mt-0.5 rounded-lg py-1 min-w-[160px]"
-      style={{
-        background: CARD_BG,
-        border: `1px solid ${BORDER}`,
-        boxShadow: `0 8px 24px rgba(0,0,0,0.35), ${SHADOW_SOFT}`,
-      }}
-      onMouseDown={e => e.stopPropagation()}
-    >
-      {items.map((item, i) => {
-        if (item.kind === 'separator') {
-          return <div key={i} className="my-1 h-px" style={{ background: BORDER }} />
-        }
-        return (
-          <button
-            key={i}
-            type="button"
-            className="flex w-full items-center gap-2 px-3 py-1.5 text-[12px] text-left transition-colors"
-            style={{ color: item.danger ? '#EF4444' : TEXT }}
-            onMouseEnter={e => { e.currentTarget.style.background = item.danger ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.05)' }}
-            onMouseLeave={e => { e.currentTarget.style.background = 'transparent' }}
-            onClick={() => { item.onClick(); onClose() }}
-          >
-            <span style={{ color: item.danger ? '#EF4444' : TEXT_DIM, flexShrink: 0 }}>{item.icon}</span>
-            {item.label}
-          </button>
-        )
-      })}
     </div>
   )
 }
@@ -220,7 +170,7 @@ function SortableNodeRow({
   }
 
   // Build context menu items
-  const menuItems: MenuItem[] = []
+  const menuItems: ContextMenuItem[] = []
   if (isFolder) {
     if (node.collapsed) {
       menuItems.push({ kind: 'action', label: 'Ouvrir', icon: <FolderOpen size={12} />, onClick: () => toggleFolder(node.id) })

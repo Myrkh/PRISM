@@ -55,6 +55,10 @@ export const libraryStringsFr: LibraryStrings = {
     newCollectionPlaceholder: 'Nom de la collection…',
     newCollectionConfirm: 'OK',
     collectionColorTitle: 'Changer la couleur',
+    collectionEditJsonTitle: 'Éditer en JSON',
     collectionDeleteTitle: 'Supprimer',
+    collectionDeleteConfirmTitle: 'Supprimer la collection',
+    collectionDeleteConfirmMessage: name => `Supprimer définitivement la collection ${name} et détacher ses composants ?`,
+    collectionDeleteConfirmAction: 'Supprimer',
   },
 }

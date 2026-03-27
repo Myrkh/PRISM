@@ -1,86 +1,152 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useMemo } from 'react'
+import type { ComponentTemplate, ComponentTemplateUpsertInput } from '@/core/types'
+import { useAppStore } from '@/store/appStore'
+import {
+  dbCreateLibraryCollection,
+  dbDeleteLibraryCollection,
+  dbUpdateLibraryCollection,
+  type LibraryCollectionRecord,
+} from '@/lib/libraryCollections'
+import {
+  buildRetargetInputsForLibraryCollection,
+  getTemplatesForLibraryCollection,
+} from './libraryCollectionSync'
+import { useLibraryCollectionsStore } from './libraryCollectionsStore'
 
-export interface LibraryCollection {
-  name: string
-  color: string
-}
+export type LibraryCollection = LibraryCollectionRecord
 
 export const COLLECTION_PRESET_COLORS = [
-  '#0284C7', // sky
-  '#0F766E', // teal
-  '#7C3AED', // violet
-  '#EA580C', // orange
-  '#16A34A', // green
-  '#DC2626', // red
-  '#CA8A04', // amber
-  '#DB2777', // pink
-  '#64748B', // slate
-]
+  '#0284C7',
+  '#0F766E',
+  '#7C3AED',
+  '#EA580C',
+  '#16A34A',
+  '#DC2626',
+  '#CA8A04',
+  '#DB2777',
+  '#64748B',
+] as const
 
-const STORAGE_KEY = 'prism_library_collections'
-
-function loadFromStorage(): LibraryCollection[] {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return []
-    const parsed = JSON.parse(raw) as unknown
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter((item): item is LibraryCollection =>
-      typeof item?.name === 'string' && typeof item?.color === 'string'
-    )
-  } catch {
-    return []
-  }
+interface UseLibraryCollectionsOptions {
+  templates: ComponentTemplate[]
+  importTemplates: (inputs: ComponentTemplateUpsertInput[]) => Promise<ComponentTemplate[]>
 }
 
-function persist(collections: LibraryCollection[]): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(collections))
+function normalizeName(value: string): string {
+  return value.trim().toLowerCase()
 }
 
-export function useLibraryCollections() {
-  const [collections, setCollections] = useState<LibraryCollection[]>(loadFromStorage)
+function sortCollections(collections: LibraryCollection[]): LibraryCollection[] {
+  return [...collections].sort((left, right) => {
+    if (left.position !== right.position) return left.position - right.position
+    return left.name.localeCompare(right.name, 'fr', { sensitivity: 'base' })
+  })
+}
 
-  const createCollection = useCallback((name: string): boolean => {
+export function useLibraryCollections({ templates, importTemplates }: UseLibraryCollectionsOptions) {
+  const profileId = useAppStore(state => state.profile?.id ?? state.authUser?.id ?? null)
+  const collections = useLibraryCollectionsStore(state => state.collections)
+  const loading = useLibraryCollectionsStore(state => state.loading)
+  const error = useLibraryCollectionsStore(state => state.error)
+  const hydratedOwnerId = useLibraryCollectionsStore(state => state.hydratedOwnerId)
+  const fetchCollections = useLibraryCollectionsStore(state => state.fetchCollections)
+  const setCollections = useLibraryCollectionsStore(state => state.setCollections)
+  const resetCollections = useLibraryCollectionsStore(state => state.reset)
+
+  useEffect(() => {
+    if (!profileId) {
+      resetCollections()
+      return
+    }
+    if (hydratedOwnerId === profileId && collections.length >= 0) return
+    void fetchCollections(profileId)
+  }, [collections.length, fetchCollections, hydratedOwnerId, profileId, resetCollections])
+
+  const scopedCollections = useMemo(() => sortCollections(collections), [collections])
+
+  const createCollection = useCallback(async (
+    name: string,
+    options?: { scope?: 'user' | 'project'; projectId?: string | null; color?: string },
+  ): Promise<LibraryCollection | null> => {
     const trimmed = name.trim()
-    if (!trimmed) return false
-    let created = false
-    setCollections(prev => {
-      if (prev.some(c => c.name.toLowerCase() === trimmed.toLowerCase())) return prev
-      const color = COLLECTION_PRESET_COLORS[prev.length % COLLECTION_PRESET_COLORS.length]
-      const next = [...prev, { name: trimmed, color }]
-      persist(next)
-      created = true
-      return next
-    })
-    return created
-  }, [])
+    if (!trimmed || !profileId) return null
 
-  const renameCollection = useCallback((oldName: string, newName: string): void => {
+    if (collections.some(collection => normalizeName(collection.name) == normalizeName(trimmed))) {
+      return collections.find(collection => normalizeName(collection.name) == normalizeName(trimmed)) ?? null
+    }
+
+    const next = await dbCreateLibraryCollection({
+      ownerProfileId: profileId,
+      scope: options?.scope === 'project' ? 'project' : 'user',
+      projectId: options?.scope === 'project' ? options?.projectId ?? null : null,
+      name: trimmed,
+      color: options?.color ?? COLLECTION_PRESET_COLORS[collections.length % COLLECTION_PRESET_COLORS.length],
+      position: collections.length,
+    })
+
+    const nextCollections = sortCollections([...collections, next])
+    setCollections(profileId, nextCollections)
+    return next
+  }, [collections, profileId, setCollections])
+
+  const renameCollection = useCallback(async (collectionId: string, newName: string): Promise<LibraryCollection | null> => {
     const trimmed = newName.trim()
-    if (!trimmed || trimmed === oldName) return
-    setCollections(prev => {
-      if (prev.some(c => c.name.toLowerCase() === trimmed.toLowerCase() && c.name !== oldName)) return prev
-      const next = prev.map(c => c.name === oldName ? { ...c, name: trimmed } : c)
-      persist(next)
-      return next
-    })
-  }, [])
+    const current = collections.find(collection => collection.id === collectionId)
+    if (!current || !profileId || !trimmed || trimmed === current.name) return current ?? null
 
-  const deleteCollection = useCallback((name: string): void => {
-    setCollections(prev => {
-      const next = prev.filter(c => c.name !== name)
-      persist(next)
-      return next
-    })
-  }, [])
+    const duplicate = collections.find(collection => collection.id !== collectionId && normalizeName(collection.name) == normalizeName(trimmed))
+    if (duplicate) throw new Error('Une collection portant ce nom existe déjà.')
 
-  const setCollectionColor = useCallback((name: string, color: string): void => {
-    setCollections(prev => {
-      const next = prev.map(c => c.name === name ? { ...c, color } : c)
-      persist(next)
-      return next
-    })
-  }, [])
+    const templateUpdates = buildRetargetInputsForLibraryCollection(templates, current, trimmed)
+    if (templateUpdates.length > 0) {
+      await importTemplates(templateUpdates)
+    }
 
-  return { collections, createCollection, renameCollection, deleteCollection, setCollectionColor }
+    const updated = await dbUpdateLibraryCollection(collectionId, { name: trimmed })
+    const nextCollections = sortCollections(collections.map(collection => collection.id === collectionId ? updated : collection))
+    setCollections(profileId, nextCollections)
+    return updated
+  }, [collections, importTemplates, profileId, setCollections, templates])
+
+  const deleteCollection = useCallback(async (collectionId: string): Promise<void> => {
+    const current = collections.find(collection => collection.id === collectionId)
+    if (!current || !profileId) return
+
+    const templateUpdates = buildRetargetInputsForLibraryCollection(templates, current, null)
+    if (templateUpdates.length > 0) {
+      await importTemplates(templateUpdates)
+    }
+
+    await dbDeleteLibraryCollection(collectionId)
+    const nextCollections = collections.filter(collection => collection.id !== collectionId)
+    setCollections(profileId, sortCollections(nextCollections))
+  }, [collections, importTemplates, profileId, setCollections, templates])
+
+  const setCollectionColor = useCallback(async (collectionId: string, color: string): Promise<LibraryCollection | null> => {
+    const current = collections.find(collection => collection.id === collectionId)
+    if (!current || !profileId || current.color === color) return current ?? null
+
+    const updated = await dbUpdateLibraryCollection(collectionId, { color })
+    const nextCollections = sortCollections(collections.map(collection => collection.id === collectionId ? updated : collection))
+    setCollections(profileId, nextCollections)
+    return updated
+  }, [collections, profileId, setCollections])
+
+  const getCollectionTemplates = useCallback((collectionId: string): ComponentTemplate[] => {
+    const current = collections.find(collection => collection.id === collectionId)
+    if (!current) return []
+    return getTemplatesForLibraryCollection(templates, current)
+  }, [collections, templates])
+
+  return {
+    collections: scopedCollections,
+    loading,
+    error,
+    createCollection,
+    renameCollection,
+    deleteCollection,
+    setCollectionColor,
+    getCollectionTemplates,
+    refreshCollections: () => (profileId ? fetchCollections(profileId) : Promise.resolve([])),
+  }
 }
