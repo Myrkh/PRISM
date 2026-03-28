@@ -654,6 +654,9 @@ export interface AppState {
 
   // ── Actions: LOPA ──
   createLOPAStudy: (projectId: string, name?: string) => string
+  renameLOPAStudy: (projectId: string, studyId: string, name: string) => void
+  deleteLOPAStudy: (projectId: string, studyId: string) => void
+  duplicateLOPAStudy: (projectId: string, studyId: string) => string
   addLOPAScenario: (projectId: string, studyId: string, scenario: import('@/core/types').LOPAScenario) => void
   updateLOPAScenario: (projectId: string, studyId: string, scenarioId: string, updates: Partial<import('@/core/types').LOPAScenario>) => void
   deleteLOPAScenario: (projectId: string, studyId: string, scenarioId: string) => void

@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle, ArrowRight, CheckCircle2,
-  Download, Info, Plus, Shield,
+  Download, Info, Plus, Search, Shield,
 } from 'lucide-react'
 import {
   CompactSelection,
@@ -26,6 +26,8 @@ import {
   type GridCell,
   type GridColumn,
   type GridSelection,
+  type GetRowThemeCallback,
+  type Highlight,
   type Item,
   type Theme,
 } from '@glideapps/glide-data-grid'
@@ -47,7 +49,8 @@ import { semantic } from '@/styles/tokens'
 import { LOPAScenarioDetailPanel } from '@/components/sif/lopa/LOPAScenarioDetailPanel'
 import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { RightPanelSection, RightPanelShell } from '@/components/layout/RightPanelShell'
-import { Trash2 } from 'lucide-react'
+import { exportLOPAReportPdf } from '@/components/report/lopaReportPdf'
+import { FileText, Trash2 } from 'lucide-react'
 
 // ─── Column definitions ────────────────────────────────────────────────────────
 
@@ -335,11 +338,12 @@ export function LOPAGlobalWorkspace({ projectId, studyId: studyIdProp }: { proje
 
   const projects       = useAppStore(s => s.projects)
   const project        = useAppStore(s => projectId ? s.projects.find(p => p.id === projectId) : undefined)
-  const createStudy    = useAppStore(s => s.createLOPAStudy)
-  const addScenario    = useAppStore(s => s.addLOPAScenario)
-  const updateScenario = useAppStore(s => s.updateLOPAScenario)
-  const deleteScenario = useAppStore(s => s.deleteLOPAScenario)
-  const navigate       = useAppStore(s => s.navigate)
+  const createStudy      = useAppStore(s => s.createLOPAStudy)
+  const addScenario      = useAppStore(s => s.addLOPAScenario)
+  const updateScenario   = useAppStore(s => s.updateLOPAScenario)
+  const deleteScenario   = useAppStore(s => s.deleteLOPAScenario)
+  const reorderScenarios = useAppStore(s => s.reorderLOPAScenarios)
+  const navigate         = useAppStore(s => s.navigate)
 
   const lopaStudies = project?.lopaStudies ?? []
 
@@ -363,6 +367,9 @@ export function LOPAGlobalWorkspace({ projectId, studyId: studyIdProp }: { proje
 
   const [selectedRow, setSelectedRow]     = useState<number | null>(null)
   const [showHAZOPDialog, setShowHAZOP]   = useState(false)
+  const [showSearch,       setShowSearch] = useState(false)
+  const [searchValue,      setSearchValue] = useState('')
+  const [colWidths, setColWidths] = useState<Map<number, number>>(() => new Map())
   const [gridSelection, setGridSelection] = useState<GridSelection>({
     columns: CompactSelection.empty(),
     rows: CompactSelection.empty(),
@@ -371,8 +378,8 @@ export function LOPAGlobalWorkspace({ projectId, studyId: studyIdProp }: { proje
   const gridRef = useRef<DataEditorRef>(null)
 
   const columns = useMemo<GridColumn[]>(
-    () => BASE_COLUMNS.map(c => ({ title: c.title, width: c.width })),
-    [],
+    () => BASE_COLUMNS.map((c, i) => ({ title: c.title, width: colWidths.get(i) ?? c.width })),
+    [colWidths],
   )
 
   const results = useMemo(
@@ -394,6 +401,21 @@ export function LOPAGlobalWorkspace({ projectId, studyId: studyIdProp }: { proje
     () => buildGridTheme(isDark, BORDER, CARD_BG, PAGE_BG, TEXT, TEXT_DIM),
     [isDark, BORDER, CARD_BG, PAGE_BG, TEXT, TEXT_DIM],
   )
+
+  // Row color: green tint = adequate, red tint = SIF needed
+  const getRowThemeOverride = useCallback<GetRowThemeCallback>((row) => {
+    const sc = scenarios[row]
+    if (!sc) return undefined
+    const result = resultById.get(sc.scenarioId)
+    if (!result) return undefined
+    if (result.isAdequate)
+      return { bgCell: isDark ? 'rgba(16,185,129,0.07)' : 'rgba(16,185,129,0.05)',
+               bgCellMedium: isDark ? 'rgba(16,185,129,0.05)' : 'rgba(16,185,129,0.03)' }
+    if (result.needsSIF)
+      return { bgCell: isDark ? 'rgba(239,68,68,0.09)' : 'rgba(239,68,68,0.06)',
+               bgCellMedium: isDark ? 'rgba(239,68,68,0.06)' : 'rgba(239,68,68,0.04)' }
+    return undefined
+  }, [scenarios, resultById, isDark])
 
   // SIF label map for the "SIF liée" column
   const sifLabelById = useMemo(
@@ -420,7 +442,7 @@ export function LOPAGlobalWorkspace({ projectId, studyId: studyIdProp }: { proje
       case 'initiatingEvent':
         return { kind: GridCellKind.Text, data: sc.initiatingEvent, displayData: sc.initiatingEvent, allowOverlay: true }
       case 'ief':
-        return { kind: GridCellKind.Text, data: String(sc.ief), displayData: formatFrequency(sc.ief), allowOverlay: true }
+        return { kind: GridCellKind.Number, data: sc.ief, displayData: formatFrequency(sc.ief), allowOverlay: true }
       case 'iefSource':
         return { kind: GridCellKind.Text, data: sc.iefSource, displayData: sc.iefSource, allowOverlay: true }
       case 'condModifier': {
@@ -442,7 +464,7 @@ export function LOPAGlobalWorkspace({ projectId, studyId: studyIdProp }: { proje
         }
       }
       case 'tmel':
-        return { kind: GridCellKind.Text, data: String(sc.tmel), displayData: formatFrequency(sc.tmel), allowOverlay: true }
+        return { kind: GridCellKind.Number, data: sc.tmel, displayData: formatFrequency(sc.tmel), allowOverlay: true }
       case 'rrf': {
         const rrf = result?.rrf ?? null
         return { kind: GridCellKind.Text, data: rrf !== null ? String(rrf) : '', displayData: rrf !== null ? formatRRF(rrf) : '—', allowOverlay: false }
@@ -465,27 +487,27 @@ export function LOPAGlobalWorkspace({ projectId, studyId: studyIdProp }: { proje
 
   const onCellEdited = useCallback(([col, row]: Item, newValue: EditableGridCell) => {
     const sc = scenarios[row]
-    if (!sc) return
+    if (!sc || !study || !projectId) return
     const colId = BASE_COLUMNS[col]?.id as ColId
-    const raw = newValue.kind === GridCellKind.Text ? newValue.data : ''
 
-    if (!study || !projectId) return
+    const asText = newValue.kind === GridCellKind.Text ? newValue.data : ''
+    const asNum  = newValue.kind === GridCellKind.Number ? newValue.data : undefined
 
     const patch: Partial<LOPAScenario> = {}
     switch (colId) {
-      case 'scenarioId':   patch.scenarioId = raw; break
-      case 'sifRef':       patch.sifRef = raw || undefined; break
-      case 'description':  patch.description = raw; break
-      case 'initiatingEvent': patch.initiatingEvent = raw; break
+      case 'scenarioId':      patch.scenarioId = asText; break
+      case 'sifRef':          patch.sifRef = asText || undefined; break
+      case 'description':     patch.description = asText; break
+      case 'initiatingEvent': patch.initiatingEvent = asText; break
       case 'ief': {
-        const n = parseFloat(raw)
-        if (!isNaN(n) && n > 0) patch.ief = n
+        const n = asNum ?? parseFloat(asText)
+        if (n !== undefined && !isNaN(n) && n > 0) patch.ief = n
         break
       }
-      case 'iefSource': patch.iefSource = raw; break
+      case 'iefSource': patch.iefSource = asText; break
       case 'tmel': {
-        const n = parseFloat(raw)
-        if (!isNaN(n) && n > 0) patch.tmel = n
+        const n = asNum ?? parseFloat(asText)
+        if (n !== undefined && !isNaN(n) && n > 0) patch.tmel = n
         break
       }
       default: return
@@ -567,6 +589,26 @@ export function LOPAGlobalWorkspace({ projectId, studyId: studyIdProp }: { proje
     URL.revokeObjectURL(url)
   }
 
+  // Row reorder via drag
+  const handleRowMoved = useCallback((startIndex: number, endIndex: number) => {
+    if (!projectId || !study) return
+    const ids = scenarios.map(s => s.id)
+    const [moved] = ids.splice(startIndex, 1)
+    ids.splice(endIndex, 0, moved)
+    reorderScenarios(projectId, study.id, ids)
+  }, [scenarios, projectId, study, reorderScenarios])
+
+  // Column resize — persist widths locally
+  const handleColumnResize = useCallback((_col: GridColumn, newSize: number, colIndex: number) => {
+    setColWidths(prev => { const next = new Map(prev); next.set(colIndex, newSize); return next })
+  }, [])
+
+  // Highlight selected row
+  const highlightRegions = useMemo<Highlight[]>(() => {
+    if (selectedRow === null) return []
+    return [{ color: `${TEAL}18`, range: { x: 0, y: selectedRow, width: BASE_COLUMNS.length, height: 1 } }]
+  }, [selectedRow, TEAL])
+
   const selectedScenario = selectedRow !== null ? scenarios[selectedRow] : null
 
   // Wire selected scenario to the right panel via setRightPanelOverride
@@ -632,7 +674,10 @@ export function LOPAGlobalWorkspace({ projectId, studyId: studyIdProp }: { proje
     onAdd: handleAddScenario,
     onHAZOPImport: () => setShowHAZOP(true),
     onExport: handleExportCSV,
+    onExportPdf: study ? () => { void exportLOPAReportPdf(project, study) } : undefined,
     adequacyIssues: scenarios.length === 0 ? [] : adequacyIssues,
+    searchActive: showSearch,
+    onToggleSearch: () => setShowSearch(s => !s),
   }
 
   // ── Empty state ──
@@ -676,23 +721,52 @@ export function LOPAGlobalWorkspace({ projectId, studyId: studyIdProp }: { proje
         <div style={{ position: 'absolute', inset: 0 }}>
           <DataEditor
             ref={gridRef}
+            // ── Data ──
             columns={columns}
             rows={scenarios.length}
             getCellContent={getCellContent}
+            getCellsForSelection
+            // ── Editing ──
             onCellEdited={onCellEdited}
+            onRowAppended={handleAddScenario}
+            trailingRowOptions={{ sticky: false, tint: true, hint: 'Nouveau scénario…' }}
+            fillHandle
+            // ── Selection ──
             gridSelection={gridSelection}
             onGridSelectionChange={sel => {
               setGridSelection(sel)
               if (sel.current?.cell) setSelectedRow(sel.current.cell[1])
             }}
-            onRowAppended={handleAddScenario}
-            trailingRowOptions={{ sticky: false, tint: true, hint: 'Nouveau scénario…' }}
-            theme={gridTheme}
+            rowSelect="multi"
+            onDelete={sel => {
+              if (!projectId || !study) return false
+              const selectedRows = sel.rows.toArray()
+              selectedRows.forEach(rowIdx => {
+                const sc = scenarios[rowIdx]
+                if (sc) deleteScenario(projectId, study.id, sc.id)
+              })
+              setSelectedRow(null)
+              return false
+            }}
+            // ── Layout ──
+            freezeColumns={1}
             rowMarkers="number"
             smoothScrollX
             smoothScrollY
             width="100%"
             height="100%"
+            // ── Drag & drop ──
+            onRowMoved={handleRowMoved}
+            onColumnResize={handleColumnResize}
+            // ── Visuals ──
+            theme={gridTheme}
+            getRowThemeOverride={getRowThemeOverride}
+            highlightRegions={highlightRegions}
+            // ── Search ──
+            showSearch={showSearch}
+            searchValue={searchValue}
+            onSearchValueChange={setSearchValue}
+            onSearchClose={() => { setShowSearch(false); setSearchValue('') }}
           />
         </div>
       </div>
@@ -772,7 +846,10 @@ function LOPAToolbar({
   onAdd,
   onHAZOPImport,
   onExport,
+  onExportPdf,
   adequacyIssues,
+  searchActive,
+  onToggleSearch,
 }: {
   projectName: string
   studies: LOPAWorksheet[]
@@ -784,7 +861,10 @@ function LOPAToolbar({
   onAdd: () => void
   onHAZOPImport: () => void
   onExport: () => void
+  onExportPdf?: () => void
   adequacyIssues: ReturnType<typeof checkLOPAAdequacy>
+  searchActive?: boolean
+  onToggleSearch?: () => void
 }) {
   const { BORDER, CARD_BG, SHADOW_SOFT, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
 
@@ -863,6 +943,30 @@ function LOPAToolbar({
         >
           <ArrowRight size={10} />
           Import HAZOP
+        </button>
+      )}
+
+      <button
+        type="button"
+        onClick={onToggleSearch}
+        title="Rechercher (Ctrl+F)"
+        className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+        style={{ color: searchActive ? TEAL : TEXT_DIM, background: searchActive ? `${TEAL}15` : 'transparent' }}
+      >
+        <Search size={13} />
+      </button>
+
+      {onExportPdf && (
+        <button
+          type="button"
+          onClick={onExportPdf}
+          title="Exporter rapport PDF"
+          className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+          style={{ color: TEXT_DIM }}
+          onMouseEnter={e => { e.currentTarget.style.color = TEXT }}
+          onMouseLeave={e => { e.currentTarget.style.color = TEXT_DIM }}
+        >
+          <FileText size={13} />
         </button>
       )}
 

@@ -1763,6 +1763,44 @@ export const useAppStore = create<AppState>()(
         })
       },
 
+      renameLOPAStudy: (projectId, studyId, name) => {
+        set(s => {
+          const study = s.projects.find(p => p.id === projectId)?.lopaStudies?.find(st => st.id === studyId)
+          if (!study) return
+          study.name = name
+          study.updatedAt = new Date().toISOString()
+        })
+      },
+
+      deleteLOPAStudy: (projectId, studyId) => {
+        set(s => {
+          const p = s.projects.find(pr => pr.id === projectId)
+          if (!p?.lopaStudies) return
+          p.lopaStudies = p.lopaStudies.filter(st => st.id !== studyId)
+        })
+      },
+
+      duplicateLOPAStudy: (projectId, studyId) => {
+        const now = new Date().toISOString()
+        const newId = crypto.randomUUID()
+        set(s => {
+          const p = s.projects.find(pr => pr.id === projectId)
+          if (!p?.lopaStudies) return
+          const original = p.lopaStudies.find(st => st.id === studyId)
+          if (!original) return
+          const copy: LOPAWorksheet = {
+            ...original,
+            id: newId,
+            name: `${original.name} (copie)`,
+            scenarios: original.scenarios.map(sc => ({ ...sc, id: crypto.randomUUID() })),
+            createdAt: now,
+            updatedAt: now,
+          }
+          p.lopaStudies.push(copy)
+        })
+        return newId
+      },
+
       reorderLOPAScenarios: (projectId, studyId, orderedIds) => {
         set(s => {
           const study = s.projects.find(p => p.id === projectId)?.lopaStudies?.find(st => st.id === studyId)
