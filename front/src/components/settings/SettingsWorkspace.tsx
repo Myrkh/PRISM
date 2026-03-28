@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useState, type ElementType, type ReactNode } from 'react'
-import { Cpu, Keyboard, Moon, Settings2, ShieldCheck, SlidersHorizontal, Sun, UserRound } from 'lucide-react'
+import { useEffect, useMemo, useState, type ReactNode } from 'react'
+import { Moon, Sun } from 'lucide-react'
 import { KeyboardShortcutsSettings } from './KeyboardShortcutsSettings'
 import { ProfileScopeCard } from './ProfileScopeCard'
 import { ProfileSettingsPanel } from './ProfileSettingsPanel'
@@ -16,10 +16,10 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog'
 import { cn } from '@/lib/utils'
+import { getAppSettingsSectionDescriptors, getProfileSettingsSectionDescriptors } from '@/core/settings/sections'
 import {
   isProfileSettingsSection,
   useAppStore,
-  type AppSettingsSection,
   type SettingsSection,
 } from '@/store/appStore'
 import {
@@ -94,22 +94,9 @@ export function SettingsWorkspace({ section, onSectionChange, onExit }: Settings
   const strings = useMemo(() => getSettingsStrings(locale), [locale])
   const inProfileScope = isProfileSettingsSection(section)
 
-  const appSections: {
-    id: AppSettingsSection
-    label: string
-    hint: string
-    Icon: ElementType
-  }[] = useMemo(() => [
-    { id: 'general', label: strings.sections.app.general.label, hint: strings.sections.app.general.hint, Icon: Settings2 },
-    { id: 'workspace', label: strings.sections.app.workspace.label, hint: strings.sections.app.workspace.hint, Icon: SlidersHorizontal },
-    { id: 'engine', label: strings.sections.app.engine.label, hint: strings.sections.app.engine.hint, Icon: Cpu },
-    { id: 'shortcuts', label: strings.sections.app.shortcuts.label, hint: strings.sections.app.shortcuts.hint, Icon: Keyboard },
-  ], [strings])
+  const appSections = useMemo(() => getAppSettingsSectionDescriptors(strings), [strings])
 
-  const profileSections = useMemo(() => [
-    { id: 'account', label: strings.sections.profile.account.label, hint: strings.sections.profile.account.hint, Icon: UserRound },
-    { id: 'session', label: strings.sections.profile.session.label, hint: strings.sections.profile.session.hint, Icon: ShieldCheck },
-  ] as const, [strings])
+  const profileSections = useMemo(() => getProfileSettingsSectionDescriptors(strings), [strings])
 
   const currentSection = (inProfileScope ? profileSections : appSections).find(item => item.id === section)
     ?? (inProfileScope ? profileSections[0] : appSections[0])

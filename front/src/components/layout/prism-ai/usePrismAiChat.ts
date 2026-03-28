@@ -13,6 +13,8 @@ import {
   parseSifDraftProposal,
   resolveProjectCandidate,
 } from './commands'
+import { buildPrismHelpAttachments, findPrismHelpEntries } from './helpIndex'
+import { registerPrismAiAutomationController, unregisterPrismAiAutomationController } from './automation'
 import {
   ATTACH_BADGE_COLOR,
   COMMAND_BADGE_COLOR,
@@ -620,9 +622,32 @@ export function usePrismAiChat() {
     || (appLocale === 'fr'
       ? 'Message PRISM AI… (⏎ envoyer, ⇧⏎ nouvelle ligne)'
       : 'Message PRISM AI… (Enter to send, Shift+Enter for newline)')
-  const focusComposer = () => {
+  const focusComposer = useCallback(() => {
     setTimeout(() => composerRef.current?.focus(), 0)
-  }
+  }, [])
+
+  useEffect(() => {
+    const controller = {
+      executeStep: (step: { kind: 'chat.newConversation' | 'chat.insert' | 'chat.focus'; text?: string }) => {
+        switch (step.kind) {
+          case 'chat.newConversation':
+            handleNewChat()
+            break
+          case 'chat.insert':
+            setInput(step.text ?? '')
+            break
+          case 'chat.focus':
+            focusComposer()
+            break
+          default:
+            break
+        }
+      },
+    }
+
+    registerPrismAiAutomationController(controller)
+    return () => unregisterPrismAiAutomationController(controller)
+  }, [focusComposer, handleNewChat])
 
   const commandQuery = inputMode === 'commands' ? inputModeQuery.trim().toLowerCase() : ''
   const commandMenuItems: ChatInputMenuItem[] = inputMode !== 'commands' || isDraftNoteInput
@@ -733,6 +758,24 @@ export function usePrismAiChat() {
         if (!commandQuery) return true
         return `${item.label} ${item.meta}`.toLowerCase().includes(commandQuery)
       })
+  const helpQuery = inputMode === 'help' ? inputModeQuery.trim() : ''
+  const helpEntries = inputMode === 'help' ? findPrismHelpEntries(helpQuery, appLocale, currentProject) : []
+  const helpMenuItems: ChatInputMenuItem[] = inputMode !== 'help'
+    ? []
+    : helpEntries
+        .slice(0, 8)
+        .map(entry => ({
+          id: entry.id,
+          badge: entry.badge,
+          badgeColor: entry.kind === 'command' ? COMMAND_BADGE_COLOR : DOCUMENT_BADGE_COLOR,
+          label: entry.label,
+          meta: entry.meta,
+          onSelect: () => {
+            setInput(`?${entry.query}`)
+            setCommandMenuIndex(0)
+            focusComposer()
+          },
+        }))
 
   const attachmentQuery = inputMode === 'sif' ? inputModeQuery.trim().toLowerCase() : ''
   const attachmentMenuItems: ChatInputMenuItem[] = inputMode !== 'sif'
@@ -782,7 +825,9 @@ export function usePrismAiChat() {
 
   const activeCommandMenuItems = inputMode === 'sif'
     ? attachmentMenuItems
-    : commandMenuItems
+    : inputMode === 'help'
+      ? helpMenuItems
+      : commandMenuItems
   const activeCommandTokenBadge = inputMode === 'commands'
     ? resolveCommandTokenBadge(inputModeQuery, commandMenuItems)
     : null
@@ -799,6 +844,12 @@ export function usePrismAiChat() {
     if (inputMode === 'sif') {
       const selectedAttachment = attachmentMenuItems[commandMenuIndex] ?? attachmentMenuItems[0]
       selectedAttachment?.onSelect()
+      return
+    }
+
+    if (inputMode === 'help' && !inputModeQuery.trim()) {
+      const selectedHelp = helpMenuItems[commandMenuIndex] ?? helpMenuItems[0]
+      selectedHelp?.onSelect()
       return
     }
 
@@ -822,11 +873,16 @@ export function usePrismAiChat() {
         : (appLocale === 'fr'
           ? 'Prépare un brouillon SIF cohérent avec le contexte projet, les conventions et les standards fournis.'
           : 'Prepare a SIF draft that is consistent with the project context, conventions, and standards provided.')
-    const requestText = responseMode === 'draft_note'
-      ? extractDraftNotePrompt(inputModeQuery)
-      : parsedProjectCommand
-        ? (parsedProjectCommand.prompt || defaultStructuredPrompt)
-        : text
+    const helpRequestPrompt = appLocale === 'fr'
+      ? "Répondez uniquement à partir de l'aide commande PRISM et de la documentation PRISM jointes. Si l'information n'est pas présente, dites-le explicitement et n'inventez rien. Question: "
+      : 'Answer only from the attached PRISM command help and PRISM documentation. If the information is not present, say so explicitly and do not guess. Question: '
+    const requestText = inputMode === 'help'
+      ? `${helpRequestPrompt}${inputModeQuery.trim()}`
+      : responseMode === 'draft_note'
+        ? extractDraftNotePrompt(inputModeQuery)
+        : parsedProjectCommand
+          ? (parsedProjectCommand.prompt || defaultStructuredPrompt)
+          : text
     if (!requestText.trim()) return
 
     const userMsg: ChatMessage = { id: genId(), role: 'user', content: text, timestamp: Date.now() }
@@ -900,6 +956,13 @@ export function usePrismAiChat() {
         target_project_json: targetProject ? serializeProjectForAI(targetProject) : undefined,
       }
       const workspaceAttachments: ChatAttachmentPayload[] = []
+      if (inputMode === 'help') {
+        const selectedHelpEntry = helpEntries[commandMenuIndex] ?? helpEntries[0] ?? null
+        const prioritizedHelpEntries = selectedHelpEntry
+          ? [selectedHelpEntry, ...helpEntries.filter(entry => entry.id !== selectedHelpEntry.id)]
+          : helpEntries
+        workspaceAttachments.push(...buildPrismHelpAttachments(prioritizedHelpEntries, appLocale))
+      }
       for (const item of attachedWorkspaceItems) {
         const node = workspaceNodes[item.nodeId]
         if (!node) continue
@@ -1108,7 +1171,7 @@ ${accumulated}`,
     } finally {
       setIsStreaming(false)
     }
-  }, [activeCommandMenuItems.length, appLocale, attachedContext, attachedWorkspaceItems, assistantNoteIds, attachmentMenuItems, commandMenuIndex, commandMenuItems, config, createAssistantNoteFromMessage, currentConvId, currentProject, currentSIF, input, inputMode, inputModeQuery, isDraftNoteInput, isStreaming, messages, navigate, openAILibraryDraftPreview, openAIProjectDraftPreview, openAISIFDraftPreview, parsedProjectCommand, persistCurrentConversation, prismFiles, projects, setRightPanelOpen, strictMode, workspaceNodes])
+  }, [activeCommandMenuItems.length, appLocale, attachedContext, attachedWorkspaceItems, assistantNoteIds, attachmentMenuItems, commandMenuIndex, commandMenuItems, config, createAssistantNoteFromMessage, currentConvId, currentProject, currentSIF, helpEntries, helpMenuItems, input, inputMode, inputModeQuery, isDraftNoteInput, isStreaming, messages, navigate, openAILibraryDraftPreview, openAIProjectDraftPreview, openAISIFDraftPreview, parsedProjectCommand, persistCurrentConversation, prismFiles, projects, setRightPanelOpen, strictMode, workspaceNodes])
 
   const handleKeyDown = useCallback((e: KeyboardEvent<HTMLTextAreaElement>) => {
     if (activeCommandMenuItems.length > 0 && e.key === 'ArrowDown') {

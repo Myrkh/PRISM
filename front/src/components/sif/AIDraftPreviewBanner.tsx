@@ -1,5 +1,6 @@
 import { AlertTriangle, Braces, Check, Sparkles, X } from 'lucide-react'
-import { useAppLocale } from '@/i18n/useLocale'
+import { useLocaleStrings } from '@/i18n/useLocale'
+import { getAiStrings } from '@/i18n/ai'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import type { AISIFDraftPreview } from '@/store/types'
 
@@ -16,25 +17,17 @@ export function AIDraftPreviewBanner({
   onDiscard: () => void
   onOpenJson: () => void
 }) {
-  const locale = useAppLocale()
-  const { BORDER, CARD_BG, PAGE_BG, SHADOW_SOFT, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
-  const title = locale === 'fr' ? 'Brouillon IA non appliqué' : 'Unapplied AI draft'
-  const subtitle = locale === 'fr'
-    ? 'Cette SIF est un brouillon temporaire. Rien ne sera sauvegardé tant que vous n’appliquez pas la proposition.'
-    : 'This SIF is a temporary draft. Nothing will be saved until you apply the proposal.'
-  const conflicts = preview.conflicts ?? []
-  const missingData = preview.missingData ?? []
+  const { BORDER, CARD_BG, PAGE_BG, SHADOW_SOFT, TEAL, TEXT, TEXT_DIM, semantic } = usePrismTheme()
+  const strings = useLocaleStrings(getAiStrings)
+  const { commands, sections, preview: p } = strings.proposals
+
+  const commandLabel = preview.command === 'create_sif' ? commands.createSif : commands.draftSif
+  const applyLabel   = isApplying ? p.applying : p.applySif
+
+  const conflicts    = preview.conflicts    ?? []
+  const missingData  = preview.missingData  ?? []
   const uncertainData = preview.uncertainData ?? []
-  const assumptions = preview.assumptions ?? []
-  const assumptionsLabel = locale === 'fr' ? 'Hypothèses' : 'Assumptions'
-  const conflictsLabel = locale === 'fr' ? 'Conflits à résoudre' : 'Conflicts to resolve'
-  const missingLabel = locale === 'fr' ? 'Informations manquantes' : 'Missing information'
-  const uncertainLabel = locale === 'fr' ? 'Informations insuffisantes' : 'Insufficient information'
-  const jsonLabel = 'JSON'
-  const applyLabel = isApplying
-    ? (locale === 'fr' ? 'Application…' : 'Applying...')
-    : (locale === 'fr' ? 'Appliquer au projet' : 'Apply to project')
-  const discardLabel = locale === 'fr' ? 'Annuler la preview' : 'Discard preview'
+  const assumptions  = preview.assumptions  ?? []
 
   return (
     <div
@@ -45,26 +38,19 @@ export function AIDraftPreviewBanner({
         boxShadow: SHADOW_SOFT,
       }}
     >
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <span
-              className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
-              style={{ borderColor: `${TEAL}35`, color: TEAL, background: `${TEAL}16` }}
-            >
-              <Sparkles size={10} />
-              <span>{preview.command === 'create_sif' ? 'CREATE SIF' : 'DRAFT SIF'}</span>
-            </span>
-            <span className="text-[11px] font-semibold" style={{ color: TEXT }}>
-              {title}
-            </span>
-          </div>
-          <p className="mt-2 text-[12px] font-semibold leading-relaxed" style={{ color: TEXT }}>
-            {preview.summary}
-          </p>
-          <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
-            {subtitle}
-          </p>
+      {/* ── Header row: badge + title + action buttons ── */}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-2">
+          <span
+            className="inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide"
+            style={{ borderColor: `${TEAL}35`, color: TEAL, background: `${TEAL}16` }}
+          >
+            <Sparkles size={10} />
+            <span>{commandLabel}</span>
+          </span>
+          <span className="text-[11px] font-semibold" style={{ color: TEXT }}>
+            {p.titleSif}
+          </span>
         </div>
 
         <div className="flex shrink-0 items-center gap-2">
@@ -83,7 +69,7 @@ export function AIDraftPreviewBanner({
             }}
           >
             <Braces size={12} />
-            <span>{jsonLabel}</span>
+            <span>{p.json}</span>
           </button>
           <button
             type="button"
@@ -100,7 +86,7 @@ export function AIDraftPreviewBanner({
             }}
           >
             <X size={12} />
-            <span>{discardLabel}</span>
+            <span>{p.discard}</span>
           </button>
           <button
             type="button"
@@ -120,74 +106,103 @@ export function AIDraftPreviewBanner({
         </div>
       </div>
 
-      <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-        {conflicts.length > 0 && (
-          <div className="rounded-xl border px-3 py-2" style={{ borderColor: 'rgba(239,68,68,0.34)', background: 'rgba(239,68,68,0.08)' }}>
-            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: '#ef4444' }}>
-              <AlertTriangle size={11} />
-              <span>{conflictsLabel}</span>
-            </p>
-            <ul className="space-y-1 text-[11px] leading-relaxed" style={{ color: TEXT }}>
-              {conflicts.slice(0, 4).map(item => (
-                <li key={item} className="flex gap-1.5">
-                  <span style={{ color: '#ef4444' }}>•</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+      {/* ── Summary + subtitle — full width ── */}
+      <p className="mt-2 text-[12px] font-semibold leading-relaxed" style={{ color: TEXT }}>
+        {preview.summary}
+      </p>
+      <p className="mt-1 text-[11px] leading-relaxed" style={{ color: TEXT_DIM }}>
+        {p.subtitleSif}
+      </p>
 
-        {missingData.length > 0 && (
-          <div className="rounded-xl border px-3 py-2" style={{ borderColor: 'rgba(239,68,68,0.24)', background: 'rgba(239,68,68,0.05)' }}>
-            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: '#ef4444' }}>
-              <AlertTriangle size={11} />
-              <span>{missingLabel}</span>
-            </p>
-            <ul className="space-y-1 text-[11px] leading-relaxed" style={{ color: TEXT }}>
-              {missingData.slice(0, 4).map(item => (
-                <li key={item} className="flex gap-1.5">
-                  <span style={{ color: '#ef4444' }}>•</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+      {/* ── Alert sections — wrapping flex so each fills available space ── */}
+      {(conflicts.length > 0 || missingData.length > 0 || uncertainData.length > 0 || assumptions.length > 0) && (
+        <div className="mt-3 flex flex-wrap gap-3">
+          {conflicts.length > 0 && (
+            <AlertSection
+              title={sections.conflicts}
+              items={conflicts}
+              color={semantic.error}
+              opacity={{ border: '52', bg: '14' }}
+              text={TEXT}
+            />
+          )}
+          {missingData.length > 0 && (
+            <AlertSection
+              title={sections.missing}
+              items={missingData}
+              color={semantic.error}
+              opacity={{ border: '3D', bg: '0D' }}
+              text={TEXT}
+            />
+          )}
+          {uncertainData.length > 0 && (
+            <AlertSection
+              title={sections.uncertain}
+              items={uncertainData}
+              color={semantic.warning}
+              opacity={{ border: '47', bg: '14' }}
+              text={TEXT}
+            />
+          )}
+          {assumptions.length > 0 && (
+            <div className="min-w-[200px] flex-1">
+              <p className="mb-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: TEXT_DIM }}>
+                {sections.assumptions}
+              </p>
+              <ul className="space-y-1 text-[11px] leading-relaxed" style={{ color: TEXT }}>
+                {assumptions.slice(0, 4).map(item => (
+                  <li key={item} className="flex gap-1.5">
+                    <span style={{ color: TEAL }}>•</span>
+                    <span>{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
 
-        {uncertainData.length > 0 && (
-          <div className="rounded-xl border px-3 py-2" style={{ borderColor: 'rgba(245,158,11,0.28)', background: 'rgba(245,158,11,0.08)' }}>
-            <p className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: '#f59e0b' }}>
-              <AlertTriangle size={11} />
-              <span>{uncertainLabel}</span>
-            </p>
-            <ul className="space-y-1 text-[11px] leading-relaxed" style={{ color: TEXT }}>
-              {uncertainData.slice(0, 4).map(item => (
-                <li key={item} className="flex gap-1.5">
-                  <span style={{ color: '#f59e0b' }}>•</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
+// ─── Internal sub-component ─────────────────────────────────────────────────
 
-        {assumptions.length > 0 && (
-          <div>
-            <p className="mb-1 text-[10px] font-bold uppercase tracking-wide" style={{ color: TEXT_DIM }}>
-              {assumptionsLabel}
-            </p>
-            <ul className="space-y-1 text-[11px] leading-relaxed" style={{ color: TEXT }}>
-              {assumptions.slice(0, 4).map(item => (
-                <li key={item} className="flex gap-1.5">
-                  <span style={{ color: TEAL }}>•</span>
-                  <span>{item}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </div>
+function AlertSection({
+  title,
+  items,
+  color,
+  opacity,
+  text,
+}: {
+  title: string
+  items: string[]
+  color: string
+  opacity: { border: string; bg: string }
+  text: string
+}) {
+  return (
+    <div
+      className="min-w-[200px] flex-1 rounded-xl border px-3 py-2"
+      style={{
+        borderColor: `${color}${opacity.border}`,
+        background:  `${color}${opacity.bg}`,
+      }}
+    >
+      <p
+        className="mb-1 flex items-center gap-1 text-[10px] font-bold uppercase tracking-wide"
+        style={{ color }}
+      >
+        <AlertTriangle size={11} />
+        <span>{title}</span>
+      </p>
+      <ul className="space-y-1 text-[11px] leading-relaxed" style={{ color: text }}>
+        {items.slice(0, 4).map(item => (
+          <li key={item} className="flex gap-1.5">
+            <span style={{ color }}>•</span>
+            <span>{item}</span>
+          </li>
+        ))}
+      </ul>
     </div>
   )
 }

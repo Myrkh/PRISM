@@ -2,7 +2,7 @@ import type { AppLocale } from './types'
 import { settingsStringsEn } from './locales/en/settings'
 import { settingsStringsFr } from './locales/fr/settings'
 
-export type AppSettingsSectionKey = 'general' | 'workspace' | 'engine' | 'shortcuts'
+export type AppSettingsSectionKey = 'general' | 'workspace' | 'engine' | 'shortcuts' | 'export' | 'ai'
 export type ProfileSettingsSectionKey = 'account' | 'session'
 
 export interface SettingsStrings {
@@ -12,6 +12,8 @@ export interface SettingsStrings {
   }
   scopeSwitcher: {
     backToSettings: string
+    app: string
+    profile: string
   }
   confirmExit: {
     title: string
@@ -47,6 +49,8 @@ export interface SettingsStrings {
       provider: string
       userId: string
       profileUpdated: string
+      copyId: string
+      copied: string
     }
     session: {
       heroTitle: string
@@ -63,8 +67,8 @@ export interface SettingsStrings {
   }
   shortcuts: {
     searchPlaceholder: string
-    jsonToggle: string
-    tableToggle: string
+    openJson: string
+    openUserCommandsJson: string
     resetAll: string
     pressKey: string
     pressKeyCancel: string
@@ -77,6 +81,7 @@ export interface SettingsStrings {
     }
     categories: {
       palette: string
+      general: string
       layout: string
       navigation: string
     }
@@ -85,7 +90,7 @@ export interface SettingsStrings {
       user: string
     }
     unbound: string
-    jsonHint: string
+    conflict: (otherCommand: string) => string
   }
   general: {
     language: {
@@ -134,6 +139,12 @@ export interface SettingsStrings {
       a4: string
       letter: string
     }
+    commandPalettePosition: {
+      label: string
+      hint: string
+      top: string
+      center: string
+    }
   }
   engine: {
     tolerance: {
@@ -160,6 +171,14 @@ export interface SettingsStrings {
       hint: string
       unit: string
     }
+  }
+  export: {
+    companyName: { label: string; hint: string; placeholder: string }
+    signatureText: { label: string; hint: string; placeholder: string }
+  }
+  ai: {
+    responseLanguage: { label: string; hint: string; auto: string; fr: string; en: string }
+    autoAttachSif: { label: string; hint: string; on: string; off: string }
   }
   footer: {
     dirty: string

@@ -1,24 +1,28 @@
 import { useMemo, useState } from 'react'
-import { FileJson, MoreHorizontal, Palette, Trash2 } from 'lucide-react'
+import { FileJson, MoreHorizontal, Palette, Table2, Trash2 } from 'lucide-react'
 import { ContextMenu, type ContextMenuItem } from '@/shared/ContextMenu'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 
 export function LibraryCollectionMenu({
   currentColor,
   colorLabel,
+  editTableLabel,
   editJsonLabel,
   deleteLabel,
   colors,
   onColorChange,
+  onEditTable,
   onEditJson,
   onDelete,
 }: {
   currentColor: string
   colorLabel: string
+  editTableLabel: string
   editJsonLabel: string
   deleteLabel: string
   colors: readonly string[]
   onColorChange: (color: string) => void
+  onEditTable: () => void
   onEditJson: () => void
   onDelete: () => void
 }) {
@@ -61,6 +65,13 @@ export function LibraryCollectionMenu({
     { kind: 'separator', key: 'sep' },
     {
       kind: 'action',
+      key: 'table',
+      label: editTableLabel,
+      icon: <Table2 size={12} />,
+      onClick: onEditTable,
+    },
+    {
+      kind: 'action',
       key: 'json',
       label: editJsonLabel,
       icon: <FileJson size={12} />,
@@ -74,7 +85,7 @@ export function LibraryCollectionMenu({
       danger: true,
       onClick: onDelete,
     },
-  ]), [colorLabel, colors, currentColor, deleteLabel, editJsonLabel, onColorChange, onDelete, onEditJson, TEXT_DIM])
+  ]), [colorLabel, colors, currentColor, deleteLabel, editJsonLabel, editTableLabel, onColorChange, onDelete, onEditJson, onEditTable, TEXT_DIM])
 
   return (
     <div className="relative">

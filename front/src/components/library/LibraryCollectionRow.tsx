@@ -9,10 +9,12 @@ export function LibraryCollectionRow({
   active,
   menuColors,
   colorLabel,
+  editTableLabel,
   editJsonLabel,
   deleteLabel,
   onSelect,
   onRename,
+  onEditTable,
   onEditJson,
   onDelete,
   onColorChange,
@@ -23,10 +25,12 @@ export function LibraryCollectionRow({
   active: boolean
   menuColors: readonly string[]
   colorLabel: string
+  editTableLabel: string
   editJsonLabel: string
   deleteLabel: string
   onSelect: () => void
   onRename: (newName: string) => void
+  onEditTable: () => void
   onEditJson: () => void
   onDelete: () => void
   onColorChange: (color: string) => void
@@ -131,10 +135,12 @@ export function LibraryCollectionRow({
             <LibraryCollectionMenu
               currentColor={color}
               colorLabel={colorLabel}
+              editTableLabel={editTableLabel}
               editJsonLabel={editJsonLabel}
               deleteLabel={deleteLabel}
               colors={menuColors}
               onColorChange={onColorChange}
+              onEditTable={onEditTable}
               onEditJson={onEditJson}
               onDelete={onDelete}
             />

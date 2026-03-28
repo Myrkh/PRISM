@@ -71,6 +71,8 @@ export type WorkspaceJsonSchema =
   | 'prism_project_draft'
   | 'prism_library_draft'
   | 'prism_library_collection'
+  | 'prism_keybindings'
+  | 'prism_user_commands'
   | 'library_import'
 
 export type WorkspaceJsonBinding =
@@ -78,6 +80,8 @@ export type WorkspaceJsonBinding =
   | { kind: 'ai_project_draft'; messageId: string }
   | { kind: 'ai_library_draft'; messageId: string }
   | { kind: 'library_collection'; collectionId: string }
+  | { kind: 'app_keybindings' }
+  | { kind: 'app_user_commands' }
 
 export type WorkspaceJSON = {
   type: 'json'
@@ -90,6 +94,7 @@ export type WorkspaceJSON = {
 }
 
 export type WorkspaceNode = WorkspaceFolder | WorkspaceNote | WorkspacePDF | WorkspaceImage | WorkspaceJSON
+export type WorkspaceJsonEditorMode = 'json' | 'table'
 type PrismFilesMap = Record<PrismEditableFile, string>
 
 // ── Persisted shape (subset of state) ───────────────────────────────────────
@@ -113,6 +118,7 @@ interface WorkspaceState extends WorkspacePersisted {
   // ── Session-only (not persisted, reset on hard refresh) ──
   openTabs: string[]
   activeTabId: string | null
+  jsonEditorModes: Record<string, WorkspaceJsonEditorMode>
   /** Set to a noteId when a note is freshly created — NoteEditorWorkspace consumes and clears it to trigger auto-rename */
   pendingRenameId: string | null
 
@@ -135,6 +141,7 @@ interface WorkspaceState extends WorkspacePersisted {
   toggleSection: () => void
   updateNoteContent: (id: string, content: string) => void
   updateJsonContent: (id: string, content: string) => void
+  setJsonEditorMode: (id: string, mode: WorkspaceJsonEditorMode) => void
   pinNode: (id: string) => void
   unpinNode: (id: string) => void
 
@@ -162,6 +169,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         pinnedNodeIds: [],
         openTabs: [],
         activeTabId: null,
+        jsonEditorModes: {},
         pendingRenameId: null,
         localSnapshotAt: null,
         ownerUserId: null,
@@ -260,6 +268,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             const idx = state.openTabs.indexOf(nid)
             if (idx !== -1) {
               state.openTabs.splice(idx, 1)
+              delete state.jsonEditorModes[nid]
               if (state.activeTabId === nid) {
                 state.activeTabId = state.openTabs[idx] ?? state.openTabs[idx - 1] ?? null
               }
@@ -272,6 +281,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
           }
           if (node.type === 'folder') purge(id)
           removeTab(id)
+          delete state.jsonEditorModes[id]
           delete state.nodes[id]
         }),
 
@@ -292,6 +302,10 @@ export const useWorkspaceStore = create<WorkspaceState>()(
         updateJsonContent: (id, content) => set(state => {
           const node = state.nodes[id]
           if (node?.type === 'json') node.content = content
+        }),
+
+        setJsonEditorMode: (id, mode) => set(state => {
+          state.jsonEditorModes[id] = mode
         }),
 
         pinNode: (id) => set(state => {
@@ -356,6 +370,7 @@ export const useWorkspaceStore = create<WorkspaceState>()(
             state.pinnedNodeIds = snapshot.pinnedNodeIds
             state.localSnapshotAt = snapshot.localSnapshotAt
             state.ownerUserId = snapshot.ownerUserId
+            state.jsonEditorModes = {}
             // openTabs / activeTabId intentionally not restored — session state only
           })
           useAppStore.getState().replacePrismFiles(snapshot.prismFiles)

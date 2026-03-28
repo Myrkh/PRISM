@@ -7,6 +7,8 @@ export const settingsStringsEn: SettingsStrings = {
   },
   scopeSwitcher: {
     backToSettings: 'Back to PRISM settings',
+    app: 'App',
+    profile: 'Profile',
   },
   confirmExit: {
     title: 'Leave settings?',
@@ -31,6 +33,14 @@ export const settingsStringsEn: SettingsStrings = {
       shortcuts: {
         label: 'Keyboard Shortcuts',
         hint: 'Customize key bindings',
+      },
+      export: {
+        label: 'Export',
+        hint: 'Company, reports and PDF settings',
+      },
+      ai: {
+        label: 'PRISM AI',
+        hint: 'AI behavior and context preferences',
       },
     },
     profile: {
@@ -68,6 +78,8 @@ export const settingsStringsEn: SettingsStrings = {
       provider: 'Provider',
       userId: 'User identifier',
       profileUpdated: 'Last profile sync',
+      copyId: 'Copy user ID',
+      copied: 'Copied!',
     },
     session: {
       heroTitle: 'Current session and basic security',
@@ -136,6 +148,12 @@ export const settingsStringsEn: SettingsStrings = {
       a4: 'A4',
       letter: 'Letter',
     },
+    commandPalettePosition: {
+      label: 'Command palette position',
+      hint: 'Where the palette appears when invoked with Cmd+K.',
+      top: 'Top',
+      center: 'Center',
+    },
   },
   engine: {
     tolerance: {
@@ -163,10 +181,37 @@ export const settingsStringsEn: SettingsStrings = {
       unit: 'h',
     },
   },
+  export: {
+    companyName: {
+      label: 'Company name',
+      hint: 'Displayed in the header of all exported PDF reports.',
+      placeholder: 'e.g. Acme Engineering',
+    },
+    signatureText: {
+      label: 'Report footer',
+      hint: 'Legal notice or signature block appended to every PDF report.',
+      placeholder: 'e.g. Prepared by the Safety Engineering team. Confidential.',
+    },
+  },
+  ai: {
+    responseLanguage: {
+      label: 'AI response language',
+      hint: 'Language PRISM AI uses in its replies. Auto follows the app locale.',
+      auto: 'Auto',
+      fr: 'Français',
+      en: 'English',
+    },
+    autoAttachSif: {
+      label: 'Auto-attach SIF context',
+      hint: 'Automatically include the active SIF data in every AI message for richer answers.',
+      on: 'On',
+      off: 'Off',
+    },
+  },
   shortcuts: {
     searchPlaceholder: 'Filter by command or keybinding...',
-    jsonToggle: 'Switch to JSON',
-    tableToggle: 'Switch to table',
+    openJson: 'Open keybindings.json',
+    openUserCommandsJson: 'Open userCommands.json',
     resetAll: 'Reset all',
     pressKey: 'Press a shortcut...',
     pressKeyCancel: 'Escape to cancel',
@@ -179,6 +224,7 @@ export const settingsStringsEn: SettingsStrings = {
     },
     categories: {
       palette: 'Command Palette',
+      general: 'General',
       layout: 'Layout',
       navigation: 'Navigation',
     },
@@ -187,7 +233,7 @@ export const settingsStringsEn: SettingsStrings = {
       user: 'User',
     },
     unbound: '-',
-    jsonHint: 'Only your custom keybindings are shown here. Edit them directly in the table.',
+    conflict: (otherCommand: string) => `Conflict with "${otherCommand}"`,
   },
   footer: {
     dirty: 'Unsaved changes',

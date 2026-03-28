@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronRight } from 'lucide-react'
 import { buildDocBlockId, useDocsNavigation } from '@/components/docs/DocsNavigation'
+import { getDocsUiStrings } from '@/docs/strings'
+import { useAppLocale } from '@/i18n/useLocale'
 import {
   SidebarBody,
   SidebarSectionTitle,
@@ -13,6 +15,8 @@ import { usePrismTheme } from '@/styles/usePrismTheme'
 
 export function DocsSidebar() {
   const { activeChapter, activeBlock, groupedDocs, scrollToChapter, scrollToBlock } = useDocsNavigation()
+  const locale = useAppLocale()
+  const docStrings = getDocsUiStrings(locale)
   const {
     BORDER,
     PAGE_BG,
@@ -65,7 +69,7 @@ export function DocsSidebar() {
   return (
     <SidebarBody className="pb-4">
       <div className="mb-3 flex items-center justify-between gap-3 px-2">
-        <SidebarSectionTitle className="mb-0 px-0">Table des matières</SidebarSectionTitle>
+        <SidebarSectionTitle className="mb-0 px-0">{docStrings.tocTitle}</SidebarSectionTitle>
         <button
           type="button"
           onClick={toggleAllGroups}
@@ -96,7 +100,7 @@ export function DocsSidebar() {
           onPointerUp={e => sidebarPressUp(e.currentTarget, SHADOW_SOFT)}
           onPointerCancel={e => sidebarPressUp(e.currentTarget, 'none')}
         >
-          {allGroupsOpen ? 'Réduire' : 'Tout déployer'}
+          {allGroupsOpen ? docStrings.collapse : docStrings.expand}
         </button>
       </div>
 
@@ -174,7 +178,7 @@ export function DocsSidebar() {
                     color: groupOpen ? TEAL : TEXT_DIM,
                   }}
                 >
-                  {group.chapters.length} ch.
+                  {docStrings.chapterBadge(group.chapters.length)}
                 </span>
               </button>
 

@@ -1,5 +1,7 @@
 import type { AppLocale } from '@/i18n/types'
 import { resolveAppLocale } from '@/i18n/types'
+import type { UserCommandDefinition } from '@/core/commands/userCommandsSchema'
+import { resolveUserCommands } from '@/core/commands/userCommandsSchema'
 import { type RecentItem, MAX_RECENT_ITEMS } from './recentItems'
 
 export type AppThemePreference = 'dark' | 'light'
@@ -28,6 +30,8 @@ export interface AppPreferences {
   commandPalettePosition: 'top' | 'center'
   /** User-defined keybinding overrides: shortcut id → keybinding string (empty = unbound). */
   userKeybindings: Record<string, string>
+  /** User-defined palette macros and wrappers. */
+  userCommands: UserCommandDefinition[]
   /** Default open/closed state applied to accordion sections on first visit. */
   rightPanelDefaultState: 'open' | 'closed'
   /** Persisted accordion closed-section IDs per panel key (e.g. "architecture", "library"). */
@@ -52,6 +56,19 @@ export interface AppPreferences {
   // ── Report ────────────────────────────────────────────────────────────────
   /** PDF page size used for report export. */
   pdfPageSize: 'A4' | 'Letter'
+
+  // ── Report export ────────────────────────────────────────────────────────
+  /** Company name shown in PDF report headers. */
+  reportCompanyName: string
+  /** Default signature / legal notice appended to PDF reports. */
+  reportSignatureText: string
+
+  // ── PRISM AI ─────────────────────────────────────────────────────────────
+  /** Language used for AI responses: 'auto' follows the app locale. */
+  aiResponseLanguage: 'auto' | 'fr' | 'en'
+  /** Automatically include the active SIF context in each AI message. */
+  aiAutoAttachSif: boolean
+
   recentItems: RecentItem[]
 }
 
@@ -84,6 +101,7 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   showWorkflowBreadcrumb: true,
   commandPalettePosition: 'top',
   userKeybindings: {},
+  userCommands: [],
   rightPanelDefaultState: 'open',
   rightPanelSectionStates: {},
   defaultLandingView: 'projects',
@@ -92,6 +110,10 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   defaultMissionTimeTH: DEFAULT_MISSION_TIME_TH,
   defaultProofTestIntervalTH: DEFAULT_PROOF_TEST_TI,
   pdfPageSize: 'A4',
+  reportCompanyName: '',
+  reportSignatureText: '',
+  aiResponseLanguage: 'auto',
+  aiAutoAttachSif: true,
   recentItems: [],
 }
 
@@ -140,6 +162,8 @@ export function resolveAppPreferences(input?: Partial<AppPreferences> | null): A
     }
   }
 
+  const userCommands = resolveUserCommands(source.userCommands)
+
   const rightPanelDefaultState: 'open' | 'closed' = source.rightPanelDefaultState === 'closed' ? 'closed' : 'open'
 
   const rightPanelSectionStates: Record<string, string[]> = {}
@@ -171,6 +195,12 @@ export function resolveAppPreferences(input?: Partial<AppPreferences> | null): A
     : DEFAULT_APP_PREFERENCES.defaultProofTestIntervalTH
 
   const pdfPageSize: 'A4' | 'Letter' = source.pdfPageSize === 'Letter' ? 'Letter' : 'A4'
+  const reportCompanyName = typeof source.reportCompanyName === 'string' ? source.reportCompanyName : ''
+  const reportSignatureText = typeof source.reportSignatureText === 'string' ? source.reportSignatureText : ''
+  const aiResponseLanguage: 'auto' | 'fr' | 'en' = source.aiResponseLanguage === 'fr' ? 'fr'
+    : source.aiResponseLanguage === 'en' ? 'en'
+    : 'auto'
+  const aiAutoAttachSif = typeof source.aiAutoAttachSif === 'boolean' ? source.aiAutoAttachSif : DEFAULT_APP_PREFERENCES.aiAutoAttachSif
 
   const recentItems: RecentItem[] = Array.isArray(source.recentItems)
     ? (source.recentItems as RecentItem[]).slice(0, MAX_RECENT_ITEMS)
@@ -189,6 +219,7 @@ export function resolveAppPreferences(input?: Partial<AppPreferences> | null): A
     showWorkflowBreadcrumb,
     commandPalettePosition,
     userKeybindings,
+    userCommands,
     rightPanelDefaultState,
     rightPanelSectionStates,
     defaultLandingView,
@@ -197,6 +228,10 @@ export function resolveAppPreferences(input?: Partial<AppPreferences> | null): A
     defaultMissionTimeTH,
     defaultProofTestIntervalTH,
     pdfPageSize,
+    reportCompanyName,
+    reportSignatureText,
+    aiResponseLanguage,
+    aiAutoAttachSif,
     recentItems,
   }
 }

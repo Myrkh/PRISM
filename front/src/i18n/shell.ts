@@ -44,8 +44,13 @@ export interface ShellStrings {
       general: string
       searchResults: string
       layout: string
+      userCommands: string
       symbols: string
       help: string
+      library: string
+      workspace: string
+      prismFiles: string
+      recent: string
     }
     labels: {
       untitled: string
@@ -125,6 +130,12 @@ export interface ShellStrings {
     modes: {
       /** Appended to the keyboard hint footer: e.g. "  |  > commandes  # SIF  @ symboles  ? aide" */
       hintSuffix: string
+      /** Empty-state message shown when no items match in a given mode. */
+      noResultsByMode: (mode: string, query: string) => string
+      /** Short badge shown inside the input when a mode prefix is active. */
+      badges: Record<'commands' | 'sif' | 'symbols' | 'help', string>
+      /** Placeholder shown in the input for each active mode. */
+      placeholders: Record<'commands' | 'sif' | 'symbols' | 'help', string>
     }
   }
   statusBar: {

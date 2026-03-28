@@ -75,9 +75,8 @@ function WinBtn({ Icon, title, onClick, active, danger }: {
   active?: boolean
   danger?: boolean
 }) {
-  const { TEAL, TEXT_DIM, isDark } = usePrismTheme()
-  const dangerColor = '#F87171'
-  const color = danger ? dangerColor : active ? TEAL : TEXT_DIM
+  const { TEAL, TEXT_DIM, isDark, semantic } = usePrismTheme()
+  const color = danger ? semantic.error : active ? TEAL : TEXT_DIM
   return (
     <button
       type="button"
@@ -87,9 +86,9 @@ function WinBtn({ Icon, title, onClick, active, danger }: {
       style={{ color }}
       onMouseEnter={e => {
         e.currentTarget.style.background = danger
-          ? `${dangerColor}18`
+          ? `${semantic.error}18`
           : isDark ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)'
-        e.currentTarget.style.color = danger ? dangerColor : active ? TEAL : TEXT_DIM
+        e.currentTarget.style.color = danger ? semantic.error : active ? TEAL : TEXT_DIM
       }}
       onMouseLeave={e => {
         e.currentTarget.style.background = 'transparent'
@@ -640,7 +639,7 @@ export function PrismAiShell({ onClose }: { onClose: () => void }) {
                       items={activeCommandMenuItems}
                       selectedIndex={Math.min(commandMenuIndex, activeCommandMenuItems.length - 1)}
                       onHover={setCommandMenuIndex}
-                      layout={inputMode === 'commands' ? 'command' : 'attachment'}
+                      layout={inputMode === 'sif' ? 'attachment' : 'command'}
                     />
                   )}
                   <div className="mt-2 flex items-center gap-2">

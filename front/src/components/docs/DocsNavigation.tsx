@@ -2,13 +2,15 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from 'react'
-import { DOC_CHAPTERS, DOC_GROUPS } from '@/docs'
+import { getDocChapters, getDocGroups } from '@/docs'
 import type { DocBlock, DocGroupMeta, DocResolvedChapter } from '@/docs/types'
+import { useAppLocale } from '@/i18n/useLocale'
 
 export type GroupedDocs = DocGroupMeta & {
   chapters: DocResolvedChapter[]
@@ -39,17 +41,27 @@ type DocsNavigationContextValue = {
 const DocsNavigationContext = createContext<DocsNavigationContextValue | null>(null)
 
 export function DocsNavigationProvider({ children }: { children: ReactNode }) {
-  const [activeChapter, setActiveChapter] = useState(DOC_CHAPTERS[0]?.id ?? '')
+  const locale = useAppLocale()
+  const docGroups = useMemo(() => getDocGroups(locale), [locale])
+  const docChapters = useMemo(() => getDocChapters(locale), [locale])
+  const [activeChapter, setActiveChapter] = useState(docChapters[0]?.id ?? '')
   const [activeBlock, setActiveBlock] = useState('')
   const sectionRefs = useRef<Record<string, HTMLElement | null>>({})
   const blockRefs = useRef<Record<string, HTMLElement | null>>({})
 
   const groupedDocs = useMemo<GroupedDocs[]>(() => (
-    DOC_GROUPS.map(group => ({
+    docGroups.map(group => ({
       ...group,
-      chapters: DOC_CHAPTERS.filter(chapter => chapter.group === group.id),
+      chapters: docChapters.filter(chapter => chapter.group === group.id),
     }))
-  ), [])
+  ), [docChapters, docGroups])
+
+  useEffect(() => {
+    if (!docChapters.some(chapter => chapter.id === activeChapter)) {
+      setActiveChapter(docChapters[0]?.id ?? '')
+      setActiveBlock('')
+    }
+  }, [activeChapter, docChapters])
 
   const registerSection = useCallback((id: string, node: HTMLElement | null) => {
     sectionRefs.current[id] = node
@@ -70,6 +82,21 @@ export function DocsNavigationProvider({ children }: { children: ReactNode }) {
     setActiveBlock(blockId)
     blockRefs.current[blockId]?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }, [])
+
+  useEffect(() => {
+    const handler = (event: Event) => {
+      const detail = (event as CustomEvent<{ chapterId?: string; blockId?: string }>).detail
+      if (!detail?.chapterId) return
+      if (detail.blockId) {
+        scrollToBlock(detail.chapterId, detail.blockId)
+        return
+      }
+      scrollToChapter(detail.chapterId)
+    }
+
+    document.addEventListener('prism:docs:navigate', handler)
+    return () => document.removeEventListener('prism:docs:navigate', handler)
+  }, [scrollToBlock, scrollToChapter])
 
   const value = useMemo<DocsNavigationContextValue>(() => ({
     activeChapter,

@@ -10,6 +10,14 @@
 
 export type CommandMode = 'default' | 'commands' | 'sif' | 'symbols' | 'help'
 
+/** Semantic badge colors per mode — intentionally distinct from the TEAL token palette. */
+const MODE_COLORS = {
+  commands: '#60A5FA', // blue-400   — actions & system commands
+  sif:      '#4ADE80', // green-400  — SIF navigation & workspace
+  symbols:  '#F59E0B', // amber-400  — architecture symbols & library
+  help:     '#A78BFA', // violet-400 — documentation & help
+} as const
+
 export interface ModeConfig {
   prefix: string
   mode: CommandMode
@@ -23,29 +31,29 @@ export const COMMAND_MODES: ModeConfig[] = [
     prefix:      '>',
     mode:        'commands',
     badge:       'COMMANDES',
-    badgeColor:  '#60A5FA',
+    badgeColor:  MODE_COLORS.commands,
     placeholder: 'Rechercher une commande ou action…',
   },
   {
     prefix:      '#',
     mode:        'sif',
     badge:       'SIF & WORKSPACE',
-    badgeColor:  '#4ADE80',
+    badgeColor:  MODE_COLORS.sif,
     placeholder: 'SIF, note, PDF, image…',
   },
   {
     prefix:      '@',
     mode:        'symbols',
     badge:       'SYMBOLES',
-    badgeColor:  '#F59E0B',
+    badgeColor:  MODE_COLORS.symbols,
     placeholder: 'Composant dans la SIF courante…',
   },
   {
     prefix:      '?',
     mode:        'help',
     badge:       'AIDE',
-    badgeColor:  '#A78BFA',
-    placeholder: '',
+    badgeColor:  MODE_COLORS.help,
+    placeholder: 'Commande, sujet ou chapitre de documentation PRISM…',
   },
 ]
 
@@ -65,5 +73,12 @@ export function detectMode(raw: string): {
 export function openPalette(search = '') {
   document.dispatchEvent(
     new CustomEvent('prism:palette:open', { detail: { search } }),
+  )
+}
+
+/** Dispatch a custom event to toggle the palette. */
+export function togglePalette() {
+  document.dispatchEvent(
+    new CustomEvent('prism:palette:toggle'),
   )
 }

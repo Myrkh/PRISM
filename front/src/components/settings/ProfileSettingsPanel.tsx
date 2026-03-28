@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from 'react'
-import { LogOut } from 'lucide-react'
+import { LogOut, Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import type { SettingsStrings } from '@/i18n/settings'
 import type { AppLocale } from '@/i18n/types'
@@ -76,6 +76,8 @@ export function ProfileSettingsPanel({ locale, section, strings }: ProfileSettin
   const authUser = useAppStore(state => state.authUser)
   const signOut = useAppStore(state => state.signOut)
   const [signingOut, setSigningOut] = useState(false)
+  const [copied, setCopied] = useState(false)
+  const { BORDER, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
 
   const fallback = strings.profile.values.unavailable
   const displayName = profile?.fullName || authUser?.user_metadata?.full_name || authUser?.email || fallback
@@ -116,19 +118,32 @@ export function ProfileSettingsPanel({ locale, section, strings }: ProfileSettin
           </ProfileSettingRow>
 
           <ProfileSettingRow label={strings.profile.account.userId}>
-            <ValueText value={userId} breakAll />
+            <div className="flex items-center gap-2">
+              <ValueText value={userId} breakAll />
+              <button
+                type="button"
+                onClick={() => {
+                  void navigator.clipboard.writeText(userId).then(() => {
+                    setCopied(true)
+                    setTimeout(() => setCopied(false), 1500)
+                  })
+                }}
+                title={strings.profile.account.copyId}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-colors"
+                style={{ borderColor: BORDER, color: TEXT_DIM, background: 'transparent' }}
+                onMouseEnter={event => { event.currentTarget.style.color = TEXT }}
+                onMouseLeave={event => { event.currentTarget.style.color = TEXT_DIM }}
+              >
+                {copied
+                  ? <Check size={11} style={{ color: TEAL }} />
+                  : <Copy size={11} />
+                }
+              </button>
+            </div>
           </ProfileSettingRow>
         </>
       ) : (
         <>
-          <ProfileSettingRow label={strings.profile.session.currentSession}>
-            <ValueText value={strings.profile.values.active} />
-          </ProfileSettingRow>
-
-          <ProfileSettingRow label={strings.profile.session.provider}>
-            <ValueText value={provider} />
-          </ProfileSettingRow>
-
           <ProfileSettingRow label={strings.profile.session.lastSignIn}>
             <ValueText value={lastSignIn} />
           </ProfileSettingRow>

@@ -1,5 +1,7 @@
 import type { ElementType } from 'react'
 
+export type DocLocale = 'fr' | 'en'
+
 export type DocGroupId = 'front' | 'engine'
 
 export type DocIconName =
@@ -74,6 +76,9 @@ export type DocChapterData = {
   blocks: DocBlock[]
 }
 
+export type LocalizedDocChapterData = Record<DocLocale, DocChapterData>
+export type DocChapterSource = DocChapterData | LocalizedDocChapterData
+
 export type DocResolvedChapter = Omit<DocChapterData, 'icon'> & {
   Icon: ElementType
 }
@@ -83,3 +88,5 @@ export type DocGroupMeta = {
   label: string
   summary: string
 }
+
+export type LocalizedDocGroupMeta = Record<DocLocale, DocGroupMeta>

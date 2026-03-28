@@ -1,120 +1,60 @@
 /**
  * useGlobalShortcuts — keyboard shortcuts mounted at app root.
  * Reads effective keybindings from preferences (default + user overrides).
- *
- * Supported shortcuts (all configurable via Settings > Keyboard Shortcuts):
- *   toggleLeftPanel   Ctrl+b  — toggle sidebar (skips editable targets)
- *   toggleRightPanel  Ctrl+j  — toggle properties panel (skips editable)
- *   toggleFocusMode   Ctrl+Shift+Z — zen mode
- *   toggleSplitView   Ctrl+\  — split view (skips editable)
- *   globalSearch      Ctrl+Shift+F — navigate to search
- *   commandMode       Ctrl+Shift+P — command palette in commands mode
- *   openChatPanel     Ctrl+I — open PRISM AI chat
- *   toggleWorkflowBreadcrumb — toggle SIF workflow breadcrumb bar
  */
 import { useEffect } from 'react'
+import { executeRegisteredCommand, getRegisteredShortcutEntries } from '@/core/commands/registry'
+import { executeUserCommand, getUserCommandsWithShortcuts, validateUserCommands } from '@/core/commands/userCommands'
+import { getEffectiveKeybinding, matchesShortcut } from '@/core/shortcuts/defaults'
+import { toast } from '@/components/ui/toast'
 import { useAppStore } from '@/store/appStore'
-import { matchesShortcut, getEffectiveKeybinding } from '@/core/shortcuts/defaults'
-import { openPalette } from '@/components/layout/command-palette'
 
 export function useGlobalShortcuts() {
-  const toggleLeftPanel      = useAppStore(s => s.toggleLeftPanel)
-  const toggleRightPanel     = useAppStore(s => s.toggleRightPanel)
-  const toggleFocusMode      = useAppStore(s => s.toggleFocusMode)
-  const toggleStatusBar      = useAppStore(s => s.toggleStatusBar)
-  const toggleCenteredLayout = useAppStore(s => s.toggleCenteredLayout)
-  const updateAppPreferences = useAppStore(s => s.updateAppPreferences)
-  const showWorkflowBreadcrumb = useAppStore(s => s.preferences.showWorkflowBreadcrumb)
-  const toggleChatPanel      = useAppStore(s => s.toggleChatPanel)
-  const chatPanelOpen        = useAppStore(s => s.chatPanelOpen)
-  const secondSlot           = useAppStore(s => s.secondSlot)
-  const openSecondSlot       = useAppStore(s => s.openSecondSlot)
-  const closeSecondSlot      = useAppStore(s => s.closeSecondSlot)
-  const navigate             = useAppStore(s => s.navigate)
-  const userKeybindings      = useAppStore(s => s.preferences.userKeybindings)
+  const userKeybindings = useAppStore(s => s.preferences.userKeybindings)
+  const userCommands = useAppStore(s => s.preferences.userCommands)
+
+  // ── Validate user commands whenever they change ───────────────────────────
+  useEffect(() => {
+    if (userCommands.length === 0) return
+    const error = validateUserCommands(userCommands)
+    if (error) toast.error('User commands', error)
+  }, [userCommands])
 
   useEffect(() => {
-    const kb = (id: string) => getEffectiveKeybinding(id, userKeybindings)
+    const registeredShortcuts = getRegisteredShortcutEntries()
+    const executableUserCommands = getUserCommandsWithShortcuts(userCommands)
 
     const handler = (e: KeyboardEvent) => {
-      // Ctrl+Shift+P — command palette commands mode
-      if (matchesShortcut(e, kb('commandMode'))) {
+      for (const command of executableUserCommands) {
+        const binding = command.shortcut?.trim() ?? ''
+        if (!binding || !matchesShortcut(e, binding)) continue
+        if (!matchesShortcutContext(command.when ?? 'global', e.target)) continue
+
         e.preventDefault()
-        openPalette('>')
+        executeUserCommand(command)
         return
       }
 
-      // Ctrl+Shift+F — global search
-      if (matchesShortcut(e, kb('globalSearch'))) {
-        e.preventDefault()
-        navigate({ type: 'search' })
-        return
-      }
+      for (const shortcut of registeredShortcuts) {
+        const binding = getEffectiveKeybinding(shortcut.id, userKeybindings)
+        if (!binding || !matchesShortcut(e, binding)) continue
+        if (!matchesShortcutContext(shortcut.when, e.target)) continue
+        if (shortcut.skipEditable && isEditable(e.target)) continue
 
-      // Ctrl+I — toggle PRISM AI chat
-      if (matchesShortcut(e, kb('openChatPanel'))) {
         e.preventDefault()
-        toggleChatPanel()
-        return
-      }
-
-      // Ctrl+Shift+Z — zen mode (always, even in editable)
-      if (matchesShortcut(e, kb('toggleFocusMode'))) {
-        e.preventDefault()
-        toggleFocusMode()
-        return
-      }
-
-      // Status bar & centered layout — always, even in editable
-      if (matchesShortcut(e, kb('toggleStatusBar'))) {
-        e.preventDefault()
-        toggleStatusBar()
-        return
-      }
-
-      if (matchesShortcut(e, kb('toggleCenteredLayout'))) {
-        e.preventDefault()
-        toggleCenteredLayout()
-        return
-      }
-
-      if (matchesShortcut(e, kb('toggleWorkflowBreadcrumb'))) {
-        e.preventDefault()
-        updateAppPreferences({ showWorkflowBreadcrumb: !showWorkflowBreadcrumb })
-        return
-      }
-
-      // Panel + split shortcuts skip text inputs
-      if (isEditable(e.target)) return
-
-      if (matchesShortcut(e, kb('toggleLeftPanel'))) {
-        e.preventDefault()
-        toggleLeftPanel()
-        return
-      }
-
-      if (matchesShortcut(e, kb('toggleRightPanel'))) {
-        e.preventDefault()
-        toggleRightPanel()
-        return
-      }
-
-      if (matchesShortcut(e, kb('toggleSplitView'))) {
-        e.preventDefault()
-        if (secondSlot) closeSecondSlot()
-        else openSecondSlot()
+        executeRegisteredCommand(shortcut.id)
         return
       }
     }
 
     document.addEventListener('keydown', handler)
     return () => document.removeEventListener('keydown', handler)
-  }, [
-    toggleLeftPanel, toggleRightPanel, toggleFocusMode,
-    toggleStatusBar, toggleCenteredLayout, updateAppPreferences, showWorkflowBreadcrumb,
-    toggleChatPanel, chatPanelOpen, secondSlot, openSecondSlot, closeSecondSlot,
-    navigate, userKeybindings,
-  ])
+  }, [userCommands, userKeybindings])
+}
+
+function matchesShortcutContext(when: string, target: EventTarget | null): boolean {
+  if (when === 'not editing') return !isEditable(target)
+  return true
 }
 
 function isEditable(target: EventTarget | null): boolean {

@@ -187,6 +187,7 @@ export function LibrarySidebar() {
   } = useLibraryNavigation()
   const { setRightPanelOpen } = useLayout()
   const openTab = useWorkspaceStore(state => state.openTab)
+  const setJsonEditorMode = useWorkspaceStore(state => state.setJsonEditorMode)
   const locale = useAppLocale()
   const s = useLocaleStrings(getLibraryStrings).sidebar
   const subsystemMeta = getLibrarySubsystemMeta(locale)
@@ -247,9 +248,9 @@ export function LibrarySidebar() {
     }
   }
 
-  const handleOpenCollectionJson = (collection: (typeof collections)[number]) => {
+  const handleOpenCollectionDocument = (collection: (typeof collections)[number], mode: 'json' | 'table') => {
     if (!ownerProfileId) {
-      toast.error('JSON collection indisponible', 'Utilisateur authentifié introuvable.')
+      toast.error('Collection indisponible', 'Utilisateur authentifié introuvable.')
       return
     }
     const projectName = collection.projectId
@@ -261,6 +262,7 @@ export function LibrarySidebar() {
       ownerProfileId,
       projectName,
     )
+    setJsonEditorMode(nodeId, mode)
     openTab(nodeId)
     navigate({ type: 'workspace-file', nodeId })
   }
@@ -426,11 +428,13 @@ export function LibrarySidebar() {
                       active={libraryFilter === collection.name}
                       menuColors={COLLECTION_PRESET_COLORS}
                       colorLabel={s.collectionColorTitle}
+                      editTableLabel={s.collectionEditTableTitle}
                       editJsonLabel={s.collectionEditJsonTitle}
                       deleteLabel={s.collectionDeleteTitle}
                       onSelect={() => setLibraryFilter(libraryFilter === collection.name ? null : collection.name)}
                       onRename={nextName => { void handleRenameCollection(collection.id, collection.name, nextName) }}
-                      onEditJson={() => handleOpenCollectionJson(collection)}
+                      onEditTable={() => handleOpenCollectionDocument(collection, 'table')}
+                      onEditJson={() => handleOpenCollectionDocument(collection, 'json')}
                       onDelete={() => handleDeleteCollection(collection)}
                       onColorChange={color => { void handleCollectionColorChange(collection.id, color) }}
                     />

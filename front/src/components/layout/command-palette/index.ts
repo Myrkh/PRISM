@@ -1,2 +1,2 @@
 export { CommandPalette } from './CommandPalette'
-export { openPalette } from './modes'
+export { openPalette, togglePalette } from './modes'

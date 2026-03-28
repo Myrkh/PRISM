@@ -304,6 +304,8 @@ export const useAppStore = create<AppState>()(
       isSyncing: false,
       syncError: null,
       view: { type: 'projects' },
+      keybindingsReturnView: null,
+      userCommandsReturnView: null,
       selectedComponentId: null,
       pinnedSIFIds: [],
       rightPanelTabs: {
@@ -486,6 +488,7 @@ export const useAppStore = create<AppState>()(
       toggleLeftPanel: () => set(s => { s.leftPanelOpen = !s.leftPanelOpen }),
       toggleRightPanel: () => set(s => { s.rightPanelOpen = !s.rightPanelOpen }),
       toggleChatPanel: () => set(s => { s.chatPanelOpen = !s.chatPanelOpen }),
+      setChatPanelOpen: open => set(s => { s.chatPanelOpen = open }),
       setPrismFile: (filename, content) => set(s => {
         s.prismFiles[filename] = content
         try { localStorage.setItem(PRISM_FILES_STORAGE_KEY, JSON.stringify(s.prismFiles)) } catch { /* quota */ }

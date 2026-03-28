@@ -49,11 +49,35 @@ export interface LibraryStrings {
     newCollectionPlaceholder: string
     newCollectionConfirm: string
     collectionColorTitle: string
+    collectionEditTableTitle: string
     collectionEditJsonTitle: string
     collectionDeleteTitle: string
     collectionDeleteConfirmTitle: string
     collectionDeleteConfirmMessage: (name: string) => string
     collectionDeleteConfirmAction: string
+  }
+  collectionEditor: {
+    modeTable: string
+    modeJson: string
+    invalidTitle: string
+    invalidDescription: string
+    addRow: string
+    duplicateRows: (count: number) => string
+    deleteRows: (count: number) => string
+    copySelection: string
+    pasteSelection: string
+    fillDown: string
+    fillRight: string
+    search: string
+    closeSearch: string
+    freezeColumns: string
+    unfreezeColumns: string
+    fitColumns: string
+    resetColumns: string
+    rows: (count: number) => string
+    selectedRows: (count: number) => string
+    scopeUser: string
+    scopeProject: (projectName: string | null) => string
   }
 }
 

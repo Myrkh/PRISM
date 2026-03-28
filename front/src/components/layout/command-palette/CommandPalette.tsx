@@ -8,12 +8,12 @@
  *   ''  → default  – all items
  *   '>' → commands – actions/toggles/navigation only
  *   '#' → sif      – SIF search
- *   '@' → symbols  – components in current SIF
+ *   '@' → symbols  – components in current SIF architecture
  *   '?' → help     – available modes
  */
 import { Fragment, useEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Search, ChevronRight } from 'lucide-react'
+import { ChevronRight, Search } from 'lucide-react'
 import { useLocaleStrings } from '@/i18n/useLocale'
 import { getShellStrings } from '@/i18n/shell'
 import { useAppStore } from '@/store/appStore'
@@ -21,6 +21,9 @@ import { normalizeSIFTab } from '@/store/types'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { useCommandGroups } from './useCommandGroups'
 import { detectMode } from './modes'
+import { PaletteInput, type PaletteInputHandle } from './PaletteInput'
+
+const LISTBOX_ID = 'prism-palette-listbox'
 
 interface Props {
   onOpenSettings: () => void
@@ -33,26 +36,32 @@ export function CommandPalette({ onOpenSettings, onOpenDocs, onOpenSearch, onOpe
   const { BORDER, CARD_BG, PAGE_BG, PANEL_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, isDark: themeIsDark } = usePrismTheme()
   const strings = useLocaleStrings(getShellStrings)
 
-  const [open, setOpen]           = useState(false)
-  const [search, setSearch]       = useState('')
+  const [open, setOpen]                   = useState(false)
+  const [search, setSearch]               = useState('')
   const [selectedIndex, setSelectedIndex] = useState(-1)
   const [dropdownStyle, setDropdownStyle] = useState<React.CSSProperties>({})
 
   const triggerRef = useRef<HTMLDivElement>(null)
-  const inputRef   = useRef<HTMLInputElement>(null)
+  const inputRef   = useRef<PaletteInputHandle>(null)
   const itemRefs   = useRef<Array<HTMLButtonElement | null>>([])
 
-  // Store subscriptions needed for breadcrumb display + palette position
   const view                   = useAppStore(s => s.view)
   const projects               = useAppStore(s => s.projects)
   const commandPalettePosition = useAppStore(s => s.preferences.commandPalettePosition)
 
   // ── Mode detection ──────────────────────────────────────────────────────────
 
-  const { mode, query, config: modeConfig } = detectMode(search)
+  const { mode, query, config: rawModeConfig } = detectMode(search)
 
-  // Actions execute without closing — user presses Escape to dismiss.
-  const run = (fn: () => void) => { fn() }
+  // Localize mode badge and placeholder from i18n (modes.ts holds colors + structure only).
+  const modeConfig = rawModeConfig ? {
+    ...rawModeConfig,
+    badge:       strings.commandPalette.modes.badges[rawModeConfig.mode as keyof typeof strings.commandPalette.modes.badges],
+    placeholder: strings.commandPalette.modes.placeholders[rawModeConfig.mode as keyof typeof strings.commandPalette.modes.placeholders],
+  } : null
+
+  // Close palette after executing any action (VS Code behavior).
+  const run = (fn: () => void) => { fn(); setOpen(false) }
 
   const { indexedGroups, visibleItems } = useCommandGroups({
     search: query,
@@ -75,7 +84,7 @@ export function CommandPalette({ onOpenSettings, onOpenDocs, onOpenSearch, onOpe
       const tabLabel = strings.sifTabLabels[normalizeSIFTab(view.tab)] ?? normalizeSIFTab(view.tab)
       const sifLabel = `${sif.sifNumber}${sif.title ? ` · ${sif.title}` : ''}`
       return {
-        short: `${sifLabel}  ›  ${tabLabel}`,
+        short:   `${sifLabel}  ›  ${tabLabel}`,
         tooltip: `${project?.name ?? ''}  ›  ${sifLabel}  ›  ${tabLabel}`,
       }
     }
@@ -83,34 +92,31 @@ export function CommandPalette({ onOpenSettings, onOpenDocs, onOpenSearch, onOpe
     return label ? { short: label, tooltip: label } : null
   })()
 
-  // ── Ctrl/Cmd+K  /  Ctrl+Shift+P global shortcuts ───────────────────────────
+  // ── Listen to prism:palette:* custom events ───────────────────────────────
 
   useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'k' && (e.metaKey || e.ctrlKey) && !e.shiftKey) {
-        e.preventDefault()
-        setOpen(prev => !prev)
-      }
-      if (e.key === 'P' && (e.metaKey || e.ctrlKey) && e.shiftKey) {
-        e.preventDefault()
-        setSearch('>')
-        setOpen(true)
-      }
-    }
-    document.addEventListener('keydown', handler)
-    return () => document.removeEventListener('keydown', handler)
-  }, [])
-
-  // ── Listen to prism:palette:open custom event ───────────────────────────────
-
-  useEffect(() => {
-    const handler = (e: Event) => {
+    const openHandler = (e: Event) => {
       const detail = (e as CustomEvent<{ search?: string }>).detail
       setSearch(detail?.search ?? '')
       setOpen(true)
     }
-    document.addEventListener('prism:palette:open', handler)
-    return () => document.removeEventListener('prism:palette:open', handler)
+
+    const toggleHandler = (e: Event) => {
+      const detail = (e as CustomEvent<{ search?: string }>).detail
+      if (typeof detail?.search === 'string') {
+        setSearch(detail.search)
+        setOpen(true)
+        return
+      }
+      setOpen(prev => !prev)
+    }
+
+    document.addEventListener('prism:palette:open', openHandler)
+    document.addEventListener('prism:palette:toggle', toggleHandler)
+    return () => {
+      document.removeEventListener('prism:palette:open', openHandler)
+      document.removeEventListener('prism:palette:toggle', toggleHandler)
+    }
   }, [])
 
   // ── On open: focus input + compute dropdown position ───────────────────────
@@ -120,7 +126,7 @@ export function CommandPalette({ onOpenSettings, onOpenDocs, onOpenSearch, onOpe
       setSearch('')
       return
     }
-    setTimeout(() => inputRef.current?.focus(), 30)
+    const focusTimer = setTimeout(() => inputRef.current?.focus(), 30)
 
     if (commandPalettePosition === 'center') {
       const W = Math.min(640, window.innerWidth - 32)
@@ -133,9 +139,10 @@ export function CommandPalette({ onOpenSettings, onOpenDocs, onOpenSearch, onOpe
       const rect = triggerRef.current.getBoundingClientRect()
       setDropdownStyle({ top: rect.bottom + 6, left: rect.left, width: rect.width })
     }
+    return () => clearTimeout(focusTimer)
   }, [open, commandPalettePosition])
 
-  // ── Reset selection when items change ──────────────────────────────────────
+  // ── Reset selection when search/items change ────────────────────────────────
 
   useEffect(() => {
     if (!open) { setSelectedIndex(-1); return }
@@ -153,14 +160,17 @@ export function CommandPalette({ onOpenSettings, onOpenDocs, onOpenSearch, onOpe
       if (e.key === 'Escape') { setOpen(false); return }
       if (!visibleItems.length) return
 
-      if (e.key === 'ArrowDown') {
+      const isDown = e.key === 'ArrowDown' || ((e.ctrlKey || e.metaKey) && e.key === 'n')
+      const isUp   = e.key === 'ArrowUp'   || ((e.ctrlKey || e.metaKey) && e.key === 'p')
+
+      if (isDown) {
         e.preventDefault()
         setSelectedIndex(prev => (prev + 1) % visibleItems.length)
         return
       }
-      if (e.key === 'ArrowUp') {
+      if (isUp) {
         e.preventDefault()
-        setSelectedIndex(prev => prev <= 0 ? visibleItems.length - 1 : prev - 1)
+        setSelectedIndex(prev => (prev <= 0 ? visibleItems.length - 1 : prev - 1))
         return
       }
       if (e.key === 'Enter' && selectedIndex >= 0) {
@@ -181,15 +191,35 @@ export function CommandPalette({ onOpenSettings, onOpenDocs, onOpenSearch, onOpe
     }
   }, [open, selectedIndex])
 
-  // ── Shared panel content (results list + footer) ────────────────────────────
+  // ── Active item id for aria-activedescendant ────────────────────────────────
+
+  const activeItemId = selectedIndex >= 0 && visibleItems[selectedIndex]
+    ? `palette-item-${visibleItems[selectedIndex].id}`
+    : undefined
+
+  // ── Shared results panel ────────────────────────────────────────────────────
 
   const panelContent = (
     <>
       {/* Results list */}
-      <div className="flex-1 overflow-y-auto py-1.5" role="listbox" aria-label="Command Palette">
+      <div
+        id={LISTBOX_ID}
+        className="flex-1 overflow-y-auto py-1.5"
+        role="listbox"
+        aria-label={strings.commandPalette.placeholder}
+        aria-activedescendant={activeItemId}
+      >
         {visibleItems.length === 0 && (
-          <p className="py-10 text-center text-[13px]" style={{ color: TEXT_DIM }}>
-            {strings.commandPalette.noResults(query || search)}
+          <p
+            className="py-10 text-center text-[13px]"
+            style={{ color: TEXT_DIM }}
+            role="status"
+            aria-live="polite"
+            aria-atomic
+          >
+            {mode === 'default'
+              ? strings.commandPalette.noResults(query || search)
+              : strings.commandPalette.modes.noResultsByMode(mode, query)}
           </p>
         )}
 
@@ -210,27 +240,26 @@ export function CommandPalette({ onOpenSettings, onOpenDocs, onOpenSearch, onOpe
                     <div className="mx-3 my-1" style={{ height: 1, background: `${BORDER}80` }} />
                   )}
                   <button
+                    id={`palette-item-${item.id}`}
                     ref={node => { itemRefs.current[item.flatIndex] = node }}
                     type="button"
                     role="option"
                     aria-selected={isSelected}
                     onClick={item.onSelect}
                     onMouseEnter={() => setSelectedIndex(item.flatIndex)}
-                    className="group w-full flex items-center gap-2.5 px-3 py-2 text-left"
+                    className={`group w-full flex items-center gap-2.5 py-2 text-left ${item.level === 1 ? 'pl-8 pr-3' : 'px-3'}`}
                     style={{ background: isSelected ? PAGE_BG : 'transparent' }}
                   >
-                    {/* Icon badge */}
                     <div
                       className="w-6 h-6 shrink-0 rounded-md flex items-center justify-center transition-colors"
                       style={{
                         background: item.isActive ? `${TEAL}20` : PAGE_BG,
-                        border: `1px solid ${item.isActive ? `${TEAL}50` : BORDER}`,
+                        border:     `1px solid ${item.isActive ? `${TEAL}50` : BORDER}`,
                       }}
                     >
                       <item.Icon size={12} style={{ color: item.isActive ? TEAL : TEXT_DIM }} />
                     </div>
 
-                    {/* Label + meta */}
                     <div className="flex-1 min-w-0">
                       <p
                         className="truncate text-[13px] font-semibold"
@@ -245,21 +274,15 @@ export function CommandPalette({ onOpenSettings, onOpenDocs, onOpenSearch, onOpe
                       )}
                     </div>
 
-                    {/* Keyboard shortcut */}
                     {item.shortcut && !item.isActive && (
                       <kbd
                         className="shrink-0 text-[9px] font-mono px-1.5 py-0.5 rounded"
-                        style={{
-                          border: `1px solid ${BORDER}`,
-                          color: TEXT_DIM,
-                          background: PAGE_BG,
-                        }}
+                        style={{ border: `1px solid ${BORDER}`, color: TEXT_DIM, background: PAGE_BG }}
                       >
                         {item.shortcut}
                       </kbd>
                     )}
 
-                    {/* Active badge */}
                     {item.isActive && (
                       <span
                         className="text-[9px] font-bold px-1.5 py-0.5 rounded shrink-0"
@@ -333,38 +356,23 @@ export function CommandPalette({ onOpenSettings, onOpenDocs, onOpenSearch, onOpe
           <div
             className="fixed z-50 flex flex-col rounded-xl border overflow-hidden"
             style={panelSharedStyle}
+            role="dialog"
+            aria-label={strings.commandPalette.placeholder}
+            aria-modal
             onClick={e => e.stopPropagation()}
           >
-            {/* CENTER MODE: input bar lives inside the portal panel */}
+            {/* CENTER MODE: input bar inside the portal panel */}
             {commandPalettePosition === 'center' && (
               <div
                 className="flex items-center gap-2.5 px-3 py-2.5 shrink-0 border-b"
                 style={{ borderColor: BORDER }}
               >
-                <Search size={14} style={{ flexShrink: 0, color: TEAL }} />
-                {modeConfig && (
-                  <span
-                    className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded"
-                    style={{
-                      color: modeConfig.badgeColor,
-                      background: `${modeConfig.badgeColor}18`,
-                      border: `1px solid ${modeConfig.badgeColor}40`,
-                    }}
-                  >
-                    {modeConfig.badge}
-                  </span>
-                )}
-                <input
+                <PaletteInput
                   ref={inputRef}
                   value={query}
-                  onChange={e => {
-                    const newVal = modeConfig ? modeConfig.prefix + e.target.value : e.target.value
-                    setSearch(newVal)
-                  }}
                   placeholder={modeConfig?.placeholder ?? strings.commandPalette.placeholder}
-                  className="flex-1 bg-transparent text-[13px] outline-none min-w-0"
-                  style={{ color: TEXT }}
-                  autoComplete="off"
+                  modeConfig={modeConfig}
+                  onChange={setSearch}
                 />
               </div>
             )}
@@ -383,6 +391,9 @@ export function CommandPalette({ onOpenSettings, onOpenDocs, onOpenSearch, onOpe
       <button
         type="button"
         onClick={() => setOpen(true)}
+        aria-expanded={open}
+        aria-haspopup="listbox"
+        aria-controls={LISTBOX_ID}
         className="w-full flex items-center gap-2 rounded-lg px-3 h-8 transition-all text-left"
         style={{
           border:     `1px solid ${open ? `${TEAL}60` : BORDER}`,
@@ -407,34 +418,16 @@ export function CommandPalette({ onOpenSettings, onOpenDocs, onOpenSearch, onOpe
         {/* TOP MODE + open: input in trigger bar */}
         {commandPalettePosition === 'top' && open ? (
           <div className="flex flex-1 items-center gap-1.5 min-w-0">
-            {modeConfig && (
-              <span
-                className="shrink-0 text-[9px] font-bold px-1.5 py-0.5 rounded"
-                style={{
-                  color: modeConfig.badgeColor,
-                  background: `${modeConfig.badgeColor}18`,
-                  border: `1px solid ${modeConfig.badgeColor}40`,
-                }}
-              >
-                {modeConfig.badge}
-              </span>
-            )}
-            <input
+            <PaletteInput
               ref={inputRef}
               value={query}
-              onChange={e => {
-                const newVal = modeConfig ? modeConfig.prefix + e.target.value : e.target.value
-                setSearch(newVal)
-              }}
-              onClick={e => e.stopPropagation()}
               placeholder={modeConfig?.placeholder ?? strings.commandPalette.placeholder}
-              className="flex-1 bg-transparent text-[13px] outline-none min-w-0"
-              style={{ color: TEXT }}
-              autoComplete="off"
+              modeConfig={modeConfig}
+              onChange={setSearch}
+              onClick={e => e.stopPropagation()}
             />
           </div>
         ) : (
-          // Center mode (any) OR top mode closed: breadcrumb
           <span
             className="flex-1 truncate text-[13px]"
             title={breadcrumb?.tooltip}

@@ -16,17 +16,16 @@ import { BookOpenText, ChevronRight, Download, Minus, X } from 'lucide-react'
 import { alpha, colors } from '../../tokens'
 import { useTheme } from '../../hooks/useTheme'
 import type { ThemeTokens } from '../../hooks/useTheme'
-import { DOC_CHAPTERS, DOC_GROUPS } from '@/docs/index'
+import { getDocChapters, getDocGroups } from '@/docs/index'
+import { getDocsUiStrings, type DocsUiStrings } from '@/docs/strings'
 import type {
-  DocAction, DocBlock, DocExample, DocResolvedChapter, DocSnippet, DocVisual,
+  DocAction, DocBlock, DocExample, DocGroupMeta, DocResolvedChapter, DocSnippet, DocVisual,
 } from '@/docs/types'
+import { useLocale } from '../../i18n/useLocale'
 
-// ── Grouped data (static, computed once) ──────────────────────────────────────
-
-const GROUPED = DOC_GROUPS.map(group => ({
-  ...group,
-  chapters: DOC_CHAPTERS.filter(ch => ch.group === group.id),
-}))
+type GroupedDocs = DocGroupMeta & {
+  chapters: DocResolvedChapter[]
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -53,6 +52,14 @@ type NavValue = {
 }
 const NavCtx = createContext<NavValue>(null!)
 function useNav() { return useContext(NavCtx) }
+
+type DocsDataValue = {
+  groupedDocs: GroupedDocs[]
+  strings: DocsUiStrings
+}
+
+const DocsDataCtx = createContext<DocsDataValue>(null!)
+function useDocsData() { return useContext(DocsDataCtx) }
 
 // ── InlineRichText ─────────────────────────────────────────────────────────────
 
@@ -84,10 +91,11 @@ function InlineRichText({ text, className, style }: {
 
 function ExampleCard({ example }: { example: DocExample }) {
   const t = useT()
+  const { strings: docStrings } = useDocsData()
   return (
     <div className="pl-4 py-1 border-l-[2px]" style={{ borderLeftColor: colors.teal }}>
       <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: colors.teal }}>
-        Exemple concret
+        {docStrings.exampleTitle}
       </p>
       <p className="text-[13px] font-semibold leading-snug mb-2" style={{ color: t.TEXT }}>
         {example.title}
@@ -230,6 +238,7 @@ function VisualCard({ visual, variant = 'framed' }: { visual: DocVisual; variant
 
 function ChapterSidebar({ chapter }: { chapter: DocResolvedChapter }) {
   const t = useT()
+  const { strings: docStrings } = useDocsData()
   const { activeChapter, activeBlock, scrollToBlock } = useNav()
   const effectiveBlock = activeChapter === chapter.id ? activeBlock : ''
   return (
@@ -238,7 +247,7 @@ function ChapterSidebar({ chapter }: { chapter: DocResolvedChapter }) {
       {chapter.highlights.length > 0 && (
         <div className="mb-6">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-3" style={{ color: colors.teal }}>
-            Repères
+            {docStrings.landmarksTitle}
           </p>
           <div className="space-y-3.5">
             {chapter.highlights.map((h, i) => (
@@ -260,7 +269,7 @@ function ChapterSidebar({ chapter }: { chapter: DocResolvedChapter }) {
       <div className={chapter.highlights.length > 0 ? 'border-t pt-5' : ''}
         style={{ borderColor: `${t.BORDER}28` }}>
         <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-3" style={{ color: colors.teal }}>
-          Sections
+          {docStrings.sectionsTitle}
         </p>
         <nav className="space-y-0">
           {chapter.blocks.map((block, index) => {
@@ -432,17 +441,18 @@ function ChapterArticle({ chapter, chapterIndex, chapterCount }: {
 
 function DocsToc() {
   const t = useT()
+  const { groupedDocs, strings: docStrings } = useDocsData()
   const { activeChapter, scrollToChapter, scrollToBlock } = useNav()
 
   const chapterToGroup = useMemo(() => {
     const map = new Map<string, string>()
-    GROUPED.forEach(g => g.chapters.forEach(ch => map.set(ch.id, g.id)))
+    groupedDocs.forEach(g => g.chapters.forEach(ch => map.set(ch.id, g.id)))
     return map
-  }, [])
+  }, [groupedDocs])
 
-  const activeGroupId = chapterToGroup.get(activeChapter) ?? GROUPED[0]?.id ?? ''
-  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(GROUPED.map(g => g.id)))
-  const allOpen = GROUPED.every(g => openGroups.has(g.id))
+  const activeGroupId = chapterToGroup.get(activeChapter) ?? groupedDocs[0]?.id ?? ''
+  const [openGroups, setOpenGroups] = useState<Set<string>>(() => new Set(groupedDocs.map(g => g.id)))
+  const allOpen = groupedDocs.every(g => openGroups.has(g.id))
 
   useEffect(() => {
     if (!activeGroupId) return
@@ -464,19 +474,19 @@ function DocsToc() {
       <div className="flex shrink-0 items-center justify-between border-b px-3 py-2.5"
         style={{ borderColor: t.BORDER }}>
         <p className="text-[9px] font-black uppercase tracking-widest" style={{ color: t.TEXT_DIM }}>
-          Table des matières
+          {docStrings.tocTitle}
         </p>
         <button type="button"
-          onClick={() => setOpenGroups(allOpen ? new Set() : new Set(GROUPED.map(g => g.id)))}
+          onClick={() => setOpenGroups(allOpen ? new Set() : new Set(groupedDocs.map(g => g.id)))}
           className="rounded border px-2 py-0.5 text-[9px] font-semibold uppercase tracking-[0.1em] transition-opacity hover:opacity-80"
           style={{ borderColor: t.BORDER, background: 'transparent', color: t.TEXT_DIM }}>
-          {allOpen ? 'Réduire' : 'Tout déployer'}
+          {allOpen ? docStrings.collapse : docStrings.expand}
         </button>
       </div>
 
       {/* Nav tree */}
       <div className="flex-1 overflow-y-auto space-y-1 px-2 py-2">
-        {GROUPED.map((group, gi) => {
+        {groupedDocs.map((group, gi) => {
           const groupOpen   = openGroups.has(group.id)
           const groupActive = activeGroupId === group.id
           return (
@@ -504,7 +514,7 @@ function DocsToc() {
                     background:  groupOpen ? `${colors.teal}0E` : t.PAGE_BG,
                     color:       groupOpen ? colors.teal : t.TEXT_DIM,
                   }}>
-                  {group.chapters.length} ch.
+                  {docStrings.chapterBadge(group.chapters.length)}
                 </span>
               </button>
 
@@ -619,13 +629,14 @@ function DocsToc() {
 
 function TitleBar() {
   const t = useT()
+  const { strings: docStrings } = useDocsData()
   return (
     <div className="drag flex h-7 shrink-0 select-none items-center justify-between border-b px-3"
       style={{ background: t.PANEL_BG, borderColor: t.BORDER }}>
       <div className="flex items-center gap-2">
         <BookOpenText size={12} style={{ color: colors.teal }} />
         <span className="text-[11px] font-semibold" style={{ color: t.TEXT_DIM }}>
-          Documentation PRISM
+          {docStrings.windowTitle}
         </span>
       </div>
       <div className="no-drag flex items-center gap-0.5">
@@ -656,10 +667,11 @@ function TitleBar() {
 
 function DocsContent() {
   const t = useT()
+  const { groupedDocs, strings: docStrings } = useDocsData()
   const { activeChapter, scrollRef, scrollToChapter } = useNav()
 
-  const totalChapters = GROUPED.reduce((s, g) => s + g.chapters.length, 0)
-  const totalSections = GROUPED.reduce((s, g) => s + g.chapters.reduce((cs, ch) => cs + ch.blocks.length, 0), 0)
+  const totalChapters = groupedDocs.reduce((s, g) => s + g.chapters.length, 0)
+  const totalSections = groupedDocs.reduce((s, g) => s + g.chapters.reduce((cs, ch) => cs + ch.blocks.length, 0), 0)
 
   return (
     <div ref={scrollRef} className="flex-1 min-h-0 overflow-y-auto">
@@ -674,32 +686,28 @@ function DocsContent() {
               <BookOpenText size={14} />
             </span>
             <span className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: colors.tealDim }}>
-              Aide & documentation
+              {docStrings.heroKicker}
             </span>
             <span className="ml-auto text-[11px] font-medium" style={{ color: `${t.TEXT_DIM}50` }}>
-              {totalChapters} chapitres · {totalSections} sections
+              {docStrings.counts(totalChapters, totalSections)}
             </span>
           </div>
           <div className="grid xl:grid-cols-[minmax(0,1fr),1px,280px]">
             <div className="px-8 py-7">
               <h1 className="text-[32px] font-semibold tracking-tight leading-tight mb-4" style={{ color: t.TEXT }}>
-                Documentation PRISM
+                {docStrings.heroTitle}
               </h1>
               <p className="text-[14.5px] leading-[1.85] max-w-[520px]" style={{ color: t.TEXT_DIM }}>
-                <InlineRichText text="Base d'usage complète. Elle explique comment utiliser le front de A à Z, puis comment le moteur interprète la modélisation pour produire des résultats, des rapports et une traçabilité exploitable." />
+                <InlineRichText text={docStrings.heroSummary} />
               </p>
             </div>
             <div className="hidden xl:block" style={{ background: `${t.BORDER}38` }} />
             <div className="px-7 py-7 border-t xl:border-t-0" style={{ borderColor: `${t.BORDER}30` }}>
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-4" style={{ color: colors.teal }}>
-                Comment lire
+                {docStrings.howToReadTitle}
               </p>
               <ol className="space-y-3.5">
-                {[
-                  'Choisir un chapitre depuis la table des matières ou depuis les aperçus ci-dessous.',
-                  'Utiliser le sommaire interne de chaque chapitre pour naviguer directement à la bonne section.',
-                  'Les captures, exemples et snippets illustrent un usage réel — pas du décor.',
-                ].map((step, i) => (
+                {docStrings.howToReadSteps.map((step, i) => (
                   <li key={`how${i}`} className="flex items-start gap-2.5">
                     <span className="text-[11px] font-bold font-mono mt-[1px] w-4 shrink-0" style={{ color: colors.teal }}>
                       {i + 1}.
@@ -709,13 +717,13 @@ function DocsContent() {
                 ))}
               </ol>
               <div className="mt-5 pt-5 border-t space-y-3" style={{ borderColor: `${t.BORDER}28` }}>
-                {GROUPED.map((group, i) => (
+                {groupedDocs.map((group, i) => (
                   <div key={group.id} className={i > 0 ? 'pt-3 border-t' : ''}
                     style={i > 0 ? { borderColor: `${t.BORDER}22` } : undefined}>
                     <p className="text-[12.5px] font-semibold" style={{ color: t.TEXT }}>{group.label}</p>
                     <p className="text-[11.5px] leading-snug mt-0.5" style={{ color: t.TEXT_DIM }}>{group.summary}</p>
                     <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: `${colors.teal}70` }}>
-                      {group.chapters.length} ch · {group.chapters.reduce((s, ch) => s + ch.blocks.length, 0)} sec
+                      {docStrings.compactCounts(group.chapters.length, group.chapters.reduce((s, ch) => s + ch.blocks.length, 0))}
                     </p>
                   </div>
                 ))}
@@ -726,7 +734,7 @@ function DocsContent() {
 
         {/* Groups */}
         <div className="space-y-5">
-          {GROUPED.map(group => {
+          {groupedDocs.map(group => {
             const sectionCount = group.chapters.reduce((s, ch) => s + ch.blocks.length, 0)
             return (
               <section key={group.id} className="space-y-3">
@@ -741,7 +749,7 @@ function DocsContent() {
                       <p className="text-[13px] leading-relaxed" style={{ color: t.TEXT_DIM }}>{group.summary}</p>
                     </div>
                     <p className="text-[11px] font-medium shrink-0" style={{ color: `${t.TEXT_DIM}60` }}>
-                      {group.chapters.length} chapitres · {sectionCount} sections
+                      {docStrings.counts(group.chapters.length, sectionCount)}
                     </p>
                   </div>
                   <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
@@ -768,7 +776,7 @@ function DocsContent() {
                             <p className="text-[12px] leading-snug" style={{ color: t.TEXT_DIM }}>{chapter.summary}</p>
                             <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.1em]"
                               style={{ color: `${t.TEXT_DIM}50` }}>
-                              {chapter.blocks.length} sections
+                              {docStrings.sectionCount(chapter.blocks.length)}
                             </p>
                           </div>
                         </button>
@@ -806,9 +814,19 @@ function DocsContent() {
 // ── Root ───────────────────────────────────────────────────────────────────────
 
 export function DocsWindow() {
-  const [theme]            = useTheme()
-  const [activeChapter, setActiveChapter] = useState(GROUPED[0]?.chapters[0]?.id ?? '')
-  const [activeBlock,   setActiveBlock]   = useState('')
+  const [theme] = useTheme()
+  const [locale] = useLocale()
+  const groupedDocs = useMemo<GroupedDocs[]>(() => {
+    const groups = getDocGroups(locale)
+    const chapters = getDocChapters(locale)
+    return groups.map(group => ({
+      ...group,
+      chapters: chapters.filter(chapter => chapter.group === group.id),
+    }))
+  }, [locale])
+  const docStrings = useMemo(() => getDocsUiStrings(locale), [locale])
+  const [activeChapter, setActiveChapter] = useState(groupedDocs[0]?.chapters[0]?.id ?? '')
+  const [activeBlock, setActiveBlock] = useState('')
 
   const scrollRef    = useRef<HTMLDivElement>(null)
   const sectionRefs  = useRef(new Map<string, HTMLElement>())
@@ -840,7 +858,7 @@ export function DocsWindow() {
     const update = () => {
       frame = 0
       const rootTop = root.getBoundingClientRect().top
-      let nextChapter = GROUPED[0]?.chapters[0]?.id ?? ''
+      let nextChapter = groupedDocs[0]?.chapters[0]?.id ?? ''
       let bestC = Infinity
       root.querySelectorAll<HTMLElement>('[data-doc-chapter]').forEach(el => {
         const id = el.dataset.docChapter
@@ -869,7 +887,14 @@ export function DocsWindow() {
       if (frame) cancelAnimationFrame(frame)
       root.removeEventListener('scroll', onScroll)
     }
-  }, [])
+  }, [groupedDocs])
+
+  useEffect(() => {
+    if (!groupedDocs.some(group => group.chapters.some(chapter => chapter.id === activeChapter))) {
+      setActiveChapter(groupedDocs[0]?.chapters[0]?.id ?? '')
+      setActiveBlock('')
+    }
+  }, [activeChapter, groupedDocs])
 
   const nav: NavValue = {
     activeChapter,
@@ -883,15 +908,17 @@ export function DocsWindow() {
 
   return (
     <ThemeCtx.Provider value={theme}>
-      <NavCtx.Provider value={nav}>
-        <div className="flex h-screen flex-col overflow-hidden" style={{ background: theme.PAGE_BG }}>
-          <TitleBar />
-          <div className="flex flex-1 min-h-0">
-            <DocsToc />
-            <DocsContent />
+      <DocsDataCtx.Provider value={{ groupedDocs, strings: docStrings }}>
+        <NavCtx.Provider value={nav}>
+          <div className="flex h-screen flex-col overflow-hidden" style={{ background: theme.PAGE_BG }}>
+            <TitleBar />
+            <div className="flex flex-1 min-h-0">
+              <DocsToc />
+              <DocsContent />
+            </div>
           </div>
-        </div>
-      </NavCtx.Provider>
+        </NavCtx.Provider>
+      </DocsDataCtx.Provider>
     </ThemeCtx.Provider>
   )
 }

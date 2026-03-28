@@ -7,6 +7,8 @@ export const settingsStringsFr: SettingsStrings = {
   },
   scopeSwitcher: {
     backToSettings: 'Retour aux parametres PRISM',
+    app: 'App',
+    profile: 'Profil',
   },
   confirmExit: {
     title: 'Quitter les parametres ?',
@@ -31,6 +33,14 @@ export const settingsStringsFr: SettingsStrings = {
       shortcuts: {
         label: 'Raccourcis clavier',
         hint: 'Personnaliser les raccourcis',
+      },
+      export: {
+        label: 'Export',
+        hint: 'Entreprise, rapports et parametres PDF',
+      },
+      ai: {
+        label: 'PRISM AI',
+        hint: 'Comportement IA et preferences de contexte',
       },
     },
     profile: {
@@ -68,6 +78,8 @@ export const settingsStringsFr: SettingsStrings = {
       provider: 'Provider',
       userId: 'Identifiant utilisateur',
       profileUpdated: 'Derniere synchro profil',
+      copyId: 'Copier l\'identifiant',
+      copied: 'Copie !',
     },
     session: {
       heroTitle: 'Session courante et securite de base',
@@ -136,6 +148,12 @@ export const settingsStringsFr: SettingsStrings = {
       a4: 'A4',
       letter: 'Letter',
     },
+    commandPalettePosition: {
+      label: 'Position de la palette',
+      hint: 'Ou apparait la palette quand on l\'invoque avec Cmd+K.',
+      top: 'En haut',
+      center: 'Centre',
+    },
   },
   engine: {
     tolerance: {
@@ -163,10 +181,37 @@ export const settingsStringsFr: SettingsStrings = {
       unit: 'h',
     },
   },
+  export: {
+    companyName: {
+      label: 'Nom de l\'entreprise',
+      hint: 'Affiche dans l\'en-tete de tous les rapports PDF exportes.',
+      placeholder: 'ex. Acme Ingenierie',
+    },
+    signatureText: {
+      label: 'Pied de rapport',
+      hint: 'Mention legale ou bloc de signature ajoute a chaque rapport PDF.',
+      placeholder: 'ex. Prepare par l\'equipe Securite. Confidentiel.',
+    },
+  },
+  ai: {
+    responseLanguage: {
+      label: 'Langue des reponses IA',
+      hint: 'Langue utilisee par PRISM AI dans ses reponses. Auto suit la langue de l\'interface.',
+      auto: 'Auto',
+      fr: 'Francais',
+      en: 'English',
+    },
+    autoAttachSif: {
+      label: 'Joindre le contexte SIF auto.',
+      hint: 'Inclut automatiquement les donnees de la SIF active dans chaque message IA.',
+      on: 'Actif',
+      off: 'Inactif',
+    },
+  },
   shortcuts: {
     searchPlaceholder: 'Filtrer par commande ou raccourci...',
-    jsonToggle: 'Basculer en JSON',
-    tableToggle: 'Basculer en tableau',
+    openJson: 'Ouvrir keybindings.json',
+    openUserCommandsJson: 'Ouvrir userCommands.json',
     resetAll: 'Reinitialiser tout',
     pressKey: 'Appuyer sur un raccourci...',
     pressKeyCancel: 'Echap pour annuler',
@@ -179,6 +224,7 @@ export const settingsStringsFr: SettingsStrings = {
     },
     categories: {
       palette: 'Palette de commandes',
+      general: 'Général',
       layout: 'Disposition',
       navigation: 'Navigation',
     },
@@ -187,7 +233,7 @@ export const settingsStringsFr: SettingsStrings = {
       user: 'Personnalise',
     },
     unbound: '-',
-    jsonHint: 'Seuls vos raccourcis personnalises sont affiches ici. Modifiez-les directement dans le tableau.',
+    conflict: (otherCommand: string) => `Conflit avec « ${otherCommand} »`,
   },
   footer: {
     dirty: 'Modifications non enregistrees',

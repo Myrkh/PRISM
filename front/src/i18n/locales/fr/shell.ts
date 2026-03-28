@@ -68,8 +68,13 @@ export const shellStringsFr: ShellStrings = {
       general: 'Général',
       searchResults: 'Résultats de recherche',
       layout: 'Disposition & Visibilité',
+      userCommands: 'Commandes utilisateur',
       symbols: 'Symboles — SIF courante',
       help: 'Aide — Modes disponibles',
+      library: 'Bibliothèque',
+      workspace: 'Workspace',
+      prismFiles: '.PRISM',
+      recent: 'Récent',
     },
     labels: {
       untitled: 'Sans titre',
@@ -162,6 +167,28 @@ export const shellStringsFr: ShellStrings = {
     },
     modes: {
       hintSuffix: '  |  > commandes  # SIF  @ symboles  ? aide',
+      badges: {
+        commands: 'COMMANDES',
+        sif:      'SIF & WORKSPACE',
+        symbols:  'SYMBOLES',
+        help:     'AIDE',
+      },
+      placeholders: {
+        commands: 'Rechercher une commande ou action…',
+        sif:      'SIF, note, PDF, image…',
+        symbols:  'Composant dans la SIF courante…',
+        help:     'Commande, sujet ou chapitre de documentation PRISM…',
+      },
+      noResultsByMode: (mode: string, query: string) => {
+        const q = query ? ` pour « ${query} »` : ''
+        const messages: Record<string, string> = {
+          commands: `Aucune commande${q}`,
+          sif:      `Aucune SIF, note ou fichier${q}`,
+          symbols:  `Aucun composant ou template${q}`,
+          help:     `Aucun sujet d'aide${q}`,
+        }
+        return messages[mode] ?? (query ? `Aucun résultat pour « ${query} »` : 'Commencez à taper pour rechercher…')
+      },
     },
   },
   statusBar: {

@@ -2,9 +2,11 @@ import type { CSSProperties } from 'react'
 import { useEffect, useRef } from 'react'
 import { BookOpenText, Download } from 'lucide-react'
 import { buildDocBlockId, useDocsNavigation } from '@/components/docs/DocsNavigation'
+import { getDocsUiStrings } from '@/docs/strings'
 import type { DocAction, DocActionId, DocBlock, DocExample, DocResolvedChapter, DocSnippet, DocVisual } from '@/docs/types'
 import { buildComponentTemplateImportStarter, COMPONENT_TEMPLATE_IMPORT_MODEL_FILENAME } from '@/features/library/templateUtils'
 import { usePrismTheme } from '@/styles/usePrismTheme'
+import { useAppLocale } from '@/i18n/useLocale'
 
 // ─── Inline code spans ────────────────────────────────────────────────────────
 
@@ -52,6 +54,8 @@ function ChapterSidebar({
   onSelectBlock: (blockId: string) => void
 }) {
   const { BORDER, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  const locale = useAppLocale()
+  const docStrings = getDocsUiStrings(locale)
 
   return (
     <aside
@@ -62,7 +66,7 @@ function ChapterSidebar({
       {chapter.highlights.length > 0 && (
         <div className="mb-6">
           <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-3" style={{ color: TEAL }}>
-            Repères
+            {docStrings.landmarksTitle}
           </p>
           <div className="space-y-3.5">
             {chapter.highlights.map((h, i) => (
@@ -86,7 +90,7 @@ function ChapterSidebar({
       {/* Section outline */}
       <div className={chapter.highlights.length > 0 ? 'border-t pt-5' : ''} style={{ borderColor: `${BORDER}28` }}>
         <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-3" style={{ color: TEAL }}>
-          Sections
+          {docStrings.sectionsTitle}
         </p>
         <nav className="space-y-0">
           {chapter.blocks.map((block, index) => {
@@ -125,10 +129,12 @@ function ChapterSidebar({
 
 function ExampleCard({ example }: { example: DocExample }) {
   const { BORDER, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  const locale = useAppLocale()
+  const docStrings = getDocsUiStrings(locale)
   return (
     <div className="pl-4 py-1 border-l-[2px]" style={{ borderLeftColor: TEAL }}>
       <p className="text-[10px] font-bold uppercase tracking-[0.14em] mb-2" style={{ color: TEAL }}>
-        Exemple concret
+        {docStrings.exampleTitle}
       </p>
       <p className="text-[13px] font-semibold leading-snug mb-2" style={{ color: TEXT }}>
         {example.title}
@@ -543,6 +549,8 @@ function ChapterPreviewButton({
   onSelect: () => void
 }) {
   const { BORDER, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  const locale = useAppLocale()
+  const docStrings = getDocsUiStrings(locale)
 
   return (
     <button
@@ -573,7 +581,7 @@ function ChapterPreviewButton({
           {chapter.summary}
         </p>
         <p className="mt-2 text-[10px] font-semibold uppercase tracking-[0.1em]" style={{ color: `${TEXT_DIM}50` }}>
-          {chapter.blocks.length} sections
+          {docStrings.sectionCount(chapter.blocks.length)}
         </p>
       </div>
     </button>
@@ -600,6 +608,8 @@ function GroupDocument({
   registerBlock: (id: string, node: HTMLElement | null) => void
 }) {
   const { BORDER, CARD_BG, SHADOW_PANEL, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  const locale = useAppLocale()
+  const docStrings = getDocsUiStrings(locale)
   const sectionCount = group.chapters.reduce((s, ch) => s + ch.blocks.length, 0)
 
   return (
@@ -618,7 +628,7 @@ function GroupDocument({
             </p>
           </div>
           <p className="text-[11px] font-medium shrink-0" style={{ color: `${TEXT_DIM}60` }}>
-            {group.chapters.length} chapitres · {sectionCount} sections
+            {docStrings.counts(group.chapters.length, sectionCount)}
           </p>
         </div>
         <div className="grid gap-2 md:grid-cols-2 xl:grid-cols-3">
@@ -665,6 +675,8 @@ function GroupDocument({
 
 export function DocsWorkspace() {
   const { BORDER, CARD_BG, SHADOW_PANEL, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const locale = useAppLocale()
+  const docStrings = getDocsUiStrings(locale)
   const {
     activeChapter,
     activeBlock,
@@ -748,10 +760,10 @@ export function DocsWorkspace() {
               <BookOpenText size={14} />
             </span>
             <span className="text-[11px] font-bold uppercase tracking-[0.14em]" style={{ color: TEAL_DIM }}>
-              Aide & documentation
+              {docStrings.heroKicker}
             </span>
             <span className="ml-auto text-[11px] font-medium" style={{ color: `${TEXT_DIM}50` }}>
-              {totalChapters} chapitres · {totalSections} sections
+              {docStrings.counts(totalChapters, totalSections)}
             </span>
           </div>
 
@@ -763,10 +775,10 @@ export function DocsWorkspace() {
                 className="text-[32px] font-semibold tracking-tight leading-tight mb-4"
                 style={{ color: TEXT }}
               >
-                Documentation PRISM
+                {docStrings.heroTitle}
               </h1>
               <p className="text-[14.5px] leading-[1.85] max-w-[520px]" style={{ color: TEXT_DIM }}>
-                <InlineRichText text="Base d'usage complète. Elle explique comment utiliser le front de A à Z, puis comment le moteur interprète la modélisation pour produire des résultats, des rapports et une traçabilité exploitable." />
+                <InlineRichText text={docStrings.heroSummary} />
               </p>
             </div>
 
@@ -776,14 +788,10 @@ export function DocsWorkspace() {
             {/* How to read */}
             <div className="px-7 py-7 border-t xl:border-t-0" style={{ borderColor: `${BORDER}30` }}>
               <p className="text-[10px] font-bold uppercase tracking-[0.16em] mb-4" style={{ color: TEAL }}>
-                Comment lire
+                {docStrings.howToReadTitle}
               </p>
               <ol className="space-y-3.5">
-                {[
-                  'Choisir un chapitre depuis la table des matières ou depuis les aperçus ci-dessous.',
-                  'Utiliser le sommaire interne de chaque chapitre pour naviguer directement à la bonne section.',
-                  'Les captures, exemples et snippets illustrent un usage réel — pas du décor.',
-                ].map((step, i) => (
+                {docStrings.howToReadSteps.map((step, i) => (
                   <li key={step} className="flex items-start gap-2.5">
                     <span className="text-[11px] font-bold font-mono mt-[1px] w-4 shrink-0" style={{ color: TEAL }}>
                       {i + 1}.
@@ -803,7 +811,7 @@ export function DocsWorkspace() {
                     <p className="text-[12.5px] font-semibold" style={{ color: TEXT }}>{group.label}</p>
                     <p className="text-[11.5px] leading-snug mt-0.5" style={{ color: TEXT_DIM }}>{group.summary}</p>
                     <p className="mt-1.5 text-[10px] font-bold uppercase tracking-[0.1em]" style={{ color: `${TEAL}70` }}>
-                      {group.chapters.length} ch · {group.chapters.reduce((s, ch) => s + ch.blocks.length, 0)} sec
+                      {docStrings.compactCounts(group.chapters.length, group.chapters.reduce((s, ch) => s + ch.blocks.length, 0))}
                     </p>
                   </div>
                 ))}

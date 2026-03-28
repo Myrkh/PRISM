@@ -19,11 +19,11 @@ import type { AppPreferences } from '@/core/models/appPreferences'
 import type { PrismFile, PrismProjectPayload } from '@/lib/prismFormat'
 
 // ─── Navigation ───────────────────────────────────────────────────────────
-export type AppSettingsSection = 'general' | 'workspace' | 'engine' | 'shortcuts'
+export type AppSettingsSection = 'general' | 'workspace' | 'engine' | 'shortcuts' | 'export' | 'ai'
 export type ProfileSettingsSection = 'account' | 'session'
 export type SettingsSection = AppSettingsSection | ProfileSettingsSection
 
-export const APP_SETTINGS_SECTIONS: readonly AppSettingsSection[] = ['general', 'workspace', 'engine', 'shortcuts']
+export const APP_SETTINGS_SECTIONS: readonly AppSettingsSection[] = ['general', 'workspace', 'engine', 'shortcuts', 'export', 'ai']
 export const PROFILE_SETTINGS_SECTIONS: readonly ProfileSettingsSection[] = ['account', 'session']
 export const SETTINGS_SECTIONS: readonly SettingsSection[] = [...APP_SETTINGS_SECTIONS, ...PROFILE_SETTINGS_SECTIONS]
 
@@ -469,6 +469,8 @@ export interface AppState {
 
   // ── Navigation ──
   view: AppView
+  keybindingsReturnView: AppView | null
+  userCommandsReturnView: AppView | null
 
   // ── UI ──
   selectedComponentId: string | null
@@ -518,6 +520,7 @@ export interface AppState {
   toggleRightPanel: () => void
   setRightPanelOpen: (open: boolean) => void
   toggleChatPanel: () => void
+  setChatPanelOpen: (open: boolean) => void
   setPrismFile: (filename: PrismEditableFile, content: string) => void
   replacePrismFiles: (files: Record<PrismEditableFile, string>) => void
   openAISIFDraftPreview: (input: AISIFDraftPreviewInput) => AISIFDraftPreview | null

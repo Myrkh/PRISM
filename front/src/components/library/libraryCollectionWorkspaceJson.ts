@@ -1,7 +1,8 @@
+import { getLocation, parse as parseJsonc, printParseErrorCode, type ParseError } from 'jsonc-parser'
 import { DEFAULT_COMPONENT } from '@/core/models/defaults'
 import type { ComponentTemplate, ComponentTemplateExportEnvelope, ComponentTemplateUpsertInput } from '@/core/types'
+import { COMPONENT_TEMPLATE_SCHEMA_VERSION, parseComponentTemplateImport, serializeComponentTemplates } from '@/features/library'
 import type { LibraryCollectionRecord } from '@/lib/libraryCollections'
-import { parseComponentTemplateImport, serializeComponentTemplates } from '@/features/library'
 
 const LIBRARY_COLLECTION_DOCUMENT_KIND = 'prism.library.collection'
 const LIBRARY_COLLECTION_DOCUMENT_VERSION = 1
@@ -12,7 +13,7 @@ interface LibraryCollectionWorkspaceMeta {
   collection_id: string
 }
 
-interface LibraryCollectionWorkspaceCollection {
+export interface LibraryCollectionWorkspaceCollection {
   id: string
   name: string
   color: string
@@ -36,74 +37,30 @@ export interface ParsedLibraryCollectionWorkspaceDocument {
   collectionId: string
   collection: LibraryCollectionWorkspaceCollection
   templateInputs: ComponentTemplateUpsertInput[]
+  templates: ComponentTemplate[]
+  exportedByProfileId: string | null
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null
 }
 
-function stripJsonComments(raw: string): string {
-  let result = ''
-  let inString = false
-  let escaped = false
-  let inLineComment = false
-  let inBlockComment = false
-
-  for (let index = 0; index < raw.length; index += 1) {
-    const char = raw[index]
-    const next = raw[index + 1]
-
-    if (inLineComment) {
-      if (char === '\n') {
-        inLineComment = false
-        result += char
-      }
-      continue
-    }
-
-    if (inBlockComment) {
-      if (char === '*' && next === '/') {
-        inBlockComment = false
-        index += 1
-        continue
-      }
-      if (char === '\n') result += char
-      continue
-    }
-
-    if (inString) {
-      result += char
-      if (escaped) escaped = false
-      else if (char === '\\') escaped = true
-      else if (char === '"') inString = false
-      continue
-    }
-
-    if (char === '"') {
-      inString = true
-      result += char
-      continue
-    }
-
-    if (char === '/' && next === '/') {
-      inLineComment = true
-      index += 1
-      continue
-    }
-    if (char === '/' && next === '*') {
-      inBlockComment = true
-      index += 1
-      continue
-    }
-
-    result += char
-  }
-
-  return result
+function buildJsoncErrorMessage(raw: string, error: ParseError): string {
+  const location = getLocation(raw, error.offset)
+  const beforeOffset = raw.slice(0, error.offset)
+  const line = beforeOffset.split('\n').length
+  const column = beforeOffset.length - beforeOffset.lastIndexOf('\n')
+  const pathHint = location.path.length > 0 ? ` · ${location.path.join('.')}` : ''
+  return `JSONC invalide: ${printParseErrorCode(error.error)} (ligne ${line}, colonne ${column}${pathHint}).`
 }
 
-function parseJsonc(raw: string): unknown {
-  return JSON.parse(stripJsonComments(raw))
+function parseLibraryCollectionJsonc(raw: string): { ok: true; value: unknown } | { ok: false; error: string } {
+  const errors: ParseError[] = []
+  const value = parseJsonc(raw, errors, { allowTrailingComma: true, disallowComments: false })
+  if (errors.length > 0) {
+    return { ok: false, error: buildJsoncErrorMessage(raw, errors[0]) }
+  }
+  return { ok: true, value }
 }
 
 function readWorkspaceMeta(value: unknown): LibraryCollectionWorkspaceMetaInfo | null {
@@ -120,6 +77,7 @@ function normalizeCollection(value: unknown): LibraryCollectionWorkspaceCollecti
   if (!isRecord(value)) return null
   const collection = isRecord(value.collection) ? value.collection : null
   if (!collection) return null
+
   const id = typeof collection.id === 'string' ? collection.id.trim() : ''
   const name = typeof collection.name === 'string' ? collection.name.trim() : ''
   const color = typeof collection.color === 'string' ? collection.color.trim() : ''
@@ -173,30 +131,126 @@ function buildLibraryCollectionCommentBlock(collectionName: string): string {
 
 function serializeLibraryCollectionWorkspaceSource(document: LibraryCollectionWorkspaceDocument): string {
   const json = JSON.stringify(document, null, 2)
-  return `${json}\n\n${buildLibraryCollectionCommentBlock(document.collection.name)}\n`
+  return `${json}
+
+${buildLibraryCollectionCommentBlock(document.collection.name)}
+`
+}
+
+function normalizeTemplateForCollection(
+  template: ComponentTemplate,
+  collection: Pick<LibraryCollectionWorkspaceCollection, 'name' | 'scope' | 'project_id'>,
+): ComponentTemplate {
+  const next = JSON.parse(JSON.stringify(template)) as ComponentTemplate
+  next.projectId = collection.scope === 'project' ? collection.project_id : null
+  next.scope = collection.scope
+  next.origin = 'database'
+  next.libraryName = collection.name
+  next.subsystemType = next.componentSnapshot.subsystemType
+  next.instrumentCategory = next.componentSnapshot.instrumentCategory
+  next.instrumentType = next.componentSnapshot.instrumentType
+  next.manufacturer = next.componentSnapshot.manufacturer
+  next.dataSource = next.componentSnapshot.dataSource
+  next.description = next.componentSnapshot.description ?? next.description ?? ''
+  next.sourceReference = next.sourceReference ?? null
+  next.tags = Array.isArray(next.tags) ? next.tags : []
+  next.reviewStatus = next.reviewStatus ?? 'draft'
+  next.importBatchId = next.importBatchId ?? null
+  next.templateSchemaVersion = next.templateSchemaVersion || COMPONENT_TEMPLATE_SCHEMA_VERSION
+  next.templateVersion = next.templateVersion || 1
+  next.isArchived = false
+  next.archivedAt = null
+  next.createdAt = next.createdAt ?? null
+  next.updatedAt = next.updatedAt ?? null
+  return next
+}
+
+function templateInputToEditableTemplate(
+  input: ComponentTemplateUpsertInput,
+  collection: Pick<LibraryCollectionWorkspaceCollection, 'name' | 'scope' | 'project_id'>,
+  exportedByProfileId: string | null,
+): ComponentTemplate {
+  const componentSnapshot = JSON.parse(JSON.stringify(input.componentSnapshot)) as ComponentTemplate['componentSnapshot']
+  return normalizeTemplateForCollection(
+    {
+      id: input.id ?? '',
+      ownerProfileId: exportedByProfileId,
+      projectId: collection.scope === 'project' ? collection.project_id : null,
+      scope: collection.scope,
+      origin: 'database',
+      libraryName: collection.name,
+      name: input.name,
+      description: input.description ?? '',
+      subsystemType: componentSnapshot.subsystemType,
+      instrumentCategory: componentSnapshot.instrumentCategory,
+      instrumentType: componentSnapshot.instrumentType,
+      manufacturer: componentSnapshot.manufacturer,
+      dataSource: componentSnapshot.dataSource,
+      sourceReference: input.sourceReference ?? null,
+      tags: [...(input.tags ?? [])],
+      reviewStatus: input.reviewStatus ?? 'draft',
+      importBatchId: input.importBatchId ?? null,
+      templateSchemaVersion: input.templateSchemaVersion ?? COMPONENT_TEMPLATE_SCHEMA_VERSION,
+      templateVersion: input.templateVersion ?? 1,
+      isArchived: false,
+      archivedAt: null,
+      createdAt: null,
+      updatedAt: null,
+      componentSnapshot,
+    },
+    collection,
+  )
+}
+
+function buildWorkspaceCollection(collection: LibraryCollectionRecord, projectName: string | null): LibraryCollectionWorkspaceCollection {
+  return {
+    id: collection.id,
+    name: collection.name,
+    color: collection.color,
+    scope: collection.scope,
+    project_id: collection.projectId,
+    project_name: projectName,
+  }
+}
+
+function buildLibraryCollectionWorkspaceSourceDocument(input: {
+  collection: LibraryCollectionWorkspaceCollection
+  templates: ComponentTemplate[]
+  exportedByProfileId: string | null
+}): LibraryCollectionWorkspaceDocument {
+  const normalizedTemplates = input.templates.map(template => normalizeTemplateForCollection(template, input.collection))
+  return {
+    kind: 'library_collection',
+    collection: input.collection,
+    library_file: JSON.parse(
+      serializeComponentTemplates(
+        normalizedTemplates,
+        input.exportedByProfileId,
+        input.collection.scope === 'project' ? input.collection.project_id : null,
+      ),
+    ) as ComponentTemplateExportEnvelope,
+    _prism: {
+      document_kind: LIBRARY_COLLECTION_DOCUMENT_KIND,
+      version: LIBRARY_COLLECTION_DOCUMENT_VERSION,
+      collection_id: input.collection.id,
+    },
+  }
 }
 
 function parseLibraryCollectionWorkspaceSource(
   raw: string,
 ): { ok: true; document: LibraryCollectionWorkspaceDocument } | { ok: false; error: string } {
-  let data: unknown
-  try {
-    data = parseJsonc(raw)
-  } catch (error) {
-    return {
-      ok: false,
-      error: `JSON invalide: ${error instanceof Error ? error.message : String(error)}`,
-    }
+  const parsed = parseLibraryCollectionJsonc(raw)
+  if (!parsed.ok) return parsed
+
+  if (!isRecord(parsed.value)) {
+    return { ok: false, error: 'Le document JSON doit etre un objet.' }
+  }
+  if (parsed.value.kind !== 'library_collection') {
+    return { ok: false, error: 'Type de document JSON non supporte pour une collection Library.' }
   }
 
-  if (!isRecord(data)) {
-    return { ok: false, error: 'Le document JSON doit être un objet.' }
-  }
-  if (data.kind !== 'library_collection') {
-    return { ok: false, error: 'Type de document JSON non supporté pour une collection Library.' }
-  }
-
-  return { ok: true, document: data as unknown as LibraryCollectionWorkspaceDocument }
+  return { ok: true, document: parsed.value as unknown as LibraryCollectionWorkspaceDocument }
 }
 
 export function validateLibraryCollectionWorkspaceSource(raw: string): string | null {
@@ -205,9 +259,16 @@ export function validateLibraryCollectionWorkspaceSource(raw: string): string | 
 }
 
 export function formatLibraryCollectionWorkspaceSource(raw: string): { ok: true; formatted: string } | { ok: false; error: string } {
-  const parsed = parseLibraryCollectionWorkspaceSource(raw)
+  const parsed = parseLibraryCollectionWorkspaceDocument(raw)
   if (!parsed.ok) return parsed
-  return { ok: true, formatted: serializeLibraryCollectionWorkspaceSource(parsed.document) }
+  return {
+    ok: true,
+    formatted: serializeLibraryCollectionWorkspaceSourceDocument({
+      collection: parsed.value.collection,
+      templates: parsed.value.templates,
+      exportedByProfileId: parsed.value.exportedByProfileId,
+    }),
+  }
 }
 
 export function deriveLibraryCollectionWorkspaceFilename(collectionName: string): string {
@@ -225,25 +286,21 @@ export function buildLibraryCollectionWorkspaceDocument(
   ownerProfileId: string | null,
   projectName: string | null,
 ): LibraryCollectionWorkspaceDocument {
-  return {
-    kind: 'library_collection',
-    collection: {
-      id: collection.id,
-      name: collection.name,
-      color: collection.color,
-      scope: collection.scope,
-      project_id: collection.projectId,
-      project_name: projectName,
-    },
-    library_file: JSON.parse(
-      serializeComponentTemplates(templates, ownerProfileId, collection.scope === 'project' ? collection.projectId : null),
-    ) as ComponentTemplateExportEnvelope,
-    _prism: {
-      document_kind: LIBRARY_COLLECTION_DOCUMENT_KIND,
-      version: LIBRARY_COLLECTION_DOCUMENT_VERSION,
-      collection_id: collection.id,
-    },
-  }
+  return buildLibraryCollectionWorkspaceSourceDocument({
+    collection: buildWorkspaceCollection(collection, projectName),
+    templates,
+    exportedByProfileId: ownerProfileId,
+  })
+}
+
+export function serializeLibraryCollectionWorkspaceSourceDocument(input: {
+  collection: LibraryCollectionWorkspaceCollection
+  templates: ComponentTemplate[]
+  exportedByProfileId: string | null
+}): string {
+  return serializeLibraryCollectionWorkspaceSource(
+    buildLibraryCollectionWorkspaceSourceDocument(input),
+  )
 }
 
 export function serializeLibraryCollectionWorkspaceDocument(
@@ -273,25 +330,28 @@ export function parseLibraryCollectionWorkspaceDocument(
 
   const meta = readWorkspaceMeta(data)
   if (!meta) {
-    return { ok: false, error: 'Les métadonnées PRISM de cette collection sont invalides.' }
+    return { ok: false, error: 'Les metadonnees PRISM de cette collection sont invalides.' }
   }
   if (options?.expectedCollectionId && meta.collectionId !== options.expectedCollectionId) {
-    return { ok: false, error: 'Ce document JSON ne correspond pas à la collection Library attendue.' }
+    return { ok: false, error: 'Ce document JSON ne correspond pas a la collection Library attendue.' }
   }
 
   const collection = normalizeCollection(data)
   if (!collection) {
     return { ok: false, error: 'Le bloc collection est incomplet ou invalide.' }
   }
-
   if (!/^#[0-9a-fA-F]{6}$/.test(collection.color)) {
-    return { ok: false, error: 'La couleur de collection doit être au format #RRGGBB.' }
+    return { ok: false, error: 'La couleur de collection doit etre au format #RRGGBB.' }
   }
 
   const libraryFile = isRecord(data.library_file) ? data.library_file : null
   if (!libraryFile) {
     return { ok: false, error: 'Le bloc library_file est manquant.' }
   }
+
+  const exportedByProfileId = typeof libraryFile.exportedByProfileId === 'string'
+    ? libraryFile.exportedByProfileId
+    : null
 
   try {
     const templateInputs = parseComponentTemplateImport(
@@ -306,6 +366,8 @@ export function parseLibraryCollectionWorkspaceDocument(
         collectionId: meta.collectionId,
         collection,
         templateInputs,
+        templates: templateInputs.map(template => templateInputToEditableTemplate(template, collection, exportedByProfileId)),
+        exportedByProfileId,
       },
     }
   } catch (error) {
