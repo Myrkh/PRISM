@@ -8,7 +8,7 @@
 import { useMemo, useState, useEffect, useRef, useCallback } from 'react'
 import {
   FileText, ChevronRight, Folder, FolderOpen, Pencil, Pin, Plus,
-  MoreHorizontal, Download, Upload, Trash2,
+  MoreHorizontal, Download, Upload, Trash2, Shield,
 } from 'lucide-react'
 import { getShellStrings } from '@/i18n/shell'
 import { useLocaleStrings } from '@/i18n/useLocale'
@@ -528,6 +528,10 @@ export function ProjectTree({ projectId, sifId }: Props) {
                         {
                           kind: 'action', label: strings.projectTree.importSif, icon: <Upload size={12} />,
                           onClick: () => setImportModal({ open: true, projectId: proj.id }),
+                        },
+                        {
+                          kind: 'action', label: strings.projectTree.openLopa, icon: <Shield size={12} />,
+                          onClick: () => navigate({ type: 'lopa', projectId: proj.id }),
                         },
                         { kind: 'separator' },
                         {

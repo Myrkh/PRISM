@@ -29,6 +29,7 @@ import { AuditLogWorkspace } from '@/components/global/AuditLogWorkspace'
 import { SIFHistoryWorkspace } from '@/components/global/SIFHistoryWorkspace'
 import { EngineWorkspace } from '@/components/global/EngineWorkspace'
 import { HazopWorkspace } from '@/components/global/HazopWorkspace'
+import { LOPAGlobalWorkspace } from '@/components/global/LOPAGlobalWorkspace'
 import { DocsWorkspace } from '@/components/global/DocsWorkspace'
 import { SearchWorkspace } from '@/components/global/SearchWorkspace'
 import { LibraryWorkspace } from '@/components/global/LibraryWorkspace'
@@ -74,6 +75,7 @@ function viewToHash(view: AppView): string {
   if (view.type === 'sif-history') return '#/history'
   if (view.type === 'engine') return '#/engine'
   if (view.type === 'hazop') return '#/hazop'
+  if (view.type === 'lopa') return view.projectId ? `#/lopa/${view.projectId}` : '#/lopa'
   if (view.type === 'home') return '#/home'
   if (view.type === 'note') return `#/note/${view.noteId}`
   if (view.type === 'workspace-file') return `#/file/${view.nodeId}`
@@ -132,6 +134,8 @@ function hashToView(hash: string): AppView | null {
   if (path === '/history') return { type: 'sif-history' }
   if (path === '/engine') return { type: 'engine' }
   if (path === '/hazop') return { type: 'hazop' }
+  if (path === '/lopa') return { type: 'lopa' }
+  if (path.startsWith('/lopa/')) return { type: 'lopa', projectId: path.slice(6) }
   if (path === '/home') return { type: 'home' }
   if (path.startsWith('/note/')) return { type: 'note', noteId: path.slice(6) }
   if (path.startsWith('/file/')) return { type: 'workspace-file', nodeId: path.slice(6) }
@@ -319,7 +323,7 @@ export default function App() {
   if (loading) return <LoadingScreen />
   if (loadError) return <ErrorScreen error={loadError} onRetry={loadData} />
 
-  const shellProjectId = view.type === 'sif-dashboard' ? view.projectId : ''
+  const shellProjectId = view.type === 'sif-dashboard' ? view.projectId : view.type === 'lopa' ? (view.projectId ?? '') : ''
   const shellSifId = view.type === 'sif-dashboard' ? view.sifId : ''
 
   // Secondary split pane — built here to avoid circular imports with SIFWorkbenchLayout.
@@ -365,6 +369,9 @@ export default function App() {
       )}
       {view.type === 'hazop' && (
         <HazopWorkspace />
+      )}
+      {view.type === 'lopa' && (
+        <LOPAGlobalWorkspace projectId={view.projectId} studyId={view.studyId} />
       )}
       {view.type === 'sif-dashboard' && (
         <SIFDashboard projectId={view.projectId} sifId={view.sifId} />

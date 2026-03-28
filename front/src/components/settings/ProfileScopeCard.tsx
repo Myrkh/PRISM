@@ -19,9 +19,10 @@ export function ProfileScopeCard({
 }) {
   const profile = useAppStore(state => state.profile)
   const authUser = useAppStore(state => state.authUser)
+  const displayNameOverride = useAppStore(state => state.preferences.displayNameOverride)
   const { CARD_BG, TEAL, TEAL_DIM, TEXT, TEXT_DIM, isDark } = usePrismTheme()
 
-  const displayName  = profile?.fullName || authUser?.user_metadata?.full_name || authUser?.email || strings.profile.values.unavailable
+  const displayName  = displayNameOverride || profile?.fullName || authUser?.user_metadata?.full_name || authUser?.email || strings.profile.values.unavailable
   const displayEmail = profile?.email || authUser?.email || strings.profile.values.unavailable
   const avatarUrl    = profile?.avatarUrl || authUser?.user_metadata?.avatar_url || authUser?.user_metadata?.picture || null
   const initials     = getInitials(displayName)

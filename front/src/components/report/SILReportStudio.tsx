@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useAppStore } from '@/store/appStore'
 import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { toast } from '@/components/ui/toast'
 import {
@@ -85,11 +86,12 @@ function ReportPanelBridge({
 export function SILReportStudio({ project, sif, result }: Props) {
   const PREVIEW_ID = 'sil-report-preview-v3'
   const { setRightPanelOverride } = useLayout()
-  const [cfg, setCfg] = useState<ReportConfig>(() => getDefaultReportConfig({ project, sif, result }))
+  const prefs = useAppStore(s => s.preferences)
+  const [cfg, setCfg] = useState<ReportConfig>(() => getDefaultReportConfig({ project, sif, result, prefs }))
 
   useEffect(() => {
-    setCfg(getDefaultReportConfig({ project, sif, result }))
-  }, [project, result, sif])
+    setCfg(getDefaultReportConfig({ project, sif, result, prefs }))
+  }, [project, result, sif, prefs])
 
   const handlePanelCfgChange = useCallback((next: ReportConfig) => {
     setCfg(next)

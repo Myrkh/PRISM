@@ -21,6 +21,7 @@ export interface ShellStrings {
     audit: string
     planning: string
     engine: string
+    lopa: string
     docs: string
     settings: string
   }
@@ -157,6 +158,7 @@ export interface ShellStrings {
     projectActions: string
     exportProject: string
     importSif: string
+    openLopa: string
     deleteProject: string
     emptyProject: string
     newSif: string
@@ -182,7 +184,7 @@ export interface ShellStrings {
     resizePanel: string
   }
   rightPanelPlaceholder: {
-    labels: Record<'audit' | 'history' | 'planning' | 'engine' | 'hazop', string>
+    labels: Record<'audit' | 'history' | 'planning' | 'engine' | 'hazop' | 'lopa', string>
     descriptions: {
       default: string
       planning: string

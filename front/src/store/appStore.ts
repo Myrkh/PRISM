@@ -85,6 +85,8 @@ import {
 } from '@/lib/projectAccess'
 import type {
   ComponentTemplate,
+  LOPAScenario,
+  LOPAWorksheet,
   Project,
   ProjectAccessSnapshot,
   ProjectMemberStatus,
@@ -1707,6 +1709,71 @@ export const useAppStore = create<AppState>()(
         if (!ensureSIFEditable(get, set, projectId, sifId)) return
         set(s => { const sif = findSIF(s, projectId, sifId); if (sif) sif.hazopTrace = trace })
         dbUpdateSIF(sifId, { hazopTrace: trace }).catch(console.error)
+      },
+
+      // ══════════════════════════════════════════════════════════════════════
+      // LOPA STUDIES (project-level, multiple studies per project)
+      // ══════════════════════════════════════════════════════════════════════
+      createLOPAStudy: (projectId, name) => {
+        const now = new Date().toISOString()
+        const study: LOPAWorksheet = {
+          id: crypto.randomUUID(),
+          projectId,
+          name: name ?? 'Étude LOPA',
+          scenarios: [],
+          frozenAt: null,
+          createdAt: now,
+          updatedAt: now,
+        }
+        set(s => {
+          const p = s.projects.find(pr => pr.id === projectId)
+          if (!p) return
+          if (!p.lopaStudies) p.lopaStudies = []
+          p.lopaStudies.push(study)
+        })
+        return study.id
+      },
+
+      addLOPAScenario: (projectId, studyId, scenario) => {
+        set(s => {
+          const study = s.projects.find(p => p.id === projectId)?.lopaStudies?.find(st => st.id === studyId)
+          if (!study) return
+          study.scenarios.push(scenario)
+          study.updatedAt = new Date().toISOString()
+        })
+      },
+
+      updateLOPAScenario: (projectId, studyId, scenarioId, updates) => {
+        set(s => {
+          const study = s.projects.find(p => p.id === projectId)?.lopaStudies?.find(st => st.id === studyId)
+          if (!study) return
+          const idx = study.scenarios.findIndex(sc => sc.id === scenarioId)
+          if (idx < 0) return
+          Object.assign(study.scenarios[idx], updates)
+          study.updatedAt = new Date().toISOString()
+        })
+      },
+
+      deleteLOPAScenario: (projectId, studyId, scenarioId) => {
+        set(s => {
+          const study = s.projects.find(p => p.id === projectId)?.lopaStudies?.find(st => st.id === studyId)
+          if (!study) return
+          study.scenarios = study.scenarios.filter(sc => sc.id !== scenarioId)
+          study.updatedAt = new Date().toISOString()
+        })
+      },
+
+      reorderLOPAScenarios: (projectId, studyId, orderedIds) => {
+        set(s => {
+          const study = s.projects.find(p => p.id === projectId)?.lopaStudies?.find(st => st.id === studyId)
+          if (!study) return
+          const byId = new Map(study.scenarios.map(sc => [sc.id, sc]))
+          study.scenarios = orderedIds.flatMap(id => {
+            const sc = byId.get(id)
+            return sc ? [{ ...sc, order: orderedIds.indexOf(id) + 1 }] : []
+          })
+          study.updatedAt = new Date().toISOString()
+        })
       },
 
       // ══════════════════════════════════════════════════════════════════════

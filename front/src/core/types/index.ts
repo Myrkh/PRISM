@@ -57,6 +57,11 @@ export { PROOF_TEST_LOCATIONS, CATEGORY_TYPE_META } from './prooftest.types'
 
 // ─── HAZOP / LOPA ─────────────────────────────────────────────────────────
 export type { HAZOPTrace } from './hazop.types'
+export type {
+  IPLType, IPLCreditSource, IPLCredit, IPLLibraryEntry,
+  ConsequenceCategory, LOPAScenario, LOPAWorksheet,
+  LOPAWaterfallStep, LOPAScenarioResult,
+} from './lopa.types'
 
 // ─── Calculation Results ──────────────────────────────────────────────────
 export type {

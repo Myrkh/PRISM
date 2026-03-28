@@ -68,7 +68,8 @@ export function usePrismAiChat() {
   const clearAIProjectDraftResult = useAppStore(s => s.clearAIProjectDraftResult)
   const clearAILibraryDraftResult = useAppStore(s => s.clearAILibraryDraftResult)
   const setRightPanelOpen = useAppStore(s => s.setRightPanelOpen)
-  const appLocale = useAppStore(s => s.preferences.language)
+  const preferences = useAppStore(s => s.preferences)
+  const appLocale = preferences.language
   const workspaceNodes = useWorkspaceStore(s => s.nodes)
   const createWorkspaceNote = useWorkspaceStore(s => s.createNote)
   const updateWorkspaceNoteContent = useWorkspaceStore(s => s.updateNoteContent)
@@ -112,11 +113,14 @@ export function usePrismAiChat() {
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [input, setInput] = useState('')
   const { mode: inputMode, query: inputModeQuery, config: inputModeConfig } = detectMode(input)
-  const [strictMode, setStrictMode] = useState(false)
+  const [strictMode, setStrictMode] = useState(() => preferences.aiStrictModeDefault)
   const [isStreaming, setIsStreaming] = useState(false)
   const [attachedContext, setAttachedContext] = useState<AttachedContext | null>(null)
   const [attachedWorkspaceItems, setAttachedWorkspaceItems] = useState<AttachedWorkspaceItem[]>([])
-  const [config, setConfig] = useState<ChatConfig>(DEFAULT_CONFIG)
+  const [config, setConfig] = useState<ChatConfig>(() => ({
+    ...DEFAULT_CONFIG,
+    model: preferences.aiDefaultModel || DEFAULT_CONFIG.model,
+  }))
   const [assistantNoteIds, setAssistantNoteIds] = useState<Record<string, string>>({})
 
   // ── UI state ────────────────────────────────────────────────────────────────
@@ -261,13 +265,13 @@ export function usePrismAiChat() {
     setMessages([])
     setAssistantNoteIds({})
     setCurrentConvId(null)
-    setStrictMode(false)
+    setStrictMode(preferences.aiStrictModeDefault)
     setAttachedContext(null)
     setAttachedWorkspaceItems([])
     setAttachPickerOpen(false)
     setHistoryOpen(false)
     setConfigOpen(false)
-  }, [messages, attachedContext, attachedWorkspaceItems, currentConvId, assistantNoteIds, persistCurrentConversation, strictMode])
+  }, [messages, attachedContext, attachedWorkspaceItems, currentConvId, assistantNoteIds, persistCurrentConversation, strictMode, preferences.aiStrictModeDefault])
 
   // ── Load conversation ────────────────────────────────────────────────────────
   const handleLoadConversation = useCallback((conv: ChatConversation) => {
@@ -290,7 +294,7 @@ export function usePrismAiChat() {
       setMessages([])
       setAssistantNoteIds({})
       setCurrentConvId(null)
-      setStrictMode(false)
+      setStrictMode(preferences.aiStrictModeDefault)
       setAttachedContext(null)
       setAttachedWorkspaceItems([])
     }
@@ -991,13 +995,21 @@ export function usePrismAiChat() {
         }
       }
 
+      const effectiveConfig: typeof config = preferences.aiSystemPromptAddendum
+        ? {
+            ...config,
+            systemPrompt: [config.systemPrompt, preferences.aiSystemPromptAddendum]
+              .filter(Boolean).join('\n\n'),
+          }
+        : config
+
       let accumulated = ''
       for await (const chunk of streamPRISMAI(
         requestMsgs,
         isProjectStructureMode
           ? undefined
           : attachedContext ?? undefined,
-        config,
+        effectiveConfig,
         workspaceContext,
         workspaceAttachments,
         {

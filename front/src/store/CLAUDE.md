@@ -4,23 +4,36 @@
 
 | Fichier | Contenu |
 |---------|---------|
-| `appStore.ts` | Store principal (~62KB) : navigation, SIF sélectionné, modaux, filtres |
-| `workspaceStore.ts` | Workspace/fichiers ouverts, onglets éditeur |
+| `appStore.ts` | Store principal : navigation, projets, SIF, modaux, préférences, profil |
+| `workspaceStore.ts` | Workspace/fichiers ouverts, onglets éditeur, nœuds |
 | `useWorkspaceSync.ts` | Hook de sync workspace ↔ Supabase |
 | `selectors.ts` | Sélecteurs dérivés |
-| `types.ts` | Types pour les sections settings |
+| `types.ts` | AppView, CanonicalSIFTab, SettingsSection, AppSettingsSection |
 
 ## Utilisation courante
 
 ```ts
-// Lire l'état
-const view = useAppStore(s => s.currentView)
-const sif  = useAppStore(s => s.selectedSIF)
+// Lire la vue courante (objet typé, pas une string)
+const view = useAppStore(s => s.view)
+if (view.type === 'sif-dashboard') {
+  const { projectId, sifId, tab } = view
+}
 
 // Naviguer
 const navigate = useAppStore(s => s.navigate)
-navigate('engine')
-navigate('sif-dashboard', { sifId, tab: 'verification' })
+navigate({ type: 'engine' })
+navigate({ type: 'sif-dashboard', projectId, sifId, tab: 'verification' })
+navigate({ type: 'settings', section: 'ai' })
+
+// Projets / SIF actif
+const projects = useAppStore(s => s.projects)
+const currentSIF = view.type === 'sif-dashboard'
+  ? projects.flatMap(p => p.sifs).find(s => s.id === view.sifId) ?? null
+  : null
+
+// Préférences
+const preferences = useAppStore(s => s.preferences)
+const updateAppPreferences = useAppStore(s => s.updateAppPreferences)
 
 // Modaux
 useAppStore(s => s.openSIFModal)()
@@ -31,11 +44,32 @@ import { normalizeSIFTab } from '@/store/appStore'
 const tab = normalizeSIFTab(view.tab) // 'overview' → 'cockpit', etc.
 ```
 
-## Types exports clés de appStore.ts
+## Types exports clés
+
 ```ts
-AppView           // union de toutes les vues possibles
-CanonicalSIFTab   // 'cockpit' | 'context' | 'architecture' | 'verification' | 'exploitation' | 'report'
-normalizeSIFTab() // convertit les alias legacy
+// types.ts
+CanonicalSIFTab = 'cockpit' | 'history' | 'context' | 'architecture' | 'verification' | 'exploitation' | 'report'
+AppSettingsSection = 'general' | 'workspace' | 'engine' | 'shortcuts' | 'export' | 'ai'
+ProfileSettingsSection = 'account' | 'session'
+SettingsSection = AppSettingsSection | ProfileSettingsSection
+
+// AppView — union discriminée
+AppView =
+  | { type: 'home' }
+  | { type: 'projects' }
+  | { type: 'note'; noteId: string }
+  | { type: 'workspace-file'; nodeId: string }
+  | { type: 'search' }
+  | { type: 'planning' }
+  | { type: 'library'; templateId?: string; ... }
+  | { type: 'settings'; section: SettingsSection }
+  | { type: 'docs' }
+  | { type: 'audit-log' }
+  | { type: 'sif-history' }
+  | { type: 'engine' }
+  | { type: 'hazop' }
+  | { type: 'sif-dashboard'; projectId: string; sifId: string; tab: SIFTab }
+  | { type: 'prism-file'; filename: PrismEditableFile | 'sif-registry.md' }
 ```
 
 ## Règle Immer

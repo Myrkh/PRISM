@@ -42,6 +42,7 @@ import { LibrarySidebar } from '@/components/library/LibrarySidebar'
 import { AuditSidebar } from '@/components/audit/AuditSidebar'
 import { PlanningSidebar } from '@/planning/PlanningSidebar'
 import { EngineSidebar } from '@/components/engine/EngineSidebar'
+import { LOPASidebar } from '@/components/global/LOPASidebar'
 import { LibraryInspector } from '@/components/library/LibraryInspector'
 import { HomeScreen } from '@/components/layout/HomeScreen'
 import { SIFBrowserWelcome } from '@/components/layout/SIFBrowserWelcome'
@@ -153,7 +154,7 @@ function RightPanel({ projectId, sifId }: { projectId: string; sifId: string }) 
   )
 }
 
-function GlobalRightPanelPlaceholder({ mode }: { mode: 'audit' | 'history' | 'planning' | 'engine' | 'hazop' }) {
+function GlobalRightPanelPlaceholder({ mode }: { mode: 'audit' | 'history' | 'planning' | 'engine' | 'hazop' | 'lopa' }) {
   const strings = useLocaleStrings(getShellStrings)
   const { BORDER, CARD_BG, PANEL_BG, SHADOW_PANEL, TEXT_DIM } = usePrismTheme()
   const description = mode === 'engine'
@@ -370,7 +371,8 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
   const showPlanning  = view.type === 'planning'
   const showEngine    = view.type === 'engine'
   const showHazop     = view.type === 'hazop'
-  const showGlobal    = showAudit || showHistory || showPlanning || showEngine || showHazop
+  const showLopa      = view.type === 'lopa'
+  const showGlobal    = showAudit || showHistory || showPlanning || showEngine || showHazop || showLopa
   const showDashboard    = view.type === 'sif-dashboard' && !!project && !!sif
   const showSIFBrowser   = view.type === 'home'
   const showNote         = view.type === 'note'
@@ -536,7 +538,9 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                             ? <PlanningSidebar />
                             : showEngine
                               ? <EngineSidebar />
-                              : <ProjectSidebar projectId={projectId ?? ''} sifId={sifId ?? ''} />
+                              : showLopa
+                                ? <LOPASidebar />
+                                : <ProjectSidebar projectId={projectId ?? ''} sifId={sifId ?? ''} />
                 )}
               </div>
 
@@ -612,7 +616,7 @@ export function SIFWorkbenchLayout({ projectId, sifId, children, rightPanelConte
                       <ResizeDivider isResizing={isResizingRightPanel} onPointerDown={startResize} side={panelsInverted ? 'right' : 'left'} />
                       {rightPanelOverride || (
                         <GlobalRightPanelPlaceholder
-                          mode={showAudit ? 'audit' : showHistory ? 'history' : showPlanning ? 'planning' : showEngine ? 'engine' : 'hazop'}
+                          mode={showAudit ? 'audit' : showHistory ? 'history' : showPlanning ? 'planning' : showEngine ? 'engine' : showHazop ? 'hazop' : 'lopa'}
                         />
                       )}
                     </div>

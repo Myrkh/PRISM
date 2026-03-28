@@ -6,7 +6,7 @@
  */
 import {
   Layers, Search, BookOpen, BookOpenText,
-  History, CalendarDays, Cpu, Settings,
+  History, CalendarDays, Cpu, Settings, Shield, NotebookPen, LibraryBig
 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { useLocaleStrings } from '@/i18n/useLocale'
@@ -16,8 +16,8 @@ import { RailDivider, RailIconButton } from '@/components/layout/RailPrimitives'
 
 const GLOBAL_TOOLS = [
   { id: 'search'    as const, Icon: Search,      labelKey: 'search'   as const },
-  { id: 'library'   as const, Icon: BookOpen,     labelKey: 'library'  as const },
-  { id: 'audit-log' as const, Icon: History,      labelKey: 'audit'    as const },
+  { id: 'library'   as const, Icon: LibraryBig,     labelKey: 'library'  as const },
+  { id: 'audit-log' as const, Icon: NotebookPen,      labelKey: 'audit'    as const },
   { id: 'planning'  as const, Icon: CalendarDays, labelKey: 'planning' as const },
   { id: 'engine'    as const, Icon: Cpu,          labelKey: 'engine'   as const },
 ] as const
@@ -35,6 +35,7 @@ export function IconRail() {
   const showHome     = view.type === 'home'
   const showDocs     = view.type === 'docs'
   const showSettings = view.type === 'settings'
+  const showLopa     = view.type === 'lopa'
   const activeGlobalToolId: GlobalToolId | null = GLOBAL_TOOL_IDS.has(view.type)
     ? (view.type as GlobalToolId)
     : null
@@ -67,6 +68,13 @@ export function IconRail() {
           active={activeGlobalToolId === id}
         />
       ))}
+
+      <RailIconButton
+        Icon={Shield}
+        label={strings.iconRail.lopa}
+        onClick={() => navigate({ type: 'lopa' })}
+        active={showLopa}
+      />
 
       <div className="flex-1" />
       <RailDivider />

@@ -27,6 +27,10 @@ htmlcov/
 .idea/
 .idx/
 
+# Claude Code — instructions locales, ne pas versionner
+CLAUDE.md
+**/CLAUDE.md
+
 # OS
 .DS_Store
 Thumbs.db

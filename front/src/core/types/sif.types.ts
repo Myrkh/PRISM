@@ -9,6 +9,7 @@ import type { SILLevel } from './sil.types'
 import type { SIFSubsystem } from './component.types'
 import type { ProofTestProcedure, TestCampaign, OperationalEvent } from './prooftest.types'
 import type { HAZOPTrace } from './hazop.types'
+import type { LOPAWorksheet } from './lopa.types'
 
 // ─── SIF ──────────────────────────────────────────────────────────────────
 export type SIFStatus = 'draft' | 'in_review' | 'verified' | 'approved' | 'archived'
@@ -101,6 +102,7 @@ export interface Project {
   createdAt: string
   updatedAt: string
   sifs: SIF[]
+  lopaStudies?: LOPAWorksheet[]
 }
 
 // ─── SIF Revisions (history snapshots) ───────────────────────────────────

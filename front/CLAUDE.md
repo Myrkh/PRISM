@@ -23,16 +23,22 @@
 | Routes hash disponibles | `src/App.tsx` |
 
 ### Vues globales (hors SIF)
-| Vue (`AppView`) | Workspace |
-|-----------------|-----------|
+| AppView type | Workspace |
+|-------------|-----------|
+| `home` | `src/components/layout/HomeScreen.tsx` |
+| `projects` | `src/App.tsx` (vue par défaut) |
 | `library` | `src/components/global/LibraryWorkspace.tsx` |
 | `engine` | `src/components/global/EngineWorkspace.tsx` |
 | `audit-log` | `src/components/global/AuditLogWorkspace.tsx` |
 | `hazop` | `src/components/global/HazopWorkspace.tsx` |
-| `review-queue` | `src/components/global/ReviewQueueWorkspace.tsx` |
 | `search` | `src/components/global/SearchWorkspace.tsx` |
 | `sif-history` | `src/components/global/SIFHistoryWorkspace.tsx` |
 | `docs` | `src/components/global/DocsWorkspace.tsx` |
+| `planning` | `src/components/global/PlanningWorkspace.tsx` |
+| `settings` | `src/components/settings/SettingsWorkspace.tsx` |
+| `note` | Workspace note (nodeId) |
+| `workspace-file` | Workspace file viewer (nodeId) |
+| `prism-file` | Éditeur fichiers .prism/ intelligence |
 
 ### SIF Workbench (phases IEC 61511)
 | Tab canonique | Workspace | RightPanel |
@@ -43,19 +49,41 @@
 | `verification` | `src/components/sif/VerificationWorkspace.tsx` | `VerificationRightPanel.tsx` |
 | `exploitation` | `src/components/sif/ExploitationWorkspace.tsx` | `ProofTestRightPanel.tsx` |
 | `report` | `src/components/report/SILReportStudio.tsx` | `ReportConfigPanel.tsx` |
+| `history` | Redirige → `cockpit` (affiche historique révisions) | — |
 
-> Toujours utiliser `normalizeSIFTab(view.tab)` — les alias legacy (`overview → cockpit`, `analysis → verification`) sont gérés automatiquement.
+> Toujours utiliser `normalizeSIFTab(view.tab)` — les alias legacy (`overview → cockpit`, `analysis → verification`, etc.) sont gérés automatiquement.
 
 ### État global (Zustand)
 | Donnée | Accès |
 |--------|-------|
-| Vue courante | `useAppStore(s => s.currentView)` |
+| Vue courante | `useAppStore(s => s.view)` — objet typé `AppView` |
 | Naviguer | `useAppStore(s => s.navigate)(view)` |
-| SIF sélectionné | `useAppStore(s => s.selectedSIF)` |
-| Projet sélectionné | `useAppStore(s => s.selectedProject)` |
+| SIF actif | `view.type === 'sif-dashboard' ? projects.flatMap(p => p.sifs).find(s => s.id === view.sifId) : null` |
+| Projet actif | `view.type === 'sif-dashboard' ? projects.find(p => p.id === view.projectId) : null` |
 | Ouvrir modal SIF | `useAppStore(s => s.openSIFModal)()` |
 | Ouvrir modal Projet | `useAppStore(s => s.openProjectModal)()` |
+| Préférences app | `useAppStore(s => s.preferences)` |
 | Store complet | `src/store/appStore.ts` |
+
+### AppView — type union complet
+```ts
+type AppView =
+  | { type: 'home' }
+  | { type: 'projects' }
+  | { type: 'note'; noteId: string }
+  | { type: 'workspace-file'; nodeId: string }
+  | { type: 'search' }
+  | { type: 'planning' }
+  | { type: 'library'; templateId?: string; origin?: string; libraryName?: string; action?: string }
+  | { type: 'settings'; section: SettingsSection }
+  | { type: 'docs' }
+  | { type: 'audit-log' }
+  | { type: 'sif-history' }
+  | { type: 'engine' }
+  | { type: 'hazop' }
+  | { type: 'sif-dashboard'; projectId: string; sifId: string; tab: SIFTab }
+  | { type: 'prism-file'; filename: PrismEditableFile | 'sif-registry.md' }
+```
 
 ### Données (Supabase)
 | Opération | Fichier |
@@ -64,6 +92,7 @@
 | Auth helpers | `src/lib/auth.ts` |
 | Client Supabase | `src/lib/supabase.ts` |
 | API engine backend | `src/lib/engineApi.ts` |
+| API AI backend | `src/lib/aiApi.ts` |
 | Accès projets | `src/lib/projectAccess.ts` |
 | Workspace local | `src/lib/workspaceStorage.ts` |
 
@@ -77,23 +106,72 @@
 | Beta factor | `src/core/math/betaFactor.ts` |
 | Schemas Pydantic backend | `backend/app/schemas.py` |
 
-### Styles & tokens
+### Settings
+| Section | Contenu |
+|---------|---------|
+| `general` | Langue, thème, écran de démarrage |
+| `workspace` | Panneaux, largeurs, breadcrumb, palette |
+| `engine` | Tolérance, notation scientifique, chiffres significatifs, TH/TI défaut |
+| `shortcuts` | Raccourcis clavier personnalisables |
+| `export` | Entreprise, visa (preparedBy/checkedBy/approvedBy), confidentialité, pied de rapport |
+| `ai` | Modèle par défaut, langue IA, contexte système, mode strict |
+| `account` | Identité OAuth, displayNameOverride, copie userId |
+| `session` | Session courante, déconnexion |
+
+### AppPreferences — champs clés
 ```ts
-import { BORDER, TEAL, TEXT, TEXT_DIM, PANEL_BG } from '@/styles/tokens'
-// NE PAS hardcoder les couleurs
+// Layout
+workspaceLeftPanelWidth: number       // 220–320px
+workspaceRightPanelWidth: number      // 220–720px
+rightPanelDefaultState: 'open'|'closed'
+rightPanelSectionStates: Record<string, string[]>
+showWorkflowBreadcrumb: boolean
+commandPalettePosition: 'top'|'center'
+panelsInverted: boolean
+centeredLayout: boolean
+statusBarVisible: boolean
+activityBarVisible: boolean
+
+// Engine
+engineCompareTolerancePct: number     // 0–5%
+useScientificNotation: boolean
+decimalRoundingDigits: number         // 1–8
+defaultMissionTimeTH: number          // heures
+defaultProofTestIntervalTH: number    // heures
+
+// Export PDF
+pdfPageSize: 'A4'|'Letter'
+reportCompanyName: string
+reportSignatureText: string
+reportConfidentialityLabel: string    // défaut 'Internal / Restricted'
+reportPreparedBy: string
+reportCheckedBy: string
+reportApprovedBy: string
+
+// PRISM AI
+aiResponseLanguage: 'auto'|'fr'|'en'
+aiAutoAttachSif: boolean
+aiDefaultModel: string                // défaut 'claude-sonnet-4-6'
+aiSystemPromptAddendum: string
+aiStrictModeDefault: boolean
+
+// Profil
+displayNameOverride: string           // remplace nom OAuth, stocké localement
+recentItems: RecentItem[]
 ```
 
-## Types clés
+### Workspace Intelligence (.prism/)
+Fichiers markdown éditables accessibles via `{ type: 'prism-file' }` :
+- `context.md` — contexte projet (description, domaine, contraintes)
+- `conventions.md` — conventions d'ingénierie locales
+- `standards.md` — normes et réglementations applicables
+- `sif-registry.md` — registre SIF auto-généré (lecture seule)
 
+### Styles & tokens
 ```ts
-// src/core/types/sif.types.ts
-SIF { id, name, standard, target_sil, ... }
-
-// src/store/appStore.ts
-AppView = 'projects' | 'settings' | 'sif-dashboard' | 'library' | 'engine' | 'hazop' |
-          'audit-log' | 'sif-history' | 'review-queue' | 'search' | 'docs' | 'planning' | ...
-
-CanonicalSIFTab = 'cockpit' | 'context' | 'architecture' | 'verification' | 'exploitation' | 'report'
+import { usePrismTheme } from '@/styles/usePrismTheme'
+const { BORDER, TEAL, TEAL_DIM, TEXT, TEXT_DIM, PANEL_BG, CARD_BG, PAGE_BG, SHADOW_SOFT, semantic, isDark } = usePrismTheme()
+// NE PAS hardcoder les couleurs — toujours utiliser les tokens
 ```
 
 ## Commandes dev

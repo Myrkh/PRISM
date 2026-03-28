@@ -51,6 +51,9 @@ export interface SettingsStrings {
       profileUpdated: string
       copyId: string
       copied: string
+      displayNameOverride: string
+      displayNameOverrideHint: string
+      displayNameOverridePlaceholder: string
     }
     session: {
       heroTitle: string
@@ -173,12 +176,19 @@ export interface SettingsStrings {
     }
   }
   export: {
-    companyName: { label: string; hint: string; placeholder: string }
-    signatureText: { label: string; hint: string; placeholder: string }
+    companyName:          { label: string; hint: string; placeholder: string }
+    signatureText:        { label: string; hint: string; placeholder: string }
+    confidentialityLabel: { label: string; hint: string; placeholder: string }
+    preparedBy:           { label: string; hint: string; placeholder: string }
+    checkedBy:            { label: string; hint: string; placeholder: string }
+    approvedBy:           { label: string; hint: string; placeholder: string }
   }
   ai: {
-    responseLanguage: { label: string; hint: string; auto: string; fr: string; en: string }
-    autoAttachSif: { label: string; hint: string; on: string; off: string }
+    responseLanguage:     { label: string; hint: string; auto: string; fr: string; en: string }
+    autoAttachSif:        { label: string; hint: string; on: string; off: string }
+    defaultModel:         { label: string; hint: string }
+    systemPromptAddendum: { label: string; hint: string; placeholder: string }
+    strictModeDefault:    { label: string; hint: string; on: string; off: string }
   }
   footer: {
     dirty: string

@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { LogOut, Copy, Check } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import type { SettingsStrings } from '@/i18n/settings'
 import type { AppLocale } from '@/i18n/types'
 import { useAppStore, type ProfileSettingsSection } from '@/store/appStore'
@@ -75,9 +76,12 @@ export function ProfileSettingsPanel({ locale, section, strings }: ProfileSettin
   const profile = useAppStore(state => state.profile)
   const authUser = useAppStore(state => state.authUser)
   const signOut = useAppStore(state => state.signOut)
+  const preferences = useAppStore(state => state.preferences)
+  const updateAppPreferences = useAppStore(state => state.updateAppPreferences)
   const [signingOut, setSigningOut] = useState(false)
   const [copied, setCopied] = useState(false)
-  const { BORDER, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
+  const [displayNameDraft, setDisplayNameDraft] = useState(preferences.displayNameOverride)
+  const { BORDER, TEAL, TEXT, TEXT_DIM, PAGE_BG } = usePrismTheme()
 
   const fallback = strings.profile.values.unavailable
   const displayName = profile?.fullName || authUser?.user_metadata?.full_name || authUser?.email || fallback
@@ -140,6 +144,23 @@ export function ProfileSettingsPanel({ locale, section, strings }: ProfileSettin
                 }
               </button>
             </div>
+          </ProfileSettingRow>
+
+          <ProfileSettingRow label={strings.profile.account.displayNameOverride} hint={strings.profile.account.displayNameOverrideHint}>
+            <Input
+              type="text"
+              placeholder={strings.profile.account.displayNameOverridePlaceholder}
+              value={displayNameDraft}
+              onChange={event => setDisplayNameDraft(event.currentTarget.value)}
+              onBlur={() => updateAppPreferences({ ...preferences, displayNameOverride: displayNameDraft.trim() })}
+              onKeyDown={event => {
+                if (event.key === 'Enter') {
+                  event.currentTarget.blur()
+                }
+              }}
+              className="w-52"
+              style={{ background: PAGE_BG, color: TEXT }}
+            />
           </ProfileSettingRow>
         </>
       ) : (

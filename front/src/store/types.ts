@@ -149,6 +149,7 @@ export type AppView =
   | { type: 'sif-history' }
   | { type: 'engine' }
   | { type: 'hazop' }
+  | { type: 'lopa'; projectId?: string; studyId?: string }
   | { type: 'sif-dashboard'; projectId: string; sifId: string; tab: SIFTab }
   | { type: 'prism-file'; filename: PrismEditableFile | 'sif-registry.md' }
 
@@ -650,6 +651,13 @@ export interface AppState {
 
   // ── Actions: HAZOP ──
   updateHAZOPTrace: (projectId: string, sifId: string, trace: HAZOPTrace) => void
+
+  // ── Actions: LOPA ──
+  createLOPAStudy: (projectId: string, name?: string) => string
+  addLOPAScenario: (projectId: string, studyId: string, scenario: import('@/core/types').LOPAScenario) => void
+  updateLOPAScenario: (projectId: string, studyId: string, scenarioId: string, updates: Partial<import('@/core/types').LOPAScenario>) => void
+  deleteLOPAScenario: (projectId: string, studyId: string, scenarioId: string) => void
+  reorderLOPAScenarios: (projectId: string, studyId: string, orderedIds: string[]) => void
 
   // ── Actions: Revisions ──
   fetchRevisions: (sifId: string) => Promise<void>

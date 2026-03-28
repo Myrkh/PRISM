@@ -26,7 +26,7 @@ import { usePrismAiChat } from './usePrismAiChat'
 const HEADER_H = 48
 const RAIL_W   = 48
 const STATUS_H = 24
-const FLOAT_W  = 380
+const FLOAT_W  = 480
 const FLOAT_H  = 560
 const MIN_W    = 280
 const MIN_H    = 240

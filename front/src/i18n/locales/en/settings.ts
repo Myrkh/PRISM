@@ -80,6 +80,9 @@ export const settingsStringsEn: SettingsStrings = {
       profileUpdated: 'Last profile sync',
       copyId: 'Copy user ID',
       copied: 'Copied!',
+      displayNameOverride: 'Display name',
+      displayNameOverrideHint: 'Overrides your OAuth name throughout the app. Stored locally.',
+      displayNameOverridePlaceholder: 'e.g. Jean Dupont',
     },
     session: {
       heroTitle: 'Current session and basic security',
@@ -192,6 +195,26 @@ export const settingsStringsEn: SettingsStrings = {
       hint: 'Legal notice or signature block appended to every PDF report.',
       placeholder: 'e.g. Prepared by the Safety Engineering team. Confidential.',
     },
+    confidentialityLabel: {
+      label: 'Confidentiality classification',
+      hint: 'Stamped on every page of exported PDF reports.',
+      placeholder: 'e.g. Internal / Restricted',
+    },
+    preparedBy: {
+      label: 'Prepared by (default)',
+      hint: 'Pre-fills the "Prepared by" field when creating a new SIL report.',
+      placeholder: 'e.g. J. Dupont — Safety Engineer',
+    },
+    checkedBy: {
+      label: 'Checked by (default)',
+      hint: 'Pre-fills the "Checked by" field for new SIL reports.',
+      placeholder: 'e.g. M. Martin — Lead Engineer',
+    },
+    approvedBy: {
+      label: 'Approved by (default)',
+      hint: 'Pre-fills the "Approved by" field for new SIL reports.',
+      placeholder: 'e.g. P. Bernard — Safety Manager',
+    },
   },
   ai: {
     responseLanguage: {
@@ -206,6 +229,21 @@ export const settingsStringsEn: SettingsStrings = {
       hint: 'Automatically include the active SIF data in every AI message for richer answers.',
       on: 'On',
       off: 'Off',
+    },
+    defaultModel: {
+      label: 'Default model',
+      hint: 'Model used when starting a new AI conversation. Can be changed per session.',
+    },
+    systemPromptAddendum: {
+      label: 'System context addendum',
+      hint: 'Appended to every AI request. Use to specify site standards, data sources, or facility constraints.',
+      placeholder: 'e.g. Primary data source: EXIDA SILSafe. Standard: IEC 61511-1:2016 Ed3.',
+    },
+    strictModeDefault: {
+      label: 'Strict mode by default',
+      hint: 'Strict mode limits AI to IEC 61511 scope. Applied to every new conversation.',
+      on: 'Strict',
+      off: 'Open',
     },
   },
   shortcuts: {

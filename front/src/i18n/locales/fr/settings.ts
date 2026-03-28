@@ -80,6 +80,9 @@ export const settingsStringsFr: SettingsStrings = {
       profileUpdated: 'Derniere synchro profil',
       copyId: 'Copier l\'identifiant',
       copied: 'Copie !',
+      displayNameOverride: 'Nom d\'affichage',
+      displayNameOverrideHint: 'Remplace votre nom OAuth dans toute l\'application. Stocke localement.',
+      displayNameOverridePlaceholder: 'ex. Jean Dupont',
     },
     session: {
       heroTitle: 'Session courante et securite de base',
@@ -192,6 +195,26 @@ export const settingsStringsFr: SettingsStrings = {
       hint: 'Mention legale ou bloc de signature ajoute a chaque rapport PDF.',
       placeholder: 'ex. Prepare par l\'equipe Securite. Confidentiel.',
     },
+    confidentialityLabel: {
+      label: 'Classification de confidentialite',
+      hint: 'Apposee sur chaque page des rapports PDF exportes.',
+      placeholder: 'ex. Interne / Restreint',
+    },
+    preparedBy: {
+      label: 'Etabli par (defaut)',
+      hint: 'Pre-remplit le champ "Etabli par" a la creation d\'un nouveau rapport SIL.',
+      placeholder: 'ex. J. Dupont — Ing. Securite',
+    },
+    checkedBy: {
+      label: 'Verifie par (defaut)',
+      hint: 'Pre-remplit le champ "Verifie par" pour les nouveaux rapports SIL.',
+      placeholder: 'ex. M. Martin — Ing. Principal',
+    },
+    approvedBy: {
+      label: 'Approuve par (defaut)',
+      hint: 'Pre-remplit le champ "Approuve par" pour les nouveaux rapports SIL.',
+      placeholder: 'ex. P. Bernard — Responsable Securite',
+    },
   },
   ai: {
     responseLanguage: {
@@ -206,6 +229,21 @@ export const settingsStringsFr: SettingsStrings = {
       hint: 'Inclut automatiquement les donnees de la SIF active dans chaque message IA.',
       on: 'Actif',
       off: 'Inactif',
+    },
+    defaultModel: {
+      label: 'Modele par defaut',
+      hint: 'Modele utilise au demarrage de chaque nouvelle conversation IA. Modifiable par session.',
+    },
+    systemPromptAddendum: {
+      label: 'Contexte systeme additionnel',
+      hint: 'Ajoute a chaque requete IA. Precisez les normes de site, sources de donnees ou contraintes.',
+      placeholder: 'ex. Source principale : EXIDA SILSafe. Norme : IEC 61511-1:2016 Ed3.',
+    },
+    strictModeDefault: {
+      label: 'Mode strict par defaut',
+      hint: 'Le mode strict limite l\'IA au perimetre IEC 61511. Applique a chaque nouvelle conversation.',
+      on: 'Strict',
+      off: 'Ouvert',
     },
   },
   shortcuts: {

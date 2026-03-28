@@ -59,8 +59,14 @@ export function getDefaultReportConfig(input: {
   project: Project
   sif: SIF
   result: SIFCalcResult
+  prefs?: {
+    reportConfidentialityLabel?: string
+    reportPreparedBy?: string
+    reportCheckedBy?: string
+    reportApprovedBy?: string
+  }
 }): ReportConfig {
-  const { project, sif, result } = input
+  const { project, sif, result, prefs } = input
 
   return {
     title: `${sif.sifNumber} — SIL Verification Report`,
@@ -72,16 +78,16 @@ export function getDefaultReportConfig(input: {
     recommendations: result.meetsTarget
       ? `SIL ${sif.targetSIL} is achieved. Maintain proof test intervals and document any architectural changes during the operational life of the SIF.`
       : `Current architecture does not achieve SIL ${sif.targetSIL}. Consider: (1) increasing architecture redundancy, (2) reducing proof test interval T1, (3) improving diagnostic coverage.`,
-    preparedBy: sif.madeBy || '',
-    checkedBy: sif.verifiedBy || '',
-    approvedBy: sif.approvedBy || '',
+    preparedBy: sif.madeBy || prefs?.reportPreparedBy || '',
+    checkedBy: sif.verifiedBy || prefs?.reportCheckedBy || '',
+    approvedBy: sif.approvedBy || prefs?.reportApprovedBy || '',
     showPFDChart: true,
     showSubsystemTable: true,
     showComponentTable: true,
     showComplianceMatrix: true,
     showAssumptions: true,
     showRecommendations: true,
-    confidentialityLabel: 'Internal / Restricted',
+    confidentialityLabel: prefs?.reportConfidentialityLabel || 'Internal / Restricted',
   }
 }
 

@@ -62,12 +62,30 @@ export interface AppPreferences {
   reportCompanyName: string
   /** Default signature / legal notice appended to PDF reports. */
   reportSignatureText: string
+  /** Confidentiality classification shown on every PDF report page. */
+  reportConfidentialityLabel: string
+  /** Default "Prepared by" field pre-filling every new report. */
+  reportPreparedBy: string
+  /** Default "Checked by" field pre-filling every new report. */
+  reportCheckedBy: string
+  /** Default "Approved by" field pre-filling every new report. */
+  reportApprovedBy: string
 
   // ── PRISM AI ─────────────────────────────────────────────────────────────
   /** Language used for AI responses: 'auto' follows the app locale. */
   aiResponseLanguage: 'auto' | 'fr' | 'en'
   /** Automatically include the active SIF context in each AI message. */
   aiAutoAttachSif: boolean
+  /** Default model used for new AI conversations. */
+  aiDefaultModel: string
+  /** Text appended to the system prompt for every AI request. */
+  aiSystemPromptAddendum: string
+  /** Whether strict mode is enabled by default for new conversations. */
+  aiStrictModeDefault: boolean
+
+  // ── Profile ───────────────────────────────────────────────────────────────
+  /** Local display name override — replaces the OAuth name in the UI. */
+  displayNameOverride: string
 
   recentItems: RecentItem[]
 }
@@ -112,8 +130,16 @@ export const DEFAULT_APP_PREFERENCES: AppPreferences = {
   pdfPageSize: 'A4',
   reportCompanyName: '',
   reportSignatureText: '',
+  reportConfidentialityLabel: 'Internal / Restricted',
+  reportPreparedBy: '',
+  reportCheckedBy: '',
+  reportApprovedBy: '',
   aiResponseLanguage: 'auto',
   aiAutoAttachSif: true,
+  aiDefaultModel: 'claude-sonnet-4-6',
+  aiSystemPromptAddendum: '',
+  aiStrictModeDefault: false,
+  displayNameOverride: '',
   recentItems: [],
 }
 
@@ -197,10 +223,22 @@ export function resolveAppPreferences(input?: Partial<AppPreferences> | null): A
   const pdfPageSize: 'A4' | 'Letter' = source.pdfPageSize === 'Letter' ? 'Letter' : 'A4'
   const reportCompanyName = typeof source.reportCompanyName === 'string' ? source.reportCompanyName : ''
   const reportSignatureText = typeof source.reportSignatureText === 'string' ? source.reportSignatureText : ''
+  const reportConfidentialityLabel = typeof source.reportConfidentialityLabel === 'string' && source.reportConfidentialityLabel
+    ? source.reportConfidentialityLabel
+    : DEFAULT_APP_PREFERENCES.reportConfidentialityLabel
+  const reportPreparedBy = typeof source.reportPreparedBy === 'string' ? source.reportPreparedBy : ''
+  const reportCheckedBy  = typeof source.reportCheckedBy  === 'string' ? source.reportCheckedBy  : ''
+  const reportApprovedBy = typeof source.reportApprovedBy === 'string' ? source.reportApprovedBy : ''
   const aiResponseLanguage: 'auto' | 'fr' | 'en' = source.aiResponseLanguage === 'fr' ? 'fr'
     : source.aiResponseLanguage === 'en' ? 'en'
     : 'auto'
   const aiAutoAttachSif = typeof source.aiAutoAttachSif === 'boolean' ? source.aiAutoAttachSif : DEFAULT_APP_PREFERENCES.aiAutoAttachSif
+  const aiDefaultModel = typeof source.aiDefaultModel === 'string' && source.aiDefaultModel
+    ? source.aiDefaultModel
+    : DEFAULT_APP_PREFERENCES.aiDefaultModel
+  const aiSystemPromptAddendum = typeof source.aiSystemPromptAddendum === 'string' ? source.aiSystemPromptAddendum : ''
+  const aiStrictModeDefault = typeof source.aiStrictModeDefault === 'boolean' ? source.aiStrictModeDefault : DEFAULT_APP_PREFERENCES.aiStrictModeDefault
+  const displayNameOverride = typeof source.displayNameOverride === 'string' ? source.displayNameOverride : ''
 
   const recentItems: RecentItem[] = Array.isArray(source.recentItems)
     ? (source.recentItems as RecentItem[]).slice(0, MAX_RECENT_ITEMS)
@@ -230,8 +268,16 @@ export function resolveAppPreferences(input?: Partial<AppPreferences> | null): A
     pdfPageSize,
     reportCompanyName,
     reportSignatureText,
+    reportConfidentialityLabel,
+    reportPreparedBy,
+    reportCheckedBy,
+    reportApprovedBy,
     aiResponseLanguage,
     aiAutoAttachSif,
+    aiDefaultModel,
+    aiSystemPromptAddendum,
+    aiStrictModeDefault,
+    displayNameOverride,
     recentItems,
   }
 }
