@@ -8,6 +8,7 @@
  */
 import { supabase } from './supabase'
 import type { Project, SIF, SIFRevision, SIFRevisionArtifact, SIFStatus } from '@/core/types'
+import type { LOPAWorksheet, LOPAScenario } from '@/core/types/lopa.types'
 import { hydrateSIF } from '@/core/models/hydrate'
 import { createDefaultProofTestCampaignArtifact } from '@/core/models/proofTestCampaignWorkflow'
 import { createDefaultRevisionArtifact } from '@/core/models/revisionWorkflow'
@@ -31,6 +32,8 @@ function rowToProject(row: any): Omit<Project, 'sifs'> {
     status:      row.status      ?? 'active',
     createdAt:   row.created_at,
     updatedAt:   row.updated_at,
+    riskTolerance: row.risk_tolerance ?? undefined,
+    lopaParams:    row.lopa_params    ?? undefined,
   }
 }
 
@@ -78,7 +81,9 @@ function projectToRow(data: Partial<ProjectInput>) {
   if (data.standard    !== undefined) row.standard    = data.standard
   if (data.revision    !== undefined) row.revision    = data.revision
   if (data.description !== undefined) row.description = data.description
-  if (data.status      !== undefined) row.status      = data.status
+  if (data.status        !== undefined) row.status         = data.status
+  if (data.riskTolerance !== undefined) row.risk_tolerance = data.riskTolerance
+  if (data.lopaParams    !== undefined) row.lopa_params    = data.lopaParams
   return row
 }
 
@@ -134,18 +139,25 @@ export async function fetchAllProjects(): Promise<Project[]> {
     { data: sifRows, error: sifErr },
     { data: procedureRows, error: procedureErr },
     { data: campaignRows, error: campaignErr },
+    { data: lopaStudyRows, error: lopaStudyErr },
+    { data: lopaScenarioRows, error: lopaScenarioErr },
   ] =
     await Promise.all([
       supabase.from('prism_projects').select('*').order('created_at'),
       supabase.from('prism_sifs').select('*').order('created_at'),
       supabase.from('prism_proof_procedures').select('*').order('updated_at', { ascending: false }),
       supabase.from('prism_proof_campaigns').select('*').order('date', { ascending: false }),
+      supabase.from('prism_lopa_studies').select('*').order('created_at'),
+      supabase.from('prism_lopa_scenarios').select('*').order('sort_order'),
     ])
 
-  if (projErr) throw new Error(`prism_projects: ${projErr.message}`)
-  if (sifErr)  throw new Error(`prism_sifs: ${sifErr.message}`)
-  if (procedureErr) throw new Error(`prism_proof_procedures: ${procedureErr.message}`)
-  if (campaignErr)  throw new Error(`prism_proof_campaigns: ${campaignErr.message}`)
+  if (projErr)         throw new Error(`prism_projects: ${projErr.message}`)
+  if (sifErr)          throw new Error(`prism_sifs: ${sifErr.message}`)
+  if (procedureErr)    throw new Error(`prism_proof_procedures: ${procedureErr.message}`)
+  if (campaignErr)     throw new Error(`prism_proof_campaigns: ${campaignErr.message}`)
+  // LOPA tables may not exist yet on older instances — treat as empty
+  const lopaStudies   = lopaStudyErr   ? [] : (lopaStudyRows   ?? [])
+  const lopaScenarios = lopaScenarioErr ? [] : (lopaScenarioRows ?? [])
 
   const proceduresBySif = (procedureRows ?? []).reduce<Record<string, any>>((acc, row) => {
     const sifId = row.sif_id as string
@@ -168,9 +180,24 @@ export async function fetchAllProjects(): Promise<Project[]> {
     return acc
   }, {})
 
+  // Group scenarios by study_id
+  const scenariosByStudy = lopaScenarios.reduce<Record<string, LOPAScenario[]>>((acc, row) => {
+    ;(acc[row.study_id as string] ??= []).push(rowToLOPAScenario(row))
+    return acc
+  }, {})
+
+  // Group studies by project_id
+  const lopStudiesByProject = lopaStudies.reduce<Record<string, LOPAWorksheet[]>>((acc, row) => {
+    const study = rowToLOPAStudy(row)
+    study.scenarios = scenariosByStudy[study.id] ?? []
+    ;(acc[row.project_id as string] ??= []).push(study)
+    return acc
+  }, {})
+
   return (projRows ?? []).map(row => ({
     ...rowToProject(row),
     sifs: sifsByProject[row.id as string] ?? [],
+    lopaStudies: lopStudiesByProject[row.id as string] ?? [],
   }))
 }
 
@@ -516,4 +543,130 @@ export async function dbDeleteRevision(revisionId: string): Promise<void> {
     .delete()
     .eq('id', revisionId)
   if (error) throw new Error(`Suppression révision: ${error.message}`)
+}
+
+// ═══════════════════════════════════════════════════════════════
+// LOPA STUDIES & SCENARIOS
+// ═══════════════════════════════════════════════════════════════
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToLOPAStudy(row: any): LOPAWorksheet {
+  return {
+    id:          row.id,
+    projectId:   row.project_id,
+    name:        row.name        ?? 'Étude LOPA',
+    description: row.description ?? '',
+    scenarios:   [],  // filled by caller
+    frozenAt:    row.frozen_at   ?? null,
+    createdAt:   row.created_at,
+    updatedAt:   row.updated_at,
+  }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+function rowToLOPAScenario(row: any): LOPAScenario {
+  return {
+    id:                     row.id,
+    order:                  row.sort_order          ?? 0,
+    scenarioId:             row.scenario_id         ?? '',
+    sifRef:                 row.sif_ref             ?? undefined,
+    hazopRef:               row.hazop_ref           ?? undefined,
+    description:            row.description         ?? '',
+    consequenceCategory:    row.consequence_category ?? 'safety_personnel',
+    consequenceDescription: row.consequence_description ?? '',
+    initiatingEvent:        row.initiating_event    ?? '',
+    ief:                    Number(row.ief          ?? 0.1),
+    iefSource:              row.ief_source          ?? '',
+    ignitionProbability:    row.ignition_probability != null ? Number(row.ignition_probability) : null,
+    occupancyFactor:        row.occupancy_factor    != null ? Number(row.occupancy_factor) : null,
+    ipls:                   row.ipls                ?? [],
+    tmel:                   Number(row.tmel         ?? 1e-5),
+    riskMatrixCell:         row.risk_matrix_cell    ?? '',
+  }
+}
+
+function lopaScenarioToRow(sc: LOPAScenario, studyId: string, projectId: string): Record<string, unknown> {
+  return {
+    id:                      sc.id,
+    study_id:                studyId,
+    project_id:              projectId,
+    scenario_id:             sc.scenarioId,
+    sort_order:              sc.order,
+    sif_ref:                 sc.sifRef       ?? null,
+    hazop_ref:               sc.hazopRef     ?? null,
+    description:             sc.description,
+    consequence_category:    sc.consequenceCategory,
+    consequence_description: sc.consequenceDescription,
+    initiating_event:        sc.initiatingEvent,
+    ief:                     sc.ief,
+    ief_source:              sc.iefSource,
+    ignition_probability:    sc.ignitionProbability ?? null,
+    occupancy_factor:        sc.occupancyFactor     ?? null,
+    ipls:                    sc.ipls,
+    tmel:                    sc.tmel,
+    risk_matrix_cell:        sc.riskMatrixCell,
+  }
+}
+
+// ── Studies ──────────────────────────────────────────────────────────────────
+
+export async function dbCreateLOPAStudy(
+  study: Pick<LOPAWorksheet, 'id' | 'projectId' | 'name' | 'description'>,
+): Promise<void> {
+  const { error } = await supabase.from('prism_lopa_studies').insert({
+    id:          study.id,
+    project_id:  study.projectId,
+    name:        study.name,
+    description: study.description ?? '',
+  })
+  if (error) throw new Error(`Création étude LOPA: ${error.message}`)
+}
+
+export async function dbUpdateLOPAStudy(
+  studyId: string,
+  data: Partial<Pick<LOPAWorksheet, 'name' | 'description' | 'frozenAt'>>,
+): Promise<void> {
+  const row: Record<string, unknown> = {}
+  if (data.name        !== undefined) row.name        = data.name
+  if (data.description !== undefined) row.description = data.description
+  if (data.frozenAt    !== undefined) row.frozen_at   = data.frozenAt
+  const { error } = await supabase.from('prism_lopa_studies').update(row).eq('id', studyId)
+  if (error) throw new Error(`Mise à jour étude LOPA: ${error.message}`)
+}
+
+export async function dbDeleteLOPAStudy(studyId: string): Promise<void> {
+  const { error } = await supabase.from('prism_lopa_studies').delete().eq('id', studyId)
+  if (error) throw new Error(`Suppression étude LOPA: ${error.message}`)
+}
+
+// ── Scenarios ─────────────────────────────────────────────────────────────────
+
+/** Upsert a single scenario (create or update). */
+export async function dbUpsertLOPAScenario(
+  sc: LOPAScenario,
+  studyId: string,
+  projectId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from('prism_lopa_scenarios')
+    .upsert(lopaScenarioToRow(sc, studyId, projectId), { onConflict: 'id' })
+  if (error) throw new Error(`Upsert scénario LOPA: ${error.message}`)
+}
+
+export async function dbDeleteLOPAScenario(scenarioId: string): Promise<void> {
+  const { error } = await supabase.from('prism_lopa_scenarios').delete().eq('id', scenarioId)
+  if (error) throw new Error(`Suppression scénario LOPA: ${error.message}`)
+}
+
+/** Batch-update sort_order for reordering. */
+export async function dbReorderLOPAScenarios(
+  orderedIds: string[],
+): Promise<void> {
+  if (orderedIds.length === 0) return
+  // One upsert per row with just id + sort_order
+  const rows = orderedIds.map((id, i) => ({ id, sort_order: i }))
+  const { error } = await supabase
+    .from('prism_lopa_scenarios')
+    .upsert(rows, { onConflict: 'id' })
+  if (error) throw new Error(`Réordonnancement scénarios LOPA: ${error.message}`)
 }

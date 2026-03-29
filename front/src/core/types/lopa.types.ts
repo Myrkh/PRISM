@@ -99,6 +99,65 @@ export interface LOPAWorksheet {
   updatedAt: string
 }
 
+// ─── Risk Tolerance Table (project-level) ────────────────────────────────
+
+/**
+ * Maps each consequence category to a TMEL (Target Mitigated Event Likelihood).
+ * Defined at project level — used by LOPA to auto-populate TMEL on new scenarios.
+ * Based on company risk criteria (e.g. ALARP / tolerable risk thresholds).
+ */
+export type RiskToleranceTable = Partial<Record<ConsequenceCategory, number>>
+
+// ─── LOPA Project Parameters ──────────────────────────────────────────────
+
+/**
+ * One row of the severity axis (G1–G5) in the project risk matrix.
+ * Customisable per project / client — defines names, TMEL thresholds, colours.
+ */
+export interface SeverityLevel {
+  id: 'G1' | 'G2' | 'G3' | 'G4' | 'G5'
+  name: string        // e.g. 'Négligeable', 'Mineur', 'Modéré', 'Grave', 'Catastrophique'
+  description: string // e.g. 'Aucune blessure, dommages < 10 k€'
+  tmel: number        // TMEL threshold [yr⁻¹] for this severity level
+  color: string       // hex colour for the risk matrix cell
+}
+
+/**
+ * One row of the frequency axis (F1–F5) in the project risk matrix.
+ */
+export interface FrequencyLevel {
+  id: 'F1' | 'F2' | 'F3' | 'F4' | 'F5'
+  name: string        // e.g. 'Extrêmement rare'
+  rangeLabel: string  // e.g. '< 10⁻⁴/yr'
+}
+
+/**
+ * A project-specific IPL template (pre-filled entry for the IPL library).
+ * Defined at project level — reflects site standards (e.g. PSV sizing, bund specs).
+ */
+export interface ProjectIPLTemplate {
+  id: string
+  type: IPLType
+  tag: string           // e.g. 'PSV-TYPE-A'
+  description: string
+  pfd: number
+  standard: string      // e.g. 'Site standard rev. B'
+  notes: string
+}
+
+/**
+ * Full set of project-level LOPA parameters.
+ * Stored as JSONB in prism_projects.lopa_params.
+ * All fields are optional — missing → fall back to PRISM defaults (IEC 61511).
+ */
+export interface LOPAProjectParams {
+  severityLevels?: SeverityLevel[]      // custom G1–G5 (overrides hardcoded defaults)
+  frequencyLevels?: FrequencyLevel[]    // custom F1–F5 labels
+  riskTolerance?: RiskToleranceTable    // consequence-category TMEL (complements severityLevels)
+  iplTemplates?: ProjectIPLTemplate[]   // site-specific IPL templates
+  updatedAt?: string
+}
+
 // ─── Computed Results (not stored) ────────────────────────────────────────
 
 export interface LOPAWaterfallStep {

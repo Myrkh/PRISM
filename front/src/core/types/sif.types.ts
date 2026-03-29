@@ -9,7 +9,7 @@ import type { SILLevel } from './sil.types'
 import type { SIFSubsystem } from './component.types'
 import type { ProofTestProcedure, TestCampaign, OperationalEvent } from './prooftest.types'
 import type { HAZOPTrace } from './hazop.types'
-import type { LOPAWorksheet } from './lopa.types'
+import type { LOPAProjectParams, LOPAWorksheet, RiskToleranceTable } from './lopa.types'
 
 // ─── SIF ──────────────────────────────────────────────────────────────────
 export type SIFStatus = 'draft' | 'in_review' | 'verified' | 'approved' | 'archived'
@@ -103,6 +103,8 @@ export interface Project {
   updatedAt: string
   sifs: SIF[]
   lopaStudies?: LOPAWorksheet[]
+  riskTolerance?: RiskToleranceTable  // legacy — use lopaParams.riskTolerance going forward
+  lopaParams?: LOPAProjectParams      // full project LOPA configuration (G1-G5, F1-F5, IPL templates…)
 }
 
 // ─── SIF Revisions (history snapshots) ───────────────────────────────────

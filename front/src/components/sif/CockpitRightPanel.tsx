@@ -1,7 +1,7 @@
-import { Lock, Package, ShieldCheck, Users } from 'lucide-react'
+import { ArrowRight, Lock, Layers, Package, ShieldCheck, Users } from 'lucide-react'
 import { getSifWorkflowStrings } from '@/i18n/sifWorkflow'
 import { useLocaleStrings } from '@/i18n/useLocale'
-import type { SIF, SIFCalcResult } from '@/core/types'
+import type { Project, SIF, SIFCalcResult } from '@/core/types'
 import type { ComplianceResult } from '@/components/sif/complianceCalc'
 import type { OverviewMetrics } from '@/components/sif/overviewMetrics'
 import {
@@ -15,12 +15,15 @@ import { semantic } from '@/styles/tokens'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { useSIFDiagnostics } from '@/core/diagnostics'
 import { DiagnosticsPanel } from '@/components/sif/DiagnosticsPanel'
+import { calculateLOPAScenario, silFromRRF } from '@/engine/lopa/calculator'
+import { useAppStore } from '@/store/appStore'
 
 interface Props {
   sif: SIF
   result: SIFCalcResult
   compliance: ComplianceResult
   overviewMetrics: OverviewMetrics
+  project?: Project
 }
 type ItemStatus = 'complete' | 'review' | 'missing'
 
@@ -86,9 +89,14 @@ function ChecklistRow({
   )
 }
 
-export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: Props) {
+const SIL_COLORS: Record<number, string> = {
+  0: '#10B981', 1: '#16A34A', 2: '#2563EB', 3: '#D97706', 4: '#7C3AED',
+}
+
+export function CockpitRightPanel({ sif, result, compliance, overviewMetrics, project }: Props) {
   const strings = useLocaleStrings(getSifWorkflowStrings)
   const { BORDER, PANEL_BG, SURFACE, TEAL, TEAL_DIM, TEXT, TEXT_DIM } = usePrismTheme()
+  const navigate = useAppStore(s => s.navigate)
   const diagnostics = useSIFDiagnostics(sif)
   const evidenceById = new Map(compliance.evidenceItems.map(item => [item.id, item]))
   const proofProcedureItem = evidenceById.get('proof-procedure')
@@ -101,6 +109,22 @@ export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: 
   ) / 3)
   const readinessColor = readiness >= 85 ? semantic.success : readiness >= 50 ? semantic.warning : semantic.error
   const formatDate = (value: string | Date) => new Date(value).toLocaleDateString(strings.localeTag)
+
+  // LOPA bidirectional link — find scenarios referencing this SIF
+  const lopaScenarios = project?.lopaStudies?.flatMap(study =>
+    study.scenarios
+      .filter(sc => sc.sifRef === sif.id)
+      .map(sc => ({ sc, study })),
+  ) ?? []
+  const lopaResults = lopaScenarios.map(({ sc, study }) => ({
+    scenario: sc,
+    study,
+    result: calculateLOPAScenario(sc),
+  }))
+  let dominantLopaSIL: 0 | 1 | 2 | 3 | 4 = 0
+  for (const r of lopaResults) {
+    if (r.result.silRequired > dominantLopaSIL) dominantLopaSIL = r.result.silRequired as 0 | 1 | 2 | 3 | 4
+  }
 
   const governanceSummary = [
     { label: strings.cockpitRightPanel.governance.author, value: sif.madeBy || strings.cockpitRightPanel.governance.notProvided, status: sif.madeBy ? 'complete' : 'missing' as ItemStatus },
@@ -163,6 +187,68 @@ export function CockpitRightPanel({ sif, result, compliance, overviewMetrics }: 
           ))}
         </div>
       </RightPanelSection>
+
+      {/* ── LOPA bidirectional link ────────────────────────── */}
+      {lopaScenarios.length > 0 && (
+        <RightPanelSection id="lopa-link" label="LOPA — Scénarios liés" Icon={Layers}>
+          <div className="space-y-2">
+            {/* Dominant SIL summary */}
+            <InspectorSurface className="flex items-center justify-between gap-2">
+              <p className="text-[10px] uppercase tracking-wider" style={{ color: TEXT_DIM }}>
+                SIL LOPA dominant
+              </p>
+              <span
+                className="px-2 py-0.5 rounded-full text-[10px] font-bold"
+                style={{
+                  background: `${SIL_COLORS[dominantLopaSIL]}18`,
+                  color: SIL_COLORS[dominantLopaSIL],
+                }}
+              >
+                {dominantLopaSIL === 0 ? 'Adéquat' : `SIL ${dominantLopaSIL}`}
+              </span>
+            </InspectorSurface>
+
+            {/* Scenario list */}
+            {lopaResults.map(({ scenario, study, result: lopaResult }) => {
+              const silColor = SIL_COLORS[lopaResult.silRequired] ?? '#6B7280'
+              return (
+                <button
+                  key={scenario.id}
+                  type="button"
+                  onClick={() => navigate({ type: 'lopa', projectId: project!.id, studyId: study.id })}
+                  className="w-full rounded-lg border px-3 py-2 text-left transition-colors"
+                  style={{ borderColor: BORDER, background: SURFACE }}
+                  onMouseEnter={e => { e.currentTarget.style.borderColor = `${TEAL}40` }}
+                  onMouseLeave={e => { e.currentTarget.style.borderColor = BORDER }}
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-semibold truncate" style={{ color: TEXT }}>
+                        {scenario.scenarioId} — {scenario.description || 'Sans titre'}
+                      </p>
+                      <p className="text-[9px] truncate" style={{ color: TEXT_DIM }}>
+                        {study.name}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <span
+                        className="px-1.5 py-0.5 rounded text-[9px] font-bold"
+                        style={{ background: `${silColor}15`, color: silColor }}
+                      >
+                        {lopaResult.silRequired === 0 ? 'OK' : `SIL ${lopaResult.silRequired}`}
+                      </span>
+                      <ArrowRight size={10} style={{ color: TEAL }} />
+                    </div>
+                  </div>
+                  <p className="mt-0.5 text-[8px] font-mono" style={{ color: TEXT_DIM }}>
+                    MEF = {lopaResult.mef.toExponential(1)} / TMEL = {lopaResult.tmel.toExponential(0)}
+                  </p>
+                </button>
+              )
+            })}
+          </div>
+        </RightPanelSection>
+      )}
 
       <RightPanelSection id="dossier" label={strings.cockpitRightPanel.sections.dossier} Icon={Package}>
         <div className="space-y-2">

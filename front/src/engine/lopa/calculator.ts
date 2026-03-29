@@ -244,6 +244,22 @@ export function checkLOPAAdequacy(scenarios: LOPAScenario[]): LOPAAdequacyIssue[
   return issues
 }
 
+// ─── Sensitivity analysis ────────────────────────────────────────────────────
+
+/**
+ * Calculate the scenario result as if a specific IPL were removed.
+ * Used by the sensitivity analysis panel to show the criticality of each IPL.
+ */
+export function calculateScenarioWithoutIPL(
+  scenario: LOPAScenario,
+  iplId: string,
+): LOPAScenarioResult {
+  return calculateLOPAScenario({
+    ...scenario,
+    ipls: scenario.ipls.filter(ipl => ipl.id !== iplId),
+  })
+}
+
 // ─── Dominant SIL from worksheet ─────────────────────────────────────────────
 
 /**

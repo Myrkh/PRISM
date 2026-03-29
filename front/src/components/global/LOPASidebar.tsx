@@ -5,7 +5,7 @@
  * Shows projects + their studies; ⋯ menu per study for rename/duplicate/delete.
  */
 import { useEffect, useRef, useState } from 'react'
-import { Copy, Download, MoreHorizontal, Pencil, Plus, Shield, Trash2 } from 'lucide-react'
+import { Copy, Download, MoreHorizontal, Pencil, Plus, Settings2, Shield, Trash2 } from 'lucide-react'
 import { useAppStore } from '@/store/appStore'
 import { usePrismTheme } from '@/styles/usePrismTheme'
 import { exportLOPAReportPdf } from '@/components/report/lopaReportPdf'
@@ -105,8 +105,9 @@ export function LOPASidebar() {
   const deleteStudy      = useAppStore(s => s.deleteLOPAStudy)
   const duplicateStudy   = useAppStore(s => s.duplicateLOPAStudy)
 
-  const activeProjectId = view.type === 'lopa' ? (view.projectId ?? null) : null
+  const activeProjectId = view.type === 'lopa' ? (view.projectId ?? null) : view.type === 'lopa-params' ? view.projectId : null
   const activeStudyId   = view.type === 'lopa' ? (view.studyId   ?? null) : null
+  const activeParams    = view.type === 'lopa-params' ? view.projectId : null
 
   const [menuOpenId,  setMenuOpenId]  = useState<string | null>(null)
   const [renamingId,  setRenamingId]  = useState<string | null>(null)
@@ -174,6 +175,28 @@ export function LOPASidebar() {
                 >
                   <Plus size={11} />
                 </button>
+              </button>
+
+              {/* ⚙ Paramètres LOPA */}
+              <button
+                type="button"
+                onClick={() => navigate({ type: 'lopa-params', projectId: project.id })}
+                className="flex w-full items-center gap-2 pl-5 pr-3 py-1.5 text-left transition-colors"
+                style={{
+                  background: activeParams === project.id ? `${TEAL}12` : 'transparent',
+                  borderBottom: `1px solid ${BORDER}40`,
+                }}
+              >
+                <Settings2
+                  size={10}
+                  style={{ color: activeParams === project.id ? TEAL : `${TEXT_DIM}60`, flexShrink: 0 }}
+                />
+                <span
+                  className="text-[10px] truncate"
+                  style={{ color: activeParams === project.id ? TEAL : TEXT_DIM }}
+                >
+                  Paramètres LOPA
+                </span>
               </button>
 
               {/* Studies */}

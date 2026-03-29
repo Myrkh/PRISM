@@ -15,7 +15,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle, ArrowRight, CheckCircle2,
-  Download, Info, Plus, Search, Shield,
+  Download, Info, Plus, Search, Settings2, Shield, SlidersHorizontal,
 } from 'lucide-react'
 import {
   CompactSelection,
@@ -50,6 +50,7 @@ import { LOPAScenarioDetailPanel } from '@/components/sif/lopa/LOPAScenarioDetai
 import { useLayout } from '@/components/layout/SIFWorkbenchLayout'
 import { RightPanelSection, RightPanelShell } from '@/components/layout/RightPanelShell'
 import { exportLOPAReportPdf } from '@/components/report/lopaReportPdf'
+import { LOPARiskToleranceEditor } from '@/components/global/LOPARiskToleranceEditor'
 import { FileText, Trash2 } from 'lucide-react'
 
 // ─── Column definitions ────────────────────────────────────────────────────────
@@ -343,6 +344,7 @@ export function LOPAGlobalWorkspace({ projectId, studyId: studyIdProp }: { proje
   const updateScenario   = useAppStore(s => s.updateLOPAScenario)
   const deleteScenario   = useAppStore(s => s.deleteLOPAScenario)
   const reorderScenarios = useAppStore(s => s.reorderLOPAScenarios)
+  const updateProject    = useAppStore(s => s.updateProject)
   const navigate         = useAppStore(s => s.navigate)
 
   const lopaStudies = project?.lopaStudies ?? []
@@ -523,6 +525,9 @@ export function LOPAGlobalWorkspace({ projectId, studyId: studyIdProp }: { proje
       setActiveStudyId(targetStudyId)
     }
     const newScenario = buildEmptyScenario(scenarios.length + 1)
+    // Auto-populate TMEL from project risk tolerance if available
+    const tmelFromTolerance = project?.riskTolerance?.['safety_personnel']
+    if (tmelFromTolerance) newScenario.tmel = tmelFromTolerance
     addScenario(projectId, targetStudyId, newScenario)
     setTimeout(() => { setSelectedRow(scenarios.length) }, 50)
   }
@@ -611,41 +616,58 @@ export function LOPAGlobalWorkspace({ projectId, studyId: studyIdProp }: { proje
 
   const selectedScenario = selectedRow !== null ? scenarios[selectedRow] : null
 
-  // Wire selected scenario to the right panel via setRightPanelOverride
+  // Wire right panel: scenario detail when selected, project settings otherwise
   useEffect(() => {
-    if (!selectedScenario || !projectId || !study) {
+    if (!projectId || !project) {
       setRightPanelOverride(null)
       return
     }
-    const result = results.find(r => r.scenarioId === selectedScenario.scenarioId) ?? calculateLOPAScenario(selectedScenario)
-    setRightPanelOverride(
-      <RightPanelShell persistKey="lopa-scenario">
-        <RightPanelSection id="scenario" label={`${selectedScenario.scenarioId} — IPL & Risque`} Icon={Shield} noPadding>
-          <LOPAScenarioDetailPanel
-            scenario={selectedScenario}
-            result={result}
-            isLocked={false}
-            onUpdate={updates => updateScenario(projectId, study.id, selectedScenario.id, updates)}
-            onClose={() => setSelectedRow(null)}
-          />
-        </RightPanelSection>
-        <RightPanelSection id="actions" label="Actions" Icon={Trash2} variant="static">
-          <button
-            type="button"
-            onClick={() => {
-              deleteScenario(projectId, study.id, selectedScenario.id)
-              setSelectedRow(null)
-            }}
-            className="w-full rounded-lg py-1.5 text-[10px] font-semibold border"
-            style={{ color: '#EF4444', borderColor: '#EF444430', background: '#EF444408' }}
-          >
-            Supprimer ce scénario
-          </button>
-        </RightPanelSection>
-      </RightPanelShell>,
-    )
+
+    if (selectedScenario && study) {
+      const result = results.find(r => r.scenarioId === selectedScenario.scenarioId) ?? calculateLOPAScenario(selectedScenario)
+      setRightPanelOverride(
+        <RightPanelShell persistKey="lopa-scenario">
+          <RightPanelSection id="scenario" label={`${selectedScenario.scenarioId} — IPL & Risque`} Icon={Shield} noPadding>
+            <LOPAScenarioDetailPanel
+              scenario={selectedScenario}
+              result={result}
+              isLocked={false}
+              riskTolerance={project?.riskTolerance}
+              onUpdate={updates => updateScenario(projectId, study.id, selectedScenario.id, updates)}
+              onClose={() => setSelectedRow(null)}
+            />
+          </RightPanelSection>
+          <RightPanelSection id="actions" label="Actions" Icon={Trash2} variant="static">
+            <button
+              type="button"
+              onClick={() => {
+                deleteScenario(projectId, study.id, selectedScenario.id)
+                setSelectedRow(null)
+              }}
+              className="w-full rounded-lg py-1.5 text-[10px] font-semibold border"
+              style={{ color: '#EF4444', borderColor: '#EF444430', background: '#EF444408' }}
+            >
+              Supprimer ce scénario
+            </button>
+          </RightPanelSection>
+        </RightPanelShell>,
+      )
+    } else {
+      // No scenario selected — show project-level LOPA settings
+      setRightPanelOverride(
+        <RightPanelShell persistKey="lopa-project-settings">
+          <RightPanelSection id="risk-tolerance" label="Table de tolérance au risque" Icon={Settings2}>
+            <LOPARiskToleranceEditor
+              riskTolerance={project.riskTolerance}
+              onSave={table => { void updateProject(projectId, { riskTolerance: table }) }}
+            />
+          </RightPanelSection>
+        </RightPanelShell>,
+      )
+    }
+
     return () => setRightPanelOverride(null)
-  }, [selectedScenario, projectId, study, results, updateScenario, deleteScenario, setRightPanelOverride])
+  }, [selectedScenario, projectId, project, study, results, updateScenario, deleteScenario, updateProject, setRightPanelOverride])
 
   // No project selected — show project picker
   if (!projectId) {
@@ -678,6 +700,7 @@ export function LOPAGlobalWorkspace({ projectId, studyId: studyIdProp }: { proje
     adequacyIssues: scenarios.length === 0 ? [] : adequacyIssues,
     searchActive: showSearch,
     onToggleSearch: () => setShowSearch(s => !s),
+    onOpenRiskTolerance: () => setSelectedRow(null),
   }
 
   // ── Empty state ──
@@ -850,6 +873,7 @@ function LOPAToolbar({
   adequacyIssues,
   searchActive,
   onToggleSearch,
+  onOpenRiskTolerance,
 }: {
   projectName: string
   studies: LOPAWorksheet[]
@@ -865,6 +889,7 @@ function LOPAToolbar({
   adequacyIssues: ReturnType<typeof checkLOPAAdequacy>
   searchActive?: boolean
   onToggleSearch?: () => void
+  onOpenRiskTolerance?: () => void
 }) {
   const { BORDER, CARD_BG, SHADOW_SOFT, TEAL, TEXT, TEXT_DIM } = usePrismTheme()
 
@@ -954,6 +979,18 @@ function LOPAToolbar({
         style={{ color: searchActive ? TEAL : TEXT_DIM, background: searchActive ? `${TEAL}15` : 'transparent' }}
       >
         <Search size={13} />
+      </button>
+
+      <button
+        type="button"
+        onClick={onOpenRiskTolerance}
+        title="Table de tolérance au risque (TMEL par catégorie)"
+        className="flex h-7 w-7 items-center justify-center rounded-lg transition-colors"
+        style={{ color: TEXT_DIM }}
+        onMouseEnter={e => { e.currentTarget.style.color = TEAL }}
+        onMouseLeave={e => { e.currentTarget.style.color = TEXT_DIM }}
+      >
+        <SlidersHorizontal size={13} />
       </button>
 
       {onExportPdf && (

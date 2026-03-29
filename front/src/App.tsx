@@ -30,6 +30,7 @@ import { SIFHistoryWorkspace } from '@/components/global/SIFHistoryWorkspace'
 import { EngineWorkspace } from '@/components/global/EngineWorkspace'
 import { HazopWorkspace } from '@/components/global/HazopWorkspace'
 import { LOPAGlobalWorkspace } from '@/components/global/LOPAGlobalWorkspace'
+import { LOPAParamsWorkspace } from '@/components/global/LOPAParamsWorkspace'
 import { DocsWorkspace } from '@/components/global/DocsWorkspace'
 import { SearchWorkspace } from '@/components/global/SearchWorkspace'
 import { LibraryWorkspace } from '@/components/global/LibraryWorkspace'
@@ -76,6 +77,7 @@ function viewToHash(view: AppView): string {
   if (view.type === 'engine') return '#/engine'
   if (view.type === 'hazop') return '#/hazop'
   if (view.type === 'lopa') return view.projectId ? `#/lopa/${view.projectId}` : '#/lopa'
+  if (view.type === 'lopa-params') return `#/lopa/${view.projectId}/params`
   if (view.type === 'home') return '#/home'
   if (view.type === 'note') return `#/note/${view.noteId}`
   if (view.type === 'workspace-file') return `#/file/${view.nodeId}`
@@ -135,6 +137,9 @@ function hashToView(hash: string): AppView | null {
   if (path === '/engine') return { type: 'engine' }
   if (path === '/hazop') return { type: 'hazop' }
   if (path === '/lopa') return { type: 'lopa' }
+  if (path.match(/^\/lopa\/([^/]+)\/params$/)) {
+    return { type: 'lopa-params', projectId: path.split('/')[2] }
+  }
   if (path.startsWith('/lopa/')) return { type: 'lopa', projectId: path.slice(6) }
   if (path === '/home') return { type: 'home' }
   if (path.startsWith('/note/')) return { type: 'note', noteId: path.slice(6) }
@@ -323,7 +328,7 @@ export default function App() {
   if (loading) return <LoadingScreen />
   if (loadError) return <ErrorScreen error={loadError} onRetry={loadData} />
 
-  const shellProjectId = view.type === 'sif-dashboard' ? view.projectId : view.type === 'lopa' ? (view.projectId ?? '') : ''
+  const shellProjectId = view.type === 'sif-dashboard' ? view.projectId : view.type === 'lopa' ? (view.projectId ?? '') : view.type === 'lopa-params' ? view.projectId : ''
   const shellSifId = view.type === 'sif-dashboard' ? view.sifId : ''
 
   // Secondary split pane — built here to avoid circular imports with SIFWorkbenchLayout.
@@ -372,6 +377,9 @@ export default function App() {
       )}
       {view.type === 'lopa' && (
         <LOPAGlobalWorkspace projectId={view.projectId} studyId={view.studyId} />
+      )}
+      {view.type === 'lopa-params' && (
+        <LOPAParamsWorkspace projectId={view.projectId} />
       )}
       {view.type === 'sif-dashboard' && (
         <SIFDashboard projectId={view.projectId} sifId={view.sifId} />

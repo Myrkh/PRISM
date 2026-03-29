@@ -504,6 +504,16 @@ function ScenarioDetailPage({
           </div>
         </div>
 
+        {/* Waterfall chart */}
+        {result.waterfall.filter(s => !s.isTarget).length >= 2 && (
+          <div style={{ marginBottom: 16, padding: '12px 14px', background: C.pageBg, border: `1px solid ${C.border}`, borderRadius: 6 }}>
+            <div style={{ fontSize: 9, fontWeight: 700, color: C.dim, textTransform: 'uppercase', letterSpacing: '0.1em', marginBottom: 10 }}>
+              Réduction de risque — couches de protection (échelle log)
+            </div>
+            <WaterfallChartPdf result={result} />
+          </div>
+        )}
+
         {/* IPL table */}
         {scenario.ipls.length > 0 && (
           <>

@@ -112,6 +112,7 @@ export function SIFDashboard({ projectId, sifId, tabOverride, onTabChange }: Pro
           result={result}
           compliance={compliance}
           overviewMetrics={overviewMetrics}
+          project={project}
         />,
       )
       return () => setRightPanelOverride(null)

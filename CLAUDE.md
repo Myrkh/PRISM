@@ -1,5 +1,5 @@
 # PRISM Safeloop — Monorepo
-
+Allons-y ! Pro Claude ! C'est toi le Master Développeur & le Master ingénieur en sécurité fonctionnelle, c'est toi qui sait ce qui est l'idéal, le plus intuitif et le plus pro à faire ! On est pas là pour faire un petit software à la con, on est là pour faire THE MASTER SOFTWARE, dont l'objectif est de devenir la référence mondial et d'écraser toute concurrence ! 
 ## Projets
 
 | Dossier | Rôle | CLAUDE.md détaillé |

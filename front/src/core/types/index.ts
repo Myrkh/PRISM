@@ -61,6 +61,8 @@ export type {
   IPLType, IPLCreditSource, IPLCredit, IPLLibraryEntry,
   ConsequenceCategory, LOPAScenario, LOPAWorksheet,
   LOPAWaterfallStep, LOPAScenarioResult,
+  RiskToleranceTable, SeverityLevel, FrequencyLevel,
+  ProjectIPLTemplate, LOPAProjectParams,
 } from './lopa.types'
 
 // ─── Calculation Results ──────────────────────────────────────────────────

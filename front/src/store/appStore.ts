@@ -29,6 +29,8 @@ import {
   dbUpsertProcedure,
   dbCreateCampaign, dbUpdateCampaign, dbDeleteCampaign,
   dbFetchRevisions, dbCreateRevision, dbDeleteRevision,
+  dbCreateLOPAStudy, dbUpdateLOPAStudy, dbDeleteLOPAStudy,
+  dbUpsertLOPAScenario, dbDeleteLOPAScenario, dbReorderLOPAScenarios,
 } from '@/lib/db'
 import { uploadRevisionArtifact, removeRevisionArtifact } from '@/lib/revisionArtifacts'
 import {
@@ -1731,6 +1733,8 @@ export const useAppStore = create<AppState>()(
           if (!p.lopaStudies) p.lopaStudies = []
           p.lopaStudies.push(study)
         })
+        dbCreateLOPAStudy({ id: study.id, projectId, name: study.name, description: '' })
+          .catch(console.error)
         return study.id
       },
 
@@ -1741,6 +1745,7 @@ export const useAppStore = create<AppState>()(
           study.scenarios.push(scenario)
           study.updatedAt = new Date().toISOString()
         })
+        dbUpsertLOPAScenario(scenario, studyId, projectId).catch(console.error)
       },
 
       updateLOPAScenario: (projectId, studyId, scenarioId, updates) => {
@@ -1752,6 +1757,12 @@ export const useAppStore = create<AppState>()(
           Object.assign(study.scenarios[idx], updates)
           study.updatedAt = new Date().toISOString()
         })
+        // Read updated scenario from store to upsert the full object
+        const updatedSc = get().projects
+          .find(p => p.id === projectId)?.lopaStudies
+          ?.find(st => st.id === studyId)?.scenarios
+          .find(sc => sc.id === scenarioId)
+        if (updatedSc) dbUpsertLOPAScenario(updatedSc, studyId, projectId).catch(console.error)
       },
 
       deleteLOPAScenario: (projectId, studyId, scenarioId) => {
@@ -1761,6 +1772,7 @@ export const useAppStore = create<AppState>()(
           study.scenarios = study.scenarios.filter(sc => sc.id !== scenarioId)
           study.updatedAt = new Date().toISOString()
         })
+        dbDeleteLOPAScenario(scenarioId).catch(console.error)
       },
 
       renameLOPAStudy: (projectId, studyId, name) => {
@@ -1770,6 +1782,7 @@ export const useAppStore = create<AppState>()(
           study.name = name
           study.updatedAt = new Date().toISOString()
         })
+        dbUpdateLOPAStudy(studyId, { name }).catch(console.error)
       },
 
       deleteLOPAStudy: (projectId, studyId) => {
@@ -1778,11 +1791,13 @@ export const useAppStore = create<AppState>()(
           if (!p?.lopaStudies) return
           p.lopaStudies = p.lopaStudies.filter(st => st.id !== studyId)
         })
+        dbDeleteLOPAStudy(studyId).catch(console.error)
       },
 
       duplicateLOPAStudy: (projectId, studyId) => {
         const now = new Date().toISOString()
         const newId = crypto.randomUUID()
+        const newScenarios: LOPAScenario[] = []
         set(s => {
           const p = s.projects.find(pr => pr.id === projectId)
           if (!p?.lopaStudies) return
@@ -1796,8 +1811,17 @@ export const useAppStore = create<AppState>()(
             createdAt: now,
             updatedAt: now,
           }
+          copy.scenarios.forEach(sc => newScenarios.push(sc))
           p.lopaStudies.push(copy)
         })
+        // Persist: create study then upsert all scenarios
+        const original = get().projects
+          .find(p => p.id === projectId)?.lopaStudies
+          ?.find(st => st.id === studyId)
+        const studyName = original ? `${original.name} (copie)` : 'Étude LOPA (copie)'
+        dbCreateLOPAStudy({ id: newId, projectId, name: studyName, description: '' })
+          .then(() => Promise.all(newScenarios.map(sc => dbUpsertLOPAScenario(sc, newId, projectId))))
+          .catch(console.error)
         return newId
       },
 
@@ -1812,6 +1836,7 @@ export const useAppStore = create<AppState>()(
           })
           study.updatedAt = new Date().toISOString()
         })
+        dbReorderLOPAScenarios(orderedIds).catch(console.error)
       },
 
       // ══════════════════════════════════════════════════════════════════════

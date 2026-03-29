@@ -150,6 +150,7 @@ export type AppView =
   | { type: 'engine' }
   | { type: 'hazop' }
   | { type: 'lopa'; projectId?: string; studyId?: string }
+  | { type: 'lopa-params'; projectId: string }
   | { type: 'sif-dashboard'; projectId: string; sifId: string; tab: SIFTab }
   | { type: 'prism-file'; filename: PrismEditableFile | 'sif-registry.md' }
 
